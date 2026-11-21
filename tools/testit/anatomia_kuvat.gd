@@ -7,6 +7,7 @@ extends Node3D
 ##   --hahmot=pelaaja,sinikka,paivi,juntti, --luokka (jalkaterän luokka 3 magentalla: mittaa sukkavuoto/raja),
 ##   --paljas=0 (ei shoe=paljas-avainta: vanha shoes-väri), --kengat (näytä kengät: look.shoe lenkkari).
 ## Tulostaa ANAT-rivit (jalan alin y, kämmenen ja jalan säteet, sormen ja varpaan paksuus) ja kuvat <hahmo>_<osa>_<kulma>.png.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
@@ -223,8 +224,8 @@ func _shot(n: String, c: Node3D, target: Vector3, dist: float, yaw_deg: float, f
 	d = d.rotated(d.cross(Vector3.UP).normalized(), deg_to_rad(pitch_deg)) if pitch_deg != 0.0 else d
 	cam.global_position = target + d * dist
 	cam.look_at(target, Vector3.UP if absf(pitch_deg) < 70 else fwd)
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [out, n])
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png("%s/%s.png" % [out, n])
 
 
 func _shots(n: String, c: Node3D) -> void:
@@ -290,8 +291,8 @@ func _cam_at(name: String, target: Vector3, dir: Vector3, dist: float, up: Vecto
 	cam.fov = fov
 	cam.global_position = target + dir.normalized() * dist
 	cam.look_at(target, up if absf(dir.normalized().dot(up)) < 0.95 else Vector3.RIGHT)
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [out, name])
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png("%s/%s.png" % [out, name])
 
 
 func _hand_idle(n: String, c: Node3D) -> void:

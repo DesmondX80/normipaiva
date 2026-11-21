@@ -2,6 +2,7 @@ extends Node3D
 ## Mirkku (Looks.MIRKKU) erikseen: palmikko oikean olan yli, edestä, vinosti, sivulta ja takaa sekä lähikuvat;
 ## asennot Idle, Idle_Talking ja kukan poiminta (PickUp_Table).
 ## godot --path . --resolution 1280x720 tools/testit/mirkku_kuvat.tscn -- <kansio>
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
@@ -57,6 +58,6 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 50.0) -> void:
 	cam.look_at_from_position(from, to)
 	for i in 2:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join(name + ".png"))
 	print("kuva ", name)

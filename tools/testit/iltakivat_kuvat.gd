@@ -4,6 +4,7 @@ extends Node
 ## (kuva_<kiva>_lahi), loppu; asetelma Asento.views-kulmista (läpimenot "LÄPI … -> …" = VIKA) ja toiminnan kohteen koko
 ## pelikameralta (vähintään noin 40 px). Lopuksi tarkistetaan, että finished-tulos tuli.
 ## tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn [ajokansio] [kiva,kiva]
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Rasva := preload("res://scripts/rasvanappi_game.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -40,8 +41,8 @@ func _ready() -> void:
 func _shot(nm: String) -> void:
 	for i in 4:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % nm))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_%s.png" % nm))
 	print("ILTA kuva %s" % nm)
 
 

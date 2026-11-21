@@ -3,6 +3,7 @@ extends Node
 ## lepoasennon suorakaiteet xz-tasossa) tarkistetaan pareittain Saloisissa (main.world) ja Vaalassa (mopo_trip.vaala),
 ## Vaalassa myös Pentin pakettiauton paikkaa (vaala.gd pentti_spot, 1,8 × 4,7 m) vasten. Päällekkäisyys (SAT, 5 cm
 ## toleranssi) = TESTI VIKA. Kuvat Zabukin parkista. Ajo: tools/testit/aja.sh scene parkit
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 var main: Node3D
 var vikoja := 0
@@ -96,12 +97,12 @@ func run() -> void:
 		cam.make_current()
 		for i in 6:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
+		await Kuva.piirto()
 		var path := "user://parkit_zabuki.png"
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("--shot="):
 				path = a.substr(7).replace(".png", "_zabuki.png")
-		get_viewport().get_texture().get_image().save_png(path)
+		Kuva.ruutu(get_viewport()).save_png(path)
 		print("PARKIT kuva " + path)
 	# Zabuki joka suunnasta perjantai-iltana (Pentin auto parkissa): kuvat _zabuki_<suunta>.
 	if vl._zabuki != Vector3.INF:
@@ -127,11 +128,11 @@ func run() -> void:
 				pt.tick(false)
 			for i in 6:
 				await get_tree().process_frame
-			await RenderingServer.frame_post_draw
+			await Kuva.piirto()
 			var path3 := "user://parkit_zabuki_%s.png" % v[0]
 			for a in OS.get_cmdline_user_args():
 				if a.begins_with("--shot="):
 					path3 = a.substr(7).replace(".png", "_zabuki_%s.png" % v[0])
-			get_viewport().get_texture().get_image().save_png(path3)
+			Kuva.ruutu(get_viewport()).save_png(path3)
 			print("PARKIT kuva " + path3)
 	print("PARKIT valmis, %d vikaa" % vikoja)

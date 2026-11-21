@@ -1,6 +1,7 @@
 extends Node3D
 ## Mintun mekko (looks.gd add_gown) kuvina: edestä, sivulta, takaa, kävellen ja istuen. Kuva args[0]/kuva_mekko.png.
 ## tools/testit/aja.sh tscn tools/testit/minttu_mekko.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 const Looks := preload("res://scripts/looks.gd")
 var out := "user://minttu_mekko"
 
@@ -37,8 +38,8 @@ func _ready() -> void:
 	cam.current = true
 	for i in 20:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_mekko.png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_mekko.png"))
 	print("MEKKO kuva valmis")
 	# Joka puolelta: yksi Minttu keskellä, kamera kiertää kahdeksaan suuntaan (koko vartalo ja lähikuva lantiosta).
 	for n in get_children():
@@ -59,7 +60,7 @@ func _ready() -> void:
 			cam.look_at_from_position(Vector3(sin(a) * dist, look_y + 0.15, cos(a) * dist), Vector3(0, look_y, 0))
 			for i in 3:
 				await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(out.path_join("kuva_ymp_%d%s.png" % [k, "_lahi" if close else ""]))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_ymp_%d%s.png" % [k, "_lahi" if close else ""]))
 	print("MEKKO ympäri valmis")
 	get_tree().quit()

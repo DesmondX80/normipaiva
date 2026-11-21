@@ -23363,6 +23363,18 @@ func _maybe_screenshot() -> void:
 		return
 	if nohud:
 		get_tree().process_frame.connect(func() -> void: _hud.visible = false)
+	# Testikohtaukset ovat tiedostoissa tools/testit/kohtaukset/<ryhmä>.gd (KOHTAUKSET-lista kertoo, mitkä). Ryhmä ladataan
+	# ennen ensimmäistä ruutua, samassa ruudussa kuin maailman rakennus: kesken pelin lataus antaisi seuraavalle ruudulle
+	# ison deltan, fysiikkaruudut kasautuisivat ja kohtauksen alku (esim. vessa: ovella 10 fysiikkaruutua) ajoittuisi toisin.
+	var kohtaukset: Node = null
+	if scene != "" and scene != "kohtaustarkistus":
+		var t_lataus := Time.get_ticks_msec()
+		for ryhma: String in KOHTAUSRYHMAT:
+			var kohtaus_skripti: GDScript = load("res://tools/testit/kohtaukset/%s.gd" % ryhma)
+			if scene in (kohtaus_skripti.KOHTAUKSET as Array):
+				kohtaukset = kohtaus_skripti.new()
+				break
+		print("KOHTAUS ryhmä ladattu %d ms" % (Time.get_ticks_msec() - t_lataus))
 	await get_tree().process_frame
 	# Traileri (tools/traileri/renderoi.gd): --trailer=otos1,otos2 kuvaa otokset ja sulkee pelin.
 	for arg in OS.get_cmdline_user_args():
@@ -23385,19 +23397,14 @@ func _maybe_screenshot() -> void:
 			print("KOHTAUSTARKISTUS %s: %s" % [ryhma, "OK" if kaantyy else "TESTI VIKA ei käänny"])
 		get_tree().quit()
 		return
-	# Testikohtaukset ovat tiedostoissa tools/testit/kohtaukset/<ryhmä>.gd (KOHTAUKSET-lista kertoo, mitkä).
-	for ryhma: String in KOHTAUSRYHMAT:
-		var kohtaus_skripti: GDScript = load("res://tools/testit/kohtaukset/%s.gd" % ryhma)
-		if not scene in (kohtaus_skripti.KOHTAUKSET as Array):
-			continue
-		var kohtaukset: Node = kohtaus_skripti.new()
+	if kohtaukset != null:
 		kohtaukset.main = self
 		add_child(kohtaukset)
 		if await kohtaukset.aja(scene, path, nohud) == 2:
 			return
-		break
 	for i in 90:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(path)
+	if DisplayServer.get_name() != "headless":  # headlessissa ei piirretä: frame_post_draw ei tulisi (tools/testit/kuva.gd)
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(path)
 	get_tree().quit()

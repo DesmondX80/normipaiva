@@ -1,6 +1,7 @@
 extends Node
 ## Pajatson kyljen laukaisin (puoliksi näkyvä kiekko) lepoasennossa, iskun pohjassa ja palaamassa.
 ## godot --path . --resolution 1280x720 tools/testit/pajatso_laukaisin.tscn -- <kansio>
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const PajatsoGame := preload("res://scripts/pajatso_game.gd")
 
@@ -22,7 +23,7 @@ func _ready() -> void:
 		g._root.queue_redraw()
 		for i in 3:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join(st[0] + ".png"))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join(st[0] + ".png"))
 		print("kuva ", st[0])
 	get_tree().quit()

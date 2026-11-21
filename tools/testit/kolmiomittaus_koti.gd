@@ -7,6 +7,7 @@ extends Node
 ## Ajo: tools/testit/aja.sh scene kolmiomittaus_koti
 ## Kuvat: _matsi, _kartta, _ovi_vihje, _ovi, _valinta, _suuttua, _suuttua_aamu, _kukat_valinta, _tunnustaa, _paluu_aamu,
 ## _nauraa, _aamu, _aamu_jalkeen.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -47,10 +48,10 @@ func _frames(n := 4) -> void:
 
 func _snap(suffix: String) -> void:
 	await _frames(4)
-	await RenderingServer.frame_post_draw
+	await Kuva.piirto()
 	if DisplayServer.get_name() == "headless":
 		return
-	get_viewport().get_texture().get_image().save_png(_shot_path(suffix))
+	Kuva.ruutu(get_viewport()).save_png(_shot_path(suffix))
 	print("KESA kuva " + _shot_path(suffix))
 
 

@@ -4,6 +4,7 @@ extends Node
 ## mittaus kummallekin naiselle. Hahmot ovat 3D-hahmoja (Looks.make) kohtausten omissa lavastuksissa. Jokaisen
 ## kohtauksen hahmoille ja Jonin rinkalle ajetaan läpimenotarkistus (Asento.solids, "LÄPI … -> …" = VIKA).
 ## tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 const K := preload("res://scripts/kolmio_kohtaus.gd")
 const S := preload("res://scripts/sytkari.gd")
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
@@ -44,8 +45,8 @@ func _ready() -> void:
 func _shot(node: Node, nm: String, top := false) -> void:
 	for i in 12:  # 3D-hahmot ja IK asettuvat
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % nm))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_%s.png" % nm))
 	if node.get_script() == K:  # Sytkärin kuvastudiot ovat erillisissä maailmoissa samoissa koordinaateissa
 		_lapi(node, nm)
 	if top and "_cam_base" in node:
@@ -53,8 +54,8 @@ func _shot(node: Node, nm: String, top := false) -> void:
 		node._cam_base = Transform3D(Basis.looking_at(Vector3(0, -1, -0.01), Vector3.UP), Vector3(0, 7.5, 0.8))
 		for i in 4:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s_ylhaalta.png" % nm))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_%s_ylhaalta.png" % nm))
 	node.queue_free()
 	await get_tree().process_frame
 
@@ -93,8 +94,8 @@ func _holders() -> void:
 			ui._cam_base = Transform3D(Basis.looking_at(c - eye, Vector3.UP if v[0] != "ylhaalta" else fwd), eye)
 			for i in 4:
 				await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(out.path_join("kuva_pitely_%s_%s.png" % [nimi.replace(" ", "_"), v[0]]))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_pitely_%s_%s.png" % [nimi.replace(" ", "_"), v[0]]))
 	ui._given = 3
 	for i in 30:  # lahjat liukuvat pöydälle
 		await get_tree().process_frame
@@ -104,8 +105,8 @@ func _holders() -> void:
 		ui._cam_base = Transform3D(Basis.looking_at(t - eye, Vector3.UP), eye)
 		for i in 4:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_poyta_lahjat_%s.png" % v[0]))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_poyta_lahjat_%s.png" % v[0]))
 	ui.queue_free()
 	await get_tree().process_frame
 
@@ -321,8 +322,8 @@ func _rinkka() -> void:
 		cam.look_at_from_position(v[1], v[2])
 		for i in 8:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % v[0]))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_%s.png" % v[0]))
 	w.queue_free()
 
 
@@ -425,7 +426,7 @@ func _olohuone(site: String) -> void:
 		(v[0] as Camera3D).current = true
 		for i in 6:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join("kuva_olohuone_%s_%s.png" % [site, v[1]]))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_olohuone_%s_%s.png" % [site, v[1]]))
 	h.queue_free()
 	await get_tree().process_frame

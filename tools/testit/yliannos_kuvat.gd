@@ -3,6 +3,7 @@ extends Node3D
 ## ja naloksoni-nenäsuihke. Mittaukset: alin ihopiste maahan (vähintään 0,005 m), selän rako, ensihoitajien rako ihosta
 ## (vähintään 0,4 m), Asento.solids (läpimenot) ja kuvat edestä/päädyistä/ylhäältä (Asento.views) sekä lähikuvat.
 ## Ajo: tools/testit/aja.sh tscn tools/testit/yliannos_kuvat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Yliannos := preload("res://scripts/rikos/yliannos.gd")
 const Teinit := preload("res://scripts/saloinen_teinit.gd")
@@ -165,6 +166,6 @@ func _shot(name: String, from: Vector3, to: Vector3) -> void:
 	cam.look_at_from_position(from, to, Vector3.UP if absf((to - from).normalized().y) < 0.99 else Vector3.FORWARD)
 	for i in 3:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join(name + ".png"))
 	print("kuva ", name)

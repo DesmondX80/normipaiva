@@ -4,6 +4,7 @@ extends Node3D
 ## ero (DD ≈ 20–22 cm) ja ulkonema rintakehästä (rinnan kärki - etupinta rinnan alla). Sinikka (bikinit) ja vertailuna
 ## Mirkku (bust 1.4), molemmat Idle-asennossa. Kuvat edestä, sivulta ja vinosti rinnan korkeudelta.
 ## aja.sh tscn tools/testit/sinikka_mitat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -70,8 +71,8 @@ func _ready() -> void:
 		cam.look_at_from_position(v[1], v[2])
 		for i in 3:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join("rinnat_%s.png" % v[0]))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join("rinnat_%s.png" % v[0]))
 	# Pihan Sinikan kasvot lähikuvina edestä ja vinosti: lasit silmillä, sangat korville (ei takaraivolla).
 	sk.visible = false
 	piha.visible = true
@@ -82,8 +83,8 @@ func _ready() -> void:
 		cam.look_at_from_position(v[1], hd)
 		for i in 3:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(out.path_join("%s.png" % v[0]))
+		await Kuva.piirto()
+		Kuva.ruutu(get_viewport()).save_png(out.path_join("%s.png" % v[0]))
 	var sh := piha.find_child("Aurinkolasit", true, false) as Node3D
 	var face := (piha.global_transform.basis * Vector3.FORWARD).normalized()  # hahmon etu -Z
 	var ahead: float = (sh.global_position - piha.to_global(piha.bone_position("Head"))).dot(face) if sh != null else -INF

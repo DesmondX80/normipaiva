@@ -2,6 +2,7 @@ extends Node3D
 ## Ihon sävy: kasvo/kaula/rinta/käsi RGB-keskiarvot (kuvasta, tasainen valo) ja kuvat edestä, takaa, kasvot, hartia.
 ## godot --path . --resolution 1280x720 tools/testit/savy_mitta.tscn -- <kansio> [--anat=0] [--hahmot=a,b]
 ## Rasvanapin hahmot (pekka, arto, raimo, helena_r, sinikka_r) tehdään kuten crawler3d.setup (shirt/pants = iho, paljas).
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
@@ -102,14 +103,17 @@ func _run() -> void:
 		cam.global_position = Vector3(0, h * 0.78, -3.6)
 		cam.look_at(Vector3(0, h * 0.78, 0))
 		await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		var img := get_viewport().get_texture().get_image()
+		await Kuva.piirto()
+		var img := Kuva.ruutu(get_viewport())
 		var up := func(v: Vector3) -> Vector2: return cam.unproject_position(v)
 		var cheek: Color = (_px(img, up.call(head + Vector3(-0.045, 0.06, -0.1)), 3) + _px(img, up.call(head + Vector3(0.045, 0.06, -0.1)), 3)) * 0.5
 		var neck: Color = (_px(img, up.call(head + Vector3(-0.05, -0.1, -0.03)), 3) + _px(img, up.call(head + Vector3(0.05, -0.1, -0.03)), 3)) * 0.5
 		var chest: Color = _px(img, up.call(ch + Vector3(0.0, 0.0, -0.12)), 4)
 		var hand: Color = _px(img, up.call(c.to_global(c.bone_position("lowerarm_l")) * 0.5 + c.to_global(c.bone_position("hand_l")) * 0.5), 3)
-		print("SAVY %s anat=%s kasvo %s kaula %s rinta %s kasi %s" % [n, anat, _fmt(cheek), _fmt(neck), _fmt(chest), _fmt(hand)])
+		if not Kuva.piirretaan():
+			print("SAVY %s ei tarkistettu: headless, ei piirrettyä kuvaa mitattavaksi" % n)
+		else:
+			print("SAVY %s anat=%s kasvo %s kaula %s rinta %s kasi %s" % [n, anat, _fmt(cheek), _fmt(neck), _fmt(chest), _fmt(hand)])
 		img.save_png(out.path_join(n + "_etu.png"))
 		var px := up.call(head) as Vector2
 		for v in ["taka", "kasvot", "hartia"]:
@@ -124,8 +128,8 @@ func _run() -> void:
 					cam.global_position = ch + Vector3(0.0, 0.25, -1.1)
 					cam.look_at(ch + Vector3(0.0, 0.2, 0))
 			await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(out.path_join("%s_%s.png" % [n, v]))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(out.path_join("%s_%s.png" % [n, v]))
 		c.queue_free()
 	print("valmis ", out)
 	get_tree().quit()

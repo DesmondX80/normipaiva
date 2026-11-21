@@ -3,6 +3,7 @@ extends Node
 ## pöydällä), jaon tulos (riisuminen), riisumisvaiheet 0–3 rinnakkain ja asetelma Asento.views-kulmista
 ## (läpimenot: "LÄPI … -> …" = VIKA). Lopuksi ilta pelataan loppuun (pantu tuppeen) ja tulos tarkistetaan.
 ## tools/testit/aja.sh tscn tools/testit/tuppi_kuvat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const TuppiGame := preload("res://scripts/tuppi_game.gd")
 const Rasva := preload("res://scripts/rasvanappi_game.gd")
@@ -31,8 +32,8 @@ func _ready() -> void:
 func _shot(nm: String) -> void:
 	for i in 6:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % nm))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_%s.png" % nm))
 	print("TUPPI kuva %s" % nm)
 
 

@@ -2,6 +2,7 @@ extends Node
 ## Testikohtaukset (--scene=<nimi>), ryhmä "muut_s_u". Siirretty main.gd:n _maybe_screenshot-matchista: koodi on
 ## ennallaan, pelin jäsenet main.-etuliitteellä ja vakiot Main.-etuliitteellä. aja() palauttaa 0 = kohtaus ei ole tässä,
 ## 1 = ajettu (main ottaa lopuksi yhteisen kuvan ja sulkee pelin), 2 = ajettu ja kohtaus lopetti itse.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Main := preload("res://scripts/main.gd")
 const B := preload("res://scripts/build.gd")
@@ -85,8 +86,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				uc.look_at_from_position(main.walker_out.global_position + sdv * 3.0 + Vector3(0, 0.5, 0), main.walker_out.global_position + Vector3(0, 0.6, 0))
 				for i in 4:
 					await main.get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_t%d.png" % int(t)))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_t%d.png" % int(t)))
 			main.get_tree().quit()
 		"uutiset":
 			# Kymppiuutiset nauhalta: video ajastetaan klo 21, klo 22.40 sohvalle eteisen kaapin kaljan kanssa, loppukohtaus
@@ -110,8 +111,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 					await main.get_tree().process_frame
 			var snap := func(name: String) -> void:
 				await frames.call(10)
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			main.walker_out.global_position = main.home_door + Vector3(0, 0.3, 0)
 			await frames.call(3)
 			main._enter_home("ovi")
@@ -142,16 +143,16 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			for k in [["play", 2.0], ["tunnus", 5.3], ["studio", 7.0], ["zoom", 9.6], ["saa", 12.4], ["kommentti", 15.0], ["otsikko", 18.2]]:
 				while Time.get_ticks_msec() - t0 < k[1] * 1000.0:
 					await main.get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_%s.png" % k[0]))
 				if main.cutscene.news_view != null:
-					main.cutscene.news_view.get_texture().get_image().save_png(path.replace(".png", "_ruutu_%s.png" % k[0]))
+					Kuva.ruutu(main.cutscene.news_view).save_png(path.replace(".png", "_ruutu_%s.png" % k[0]))
 				if k[0] == "play":  # tunnus täysin näkyvissä: odotetaan vaihetta ja 1,6 s
 					while main.cutscene.news_view.seg != "tunnus":
 						await main.get_tree().process_frame
 					await main.get_tree().create_timer(1.6, true, false, true).timeout
-					await RenderingServer.frame_post_draw
-					main.cutscene.news_view.get_texture().get_image().save_png(path.replace(".png", "_ruutu_tunnus_valmis.png"))
+					await Kuva.piirto()
+					Kuva.ruutu(main.cutscene.news_view).save_png(path.replace(".png", "_ruutu_tunnus_valmis.png"))
 			for i in 40:
 				await main.get_tree().create_timer(0.5, true, false, true).timeout
 				if not main.cutscene.busy:
@@ -176,8 +177,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			var snap_u := func(name: String) -> void:
 				if headless:
 					return
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			main.day = 3
 			main.clock_min = 14 * 60
 			main._nuoret_yard = true
@@ -214,8 +215,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			var tm_shot := func(name: String) -> void:
 				for i in 4:
 					await main.get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_%s.png" % name))
 			if main.player == main.bike:
 				main.bike.speed = 0.0
 				main._toggle_mount()
@@ -403,8 +404,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._msg.text = ""
 			for f in 30:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kotona.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_kotona.png"))
 			main._on_home_exited()
 			for k in [["koko", 0.0, Vector3(0, 1.1, 3.6), Vector3(0, 1.0, 0)], ["edesta", 0.0, Vector3(0, 1.75, 1.6), Vector3(0, 1.72, 0)],
 					["sivulta", PI * 0.5, Vector3(0, 1.75, 1.6), Vector3(0, 1.72, 0)], ["takaa", PI, Vector3(0, 1.75, 1.6), Vector3(0, 1.72, 0)],
@@ -414,8 +415,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				cam.look_at_from_position(stage.global_position + k[2], stage.global_position + k[3])
 				for f in 8:
 					await main.get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % k[0]))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_%s.png" % k[0]))
 		"tokola":
 			# Tokola (#120): ulkokuvat varastosta ja Heinimäen kuusesta, lukittu ovi, Aaron avain lihapiirakasta,
 			# varaston löydöt (ohjain, rautalanka, tilikirja, lankku), kaivaminen Heinimäellä, markat Railille ja
@@ -437,8 +438,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				for i in n:
 					await main.get_tree().physics_frame
 			var snap := func(name: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			var oc := Camera3D.new()
 			oc.far = 2000.0
 			main.add_child(oc)
@@ -522,8 +523,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				for i in n:
 					await main.get_tree().process_frame
 			var snap := func(name: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			main.clock_min = 12 * 60
 			for d in [2, 4, 3]:
 				main.day = d
@@ -622,8 +623,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				for i in n:
 					await main.get_tree().physics_frame
 			var snap := func(name: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			var at := func(pos: Vector3) -> void:
 				main.walker_out.global_position = pos + Vector3(0, 0.3, 0)
 				await frames.call(10)
@@ -737,8 +738,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				for i in n:
 					await main.get_tree().physics_frame
 			var snap := func(name: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			var door: Vector3 = main.world.kirppis_door
 			main.money = 40.0
 			main.day = 3
@@ -975,8 +976,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				main._note.visible = false
 				for i in 20:
 					await main.get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			print("TARINA alku: %s, Pekan kyyti auki %s" % [main.story.step, main.story.ride_unlocked()])
 			main.beers = 6
 			main.walker_out.set_carrying(true)
@@ -1069,8 +1070,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			Input.action_release("eat")
 			print("SISASYO tila=%s valikko=%s kotikävelijän ohjaus=%s ulkokävelijän=%s" % [main.state, main._item_menu.is_open(),
 				main.home_int.walker.controls_enabled, main.walker_out.controls_enabled])
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_sisasyonti.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_sisasyonti.png"))
 			main._item_menu.visible = false
 			main._item_menu.chosen.emit("pulla")
 			await main.get_tree().process_frame
@@ -1092,8 +1093,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				await main.get_tree().process_frame
 			print("ASETUKSET jälkeen: laatu=%d skaala=%.1f etäisyys=%d usva_loppu=%.0f kaukoraja=%.0f" % [Settings.get_v("quality"),
 				Settings.get_v("render_scale"), Settings.get_v("view_distance"), main._env.fog_depth_end, Settings.view_far()])
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_asetukset.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_asetukset.png"))
 		"trailsign":
 			var a3 := M.w2(M.J_H2)
 			var d3 := (M.w2(Vector2(846, 1300)) - a3).normalized()
@@ -1210,14 +1211,14 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			print("PAIKAT painikkeita tallennus %d (odotus 7), lataus %d (odotus 2)" % [n_save, n_load])
 			if n_save != 7 or n_load != 2:
 				print("TESTI VIKA tallennus/latausvalikon painikkeet")
-			await RenderingServer.frame_post_draw
+			await Kuva.piirto()
 			for arg in OS.get_cmdline_user_args():
 				if arg.begins_with("--shot="):
 					main.menu._slots("save", "sub_pause")
 					for i in 4:
 						await main.get_tree().process_frame
-					await RenderingServer.frame_post_draw
-					main.get_viewport().get_texture().get_image().save_png(arg.substr(7).replace(".png", "_tallenna.png"))
+					await Kuva.piirto()
+					Kuva.ruutu(main.get_viewport()).save_png(arg.substr(7).replace(".png", "_tallenna.png"))
 			main.money = 99.0
 			main._save_game()
 			var cfg := ConfigFile.new()
@@ -1292,8 +1293,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await check.call("kaupasta", outside, false)
 			# Taukovalikko tallennuksen jälkeen.
 			main.menu.open_pause(true)
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path)
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path)
 			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_cfg)
 			main.get_tree().quit()
 		"stashtour":
@@ -1331,8 +1332,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				tc.current = true
 				for i in 3:
 					await main.get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_" + id + ".png"))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_" + id + ".png"))
 				tc.queue_free()
 				main.walker_out.activate_camera()
 		"tarpio":
@@ -1348,8 +1349,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				cam.current = true
 				for i in 14:
 					await main.get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_tarpio_%s.png" % name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_tarpio_%s.png" % name))
 			main._hud.visible = false
 			main.clock_min = 12 * 60.0
 			main.player.global_position = pit + Vector3(0, 0.3, -30)
@@ -1524,8 +1525,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			print("TILAT 2 kaljaa + sivutehtävä: ", main.tilat.summary())
 			for i in 5:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hud.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_hud.png"))
 			var sp0: float = main.wife.speed_mult
 			main._new_day(main.home_zone + Vector3(0, 0, 4), false)
 			print("TILAT uusi päivä wife %.2f -> %.2f mummot=%.1f koira=%.1f humala=%.2f chosen=%s" % [sp0, main.wife.speed_mult,

@@ -2,6 +2,7 @@ extends Node
 ## Vaalan täytetalot (vaala.gd _fill_house, K1–K8): tyyppijakauma, paikkojen tyypit (koulu, kerrostalot, mökit),
 ## Katjan talo (house_doors len), kuvat (keskusta, Vaalantie, Sahanranta, sekstaajan paikat) ja ruutuaika.
 ## tools/testit/aja.sh tscn tools/testit/vaala_taytto_g.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 var out := "user://vaala_taytto_g"
 var main: Node3D
 var vl: Node3D
@@ -28,8 +29,8 @@ func _shot(tag: String, from: Vector3, to: Vector3) -> void:
 	cam.look_at_from_position(vl.to_global(from), vl.to_global(to), Vector3.UP)
 	for i in 8:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out + "/%s.png" % tag)
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out + "/%s.png" % tag)
 	var ts := Time.get_ticks_usec()
 	for i in 20:
 		await get_tree().process_frame

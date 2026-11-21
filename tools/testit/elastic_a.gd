@@ -3,6 +3,7 @@ extends Node3D
 ## (ch.set_contacts), ja painumat mitataan ruumiinosittain paistetusta verkosta (Elastic.displace, varjostimen peili).
 ## Kuvat ennen/jälkeen sivusta, edestä, takaa ja lähikuvat. Luiset osat (polvi, kyynärpää, sääri) 0 painumaa.
 ## "$(tools/testit/godot.sh)" --path . --resolution 1280x720 tools/testit/elastic_a.tscn -- <kansio>
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Pose := preload("res://scripts/pose.gd")
 const Seat := preload("res://scripts/seat.gd")
@@ -109,8 +110,8 @@ func _shots(tag: String) -> void:
 		cam.look_at_from_position(v[1], v[2])
 		for i in 3:
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		cam.get_viewport().get_texture().get_image().save_png(out.path_join("%s_%s.png" % [tag, v[0]]))
+		await Kuva.piirto()
+		Kuva.ruutu(cam.get_viewport()).save_png(out.path_join("%s_%s.png" % [tag, v[0]]))
 
 
 func _measure() -> void:

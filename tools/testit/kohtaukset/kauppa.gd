@@ -2,6 +2,7 @@ extends Node
 ## Testikohtaukset (--scene=<nimi>), ryhmä "kauppa". Siirretty main.gd:n _maybe_screenshot-matchista: koodi on
 ## ennallaan, pelin jäsenet main.-etuliitteellä ja vakiot Main.-etuliitteellä. aja() palauttaa 0 = kohtaus ei ole tässä,
 ## 1 = ajettu (main ottaa lopuksi yhteisen kuvan ja sulkee pelin), 2 = ajettu ja kohtaus lopetti itse.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Main := preload("res://scripts/main.gd")
 const ShopInterior := preload("res://scripts/shop_interior.gd")
@@ -55,16 +56,16 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			aocc.current = true
 			for i in 20:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_ulko.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_ulko.png"))
 			main.reseptit = 0
 			main.money = 100.0
 			main.clock_min = 10.0 * 60.0
 			main._enter_apteekki()
 			for i in 40:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_sisalla.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_sisalla.png"))
 			main.apteekki_int.walker.position = main.apteekki_int.spots.tiski[0]
 			for i in 20:
 				await main.get_tree().process_frame
@@ -72,8 +73,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._talk_open("apteekki", null, "Mitäs saisi olla?")
 			for i in 20:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_valikko.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_valikko.png"))
 			print("APTEEKKI valinnat ", main._talk_box._options.map(func(o): return "%s [%s]" % [o.text, o.enabled]))
 			var ak1 := main._on_apteekki("tramal")
 			print("APTEEKKI tramal ilman reseptiä: ", ak1[0], " | ", ak1[1], " | rahaa ", main.money)
@@ -170,16 +171,16 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			for i in 6:
 				await main.get_tree().process_frame
 			print("KLAFFI ruudukko ", main._klaffi_game.get("_cells"), " osuma ", main._klaffi_game.call("_match"))
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_klaffipoyta.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_klaffipoyta.png"))
 			main._klaffi_game._close()
 			for i in 4:
 				await main.get_tree().process_frame
 			main._journal.open_at("reppu")
 			for i in 6:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_reppu.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_reppu.png"))
 			main._journal.toggle()
 			var kp: Node3D = ak.klaffi_prop
 			var kd: Dictionary = ak.doors.filter(func(d): return d.id == "klaffipoyta")[0]
@@ -189,8 +190,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			kcam.look_at_from_position(ak.to_global(kd.pos + kd.out * 2.2 + Vector3(0.0, 1.6, 0.0)), ak.to_global(kp.position + Vector3(0, 0.6, 0)))
 			for i in 20:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_klaffi_prop.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_klaffi_prop.png"))
 			main.klaffipoyta = false
 			main._klaffi_sync()
 			print("KLAFFI prop näkyy ennen poimintaa: ", kp.visible, " ovi ", kd.pos)
@@ -210,8 +211,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			tlook.call()
 			for i in 20:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_taka_kiinni.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_taka_kiinni.png"))
 			main.reseptit = 0
 			main.money = 500.0
 			main.laake.clear()
@@ -219,8 +220,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			tcam.look_at_from_position(ak.to_global(tp + tdir * 1.3 + Vector3(0, 1.8, 0)), ak.apteekki_back.global_position + Vector3(0, 1.6, 0))
 			for i in 60:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_taka_auki.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_taka_auki.png"))
 			print("APTEEKKI taka valinnat ", main._talk_box._options.map(func(o): return "%s [%s]" % [o.text, o.enabled]))
 			var t1 := main._on_apteekki("opiaatti", true)
 			var t2 := main._on_apteekki("perv", true)
@@ -235,8 +236,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				car.process_mode = Node.PROCESS_MODE_DISABLED
 				car.visible = false
 			var shot := func(tag: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % tag))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_%s.png" % tag))
 			var look := func(from: Vector3, to: Vector3, tag: String) -> void:
 				var rc := Camera3D.new()
 				main.add_child(rc)
@@ -294,8 +295,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			# kaljakauppa tiskin alta (Anna-Liisa vahtii ja jää kiinni), yhteenveto ja tulosten käyttö. Tallennus palautetaan.
 			var saved_my := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
 			var snap_my := func(name: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			var wait := func(sec: float) -> void:
 				await main.get_tree().create_timer(sec).timeout
 			main._note.visible = false
@@ -427,8 +428,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				for i in n:
 					await main.get_tree().physics_frame
 			var snap := func(name: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			main.money = 40.0
 			var win: Vector3 = main.world.reippari_window
 			main.clock_min = 9 * 60
@@ -568,8 +569,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				for i in n:
 					await main.get_tree().physics_frame
 			var snap := func(name: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			var door: Vector3 = main.world.kirppis_door
 			print("KP ovi: %s (px %s)" % [door, M.to_px(door)])
 			var oc := Camera3D.new()
@@ -824,8 +825,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._note.visible = false
 			for i in 20:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kotiovi.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_kotiovi.png"))
 			dc.queue_free()
 			main.walker_out.activate_camera()
 			var d0 := main.day
@@ -875,8 +876,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			print("LISTA bag=", main.interior.bag, " reppu=", main.inventory_info().list)
 			for i in 5:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_shelf.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_shelf.png"))
 			main.interior.has_paid = true
 			main.interior.exited.emit(false)
 			await main.get_tree().process_frame
@@ -911,8 +912,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				print("LISTA %s viesti '%s' | jonossa %s" % [id, main._msg.text.replace("\n", " | "),
 					str(main._msg_queue.map(func(m): return m[0])).left(200)])
 				if id == "jaakaappi":
-					await RenderingServer.frame_post_draw
-					main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_jaakaappi.png"))
+					await Kuva.piirto()
+					Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_jaakaappi.png"))
 			print("LISTA valmis %s, paikoillaan %s, kassi %s, kaljarauha %s" % [main._list_done, main.paivi_placed, main.paivi_bag, main._kaljarauha])
 			# Päivä päättyy kesken: kaksi listan tuotetta paikoillaan, kaksi kassissa. Kassiin jääneet pilalla
 			# päättymistavan mukaan, eikä Päivi hyväksy niitä.

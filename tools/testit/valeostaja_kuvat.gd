@@ -2,6 +2,7 @@ extends Node3D
 ## Valeostaja (scripts/rikos/valeostaja.gd) lähikuvina: aito ostaja, siviilipoliisi ja vertailuksi Vaalan mopopoika
 ## (vaala.gd _build_race_crew) rinnakkain edestä, sivulta ja ylhäältä sekä korvanappi ja kengät suurennettuina.
 ## Ajo: tools/testit/aja.sh tscn tools/testit/valeostaja_kuvat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Valeostaja := preload("res://scripts/rikos/valeostaja.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -50,8 +51,8 @@ func _shot(name: String, from: Vector3, to: Vector3) -> void:
 	cam.look_at_from_position(from, to)
 	for i in 4:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out + "/" + name + ".png")
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out + "/" + name + ".png")
 	print("VALEOSTAJA_KUVAT kuva " + out + "/" + name + ".png")
 
 

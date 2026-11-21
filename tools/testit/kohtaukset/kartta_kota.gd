@@ -2,6 +2,7 @@ extends Node
 ## Testikohtaukset (--scene=<nimi>), ryhmä "kartta_kota". Siirretty main.gd:n _maybe_screenshot-matchista: koodi on
 ## ennallaan, pelin jäsenet main.-etuliitteellä ja vakiot Main.-etuliitteellä. aja() palauttaa 0 = kohtaus ei ole tässä,
 ## 1 = ajettu (main ottaa lopuksi yhteisen kuvan ja sulkee pelin), 2 = ajettu ja kohtaus lopetti itse.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Main := preload("res://scripts/main.gd")
 const B := preload("res://scripts/build.gd")
@@ -59,8 +60,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				main._paper.queue_redraw()
 				for i in 4:
 					await main.get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
 			await snap.call("_avattu.png")
 			print("MAP avattu: zoom %.2f px/m, keskellä %s, pelaaja %s" % [main._paper._vzoom, main._paper._vcenter,
 				Vector2(main.player.global_position.x, main.player.global_position.z)])
@@ -128,8 +129,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._note.visible = false
 			for i in 40:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_viitta.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_viitta.png"))
 			oc.queue_free()
 			main._toggle_mount()
 			main.walker_out.global_position = M.w(Vector2(996, 2300)) + Vector3(0, 0.4, 0)
@@ -174,8 +175,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			mb.call(c, true)
 			mb.call(c, false)
 			print("KARTTAVETO napautus: kohde '%s'" % [str(main._paper.target)])
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_kartta.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_kartta.png"))
 			main._paper.toggle()
 			main.mokki.ensure_built()
 			main.walker_out.global_position = Main.MOKKI_POS + Vector3(5, 2, 5)
@@ -211,8 +212,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			# "näytä kartalla" -linkki asettaa kompassin. Tallennus palautetaan.
 			var saved_q := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
 			var qshot := func(name: String) -> void:
-				await RenderingServer.frame_post_draw
-				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_%s.png" % name))
 			main._note.visible = false
 			main._msg.text = ""
 			for id in ["kauppalista", "nurmikko", "koris", "rankkarit", "piirakka", "oravajarvi", "keinu", "honganpalo", "kukat", "vaino"]:
@@ -351,8 +352,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				for i in 5:
 					await main.get_tree().process_frame
 				if n == 0:
-					await RenderingServer.frame_post_draw
-					main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_mark.png"))
+					await Kuva.piirto()
+					Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_mark.png"))
 					await main.get_tree().process_frame
 				await press.call()
 				print("SAW phase=", sg._phase, " cut_z=", sg._cut_z, " task=", sg._task.text)
@@ -366,14 +367,14 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 						dir = -dir
 					await main.get_tree().process_frame
 					if n == 0 and i == 120:
-						await RenderingServer.frame_post_draw
-						main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_saw.png"))
+						await Kuva.piirto()
+						Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_saw.png"))
 				print("SAW cut done phase=", sg._phase, " made=", sg.polkyt_made, " polkyt=", main.kota_polkyt, " sub=", sg._sub.text)
 				for i in 30:
 					await main.get_tree().process_frame
 				if n == 0:
-					await RenderingServer.frame_post_draw
-					main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_cut.png"))
+					await Kuva.piirto()
+					Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_cut.png"))
 				for i in 600:
 					if sg._phase == "mark":
 						break
@@ -404,15 +405,15 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			aim.call(Vector3(0, ChopGame.BLOCK_TOP, 0))
 			for i in 20:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hold.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_hold.png"))
 			await main.get_tree().process_frame
 			await press.call()
 			print("CHOP after wrong place phase=", cg._phase, " sub=", cg._sub.text)
 			for i in 30:
 				await main.get_tree().physics_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_roll.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_roll.png"))
 			for i in 60:
 				await main.get_tree().process_frame
 			aim.call(ChopGame.PILE + Vector3(0, 0.18, 0))
@@ -430,18 +431,18 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			aim.call(Vector3(cg._log_pos.x, ChopGame.BLOCK_TOP + ChopGame.LOG_L, cg._log_pos.z))
 			for i in 5:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_aim.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_aim.png"))
 			await main.get_tree().process_frame
 			await press.call()
 			for i in 24:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_split.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_split.png"))
 			for i in 50:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_split2.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_split2.png"))
 			print("CHOP after hit phase=", cg._phase, " sub=", cg._sub.text, " polkyt=", main.kota_polkyt, " halot=", main.kota_halot)
 			for i in 90:
 				await main.get_tree().process_frame
@@ -461,8 +462,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			for i in 60:
 				await main.get_tree().process_frame
 			print("KOTA story state=", main.state, " msg=", main._msg.text)
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_story.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_story.png"))
 			for i in 9000:  # pisin kodan tarina kestää yli 2400 ruutua
 				await main.get_tree().process_frame
 				if main.state != "cutscene":
@@ -492,8 +493,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				if side_cam != null:
 					side_cam.look_at(main.walker_out.global_position + Vector3(0, 0.9, 0), Vector3.UP)
 				if rec and i % 2 == 0 and i < 620:
-					await RenderingServer.frame_post_draw
-					main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_torni_%04d.png" % (i / 2)))
+					await Kuva.piirto()
+					Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_torni_%04d.png" % (i / 2)))
 				if i % 120 == 0 or (i > 500 and main._hint.text != "" and i % 30 == 0):
 					print("TOWER t=", i, " spd=", main.walker_out.speed, " y=%.2f ground=%.2f hint=%s" % [main.walker_out.global_position.y, Terrain.h(main.walker_out.global_position.x, main.walker_out.global_position.z), main._hint.text])
 			Input.action_release("forward")
@@ -755,8 +756,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.wife.global_position = main.walker_out.global_position + Vector3(70, 0, -45)
 			for i in 20:
 				await main.get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_a.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_a.png"))
 			# Liike: kävellään eteenpäin, kartan pitää seurata ja nuolen kääntyä.
 			var o0: Vector2 = main._minimap._origin
 			Input.action_press("forward")
@@ -767,8 +768,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				await main.get_tree().process_frame
 			print("MINIKARTTA keskipiste siirtyi %.1f m, marjapaikkoja %d, Päivi näkyvissä=%s pyörä=%s" % [
 				(main._minimap._origin - o0).length(), main.world.forage.size(), main.wife.is_inside_tree(), main.bike != main.player])
-			await RenderingServer.frame_post_draw
-			main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_b.png"))
+			await Kuva.piirto()
+			Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_b.png"))
 		"fpsview":
 			CamCtl.fps = true
 			CamCtl.pitch = -0.1

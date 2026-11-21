@@ -4,6 +4,7 @@ extends Node
 ## 1 ei opasta (B ei avaa, taksivalikossa valinta), 2 saaminen (kerran, tallentuu), 3 tyhjä opas (nimi, hinta ja kesto
 ## näkyvät, kuvaus ???), 4 osa kuultu (legenda + yksi käynti), 5 kaikki käyty (hinnat = taksivalikko, 15 leimaa, tallentuu),
 ## 6 uusi rekisteririvi ilman opas/kuultu, 7 Esc ja muut näkymät (päiväkirja O, kartta M), 8 vertailukuva ja rajaus.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Retket := preload("res://scripts/retket.gd")
 const Matkaopas := preload("res://scripts/matkaopas.gd")
@@ -32,8 +33,8 @@ func _frames(n := 4) -> void:
 
 func _snap(suffix: String) -> Image:
 	await _frames(4)
-	await RenderingServer.frame_post_draw
-	var img := get_viewport().get_texture().get_image()
+	await Kuva.piirto()
+	var img := Kuva.ruutu(get_viewport())
 	img.save_png(_shot_path(suffix))
 	return img
 

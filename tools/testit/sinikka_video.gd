@@ -2,6 +2,7 @@ extends Node3D
 ## Sinikka (bikini) videotesti, noin 27 s: kävely kameraa kohti ja sivuttain (hyllyntä, hiusten heilahdus), juoksu, hyppy,
 ## pysähdys (vaimeneminen), kävely rantatuolille, istuutuminen (Sitting_Enter -> Pose.sit RENTO), nojaus ja nousu.
 ## Kuusi still-kuvaa eri vaiheista samaan kansioon. Video: aja.sh --video tscn tools/testit/sinikka_video.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Pose := preload("res://scripts/pose.gd")
 const Seat := preload("res://scripts/seat.gd")
@@ -232,9 +233,9 @@ func _stills() -> void:
 			var dbg: bool = k == 1.0  # hyllyntäpainot väreinä (magenta rinta, syaani vatsa, vihreä pakara)
 			if dbg:
 				ch.body_mat.set_shader_parameter("jiggle_debug", true)
-			await RenderingServer.frame_post_draw
+			await Kuva.piirto()
 			var f: String = out.path_join("kuva_%s.png" % name)
-			var img := cam.get_viewport().get_texture().get_image()
+			var img := Kuva.ruutu(cam.get_viewport())
 			img.save_png(f)
 			var who: Node3D = juntti if name.contains("juntti") else ch
 			var lahi := _crop(img, who)
@@ -247,9 +248,9 @@ func _stills() -> void:
 				for part in ["rinta", "vatsa", "pakara"]:
 					keep[part] = who.body_mat.get_shader_parameter("jiggle_" + part)
 					who.body_mat.set_shader_parameter("jiggle_" + part, Vector3.ZERO)
-				await RenderingServer.frame_post_draw
-				await RenderingServer.frame_post_draw
-				var ilman := _crop(cam.get_viewport().get_texture().get_image(), who)
+				await Kuva.piirto()
+				await Kuva.piirto()
+				var ilman := _crop(Kuva.ruutu(cam.get_viewport()), who)
 				for part in keep:
 					who.body_mat.set_shader_parameter("jiggle_" + part, keep[part])
 				Engine.time_scale = 1.0

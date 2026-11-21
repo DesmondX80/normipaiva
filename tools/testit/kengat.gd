@@ -5,6 +5,7 @@ extends Node3D
 ## hahmolla (ka ja p95 < 16,7 ms; vertailuksi samat paljain jaloin). Kuvat: edestä, sivulta, ylhäältä, takaa, kävelyn kolme
 ## vaihetta ja varpaillaan seisonta, rajattuna jalkoihin ja koottuna vertailukuviksi (vertailu_*.png). Viat: "TESTI VIKA ...".
 ## aja.sh tscn tools/testit/kengat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -500,8 +501,8 @@ func _shot(tag: String, pos: Vector3, look: Vector3) -> void:
 	cam.look_at_from_position(pos, look)
 	for i in 3:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	cam.get_viewport().get_texture().get_image().save_png(out.path_join(tag + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(cam.get_viewport()).save_png(out.path_join(tag + ".png"))
 
 
 ## Vertailukuva: kuvat pienennettyinä 4 x 2 ruudukkoon.
@@ -549,8 +550,8 @@ func _ruutu() -> void:
 		ms.sort()
 		res[shod] = [sum / 60.0, ms[56]]
 		print("RUUTU %s ka %.2f ms p95 %.2f ms max %.2f ms (24 hahmoa)" % ["kengat" if shod else "paljain", sum / 60.0, ms[56], ms[59]])
-		await RenderingServer.frame_post_draw
-		cam.get_viewport().get_texture().get_image().save_png(out.path_join("ruutu_%s.png" % ("kengat" if shod else "paljain")))
+		await Kuva.piirto()
+		Kuva.ruutu(cam.get_viewport()).save_png(out.path_join("ruutu_%s.png" % ("kengat" if shod else "paljain")))
 		for ch in crowd:
 			ch.queue_free()
 		await get_tree().process_frame

@@ -1,6 +1,7 @@
 extends Node3D
 ## Pelaajan maha ja tuulipuvun raidat: kuvat <asento>_<kuva>.png. --ennen = vanha asu (ei löllerömahaa, turkoosi raita).
 ## aja.sh tscn tools/testit/pelaaja_maha_kuvat.tscn <kansio> [--ennen]
+const Kuva := preload("res://tools/testit/kuva.gd")
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
 
@@ -61,7 +62,7 @@ func _run() -> void:
 			d = d.rotated(d.cross(Vector3.UP).normalized(), deg_to_rad(v[2])) if v[2] != 0.0 else d
 			cam.global_position = v[4] + d * v[3]
 			cam.look_at(v[4], Vector3.UP)
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("%s/%s_%s.png" % [out, an, v[0]])
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png("%s/%s_%s.png" % [out, an, v[0]])
 	print("valmis ", out)
 	get_tree().quit()

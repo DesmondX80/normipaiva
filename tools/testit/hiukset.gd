@@ -3,6 +3,7 @@ extends Node3D
 ## selkänojan jalanjäljen kohdalta pinnan normaalia pitkin: kallo (gs >= 0), painunut tukka (jäännös/rako pintaan) ja hattu
 ## (gx >= 0), ja otetaan kuvat sivusta, päästä ja takaa. Virheet: "TESTI VIKA ...".
 ## aja.sh tscn tools/testit/hiukset.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Pose := preload("res://scripts/pose.gd")
 const Seat := preload("res://scripts/seat.gd")
@@ -59,8 +60,8 @@ func _shot(tag: String, pos: Vector3, look: Vector3) -> void:
 	cam.look_at_from_position(pos, look)
 	for i in 3:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	cam.get_viewport().get_texture().get_image().save_png(out.path_join(tag + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(cam.get_viewport()).save_png(out.path_join(tag + ".png"))
 
 
 func _run() -> void:
