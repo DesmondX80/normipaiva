@@ -34021,6 +34021,10 @@ func _maybe_screenshot() -> void:
 			await frames.call(5)
 			_toggle_mount()
 			bike.global_position = world.garage_door + world.garage_out * 0.5 + Vector3(0, 0.4, 0)
+			# Aloituksen päivälappu ja avoin puhe (Päivi) syövät muuten E:n (SP talliin: tallissa false, kasaus kaatui).
+			_note.visible = false
+			if _talk_box.is_open():
+				_talk_box.close()
 			await frames.call(10)
 			await press.call("interact")
 			print("SP talliin: tila %s, tallissa %s" % [state, bike_in_garage])
