@@ -38595,13 +38595,19 @@ func _maybe_screenshot() -> void:
 				pu.debug_start(id)
 				var at: Vector3 = pu.spot_at(id)
 				var sp: Vector3 = mokki.santtu.position
-				for k in 150:
+				# Odotetaan, että Santtu tekee puuhaa (enintään 2,5 s pelin aikaa; ennen 150 ruutua, hitaalla koneella ~3 min/paikka).
+				var pt := 0.0
+				while pt < 2.5 and not pu.working():
 					await get_tree().process_frame
-					if k == 100:
-						sp = mokki.santtu.position
-						var away := Vector3(3.2, 2.0, -3.2) if id != "onki" and id != "naputus" else Vector3(-3.0, 1.8, -3.0)
-						pc.look_at_from_position(mokki.to_global(sp + away), mokki.to_global(sp + Vector3(0, 1.0, 0)), Vector3.UP)
-						pc.current = true
+					pt += get_process_delta_time()
+				for k in 20:
+					await get_tree().process_frame
+				sp = mokki.santtu.position
+				var away := Vector3(3.2, 2.0, -3.2) if id != "onki" and id != "naputus" else Vector3(-3.0, 1.8, -3.0)
+				pc.look_at_from_position(mokki.to_global(sp + away), mokki.to_global(sp + Vector3(0, 1.0, 0)), Vector3.UP)
+				pc.current = true
+				for k in 10:
+					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_p_%s.png" % id))
 				print("PUUHA %s working=%s anim=%s visible=%s bubble=%s" % [id, pu.working(), mokki.santtu.current(),
