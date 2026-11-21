@@ -34018,6 +34018,7 @@ func _maybe_screenshot() -> void:
 			_toggle_mount()
 			bike.global_position = world.garage_door + world.garage_out * 0.5 + Vector3(0, 0.4, 0)
 			await frames.call(10)
+			print("SPDBG hint '%s' player %s note %s menu %s talk %s msg '%s'" % [_hint.text, player.name, _note.is_showing(), _item_menu.is_open(), _talk_box.is_open(), _msg.text])
 			await press.call("interact")
 			print("SP talliin: tila %s, tallissa %s" % [state, bike_in_garage])
 			garage_int.walker.position = GarageInterior.SPOTS.tyopoyta[0]
