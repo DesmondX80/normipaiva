@@ -2088,6 +2088,7 @@ const TRAIN_TALK_TRIM := ["Oletko menossa Vaalaan asti?", "Oulujärven rantaan, 
 	"Kotiin. Kuusi kaljaa ja nurmikko odottaa."]
 ## Junan puhujien äänet (Sfx.speak-ryhmä = assets/aanet/<ryhmä>/, tehdään tools/aanet/puheaani.py:llä).
 const TRAIN_VOICES := {"minä": "pelaaja", "marja": "marja", "liisa": "liisa", "helena": "helena", "tarjoilija": "tarjoilija"}
+const TRAIN_OUTSIDE_SHORT := 4.5  # Saloisista Vaalaan: ulkokuvien kesto (s)
 const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa vaikka kahvit itse."
 ## Verkkopaidassa (Looks.outfit "farkut") Helena ei peittele: repliikit vaihtuvat näihin (puhuja ja vanha repliikki
 ## -> uusi), ja kosketuksen jälkeen hän liukuu pelaajaa vasten ja painaa päänsä tämän olalle.
@@ -2132,7 +2133,8 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	_title.add_theme_font_size_override("font_size", 80)
 	# 1) Lähtö.
 	await _train_outside("steel" if to_vaala else "bridge", "JUNALLA VAALAAN" if to_vaala else "JUNALLA SALOISIIN",
-		"Raahen terästehdas savuaa radan varressa." if to_vaala else "Oulujoen rautatiesilta. Vaala jää taakse.")
+		"Raahen terästehdas savuaa radan varressa." if to_vaala else "Oulujoen rautatiesilta. Vaala jää taakse.",
+		TRAIN_OUTSIDE_SHORT if to_vaala else 6.5)
 	# 2) Ravintolavaunu sisältä.
 	var car := Node3D.new()
 	car.position = TRAIN_POS + Vector3(0, 40, 0)
@@ -2145,8 +2147,8 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	# Erikoiskohtaus (riisuminen, flirtti, vihje Uiton saunalle) vain verkkopaidassa ja tarjotuilla paukuilla Saloisista
 	# Vaalaan. Muuten paukkujen tarjoaminen tuo vain käden reidelle; ilman paukkuja ei kättäkään.
 	var special := treat and to_vaala and Looks.outfit == "farkut"
-	if special:
-		# Erikoiskohtauksessa flirtti, riisuminen ja sauna-vihje täyttävät ajan: ylimääräinen small talk pois.
+	if to_vaala:
+		# Saloisista Vaalaan matka on lyhyt: ylimääräinen small talk pois (erikoiskohtauksessa flirtti täyttää ajan).
 		lines = lines.filter(func(l: Array) -> bool: return not (l[1] in TRAIN_TALK_TRIM))
 	const LINE := 2.3
 	const SPEED := 24.0
@@ -2464,7 +2466,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	car.queue_free()
 	# 3) Saapuminen.
 	await _train_outside("bridge" if to_vaala else "steel", "", "Oulujoen silta. Kohta Vaalan asemalla." if to_vaala
-		else "Raahen terästehtaan ohi. Kohta Saloisten asemalla.")
+		else "Raahen terästehtaan ohi. Kohta Saloisten asemalla.", TRAIN_OUTSIDE_SHORT if to_vaala else 6.5)
 	rumble.stop()
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
@@ -2489,7 +2491,7 @@ func _cut_train(parent: Node3D) -> Node3D:
 
 ## Ulkokuva junasta: "steel" = Raahen terästehdas (savuavat piiput, masuuni, ruostuneet hallit, saastunut maa ja
 ## ruskea savusumu) tai "bridge" = Oulujoen teräsristikkosilta Vaalassa (kamera joen rannalta). Pimeästä pimeään.
-func _train_outside(kind: String, title: String, sub: String) -> void:
+func _train_outside(kind: String, title: String, sub: String, secs := 6.5) -> void:
 	var root := Node3D.new()
 	root.position = TRAIN_POS + (Vector3(0, 0, 0) if kind == "steel" else Vector3(2000, 0, 0))
 	_props.add_child(root)
@@ -2517,7 +2519,7 @@ func _train_outside(kind: String, title: String, sub: String) -> void:
 	var t0 := _now_ms()
 	var faded := false
 	var honked := false
-	while _now_ms() - t0 < 6500:
+	while _now_ms() - t0 < secs * 1000.0:
 		var t := (_now_ms() - t0) / 1000.0
 		train.position.z = 80.0 - t * SPEED
 		if kind == "steel":
