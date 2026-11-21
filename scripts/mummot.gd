@@ -25,6 +25,7 @@ const SWING_LINES := ["Mitäs siinä notkut?!", "Hus siitä!", "Pois tieltä, nu
 # Penkki: istuimen yläpinta ja syvyys (z -SEAT_D/2 .. +SEAT_D/2), selkänoja takareunassa.
 const SEAT_TOP := 0.44
 const SEAT_D := 0.44
+const BACK_TILT := -7.0  # selkänojan kallistus asteina (X-kierto), sama tolpille ja rimoille
 const BENCH_W := 2.0
 const SITTERS := [-0.5, 0.5]  # istuvien mummojen x
 const HIP_OVER_SEAT := 0.1  # lonkkaluun korkeus istuimen pinnasta (pakarat välissä)
@@ -97,14 +98,19 @@ func _build_bench() -> void:
 		var z := -SEAT_D / 2.0 + 0.075 + k * (SEAT_D - 0.15) / 2.0
 		B.mesh(self, B.boxm(Vector3(BENCH_W, 0.035, 0.13)), Vector3(0, SEAT_TOP - 0.018, z), wood.lightened(0.04 * k))
 		B.mesh(self, B.boxm(Vector3(BENCH_W - 0.02, 0.012, 0.11)), Vector3(0, SEAT_TOP - 0.04, z), wood.darkened(0.35))
+	# Selkänoja: tolpat ja rimat samasta kallistuksesta (ennen rimat -9°, tolpat -5°: eri suuntiin). -X-kierto kallistaa
+	# yläpään taakse (-Z). Rimat tolpan etupinnalla: z = tolpan keskilinja korkeudella y + (tolpan ja riman puolipaksuus).
+	var post_h := SEAT_TOP + 0.45
+	var post_c := Vector3(0, post_h / 2.0, -SEAT_D / 2.0 - 0.02)
+	var up := Vector3(0, cos(deg_to_rad(BACK_TILT)), sin(deg_to_rad(BACK_TILT)))
 	for k in 2:
 		var y := SEAT_TOP + 0.2 + k * 0.17
-		B.mesh(self, B.boxm(Vector3(BENCH_W, 0.12, 0.03)), Vector3(0, y, -SEAT_D / 2.0 - 0.02 - k * 0.025), wood.lightened(0.03 * k),
-			Vector3(-9, 0, 0))
+		var on_post := post_c + up * ((y - post_c.y) / up.y)
+		B.mesh(self, B.boxm(Vector3(BENCH_W, 0.12, 0.03)), on_post + Vector3(0, 0, 0.04), wood.lightened(0.03 * k),
+			Vector3(BACK_TILT, 0, 0))
 	for x in [-BENCH_W / 2.0 + 0.1, BENCH_W / 2.0 - 0.1]:
 		B.mesh(self, B.boxm(Vector3(0.05, SEAT_TOP, 0.05)), Vector3(x, SEAT_TOP / 2.0, SEAT_D / 2.0 - 0.05), iron)
-		B.mesh(self, B.boxm(Vector3(0.05, SEAT_TOP + 0.45, 0.05)), Vector3(x, (SEAT_TOP + 0.45) / 2.0, -SEAT_D / 2.0 - 0.02), iron,
-			Vector3(-5, 0, 0))
+		B.mesh(self, B.boxm(Vector3(0.05, post_h, 0.05)), Vector3(x, post_c.y, post_c.z), iron, Vector3(BACK_TILT, 0, 0))
 		B.mesh(self, B.boxm(Vector3(0.05, 0.04, SEAT_D)), Vector3(x, SEAT_TOP - 0.06, 0), iron)
 		B.mesh(self, B.boxm(Vector3(0.06, 0.035, SEAT_D - 0.02)), Vector3(x, SEAT_TOP + 0.22, 0.0), wood.darkened(0.1))
 		B.mesh(self, B.boxm(Vector3(0.04, 0.22, 0.04)), Vector3(x, SEAT_TOP + 0.11, SEAT_D / 2.0 - 0.05), iron)

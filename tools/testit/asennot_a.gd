@@ -80,7 +80,7 @@ func _mummot(room: Node3D, cam: Camera3D, out: String) -> void:
 
 
 ## Kuvaa maailman istujan: kamera hahmon ympärille. Asennetaan pelaaja paikalle, jotta maasto ja kohteet latautuvat.
-func _world_view(cam: Camera3D, out: String, name: String, ch: Node3D, size := 2.0) -> int:
+func _world_view(cam: Camera3D, out: String, name: String, ch: Node3D, size := 2.0, check := true) -> int:
 	var front: Vector3 = -ch.global_basis.z
 	front.y = 0
 	front = front.normalized()
@@ -89,7 +89,7 @@ func _world_view(cam: Camera3D, out: String, name: String, ch: Node3D, size := 2
 	main.player.global_position = at + Vector3(0, 1, 0) + front * 6.0
 	for i in 20:
 		await main.get_tree().process_frame
-	await Asento.views(cam, out, name, at + Vector3(0, 0.6, 0), size, front)
+	await Asento.views(cam, out, name, at + Vector3(0, 0.6, 0), size, front, check)
 	var pts := Pose.limb_points(ch, main.world, ["pelvis", "thigh_l", "thigh_r"])
 	var pel: Vector3 = main.world.to_local(ch.to_global(ch.bone_position("pelvis")))
 	var low := INF
@@ -139,7 +139,8 @@ func _kylä(cam: Camera3D, out: String) -> void:
 		_chars_near(world, s[1], 3.0, s[2], found)
 		print("ASENTO %s: %d hahmoa" % [s[0], found.size()])
 		for k in found.size():
-			bad += await _world_view(cam, out, "%s_%d" % [s[0], k], found[k], 1.0 if s[0] == "hongan" else 1.8)
+			# Taksin kuski on auton kuoren sisällä tarkoituksella: läpimenot tarkistetaan leikkauskuvasta (kori piilossa).
+			bad += await _world_view(cam, out, "%s_%d" % [s[0], k], found[k], 1.0 if s[0] == "hongan" else 1.8, s[0] != "taksi")
 			if s[0] == "taksi":  # leikkauskuva: auton kori piiloon, jalat ja lantio näkyviin
 				for c in found[k].get_parent().get_children():
 					if c is MeshInstance3D:
