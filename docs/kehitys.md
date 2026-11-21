@@ -35,7 +35,7 @@ Windowsilla, Macilla ja Linuxilla) ja tulostaa polun: `"$(tools/testit/godot.sh)
 Testiajot ajetaan `tools/testit/aja.sh`:lla (`kaantyy`, `scene <nimi> [lisäargumentit]`, `tscn <polku>`, valinnat `--headless`,
 `--ei-kuvia`, `--kiintea` (scene ja tscn ilman videota: `--fixed-fps 60`, pelin aika kulkee 1/60 s ruudussa koneen nopeudesta riippumatta, joten
 siemennetyn testin luvut toistuvat) ja `--video` (vain tscn: Movie Maker, 30 fps, .avi ajokansioon; esim. `aja.sh --video tscn tools/testit/sinikka_video.tscn`, 27 s Sinikka kävelee, juoksee, hyppää ja istuu rantatuoliin)): se hoitaa eristetyn tallennuksen, jonon, aikarajan, `--shot`:n ja lokin ja tulostaa OK vain, jos ajo päättyi
-itse, skriptivirheitä ei ole, testi ei löytänyt vikoja ja kuvia syntyi. Uusi testi tulostaa vikansa riville `TESTI VIKA <selitys>`
+itse, skriptivirheitä ei ole, testi ei löytänyt vikoja ja kuvia syntyi (kuvaton logiikkakohtaus lisätään `tools/testit/logiikkakohtaukset.txt`:hen, jolloin kuvia ei vaadita). Aikarajalla `godot_jono.sh` lopettaa myös kääreen (xvfb-run) alla olevan Godotin, ettei se jää orvoksi syömään konetta. Uusi testi tulostaa vikansa riville `TESTI VIKA <selitys>`
 (aja.sh tunnistaa myös vanhat merkinnät LÄPI ... ->, RAKO LÄPI, KONTAKTI JÄÄ ja VIRHE). Pelkkä jono:
 Useampi samanaikainen ajo (esim. aliagentit) jonotetaan `tools/testit/godot_jono.sh <godot-argumentit>`:llä: ajot
 jakavat pelaajan tallennuksen ja user://-kansion, joten vain yksi saa olla käynnissä kerrallaan.

@@ -161,7 +161,9 @@ func hello(who: String) -> String:
 			return "(Hengittää hitaasti. Ambulanssi on tulossa.)"
 		"herasi":
 			return "(Istuu jo, kalpeana.) \"Mitä... mitä tapahtu? Kiitti, äijä. Oikeesti.\""
-	return "(Ensihoitajat ovat pojan luona.)"
+		"hoito":
+			return "(Ensihoitajat ovat pojan luona.)"
+	return ""  # ei tapausta ("") tai poika jo lähtenyt ("haipyi"): pojan tavallinen tervehdys
 
 
 func choose(id: String) -> bool:

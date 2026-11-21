@@ -346,7 +346,7 @@ func wasted_phone(at: Vector3, reason: String, cause: String, wake: Vector3, fac
 	# Puhelin korvalle (oikea käsi IK:lla): korva seuraa pään kallistusta, kämmen on puhelimen ulkopinnalla (palm_on:
 	# sormet ylös ja hieman eteen, kämmen päätä kohti = -X), ranne puhelimen alapuolella, kyynärpää alhaalla ja taakse.
 	var fingers := Vector3(0.0, 1.0, -0.35).normalized()
-	var shake := create_tween().set_loops()
+	var shake := hero.create_tween().set_loops()  # sidottu hahmoon: loppuu, jos kohtauksen esineet vapautetaan kesken
 	shake.tween_method(func(v: float) -> void:
 		var ear: Vector3 = hero.bone_position("Head") + hero.bone_delta("Head") * EAR
 		var hold := ear + Vector3(0.04, sin(v * 40.0) * 0.003, 0)

@@ -30752,11 +30752,6 @@ func _maybe_screenshot() -> void:
 			_on_retki_acted("infotaulu")
 			await mm_shot.call("infotaulu")
 			print("MM kyltti %s, tehtävät %s" % [manamansalo.kyltti, _manamansalo_tasks()])
-			retki_int.walker.position = retki_int.spots.laituri[0]
-			for i in 3:
-				await get_tree().process_frame
-			print("MM laiturilla: spot '%s'" % retki_int.spot)
-			_on_retki_acted("laituri")
 			retki_int.walker.position = retki_int.spots.jaanteet[0]
 			for i in 3:
 				await get_tree().process_frame
@@ -30776,7 +30771,6 @@ func _maybe_screenshot() -> void:
 			await mm_close.call("kirkko_edesta", Vector3(-3.0, 2.2, 7.5), Vector3(-3.0, 2.0, -2.5))
 			await mm_close.call("kirkko_sivusta", Vector3(6.0, 3.0, 1.0), Vector3(-3.0, 2.0, -2.5))
 			await mm_close.call("kivijalka_ennen", Vector3(9.0, 3.2, 4.2), Vector3(9.0, 0.0, -2.2))
-			await mm_close.call("laituri", Vector3(-6.0, 3.0, 4.0), Vector3(-10.0, 0.0, -7.0))
 			_on_retki_acted("jaanteet")
 			for i in 3:
 				await get_tree().process_frame

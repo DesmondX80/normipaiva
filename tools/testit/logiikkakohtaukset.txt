@@ -1,0 +1,27 @@
+# main.gd:n testikohtaukset, jotka tarkistavat vain logiikan ja lopettavat ilman kuvaa (aja.sh ei vaadi niiltä kuvia).
+hupihommat
+junttikierto
+k18
+kainuulista
+kanttorinyosavel
+karaokesim
+kolmio_juttu
+kuninkaantapuli
+lavatappelu
+mokkiaukiolot
+mokkibotti
+mokkijarvi_e
+mokkijuna
+mokkikaatuminen
+mokkikahlaus
+mokkimopo_paluu
+mokkiperf
+mokkisiitariovi
+olavinmarkkinat
+paivihalytys
+paivihyvitys
+paivipartio
+palonpyhimys
+rankkubotti
+turvapaikat
+vaala_ajo
