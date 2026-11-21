@@ -50,6 +50,8 @@ func run() -> void:
 	Contact.clear_arms(ch, Contact.profile(ch, Pose.limb_points))
 	for i in 3:
 		await main.get_tree().process_frame
+	if main._talk_box.is_open():
+		main._talk_box.close()  # päivän alun puhe (Päivin kuulustelu) peitti kuvat
 	var cam := Camera3D.new()
 	room.add_child(cam)
 	cam.current = true
