@@ -797,8 +797,8 @@ static func _gown_mesh(body: MeshInstance3D, sk: Skeleton3D, gold: Color, opt: D
 	var slit_a := atan2(0.62, 0.78)  # reiden ulkoetupuoli: ei reisien välisen sillan kohdalla (siellä kehä poukkoilee)
 	var slit_j := posmod(roundi(slit_a / TAU * GOWN_SEGS), GOWN_SEGS)
 	var st := SurfaceTool.new()
+	st.set_skin_weight_count(SurfaceTool.SKIN_8_WEIGHTS if wpv == 8 else SurfaceTool.SKIN_4_WEIGHTS)  # ennen begin():iä
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_skin_weight_count(SurfaceTool.SKIN_8_WEIGHTS if wpv == 8 else SurfaceTool.SKIN_4_WEIGHTS)
 	var verts: Array = []  # [rivi][sarake] -> indeksi
 	var idx := 0
 	var slit_top := GOWN_ROWS - 1 - floori((GOWN_ROWS - 1) * GOWN_SLIT)  # halkion yläpään rivi

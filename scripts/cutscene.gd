@@ -2056,38 +2056,26 @@ static func helena_bikini() -> Dictionary:
 	for k in ["tube_y", "sleeve_x", "shorts_y"]:
 		look.erase(k)
 	return look
-const WAITER := {
-	"shirt": Color(0.95, 0.95, 0.95), "pants": Color(0.1, 0.1, 0.12), "shoes": Color(0.05, 0.05, 0.05), "shoe": "nauhakenka",
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.3, 0.25, 0.2), "height": 1.8,
-}
-## Ravintolavaunun jutustelu: [puhuja, repliikki]; puhuja "minä", "marja", "liisa", "helena" tai "tarjoilija".
+## Ravintolavaunun jutustelu: [puhuja, repliikki]; puhuja "minä", "marja", "liisa", "helena".
 ## Pelaaja juo olutta ja tarjoaa naisille Koskenkorvat; kolmas kenttä "treat" = repliikki, joka vaihtuu
 ## TRAIN_NO_TREAT:iin, jos rahat eivät riitä tarjoamiseen (naiset ostavat paukkunsa itse); "hand" = paukun
 ## jälkeen vieressä istuva Helena laskee kätensä vaivihkaa pelaajan polven päälle (IK) ja sivelee reittä
 ## hitaasti edestakaisin loppumatkan. Pelaaja tarttuu tuoppiinsa, ja ohimolta valuu silloin tällöin hikipisara.
 const TRAIN_TALK_VAALA := [
 	["marja", "Onko tässä vapaata? Ravintolavaunusta näkee parhaiten."], ["minä", "Istukaa toki! Tuoppi on just kaadettu."],
-	["liisa", "Oletko menossa Vaalaan asti?"], ["minä", "Oulujärven rantaan, Paapeliin. Mökillä odottaa sauna."],
-	["tarjoilija", "Saako naisille olla jotain? Olutta, Koskenkorvaa?"],
 	["minä", "Kolme Koskenkorvaa naisille, minun piikkiin!", "treat"], ["helena", "No voi kiitos! Kippis!"],
 	["helena", "Sinä olet kyllä mukava mies.", "hand"], ["minä", "Tuota... Juna on kyllä mukava kulkuväline."],
-	["marja", "Kippis! Oulujärven auringonlasku on maailman kaunein."], ["liisa", "Sinä olet kyllä mukavaa seuraa."],
-	["minä", "Ja te kauniimpia kuin Salmisen ranta."], ["marja", "Hyvää matkaa, ja terveisiä Siitarin karaokeen!"],
+	["marja", "Hyvää matkaa, ja terveisiä Siitarin karaokeen!"],
 ]
 const TRAIN_TALK_SALOINEN := [
 	["helena", "Hei! Saanko istua? Tässä on niin kiva valo."], ["minä", "Tottahan toki. Mulla on tuoppi, otatteko jotain?"],
-	["tarjoilija", "Olutta vai jotain vahvempaa?"], ["minä", "Kolme Koskenkorvaa naisille, minä tarjoan!", "treat"],
+	["minä", "Kolme Koskenkorvaa naisille, minä tarjoan!", "treat"],
 	["marja", "Kippis! Menetkö kotiin Saloisiin?"], ["minä", "Kotiin. Kuusi kaljaa ja nurmikko odottaa."], ["helena", "Älä vielä mene. Matkaa on jäljellä.", "hand"],
 	["liisa", "Sinulla on hauska tapa kertoa asioista."], ["minä", "Ja teidän kanssanne matka meni hetkessä."],
 	["helena", "Hyvää kotimatkaa! Oli ilo jutella."],
 ]
-## Erikoiskohtauksesta pois jätettävät täyterepliikit (flirtti tuo tilalle uutta puhetta).
-const TRAIN_TALK_TRIM := ["Oletko menossa Vaalaan asti?", "Oulujärven rantaan, Paapeliin. Mökillä odottaa sauna.",
-	"Kippis! Oulujärven auringonlasku on maailman kaunein.", "Sinä olet kyllä mukavaa seuraa.", "Ja te kauniimpia kuin Salmisen ranta.",
-	"Sinulla on hauska tapa kertoa asioista.", "Ja teidän kanssanne matka meni hetkessä.", "Kippis! Menetkö kotiin Saloisiin?",
-	"Kotiin. Kuusi kaljaa ja nurmikko odottaa."]
 ## Junan puhujien äänet (Sfx.speak-ryhmä = assets/aanet/<ryhmä>/, tehdään tools/aanet/puheaani.py:llä).
-const TRAIN_VOICES := {"minä": "pelaaja", "marja": "marja", "liisa": "liisa", "helena": "helena", "tarjoilija": "tarjoilija"}
+const TRAIN_VOICES := {"minä": "pelaaja", "marja": "marja", "liisa": "liisa", "helena": "helena"}
 const TRAIN_OUTSIDE_SHORT := 4.5  # Saloisista Vaalaan: ulkokuvien kesto (s)
 const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa vaikka kahvit itse."
 ## Verkkopaidassa (Looks.outfit "farkut") Helena ei peittele: repliikit vaihtuvat näihin (puhuja ja vanha repliikki
@@ -2107,8 +2095,6 @@ const TRAIN_NET_EXTRA := [
 	["minä", "Mmm...", "flirt"],
 	["minä", "Mä voin olla sun opas %s. Tiedän kaikki parhaat maisemat."],
 	["helena", "Oma opas! Sopii, komistus."],
-	["helena", "Tule lähemmäs. Mä en pure... paitsi jos pyydät."],
-	["minä", "Mä voin pyytää."],
 ]
 
 
@@ -2147,9 +2133,6 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	# Erikoiskohtaus (riisuminen, flirtti, vihje Uiton saunalle) vain verkkopaidassa ja tarjotuilla paukuilla Saloisista
 	# Vaalaan. Muuten paukkujen tarjoaminen tuo vain käden reidelle; ilman paukkuja ei kättäkään.
 	var special := treat and to_vaala and Looks.outfit == "farkut"
-	if to_vaala:
-		# Saloisista Vaalaan matka on lyhyt: ylimääräinen small talk pois (erikoiskohtauksessa flirtti täyttää ajan).
-		lines = lines.filter(func(l: Array) -> bool: return not (l[1] in TRAIN_TALK_TRIM))
 	const LINE := 2.3
 	const SPEED := 24.0
 	var hand_from := lines.size()
@@ -2241,13 +2224,13 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			for nm in ["marja", "liisa", "helena", "minä"]:
 				(cast[nm] as Node3D).play("Sitting_Talking" if nm == who else "Sitting_Idle", 0.3)
 			Sfx.speak(TRAIN_VOICES[who], line)
-		var names := {"minä": "Sinä", "marja": "Marja", "liisa": "Liisa", "helena": "Helena", "tarjoilija": "Tarjoilija"}
+		var names := {"minä": "Sinä", "marja": "Marja", "liisa": "Liisa", "helena": "Helena"}
 		_sub.text = "%s: %s" % [names[who], line]  # tekstitys alareunassa (kupla leikkautui lähikuvissa)
 		# Kamerat: leveä sivukuva käytävältä pöydän poikki (selkänojat eivät peitä), muuten puhujaa vastapäätä
 		# istuvien olan yli kevyesti liukuen.
 		var u := (t - starts[k]) / (starts[k + 1] - starts[k])
 		if treat and k >= treat_k and kossu_t < 0.0:
-			kossu_t = t  # "kolme Koskenkorvaa naisille": tarjoilija tuo pullon ja paukut pöytään
+			kossu_t = t  # "kolme Koskenkorvaa naisille": pullo ja paukut ilmestyvät pöytään
 			cast.kossu.visible = true
 			Sfx.play("glass", -4.0)
 		if kossu_t >= 0.0:
@@ -2331,7 +2314,9 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				if not hand.has("h0"):
 					hand.h0 = hl.position
 				var lean := smoothstep(0.0, 1.0, minf(1.0, hand.w * 0.6 + hand.slide * 0.6))
-				if closer_k >= 0:
+				if to_vaala:
+					lean = 0.0  # Saloisista Vaalaan Helena istuu paikallaan: ei liu'u viereen eikä nojaa olalle
+				elif closer_k >= 0:
 					lean = smoothstep(0.0, 1.0, clampf((t - starts[closer_k]) / 1.8, 0.0, 1.0))
 				var toward: Vector3 = hero.position - (hand.h0 as Vector3)
 				toward.y = 0.0
@@ -2448,7 +2433,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			# Käsi reidellä: kurkistus pöydän alta vastapäätä (pöytälevy peittää sylin ylhäältä).
 			_cam.global_position = car.to_global(Vector3(lerpf(-0.3, -0.38, u), 0.58, lerpf(-0.42, -0.5, u)))
 			_cam.look_at(car.to_global(Vector3(-0.85, 0.6, 0.75)), Vector3.UP)
-		elif who == "tarjoilija" or k % 3 == 2:
+		elif k % 3 == 2:
 			_cam.global_position = car.to_global(Vector3(1.15, 1.35, lerpf(0.35, -0.35, u)))
 			_cam.look_at(car.to_global(Vector3(-0.85, 1.0, 0.0)), Vector3.UP)
 		elif who in ["marja", "liisa"]:
@@ -2707,8 +2692,8 @@ func _build_bridge_land(r: Node3D) -> void:
 
 
 ## Ravintolavaunu sisältä: valkoiset pöytäliinat, punaiset istuimet, puupaneloidut seinät, ikkunarivit molemmin
-## puolin (maisema liikkuu ulkona), tiski kahvinkeittimineen ja tarjoilija. Pelaaja istuu ikkunapöydässä Marjaa
-## ja Liisaa vastapäätä, Helena pelaajan vieressä ikkunan puolella, tarjoilija käytävällä. Palauttaa hahmot ja
+## puolin (maisema liikkuu ulkona) ja tiski kahvinkeittimineen. Pelaaja istuu ikkunapöydässä Marjaa
+## ja Liisaa vastapäätä, Helena pelaajan vieressä ikkunan puolella. Palauttaa hahmot ja
 ## maisemasolmun.
 func _build_dining_car(car: Node3D) -> Dictionary:
 	const W := 2.8
@@ -2804,11 +2789,6 @@ func _build_dining_car(car: Node3D) -> Dictionary:
 	cast["helena"] = seat.call(HELENA, Vector3(-1.1, 0.0, 0.85), Vector3(0, 0, -1))
 	_hoops(cast["helena"])
 	cast["tyynyt"] = {"minä": cushions[[1.0, 1]], "helena": cushions[[1.0, 0]], "marja": cushions[[-1.0, 0]], "liisa": cushions[[-1.0, 1]]}
-	var waiter := Looks.make(car, WAITER)
-	waiter.position = Vector3(0.35, 0.0, -1.55)
-	waiter.rotation.y = B.yaw_to(Vector3(-0.8, 0, 1.0))
-	waiter.play("Idle_Talking", 0.0)
-	cast["tarjoilija"] = waiter
 	return cast
 
 
