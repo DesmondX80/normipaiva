@@ -2,6 +2,7 @@ extends Node3D
 ## Miesten mahan mittaus (06-maha-suunnitelma.md): jokaiselle miehelle, jolla belly > 0, MAHA-rivi lepoasennon (H 1,80) luvuista:
 ## napa_y (muotoiltu y lepo-y 1,085:n kohdalla, x = 0), huippu_y/z (etummainen piste, |x| < 3 cm, y 0,85..1,25), taite_y (alin lepo-y,
 ## jossa mahan siirtymä >= 5 mm, x = 0), ala09 (suurin mahan siirtymä lepo-y < 0,90) ja etuhelma (luokkaraja vs varjostimen käyrä).
+## KULMA-rivi: verkon sivusiluetin kuperat kulmat mahan alueella (raja 30°, K9: monitahoinen siluetti; HEAD e644674 pelaaja 49°).
 ## Kuvat neljästä päämiehestä Idle-asennossa: edestä, sivulta (vaakaviivat napa punainen, vyö keltainen, haara sininen) ja vinosti.
 ## aja.sh tscn tools/testit/maha_mitta.tscn [--ennen]  (--ennen = mittaus ennen muutosta: vain luvut ja kuvat ennen_*, ei rajoja)
 const Looks := preload("res://scripts/looks.gd")
@@ -16,7 +17,7 @@ const Z_ENNEN := {"SIVIKKI_TIMO": 0.145, "HEVARI_TERO": 0.186, "ESA": 0.142, "JO
 	"REIJO": 0.175, "SEPPO": 0.230, "PEKKA": 0.198, "TERO": 0.200, "TAXI_DRIVER": 0.175, "JEMMARI": 0.223, "GRANDPAS[0]": 0.146,
 	"GRANDPAS[1]": 0.117, "GRANDPAS[2]": 0.174, "KAUPPIAS": 0.149, "JUNTTI": 0.251, "HEDELMA_PELAAJAT[1]": 0.175,
 	"RAAHEN_JATKAT[0]": 0.179, "RAAHEN_JATKAT[1]": 0.209, "PLAYER": 0.253}
-const KUVAT := ["PLAYER", "JUNTTI", "PENTTI", "SEPPO"]
+const KUVAT := ["PLAYER", "JUNTTI", "JUNTTI_ORANSSI", "PENTTI", "SEPPO"]
 
 var out := "user://maha_mitta"
 var cam: Camera3D
@@ -63,6 +64,11 @@ func _men() -> Array:
 			if float(l.belly) <= 0.0:
 				continue
 			res.append([n if lst.size() == 1 and not (v is Array) else "%s[%d]" % [n, i], l])
+	# Juntti vaalealla paidalla: mustasta ei näe etuhelmaa (sekstaaja K10).
+	var jo: Dictionary = (Looks.JUNTTI as Dictionary).duplicate(true)
+	jo["shirt"] = Color(0.95, 0.45, 0.08)
+	jo.erase("stripes")
+	res.append(["JUNTTI_ORANSSI", jo])
 	return res
 
 
@@ -107,6 +113,7 @@ func _measure(name: String, look: Dictionary) -> void:
 	# Profiili 1 mm:n välein: lepopinnan z etukeskilinjalla (lineaarinen väli) + mahan siirtymä (vain belly/sag).
 	var nav := 0.0
 	var peak := Vector2(0, -INF)  # (y, z) muotoiltuna
+	var prof := PackedVector2Array()  # analyyttinen profiili (muotoiltu y, z) 1 mm:n lepo-välein
 	var fold := INF
 	var fold_s := INF  # sama muotoiltuna (näkyvä alareuna)
 	var j := 0
@@ -118,6 +125,8 @@ func _measure(name: String, look: Dictionary) -> void:
 		var y1: float = col[j + 1][0]
 		var z0 := lerpf(float(col[j][1]), float(col[j + 1][1]), clampf((y - y0) / maxf(y1 - y0, 0.0001), 0.0, 1.0))
 		var off: Vector3 = Character._shape_offset(Vector3(0, y, z0), shape)
+		if off.length() > 0.002:
+			prof.append(Vector2(y + off.y, z0 + off.z))
 		if i == roundi(NAPA * 1000.0):
 			nav = y + off.y
 		if y < 1.25 and z0 + off.z > peak.y:
@@ -126,8 +135,28 @@ func _measure(name: String, look: Dictionary) -> void:
 			fold = minf(fold, y)
 			fold_s = minf(fold_s, y + off.y)
 	var hem := _hem_check(c, mesh)
+	var kulma := _silhouette(mesh, fold_s - 0.01)
+	# Muodon oma kaarevuus (ilman verkkoa): suunnan muutos 6 mm:n kaarenpituudella (sileä R 5 cm: 7°).
+	var fbest := 0.0
+	var fat := 0.0
+	var acc := 0.0
+	var last := Vector2.ZERO
+	var j0 := 0
+	var dirs := []  # [y, suunta]
+	for i in range(1, prof.size()):
+		acc += prof[i].distance_to(prof[j0])
+		if acc >= 0.006:
+			dirs.append([prof[i].x, (prof[i] - prof[j0]).angle()])
+			j0 = i
+			acc = 0.0
+	for i in range(1, dirs.size()):
+		var da := rad_to_deg(angle_difference(float(dirs[i - 1][1]), float(dirs[i][1])))
+		if absf(da) > absf(fbest):
+			fbest = da
+			fat = dirs[i][0]
 	print("MAHA %s belly %.2f sag %.1f: napa_y %.3f huippu_y %.3f huippu_z %.3f taite_y %.3f (muot %.3f) ala09 %.1f mm (y %.3f x %.3f) verkko_z %.3f (y %.3f) %s" % [
 		name, shape.belly, shape.sag, nav, peak.x, peak.y, fold, fold_s, low * 1000.0, low_at.y, low_at.x, top.z, top.y, hem])
+	print("KULMA %s: muoto max %.0f° (y %.3f); %s" % [name, fbest, fat, kulma[2]])
 	if not ennen:
 		var sag: bool = shape.sag > 0.0
 		var fails := []
@@ -139,6 +168,8 @@ func _measure(name: String, look: Dictionary) -> void:
 			fails.append("taite_y %.3f" % fold)
 		if low > 0.003:
 			fails.append("ala09 %.1f mm" % (low * 1000.0))
+		if float(kulma[0]) > 30.0:
+			fails.append("siluetin kupera kulma %.0f° (y %.3f), raja 30°" % [kulma[0], kulma[1]])
 		if Z_ENNEN.has(name) and absf(top.z - float(Z_ENNEN[name])) > 0.01:
 			fails.append("verkko_z %.3f (ennen %.3f)" % [top.z, Z_ENNEN[name]])
 		for f in fails:
@@ -148,6 +179,61 @@ func _measure(name: String, look: Dictionary) -> void:
 		await _shots(c, name)
 	c.queue_free()
 	await get_tree().process_frame
+
+
+## Sivusiluetti (K9: monitahoinen maha): etupuolen (lepo-z > 0, |x| < 0,2) kolmioiden särmien leikkaus vaakatasoilla
+## 2 mm:n välein, suurin muotoiltu z = siluetti sivulta katsottuna. Kulma = siluetin suunnan muutos 6 mm:n askelilla
+## (sileä kaari R 5 cm: noin 7°; verkon kulma näkyy yksittäisenä hyppynä). Palauttaa [suurin kulma, y, kuvaus].
+func _silhouette(mesh: ArrayMesh, y_from: float) -> Array:
+	const Y0 := 0.85
+	const N := 250  # 2 mm:n tasot 0,85..1,35
+	var zmax := PackedFloat32Array()
+	zmax.resize(N)
+	zmax.fill(-INF)
+	for s in mesh.get_surface_count():
+		var arr := mesh.surface_get_arrays(s)
+		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var uv2: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV2]
+		var c0: PackedFloat32Array = arr[Mesh.ARRAY_CUSTOM0]
+		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		if uv2.is_empty() or c0.is_empty() or idx.is_empty():
+			continue
+		for t in range(0, idx.size(), 3):
+			var ok := true
+			for k in 3:
+				var v := idx[t + k]
+				if c0[v * 4] <= 0.0 or absf(uv2[v].x) > 0.2:
+					ok = false
+			if not ok:
+				continue
+			for k in 3:
+				var p: Vector3 = vs[idx[t + k]]
+				var q: Vector3 = vs[idx[t + (k + 1) % 3]]
+				if p.y > q.y:
+					var tmp := p
+					p = q
+					q = tmp
+				var i0 := maxi(ceili((p.y - Y0) / 0.002), 0)
+				var i1 := mini(floori((q.y - Y0) / 0.002), N - 1)
+				for i in range(i0, i1 + 1):
+					var y := Y0 + i * 0.002
+					var z := lerpf(p.z, q.z, (y - p.y) / maxf(q.y - p.y, 1e-6))
+					zmax[i] = maxf(zmax[i], z)
+	var best := 0.0
+	var at := 0.0
+	var big := []
+	for i in range(3, N - 3, 3):
+		if zmax[i - 3] == -INF or zmax[i + 3] == -INF or Y0 + i * 0.002 < y_from:
+			continue  # vain mahan alue (muotoillun taitteen yläpuolella; alempana vartalon oma haara)
+		var a := Vector2(0.006, zmax[i] - zmax[i - 3])
+		var b := Vector2(0.006, zmax[i + 3] - zmax[i])
+		var ang := -rad_to_deg(a.angle_to(b))  # > 0 kupera (mahan pinta), < 0 kovera (mahan ja vartalon välinen poimu)
+		if absf(ang) > 15.0:
+			big.append("%.3f:%.0f" % [Y0 + i * 0.002, ang])
+		if ang > best:
+			best = ang
+			at = Y0 + i * 0.002
+	return [best, at, "siluetti kupera max %.0f° (y %.3f), |kulma| > 15°: [%s]" % [best, at, " ".join(big)]]
 
 
 ## Etuhelma: verteksiluokan (paita 1 / housut 2) ja varjostimen käyrän (hem_front + hem_front_k x^2) erimielisyys etupuolella.

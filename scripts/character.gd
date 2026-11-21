@@ -1207,6 +1207,8 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 		var src_count: int = (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()  # LOD-indeksien muoto
 		if kind == "female" and shape.get("bust", 0.0) > 1.4:
 			_subdivide_bust(arr, shape.bust)
+		if kind != "female" and (shape.get("belly", 0.0) >= 0.6 or shape.get("sag", 0.0) > 0.0):
+			_subdivide_belly(arr, shape, 1)
 		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 		var norms: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
 		var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
@@ -1388,7 +1390,7 @@ static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 16
+const CACHE_VERSION := 17
 static var _cache_tag := ""
 
 
@@ -1483,13 +1485,27 @@ static func _reshape(arr: Array, shape: Dictionary) -> void:
 ## jaetaan keskipisteistä neljään (kahdesti); naapurikolmiot jaetaan jaettujen särmien mukaan, jottei saumaan jää rakoa.
 ## Uusien pisteiden attribuutit ovat särmän päiden keskiarvoja (luupainoista vahvimmat).
 static func _subdivide_bust(arr: Array, bu: float) -> void:
-	for _pass in 2:
+	_subdivide_where(arr, func(p: Vector3) -> bool: return _bust(p, bu).offset.length() > 0.002, 2)
+
+
+## Iso maha (belly >= 0,6 tai sag): sama tihennys mahan alueella, yksi kierros (kaksi kasvatti pelaajan lantiokapselia
+## 2 cm ja rikkoi halauksen). Pohjamallin rivit ovat 2,5 cm:n välein, ja maha venyttää ne huipun kohdalla 5 cm:n välein,
+## joten tiukasti kaartuva alareuna ja huippu näkyivät siluetissa kulmikkaina (#K9). Janttu (0,55) jää harvaksi: hänen
+## olkavartensa rako vatsaan (janttu.gd) on mitoitettu harvalle verkolle.
+static func _subdivide_belly(arr: Array, shape: Dictionary, passes: int) -> void:
+	var sh := {"belly": shape.get("belly", 0.0), "sag": shape.get("sag", 0.0)}
+	_subdivide_where(arr, func(p: Vector3) -> bool: return p.z > -0.04 and _shape_offset(p, sh).length() > 0.002, passes)
+
+
+## Tihennys: kolmiot, joiden jokin kärki täyttää ehdon moved(p), jaetaan keskipisteistä (passes kertaa).
+static func _subdivide_where(arr: Array, moved_fn: Callable, passes: int) -> void:
+	for _pass in passes:
 		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
 		var moved := PackedByteArray()
 		moved.resize(verts.size())
 		for v in verts.size():
-			moved[v] = 1 if _bust(verts[v], bu).offset.length() > 0.002 else 0
+			moved[v] = 1 if moved_fn.call(verts[v]) else 0
 		var mid := {}  # särmä (pienempi, suurempi indeksi) -> uuden pisteen indeksi
 		var pairs := []
 		for t in range(0, idx.size(), 3):
@@ -1663,10 +1679,10 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 			var inflated := c + q * (target / ln) * r
 			off += (inflated - p) * wgt
 			if sag > 0.0:
-				# Roikkuva alareuna: painovoima vetää eteen ja alas taitteen kohdalla (ylitys vyön yli, ei haaraan).
-				var hang := exp(-pow((p.y - (y_lo + 0.025)) / 0.04, 2.0)) * wgt * smoothstep(0.0, 0.1, p.z + 0.05)
-				off.z += 0.06 * sag * hang
-				off.y -= 0.02 * sag * hang
+				# Roikkuva alareuna: painovoima vetää alaosaa eteen. Leveä liukuma (7 cm) ja vain eteen: 4 cm:n kapea eteen-alas-veto
+				# teki alareunaan 84°:n kulman siluettiin (#K9).
+				var hang := exp(-pow((p.y - (y_lo + 0.03)) / 0.07, 2.0)) * wgt * smoothstep(0.0, 0.1, p.z + 0.05)
+				off.z += 0.03 * sag * hang
 				# Pehmeä maha valuu kokonaisuutena alas (ihonalainen rasva): huippu navan alle, napa pysyy paikallaan. Ei taitteessa,
 				# ettei alareuna valu haaraan.
 				off.y -= 0.02 * sag * wgt * smoothstep(y_lo, y_lo + 0.1, p.y)
