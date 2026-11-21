@@ -257,10 +257,12 @@ skripteillä `tools/aanet/rakenna_pyora_hengitys.py`, `korosta_kolina.py` ja `ra
 
 Kaikki repliikit tehdään avoimella puhemallilla Chatterbox Multilingual (MIT, Resemble AI) hahmon malliäänen
 pohjalta (`tools/aanet/malliaanet/`, suomalaisia äänityksiä Googlen FLEURS-aineistosta, CC BY 4.0; lähteet
-`docs/tekijanoikeudet.md`). Hahmot: Päivi (vihainen, huutomerkkirepliikit huutaen), pelaaja (nöyrä "Kyllä kulta"),
-baarimikko, Ruukin porukka, kapteeni, auton omistaja ja Anna-Liisa. Muu-ryhmän repliikin puhuja valitaan tekstin
-alusta (`puheaani.py PUHUJAT`, oletus Ruukin mies), joten uuden hahmon repliikit lisätään sinne. Äänet ovat valmiita
-mp3-tiedostoja `assets/aanet/<paivi|muu>/<tiiviste>.mp3`, joissa tiiviste on repliikin tekstin SHA-1:n 12 ensimmäistä
+`docs/tekijanoikeudet.md`). Hahmot: Päivi (vihainen, huutomerkkirepliikit huutaen), pelaaja (Päivin ripityksessä
+nöyrä "Kyllä kulta", junassa iloinen), baarimikko, Ruukin porukka, kapteeni, auton omistaja, Anna-Liisa sekä junan
+Helena (flirttaileva), Marja, Liisa ja tarjoilija; muut kuin Päivi ja pelaaja ripityksessä ovat iloisia. Hahmolla voi
+olla oma ryhmä (junassa `cutscene.gd TRAIN_VOICES`: `Sfx.speak("helena", ...)`), muuten muu-ryhmän repliikin puhuja
+valitaan tekstin alusta (`puheaani.py PUHUJAT`, oletus Ruukin mies). Junan jutustelussa repliikki kestää vähintään
+2,3 s mutta aina äänen verran. Äänet ovat valmiita mp3-tiedostoja `assets/aanet/<ryhmä>/<tiiviste>.mp3`, joissa tiiviste on repliikin tekstin SHA-1:n 12 ensimmäistä
 merkkiä (`Sfx.voice_key`); `assets/aanet/hakemisto.json` kertoo, mikä tiiviste on mikä repliikki. Soitto:
 `Sfx.speak(ryhmä, teksti)` (`audio.gd`); puhekuplat (`bubble.gd`, `voice`-ominaisuus tai "Päivi: "-etuliite) ja
 dialogiruutu (`dialogue_box.gd`, puhujan nimi) kutsuvat sitä itse, joten uusi repliikki saa äänen ilman koodimuutosta.
@@ -270,6 +272,8 @@ Laatu: jokaisesta repliikistä tehdään kolme versiota, ja suomen puheentunnist
 puhemalli sotkee välillä tavuja. Päivin huuto on jälkikäsittelyä (`puheaani.py HUUTO`): sävelkorko ylös
 WORLD-vokooderilla, jolloin äänen sointi säilyy, sekä kirkkaus ja puristus kuin huudossa. Malliäänen voimakas
 käsittely (sävelkorko, kirkkaus) teki puheesta sotkuista, joten huuto tehdään valmiiseen repliikkiin.
+Hiljaisuus leikataan alusta ja lopusta äänitteen oman huipun mukaan (`puheaani.py trim`): ffmpegin kiinteä
+-45 dB:n raja leikkasi hiljaa loppuvan viimeisen tavun.
 
 Äänten teko (macOS:llä Applen näytönohjaimella noin 20 s repliikki, Linuxilla CPU:lla hitaammin): asenna kerran
 `uv venv -p python3.11 ~/chatterbox && uv pip install -p ~/chatterbox/bin/python chatterbox-tts pyworld "setuptools<81"`.
@@ -557,6 +561,14 @@ animaation jälkeen). Käytössä oletuksena aikuisilla (pituus >= 1,5 m); `look
   ANATD kaulus -riveistä) ja naisen paidan helman rajan suoraksi lepo-y:stä. Kaula saa paljaan rinnan kanssa saman sävyn (ei
   vaakaraitaa). Vatsapallon yläreuna ohenee rinnan alla (`_shape_offset`); voimakkaampi sulautus rikkoi tanssin kontaktin (hilkka_horja).
   Trapetsin nosto rajattu 3 mm:iin (hartian yläreuna enintään 2 mm yli mainin).
+- Miesten maha (`Elastic.belly_frame`): yksi kehys muodolle (`_shape_offset`), painumarajalle ja hyllynnälle. Keskipiste navan
+  tasolla (1,085; pelaajalla 1,075), alapuolisko lyhyempi (`r_lo`), joten maha kaartuu alhaalta vyön päälle: etummainen kohta navan
+  kohdalla (pelaajalla 3 cm alempana), alareunan taite 0,98 (pelaaja 0,94: roikkuu vyön yli, ei haaraan). Pelaajan mahan yläosa
+  ohenee edessä 1,0:sta ylös (ei pallon reunaa rinnan alle) ja kyljissä kuten ennen (halaus). Paidan etuhelma on
+  sileä kaari `hem_front + hem_front_k x^2` (`Character._hem_front`: suurimman marginaalin kaari verkon paita- ja housupisteiden
+  väliin), selässä suora `hem_back`. Mittaus: `aja.sh tscn tools/testit/maha_mitta.tscn [--ennen]` (MAHA-rivit kaikista miehistä,
+  joilla belly > 0: napa, huippu, taite, siirtymä alle 0,90, etuhelman ristiriidat; kuvat edestä, sivulta, vinosti ja lepoasennosta
+  sivulta viivoineen: napa punainen, vyö keltainen, haara sininen).
 - Testi: `tools/testit/aja.sh tscn tools/testit/anatomia_kuvat.tscn [--osa=a|b|c|d] [--anat=0|1] [--luokka] [--anim=Idle]`
   ottaa lähikuvat (kasvot, kädet, jalat, vartalo, 4 kulmaa) pelaajasta, Sinikasta, Päivistä ja Juntista ja tulostaa ANAT-rivit
   (jalan alin y, kämmenen ja jalan säteet, luokan 3 lepo-y). `--luokka` värjää jalkaterän luokan magentalla.

@@ -25,10 +25,12 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			return _pyora_eteen(main, d)
 		"p_mummo":
 			return _mummo(main, d)
+		"v_mummo":
+			return _vaala_mummo(main, d)
 		"h_makasiini", "h_lamppu_makasiini", "h_makasiini_koputus":
 			return _makasiini_shot(main, d, id)
-		"m_juna_vaalaan":
-			return _juna_vaalaan(main, d)
+		"m_juna_vaalaan", "m_juna_lahto", "m_juna_tarjoilu", "m_juna_helena":
+			return _juna_vaalaan(main, d, id)
 		"v_ymparyra", "v_satama", "v_retki_rotko", "v_retki_karhu", "h_valeostaja", "a_jahti_roivainen":
 			return _vaala_shot(main, d, id)
 		"p_motkotus_koti", "p_motkotus_huume", "p_motkotus_pidatys":
@@ -652,7 +654,11 @@ static func _makasiini_shot(main: Node3D, d: Node, id: String) -> Dictionary:
 
 # --- Junamatka Vaalaan: verkkopaita ja 40 € taskussa (pelin erikoiskohtaus) ---------------------------------------------------------
 
-static func _juna_vaalaan(main: Node3D, d: Node) -> Dictionary:
+## Ajon alku ruutuina (30 fps) kustakin otoksesta: lähtö ulkokuvassa, ravintolavaunu, tarjoilu, Helenan riisunnan alku.
+const JUNA_ALKU := {"m_juna_lahto": 0, "m_juna_vaalaan": 400, "m_juna_tarjoilu": 560, "m_juna_helena": 760}
+
+
+static func _juna_vaalaan(main: Node3D, d: Node, id: String) -> Dictionary:
 	var O := _o()
 	O._time(main, 18, 30)
 	load("res://scripts/looks.gd").outfit = "farkut"  # verkkopaita, henkselit ja työhousut
@@ -660,7 +666,7 @@ static func _juna_vaalaan(main: Node3D, d: Node) -> Dictionary:
 		main._toggle_mount()
 	main.money = 40.0  # matka 10 € + kossut naisille 16 € = erikoiskohtaus
 	main._train_trip("vaala")
-	return {"warm": 400, "hud": false}
+	return {"warm": JUNA_ALKU[id], "hud": false}
 
 
 # --- Alku: pyöräilijä polkee pakettiauton eteen ----------------------------------------------------------------------------------
@@ -715,6 +721,33 @@ static func _mummo(main: Node3D, d: Node) -> Dictionary:
 	var l0: Vector3 = st.global_transform * Vector3(0, 1.2, 0.7)
 	var dl: Callable = O.dolly(e0, e1, l0, l0, 3.0)
 	# Iskun jälkeen (välianimaatio alkaa) ohjaaja päästää kameran: nollavektorit = ei päivitystä, välianimaation kamera jää.
+	var cam := func(t: float) -> Array:
+		if main.state == "cutscene":
+			return [Vector3.ZERO, Vector3.ZERO]
+		return dl.call(t)
+	return {"lose": true, "settle": false, "cs_bubbles": true, "cam": cam, "fov": 46.0, "warm": 6}
+
+
+# --- Vaalan K-Marketin rollaattorimummo: kuolema keppiin, Päivin puhelu (pelin oma wasted_phone) ---------------------------------
+
+static func _vaala_mummo(main: Node3D, d: Node) -> Dictionary:
+	var O := _o()
+	var mt: Node3D = O._vaala(main)
+	O._time(main, 13, 30)
+	for car in mt._cars:  # liikenne pois kuvasta
+		car.process_mode = Node.PROCESS_MODE_DISABLED
+		car.visible = false
+	main._mopo_dismount()
+	var st: Node3D = mt.vaala.mummot._stand
+	var front: Vector3 = st.global_transform * Vector3(0.1, 0, 1.25)
+	main.walker_out.global_position = front + Vector3(0, 0.3, 0)
+	main.walker_out.rotation.y = B.yaw_to(st.global_position - front)
+	# Vaalan penkin ja rollaattorimummon vasen (-X) puoli on seinää: kamera oikealta.
+	var e0: Vector3 = st.global_transform * Vector3(3.2, 1.6, 0.8)
+	var e1: Vector3 = st.global_transform * Vector3(2.4, 1.5, 0.9)
+	var l0: Vector3 = st.global_transform * Vector3(0, 1.2, 0.7)
+	var dl: Callable = O.dolly(e0, e1, l0, l0, 3.0)
+	# Iskun jälkeen (välianimaatio) ohjaaja päästää kameran, kuten _mummo.
 	var cam := func(t: float) -> Array:
 		if main.state == "cutscene":
 			return [Vector3.ZERO, Vector3.ZERO]

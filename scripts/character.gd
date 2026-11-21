@@ -118,6 +118,10 @@ func setup(look: Dictionary) -> void:
 		# Paidan helma selässä suorana (taka 1,095, laskee mahan mukana 9 cm; vrt. mies Juntti belly 1 -> 1,005): verteksiluokka
 		# (spine / pelvis + mahan pullistuma) portaili selän alaosassa (#T), ks. character.gdshader hem_back.
 		body_mat.set_shader_parameter("hem_back", 1.095 - 0.09 * float(look.get("belly", 0.0)))
+		# Etuhelma: sileä kaari y = a + k x^2 sovitettuna verkon omaan luokkarajaan (mahan muodon mukaan, belly/sag).
+		var hf := _hem_front(body.mesh)
+		body_mat.set_shader_parameter("hem_front", hf.x)
+		body_mat.set_shader_parameter("hem_front_k", hf.y)
 	for k in ["shorts_y", "crop_y", "sleeve_x", "tube_y", "denim", "bare_skin", "jeans", "belt_y", "belt_col", "net_shirt",
 			"suspenders", "strap_col", "grime", "workwear", "flannel", "tattoo", "shirt_puff", "pants_puff", "string_bikini", "ski_suit", "vest_open", "chest_hair", "body_hair", "satin", "face_match"]:
 		if look.has(k):
@@ -1271,7 +1275,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			var bw: float = _bust(verts[v], shape.get("bust", 0.0)).weight if kind == "female" else 0.0
 			# w = painumaraja (Elastic): pehmeä osa painuu kontaktissa korkeintaan tämän verran, luinen ei lainkaan.
 			rest3[v * 4 + 3] = Elastic.limit(vbone[v], verts[v], norms[v], shape, joints, bw)
-			var jw := Elastic.jiggle_weights(verts[v], bw)
+			var jw := Elastic.jiggle_weights(verts[v], bw, shape)
 			jig[v * 4] = roundi(jw.x * 255.0)
 			jig[v * 4 + 1] = roundi(jw.y * 255.0)
 			jig[v * 4 + 2] = roundi(jw.z * 255.0)
@@ -1286,9 +1290,58 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 			(fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 			| (Mesh.ARRAY_CUSTOM_RGBA8_UNORM << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT))
 	_meshes[key] = weakref(out)  # heikko: Vaalan hahmojen vartalot vapautuvat Vaalan mukana (levyvälimuisti lataa)
+	if kind != "female" and shape.get("belly", 0.0) > 0.0:
+		_hem_front(out)  # metatieto tallentuu välimuistiin
 	DirAccess.make_dir_recursive_absolute(MESH_CACHE)
 	ResourceSaver.save(out, cache)
 	return out
+
+
+## Miehen paidan etuhelma (lepo, x/y): verteksiluokka (paita 1 / housut 2: spine / pelvis ja mahan pullistuma) vaihtuu
+## kolmioittain, joten raja oli sahalaitainen (#T, #06-maha). Rajaksi valitaan sileä kaari y = a + k x^2, joka erottaa etupuolen
+## paitapisteet (yläpuolelle) ja housupisteet (alapuolelle) suurimmalla marginaalilla: jokaiselle k:lle sallittu a-väli on
+## [max(housu y - k x^2), min(paita y - k x^2)], ja valitaan k, jolla väli on levein (a = välin keskikohta). Verkon rivit ovat
+## 2-8 cm:n välein, joten kaari, joka on kaikkien pisteiden kanssa samaa mieltä, on yhtä oikea kuin verkko, mutta sileä.
+## Varjostin (hem_front) värittää sen mukaan; verteksiluokat (pöyhennys, kontaktipeili) eivät muutu. Tulos mesh-metana (välimuisti).
+static func _hem_front(mesh: Mesh) -> Vector2:
+	if mesh.has_meta("hem_front"):
+		return mesh.get_meta("hem_front")
+	var up := PackedVector2Array()  # paita: (x^2, y)
+	var dn := PackedVector2Array()  # housut
+	for s in mesh.get_surface_count():
+		var arr := mesh.surface_get_arrays(s)
+		var uv2: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV2]
+		var col: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+		var c0: PackedFloat32Array = arr[Mesh.ARRAY_CUSTOM0]
+		if uv2.is_empty() or col.is_empty() or c0.is_empty():
+			continue
+		for v in uv2.size():
+			var r := uv2[v]
+			if c0[v * 4] < 0.02 or absf(r.x) > 0.24 or r.y < 0.85 or r.y > 1.2:
+				continue
+			var cat := roundi(col[v].r * 4.0)
+			if cat == 1:
+				up.append(Vector2(r.x * r.x, r.y))
+			elif cat == 2:
+				dn.append(Vector2(r.x * r.x, r.y))
+	var res := Vector2(-1.0, 0.0)
+	if up.is_empty() or dn.is_empty():
+		mesh.set_meta("hem_front", res)
+		return res
+	var best := -INF
+	for i in range(-300, 401):
+		var k := i * 0.01
+		var lo := -INF
+		var hi := INF
+		for q in dn:
+			lo = maxf(lo, q.y - k * q.x)
+		for q in up:
+			hi = minf(hi, q.y - k * q.x)
+		if hi - lo > best + 1e-6:
+			best = hi - lo
+			res = Vector2(0.5 * (lo + hi), k)
+	mesh.set_meta("hem_front", res)
+	return res
 
 
 ## Naismallin rinnat: alaosa seuraa mallissa nikamaa spine_02 ja yläosa spine_03, ja raja kulkee rintojen poikki, joten
@@ -1335,7 +1388,7 @@ static func _chest_weights(arr: Array, skin: Skin, skel: Skeleton3D, per: int) -
 ## 36 vartalolle. Tiedostonimessä on tämän skriptin lähdekoodin tiiviste (muutettu laskenta = uudet tiedostot) ja
 ## CACHE_VERSION: nosta sitä, jos vartalon laskenta muuttuu vientipaketissa, jossa lähdekoodia ei ole luettavissa.
 const MESH_CACHE := "user://hahmot"
-const CACHE_VERSION := 15
+const CACHE_VERSION := 16
 static var _cache_tag := ""
 
 
@@ -1582,13 +1635,17 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 	var torso := (1.0 - smoothstep(0.2, 0.3, ax)) * smoothstep(0.85, 0.95, p.y) * (1.0 - smoothstep(1.5, 1.6, p.y))
 	var belly: float = shape.get("belly", 0.0)
 	if belly > 0.0:
-		# Pyöreä ja pullea maha: vatsan pinta pullistetaan ellipsoidin pinnalle (pehmeä maksimi),
-		# edestä ja sivuilta täysin, selästä ei lainkaan. Painopiste hieman alhaalla: maha roikkuu.
-		# sag (0..1, pelaaja): löllerömaha. Keskipiste alemmas ja ellipsoidi pidempi, yläosa ohenee (pehmeä rinnan alla),
-		# painavin kohta vyötärön alapuolella ja alareuna roikkuu hieman housunvyön yli.
+		# Pyöreä ja pullea maha: vatsan pinta pullistetaan ellipsoidin pinnalle (pehmeä maksimi), edestä ja sivuilta täysin,
+		# selästä ei lainkaan. Kehys (Elastic.belly_frame): keskipiste navan tasolla, alapuolisko lyhyempi (maha kaartuu
+		# alhaalta vyön päälle, ei haaraan). sag (0..1, pelaaja): löllerömaha, yläosa ohenee (pehmeä rinnan alla) ja alareuna
+		# roikkuu housunvyön yli.
 		var sag: float = shape.get("sag", 0.0)
-		var c := Vector3(0.0, 1.16 - 0.02 * belly - 0.13 * sag, -0.02)
-		var r := Vector3(0.16 + 0.08 * belly + 0.02 * sag, 0.2 + 0.05 * belly + 0.01 * sag, 0.13 + 0.17 * belly + 0.02 * sag)
+		var fr := Elastic.belly_frame(shape)
+		var c: Vector3 = fr.c
+		var r: Vector3 = fr.r
+		if p.y < c.y:
+			r.y = fr.r_lo  # epäsymmetrinen: molemmilla puoliskoilla pystysuora tangentti päiväntasaajalla (C1)
+		var y_lo: float = fr.y_lo
 		var q := (p - c) / r
 		var ln := q.length()
 		if ln > 0.001 and ln < 1.3:
@@ -1596,16 +1653,23 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 			var k := 0.1
 			var target := ln + 0.8 * k * log(1.0 + exp((1.0 - ln) / k))
 			var face := smoothstep(-0.7, 0.1, q.z / ln)
-			# anatomia D: yläreuna ohenee jo rinnan alla (osittain 1,25..1,42), jotta pallo ei jää rintalihasten päälle ledjeksi
-			var ymask := smoothstep(0.92 - 0.07 * sag, 1.03 - 0.07 * sag, p.y) * (1.0 - (0.7 + 0.28 * sag) * smoothstep(1.25 - 0.3 * sag, 1.42 - 0.14 * sag, p.y)) * (1.0 - smoothstep(1.4, 1.5, p.y))
+			# anatomia D: yläreuna ohenee jo rinnan alla (osittain 1,25..1,42), jotta pallo ei jää rintalihasten päälle ledjeksi;
+			# pelaajalla ohennus edessä 1,0..1,38 (pitkä liukuma rinnasta huippuun: ilman sitä pallon yläreuna jäi rinnan alle
+			# kynnykseksi), kyljissä ennallaan 0,95..1,28 (kylki ei levene: halauksen kämmen selän ja kyljen välissä).
+			var thin := lerpf(smoothstep(1.25 - 0.3 * sag, 1.42 - 0.14 * sag, p.y), smoothstep(1.25 - 0.25 * sag, 1.42 - 0.04 * sag, p.y),
+				smoothstep(0.3, 0.8, q.z / ln))
+			var ymask := smoothstep(y_lo - 0.03, y_lo + 0.05, p.y) * (1.0 - (0.7 + 0.28 * sag) * thin) * (1.0 - smoothstep(1.4, 1.5, p.y))
 			var wgt := face * ymask * (1.0 - smoothstep(0.24, 0.32, ax))
 			var inflated := c + q * (target / ln) * r
 			off += (inflated - p) * wgt
 			if sag > 0.0:
-				# Roikkuva alareuna: painovoima vetää eteen ja alas vyötärön alapuolella (kaksoispoimu ja ylitys vyön yli).
-				var hang := exp(-pow((p.y - 0.93) / 0.08, 2.0)) * wgt * smoothstep(0.0, 0.1, p.z + 0.05)
+				# Roikkuva alareuna: painovoima vetää eteen ja alas taitteen kohdalla (ylitys vyön yli, ei haaraan).
+				var hang := exp(-pow((p.y - (y_lo + 0.025)) / 0.04, 2.0)) * wgt * smoothstep(0.0, 0.1, p.z + 0.05)
 				off.z += 0.06 * sag * hang
 				off.y -= 0.02 * sag * hang
+				# Pehmeä maha valuu kokonaisuutena alas (ihonalainen rasva): huippu navan alle, napa pysyy paikallaan. Ei taitteessa,
+				# ettei alareuna valu haaraan.
+				off.y -= 0.02 * sag * wgt * smoothstep(y_lo, y_lo + 0.1, p.y)
 	var bulk: float = shape.get("bulk", 0.0)
 	if bulk != 0.0:
 		off.x += p.x * 0.2 * bulk * torso

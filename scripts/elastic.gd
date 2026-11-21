@@ -61,13 +61,40 @@ static func jiggle_gain(part: String, shape: Dictionary) -> float:
 	return 0.0
 
 
+## Mahan kehys (lepo, H 1,80; 06-maha-suunnitelma.md): yksi totuus muodolle (Character._shape_offset), painumarajalle ja
+## hyllynnälle. c = keskipiste (napa 1,085: viskeraalisen mahan syvin kohta on navan tasolla), r = säteet (r.y = yläpuoliskon säde),
+## r_lo = alapuoliskon säde (lyhyempi: maha kaartuu takaisin vyön päälle) ja y_lo = alareunan taite. sag (pelaaja) laskee
+## taitetta vyön yli 4-6 cm, mutta ei haaraan (pannus aste < 1).
+static func belly_frame(shape: Dictionary) -> Dictionary:
+	var belly := float(shape.get("belly", 0.0))
+	var sag := float(shape.get("sag", 0.0))
+	var c := Vector3(0.0, 1.085 - 0.01 * sag, -0.02)
+	# sag: r.z +4 cm, jotta syvyys (parikontaktit) pysyy, kun roikkuva alaosa (ennen syvin) lyheni (+4,5 cm painoi
+	# pelaajan istuessa junan pöydän ääressä selän selkänojan läpi, asennot h).
+	var r := Vector3(0.16 + 0.08 * belly + 0.02 * sag, 0.2 + 0.05 * belly + 0.01 * sag, 0.13 + 0.17 * belly + 0.06 * sag)
+	# Yläpuolisko ulottuu yhtä ylös kuin ennen (vanha keskipiste 1,16 - 0,02 belly): keskipisteen lasku navalle ei saa
+	# laskea koko mahaa ("maha liian alhaalla"); sagilla vanha keskipiste oli jo navan alla, joten ei lisää.
+	r.y += maxf(0.075 - 0.02 * belly, 0.0) * (1.0 - sag)
+	var y_lo := 0.975 - 0.01 * belly - 0.02 * sag
+	return {"c": c, "r": r, "r_lo": (c.y - y_lo) / 1.055, "y_lo": y_lo}
+
+
+## Vatsan alueen q (lepopiste kehyksen yksiköissä) painoille: perusvartalon ellipsoidi (0,16, 0,2, 0,13) mahan kehyksen
+## keskipisteessä; alapuolisko lyhenee samassa suhteessa kuin kehyksen r_lo. belly 0 (naiset ja hoikat): vanha kiinteä 1,16.
+static func _belly_q(p: Vector3, shape: Dictionary) -> Vector3:
+	if float(shape.get("belly", 0.0)) <= 0.0:
+		return (p - Vector3(0.0, 1.16, -0.02)) / Vector3(0.16, 0.2, 0.13)
+	var f := belly_frame(shape)
+	var ry := 0.2 if p.y >= (f.c as Vector3).y else 0.2 * float(f.r_lo) / (f.r as Vector3).y
+	return (p - (f.c as Vector3)) / Vector3(0.16, ry, 0.13)
+
+
 ## Verteksin hyllyntäpainot lepoasennossa (kasvot +Z): x = rinta, y = vatsa, z = pakara ja reiden yläosa (0..1). Vain
 ## paikasta (ei normaalista), jotta saumojen kaksoisverteksit saavat saman painon eikä pinta repeä. bust_w kuten limit.
-static func jiggle_weights(p: Vector3, bust_w: float) -> Vector3:
+static func jiggle_weights(p: Vector3, bust_w: float, shape := {}) -> Vector3:
 	var ax := absf(p.x)
 	var wr := clampf(bust_w, 0.0, 1.0) * lerpf(1.0, 0.5, smoothstep(1.28, 1.4, p.y))  # yläreuna kiinni rintakehässä
-	var c := Vector3(0.0, 1.16, -0.02)  # vatsa: sama ellipsoidi kuin limit
-	var q := (p - c) / Vector3(0.16, 0.2, 0.13)
+	var q := _belly_q(p, shape)  # vatsa: sama kehys kuin limit ja Character._shape_offset
 	var wv := (1.0 - smoothstep(0.9, 1.3, q.length())) * smoothstep(-0.7, 0.1, q.z / maxf(q.length(), 0.001)) \
 		* (1.0 - smoothstep(0.24, 0.32, ax)) * (1.0 - wr)
 	var glute := (1.0 - smoothstep(-0.1, -0.03, p.z)) * exp(-pow((p.y - 0.88) / 0.11, 2.0)) * (1.0 - smoothstep(0.2, 0.26, ax))
@@ -94,9 +121,8 @@ static func limit(bone: String, p: Vector3, n: Vector3, shape: Dictionary, joint
 		if stem == "pelvis" and not front:  # pakara, lantion sivut ja alapinta (haarojen alus) painuvat
 			lim = part_limit("pakara", shape)
 		if stem != "pelvis":
-			# Vatsa: sama ellipsoidi kuin Character._shape_offset (rintakehän alapuoli, edessä).
-			var c := Vector3(0.0, 1.16, -0.02)
-			var q := (p - c) / Vector3(0.16, 0.2, 0.13)
+			# Vatsa: sama kehys kuin Character._shape_offset (belly_frame; rintakehän alapuoli, edessä).
+			var q := _belly_q(p, shape)
 			var wv := (1.0 - smoothstep(0.9, 1.3, q.length())) * smoothstep(-0.7, 0.1, q.z / maxf(q.length(), 0.001)) \
 				* (1.0 - smoothstep(0.24, 0.32, absf(p.x)))
 			lim = lerpf(lim, part_limit("vatsa", shape), wv)
