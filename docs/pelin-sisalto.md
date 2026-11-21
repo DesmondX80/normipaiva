@@ -251,8 +251,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     kiinni jäädessä peli päättyy, maine −4, Päivi kuulee, ja Hilkka antaa 55 %:n todennäköisyydellä myyntikiellon
     huomiseen. Pöytäkerran jälkeen maine: reiluja kauppoja ("Rehellinen kauppamies" +3 tai "Reilu myyjä" +1) tai
     liikaa tyly tinkiminen ("Pihi kuin Pekka" −3). Reilu hinta: puolukka 6 €/l, mustikka 7, kantarelli 14, herkkutatti
-    11, savukala 7, savuriista 9, kalja 15, pontikka 20. Pelin aikaa kuluu tunti per neljä asiakasta. Pekan vanhoja
-    tavaroita ei vielä myydä. Testi `--scene=kirppismyynti`.
+    11, savukala 7, savuriista 9, kalja 15, pontikka 20. Pelin aikaa kuluu tunti per neljä asiakasta. Testi `--scene=kirppismyynti`.
+  - **Pekan vintin romut** (`pekan_laatikko.gd`): kun oma pöytä on kerran pidetty, Pekka tarjoaa laatikollisen
+    vanhaa tavaraa ("Vie kirppikselle, puolet mulle"): kolme iskelmä-LP:tä (5 €), pilkkipokaali -87 (10), karvalakki
+    (12), vieherasia (15), Itkevä poika -taulu (18) ja kampikahvimylly (12). Ne myydään omalla pöydällä kuten marjat;
+    ostajat huudahtavat tavarasta ("Voi, Itkevä poika!"), Anna-Liisa tunnistaa Pekan tavarat, ja romujen ollessa
+    pöydällä tulee myös keräilijä, joka maksaa vanhasta hyvin. Puolet romujen tuloista on Pekan (yhteenvedossa ja
+    viestissä). Tilitys Pekalle samana päivänä: maine +2 ja seuraava kyyti mökille ilmainen ("Pekan piikkiin").
+    Jos osuus jää yön yli, Pekka tervehtii vihaisena eikä anna kyytiä, ennen kuin rahat tulevat (ei palkkiota).
+    Myymättömät jäävät laatikkoon (reppu: Pekan romulaatikko). Sivutehtävä "Pekan vintin romut". Testi
+    `--scene=pekanlaatikko`.
   - **Hiihtohaalari:** Railin vaatetangossa keskipöydän vieressä (vakosamettitakin ja flanellipaidan välissä)
     roikkuu neonpinkki kasarin toppahaalari, 6 € (tinkiä voi). Valkoinen olkakaarroke sahalaitaisin vuorenhuipuin,
     keltainen ja turkoosi raita, tikkauskanavat, vetoketju, mustat resorit, valkoiset kuukengät ja raidallinen frotee-otsapanta

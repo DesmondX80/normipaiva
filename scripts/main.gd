@@ -330,6 +330,7 @@ const KirppisMyynti := preload("res://scripts/kirppis_myynti_game.gd")
 const Tokola := preload("res://scripts/tokola.gd")
 const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const SuloPannu := preload("res://scripts/sulo_pannu.gd")
+const PekanLaatikko := preload("res://scripts/pekan_laatikko.gd")
 const KertunRauta := preload("res://scripts/kertun_rauta.gd")
 const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
 const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
@@ -461,6 +462,7 @@ var sk := SinikanKuisti.new()  # Sinikan ovilapun ja kuistin korin tila (sinikan
 var hs_teens: Node3D  # kaukalon iltateinit (saloinen_teinit.gd)
 var _hs_group := ""  # Saloisten myynnin ostajaryhmä: "kaukalo" / "laavu" (tappelun jälkeen ei_osta)
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
+var laatikko: RefCounted  # Pekan vintin romulaatikko kirppikselle (pekan_laatikko.gd)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
 var lemmikki: RefCounted  # Lemmikki Enkelit ja Pörrön muistokyltti (lemmikki_enkelit.gd, #148)
 var kanttori: RefCounted  # legenda: Kanttorilan yösävel (kanttori_legenda.gd, #144)
@@ -1315,6 +1317,7 @@ func _ready() -> void:
 	oma_mopo = OmaMopo.new()
 	tokola = Tokola.new()
 	pannu = SuloPannu.new()
+	laatikko = PekanLaatikko.new()
 	kertun = KertunRauta.new()
 	aarni = Aarnivalkea.new()
 	pyhimys = PyhimysLegenda.new()
@@ -3465,6 +3468,9 @@ func _myynti_stock() -> Dictionary:
 		st["kalja"] = beers
 	if pontikka > 0:
 		st["pontikka"] = pontikka
+	for k in laatikko.left:  # Pekan vintin romut (puolet Pekalle)
+		if int(laatikko.left[k]) > 0:
+			st[k] = int(laatikko.left[k])
 	return st
 
 
@@ -3488,7 +3494,7 @@ func _oma_poyta() -> void:
 		_show_message("Hilkka: \"Ei kaljakauppiaille. Tule huomenna uudestaan.\"", 3.5)
 		return
 	if _myynti_stock().is_empty():
-		_show_message("Repussa ei ole mitään myytävää: marjoja, sieniä, savukalaa tai riistaa.", 3.5)
+		_show_message("Repussa ei ole mitään myytävää: marjoja, sieniä, savukalaa, riistaa tai Pekan romuja.", 3.5)
 		return
 	if _myynti_day != day:
 		if money < MYYNTI_PAIKKA:
@@ -3535,6 +3541,9 @@ func _myynti_done(r: Dictionary) -> void:
 		elif k == "pontikka":
 			pontikka = maxi(0, pontikka - n)
 	money += r.income
+	var pekan := 0.0
+	if laatikko.given:
+		pekan = laatikko.record_sale(r.sold, r.get("income_by", {}), day)
 	_advance_clock(MYYNTI_TIKKU * maxf(1.0, ceilf(r.buyers / 4.0)))
 	if r.income > 0.0 or r.caught:
 		tilat.first("oma_kirppispoyta", 0.3)
@@ -3554,8 +3563,9 @@ func _myynti_done(r: Dictionary) -> void:
 	else:
 		tilat.add("moraali", 0.05 if r.income > 0.0 else 0.0)
 		kirppis_int.say_id("hilkka", "Hyvin meni. Pöytä saa jäädä vielä, jos tavaraa riittää.", 3.5)
-		_show_message("Pöytäkauppa: %s €. \"%s\"%s" % [_eur(r.income), r.title,
-			"   Maine %+d." % int(r.rep) if r.rep != 0 else ""], 4.5)
+		_show_message("Pöytäkauppa: %s €. \"%s\"%s%s" % [_eur(r.income), r.title,
+			"   Maine %+d." % int(r.rep) if r.rep != 0 else "",
+			"   Pekan osuus %s €: tilitä tänään, niin Pekka ilahtuu." % _eur(laatikko.owed) if pekan > 0.0 else ""], 5.0)
 	if r.income > 0.0:
 		Sfx.play("win_small", -4.0)
 	_save_game()
@@ -14022,6 +14032,8 @@ func _talk_hello(who: String) -> String:
 		return "Hei! Tuu tänne, mulla ois asiaa!"
 	if who == "pekka" and is_instance_valid(vaino) and vaino.mode == "follow":
 		return "VÄINÖ! Siinähän se on, perkele!"
+	if who == "pekka" and laatikko.angry(day):
+		return "No? Missä mun puolikas niistä kirppisrahoista, perkele? Ei kyytejä ennen ku tilitetään."
 	sh = _ebike_tip(who)
 	if sh != "":
 		return sh
@@ -14159,6 +14171,11 @@ func _talk_options(who := "") -> Array:
 				var shrooms: int = bucket.get("kantarelli", 0) + bucket.get("herkkutatti", 0)
 				o.append(_opt("akku", "Ne sun vanhat porakoneen akut? (%d l sieniä)" % EBIKE_AKKU_SIENET,
 					shrooms >= EBIKE_AKKU_SIENET, "ämpärissä ei sieniä"))
+			if not laatikko.given and "oma_kirppispoyta" in tilat.firsts:
+				o.append(_opt("laatikko", "Onko sulla vintillä romua kirppikselle?", true, "", true))
+			if laatikko.owed > 0.0:
+				o.append(_opt("laatikko_tilita", "Tilitä kirppisrahat (%s €)" % _eur(laatikko.owed), money >= laatikko.owed - 0.001,
+					"rahat ei riitä", true))
 			var sale := _goods_value("pekka")
 			o.append(_opt("myy", "Myy sienet (%s €)" % _eur(sale) if sale > 0.0 else "Myy sienet", sale > 0.0,
 				"ämpärissä ei kantarelleja eikä herkkutatteja"))
@@ -14169,14 +14186,18 @@ func _talk_options(who := "") -> Array:
 				var why := ""
 				if hommat.banned_day == day:
 					why = "Santtu häätänyt mökiltä tänään"
+				elif laatikko.angry(day):
+					why = "Pekka odottaa kirppisrahojaan (%s €)" % _eur(laatikko.owed)
 				elif _volvo_broken():
 					why = "Volvo ei lähde (Korpelan korjaamo)"
 					tilat.first("volvo_rikki", 0.0)  # sivutehtävä tiedoksi vasta, kun Pekan Volvo oikeasti on rikki
-				elif _volvo_fixed_day == day:
+				elif _volvo_fixed_day == day or laatikko.free_ride:
 					why = ""
 				elif beers <= 0 and money < PEKKA_RIDE_PRICE:
 					why = "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
-				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)%s" % ["ilmainen, Volvo korjattu" if _volvo_fixed_day == day else ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €"), _late_note(HOP_VAALA)],
+				var hinta := "ilmainen, Volvo korjattu" if _volvo_fixed_day == day else ("ilmainen, Pekan piikkiin" if laatikko.free_ride
+					else ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €"))
+				o.append(_opt("kyyti", "Kyyti mökille Vaalaan (%s)%s" % [hinta, _late_note(HOP_VAALA)],
 					why == "", why))
 		"annaliisa", "sinikka_seura":
 			_seura_options(who, o)
@@ -14857,6 +14878,28 @@ func _talk_neighbor(id: String) -> void:
 			if _talk_who == "arto" and story.done.puolukat and not was_done:
 				line = "Nyt riittää hilloon! Pekka on kyllä koko kesän puhunu siitä Paapelista."
 			_talk_box.reply(line, _talk_options(), "+%s €%s" % [_eur(sale), "   ·   " + note if note != "" else ""])
+		"laatikko":
+			laatikko.give()
+			tilat.first("pekan_laatikko", 0.2)
+			Sfx.play("pickup", -4.0)
+			_save_game()
+			_talk_box.say_lines(["Vintillä on laatikollinen romua. Levyjä, äijän pilkkipokaali, karvalakki ja vanha vieherasia.",
+				"Ja se Itkevä poika -taulu, ei Päivi sitä ikinä huolinu. Vie kirppikselle, puolet mulle, perkele. Ja tilitä samana päivänä."],
+				_talk_options(), "Pekan romulaatikko repussa (%d tavaraa): myy omalla kirppispöydällä, puolet Pekalle." % laatikko.count())
+		"laatikko_tilita":
+			var tili: Dictionary = laatikko.pay(day)
+			money -= tili.amount
+			Sfx.play("coin", -4.0)
+			tilat.first("pekan_laatikko_tilitetty", 0.0)
+			if tili.on_time:
+				maine = clampf(maine + PekanLaatikko.ON_TIME_REP, 0.0, 100.0)
+				tilat.add("moraali", 0.05)
+				_talk_box.reply("Rehti mies, perkele! Seuraava kyyti mökille on mun piikkiin.", _talk_options(),
+					"Pekalle %s €. Maine +%d, seuraava kyyti ilmainen." % [_eur(tili.amount), int(PekanLaatikko.ON_TIME_REP)])
+			else:
+				_talk_box.reply("No vihdoin. Kyllä mää jo ehdin miettiä, perkele. No, kyydit taas auki.", _talk_options(),
+					"Pekalle %s €. Pekka leppyi, kyyti mökille taas auki." % _eur(tili.amount))
+			_save_game()
 		"akku":
 			var need := EBIKE_AKKU_SIENET
 			for k in ["kantarelli", "herkkutatti"]:
@@ -15351,6 +15394,9 @@ func _pekka_ride() -> void:
 	var paid := "kalja"
 	if _volvo_fixed_day == day:
 		paid = "ei mitään, Volvo korjattu"
+	elif laatikko.free_ride:
+		laatikko.free_ride = false  # saman päivän kirppistilityksen palkka
+		paid = "ei mitään, Pekan piikkiin (kirppisrahat tuli ajallaan)"
 	elif beers > 0:
 		beers -= 1
 		player.set_carrying(beers > 0)
@@ -21253,6 +21299,7 @@ func _load_game() -> void:
 	oma_mopo.load_from(cfg)
 	tokola.load_from(cfg)
 	pannu.load_from(cfg)
+	laatikko.load_from(cfg)
 	kertun.load_from(cfg)
 	_pohjoiset_load(cfg)
 	aarni.load_from(cfg)
@@ -21499,6 +21546,8 @@ func _save_game() -> void:
 		tokola.save_to(cfg)
 	if pannu != null:
 		pannu.save_to(cfg)
+	if laatikko != null:
+		laatikko.save_to(cfg)
 	if kertun != null:
 		kertun.save_to(cfg)
 	_pohjoiset_save(cfg)
@@ -22745,6 +22794,8 @@ func inventory_items() -> Array:
 		add.call("sokeri", "Sokeri", 1, "Kotiviiniin (autotallin saavi).")
 	if has_mower_part:
 		add.call("varaosa", "Leikkurin varaosa", 1, "Kalja vielä, niin leikkuri korjataan.")
+	if laatikko != null and laatikko.count() > 0:
+		add.call("laatikko", "Pekan romulaatikko", laatikko.count(), "Vanhaa tavaraa Pekan vintiltä: myy omalla kirppispöydällä, puolet Pekalle.")
 	if not ebike.built():
 		for k in ebike.parts:
 			add.call("sp_" + k, EBike.PARTS[k].name, 1, "Sähköpyörän osa · kasaus autotallin työpöydällä")

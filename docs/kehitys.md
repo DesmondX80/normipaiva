@@ -61,6 +61,7 @@ rikos tuo aamulla Päivin kysymyksen, ja avoin keskustelu estää oven (vessa-ko
 puhtaalla kansiolla mutta ei pitkän ajon jälkeen, aja se uudella `AJO_KANSIO`:lla ennen kuin epäilet koodia.
 Kun main tuo uusia ääniä tai malleja, aja `godot --headless --path . --import` ennen testejä: muuten tiedostot puuttuvat
 tuontivälimuistista (`.godot/imported`) ja testit kaatuvat (esim. `voice_length` null).
+`--scene=pekanlaatikko`: Pekan vintin romut (`pekan_laatikko.gd`): laatikko vasta oman kirppispöydän jälkeen ja vain kerran, romut pöydälle, keräilijän, Anna-Liisan ja mummon repliikit, Pekan osuus (puolet romujen tuloista), saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt tilitys (kyyti kiinni, vihainen tervehdys) ja tallennus; rivit `PL OK` tai `TESTI VIKA`, kuvat `_pekka_laatikko`, `_keraaja`, `_poyta_lahi` (pöytä 2 × suurennettuna), `_annaliisa_taulu`, `_yhteenveto`, `_tilitys`, `_myohassa`.
 `--scene=kainuulista`: Gasthausin ruokalista (valinnat, nälän nollaus, köyhänä pois käytöstä).
 `--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).
 `--scene=kalalampi`: retkirunko ja Teeriniemen kalalampi (taksivalikko, matka, lupa, onkiminen, paluu ja kello; kuvat `_alue`, `_tiski`, `_ranta`, `_koho`, `_kirjolohi`, `_taimen`; `--shot=`).

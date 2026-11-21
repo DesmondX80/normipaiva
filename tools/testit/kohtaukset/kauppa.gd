@@ -17,7 +17,7 @@ const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
 
-const KOHTAUKSET := ["shop", "shoptest", "apteekki", "kmarket_vaala", "kirppismyynti", "reippari", "k18", "kirppis", "tarinamyynti", "maksamatta", "kauppapalautus", "kauppaovi", "shopfront", "shopsigns", "kauppalista"]
+const KOHTAUKSET := ["shop", "shoptest", "apteekki", "kmarket_vaala", "kirppismyynti", "pekanlaatikko", "reippari", "k18", "kirppis", "tarinamyynti", "maksamatta", "kauppapalautus", "kauppaovi", "shopfront", "shopsigns", "kauppalista"]
 
 var main: Main
 
@@ -405,6 +405,149 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await wait.call(0.5)
 			print("MY ulos pelistä: pelin lapsia %d, kävelijä aktiivinen %s" % [main.kirppis_int.get_children().filter(func(c): return c is KirppisMyynti).size(), main.kirppis_int.walker.controls_enabled])
 			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_my)
+		"pekanlaatikko":
+			# Pekan vintin romut (pekan_laatikko.gd): Pekka tarjoaa laatikon vasta oman kirppispöydän jälkeen, romut pöydälle,
+			# keräilijä, Anna-Liisa ja mummo ostavat, Pekan osuus, saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt
+			# tilitys (kyyti kiinni ja vihainen tervehdys) ja tallennus. Kuvat: Pekan puhe, pöytä ja lähikuva romuista,
+			# ostajat ja yhteenveto. Pelaajan tallennus palautetaan.
+			var saved_pl := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
+			var snap_pl := func(name: String) -> void:
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
+			var crop_pl := func(name: String, r: Rect2i, zoom: int) -> void:
+				await Kuva.piirto()
+				var img := Kuva.ruutu(main.get_viewport())
+				var k := Vector2(img.get_size()) / Vector2(1280, 720)  # pelin piirto on 1280 x 720 -koordinaateissa
+				var rr := Rect2i(Vector2i(Vector2(r.position) * k), Vector2i(Vector2(r.size) * k))
+				var part := img.get_region(rr)
+				part.resize(rr.size.x * zoom, rr.size.y * zoom, Image.INTERPOLATE_LANCZOS)
+				part.save_png(path.replace(".png", name))
+			var wait := func(sec: float) -> void:
+				await main.get_tree().create_timer(sec).timeout
+			var check := func(ok: bool, what: String) -> void:
+				print(("PL OK %s" if ok else "TESTI VIKA Pekan laatikko: %s") % what)
+			var pekka_opts := func() -> Array:
+				return main._talk_options("pekka").map(func(o: Dictionary) -> String: return "%s:%s" % [o.id, o.enabled])
+			main._note.visible = false
+			main.money = 20.0
+			main.maine = 40.0
+			main.day = 3
+			main.clock_min = 12 * 60
+			main._myynti_day = -1
+			main._myynti_ban = -1
+			main.bucket = {"puolukka": 2}
+			main.food = {}
+			main.beers = 0
+			main.pontikka = 0
+			main.story.step = "valmis"  # kyyti mökille auki: tilityksen vaikutus kyytiin näkyy
+			main.laatikko = Main.PekanLaatikko.new()
+			main.tilat.firsts.erase("oma_kirppispoyta")
+			main.tilat.firsts.erase("pekan_laatikko_tilitetty")
+			# 1. Ennen omaa pöytää Pekka ei tarjoa laatikkoa; jälkeen tarjoaa.
+			var o1: Array = pekka_opts.call()
+			check.call(not o1.any(func(x: String) -> bool: return x.begins_with("laatikko")), "ennen omaa pöytää ei laatikkoa %s" % [o1])
+			main.tilat.first("oma_kirppispoyta", 0.0)
+			var o2: Array = pekka_opts.call()
+			check.call("laatikko:true" in o2, "oman pöydän jälkeen laatikko tarjolla %s" % [o2])
+			main._talk_open("pekka", null)
+			main._talk_choose("laatikko")
+			await wait.call(0.4)
+			await snap_pl.call("_pekka_laatikko.png")
+			check.call(main.laatikko.given and main.laatikko.count() == 8, "laatikko annettu, 8 tavaraa (%d)" % main.laatikko.count())
+			var inv: Array = main.inventory_items().filter(func(it: Dictionary) -> bool: return it.icon == "laatikko")
+			check.call(inv.size() == 1 and inv[0].count == 8, "repussa Pekan romulaatikko")
+			check.call(not "laatikko:true" in pekka_opts.call(), "laatikko annetaan vain kerran")
+			main._talk_box.close()
+			# 2. Kirppiksen oma pöytä: romut ja puolukat pöydälle.
+			var st: Dictionary = main._myynti_stock()
+			check.call(st.get("lp", 0) == 3 and st.get("taulu", 0) == 1 and st.get("puolukka", 0) == 2, "pöytään kelpaa %s" % [st])
+			main._enter_kirppis("kirppis")
+			await wait.call(0.5)
+			main.kirppis_int.walker.position = Vector3(-3.4, 0, 3.4)
+			await wait.call(0.4)
+			main._oma_poyta()
+			var mg: Node = main.kirppis_int.get_children().filter(func(c): return c is KirppisMyynti).front()
+			check.call(mg != null, "myyntipeli auki")
+			await wait.call(1.6)
+			var force := func(type: String, item: String, qty: int, fair: float, limit: float, offer: float) -> void:
+				mg._b = {"type": type, "item": item, "qty": qty, "fair": fair, "limit": limit, "offer": offer,
+					"patience": 3, "under": false, "side": 1.0}
+				mg._counter = maxf(offer + 0.5, snappedf(fair * 1.15, 0.5))
+				mg._phase = "talk"
+				mg._bx = 640.0
+				mg._mood = 0
+				mg._open_line()
+			# 3. Keräilijä: vieherasia vastatarjouksella.
+			force.call("keraaja", "vieherasia", 1, 15.0, 22.0, 10.5)
+			await wait.call(0.3)
+			await snap_pl.call("_keraaja.png")
+			await crop_pl.call("_poyta_lahi.png", Rect2i(250, 330, 800, 175), 2)
+			check.call(mg._line.contains("Vanhoja uistimia") and mg._line.contains("keräilijähinta"), "keräilijän repliikki '%s'" % mg._line)
+			mg._counter = 18.0
+			mg._counter_offer()
+			check.call(int(mg._sold.get("vieherasia", 0)) == 1, "vieherasia myyty 18 €")
+			# 4. Anna-Liisa tunnistaa Pekan taulun.
+			force.call("annaliisa", "taulu", 1, 18.0, 17.0, 8.0)
+			await wait.call(0.3)
+			await snap_pl.call("_annaliisa_taulu.png")
+			check.call(mg._line.contains("Pekan tavaraa"), "Anna-Liisan repliikki '%s'" % mg._line)
+			mg._accept(8.0)
+			# 5. Mummo: kaksi LP-levyä.
+			force.call("mummo", "lp", 2, 10.0, 11.0, 5.0)
+			check.call(mg._line.contains("iskelmälevyjä"), "mummon repliikki '%s'" % mg._line)
+			mg._accept(10.0)
+			check.call(is_equal_approx(mg.pekka_share(), 18.0), "Pekan osuus pöydällä 18 € (%s)" % main._eur(mg.pekka_share()))
+			mg._summary()
+			await wait.call(0.3)
+			await snap_pl.call("_yhteenveto.png")
+			var money_before: float = main.money
+			mg._end()
+			await wait.call(0.6)
+			check.call(is_equal_approx(main.laatikko.owed, 18.0) and main.laatikko.owed_day == main.day, "Pekalle velkaa 18 € tältä päivältä")
+			check.call(main.laatikko.left.get("lp", 0) == 1 and not main.laatikko.left.has("vieherasia") and not main.laatikko.left.has("taulu"),
+				"laatikossa jäljellä %s" % [main.laatikko.left])
+			check.call(is_equal_approx(main.money, money_before + 36.0), "rahaa +36 € (koko myynti, Pekan osuus tilitetään erikseen)")
+			check.call(main._msg.text.contains("Pekan osuus %s €" % main._eur(18.0)), "viesti '%s'" % main._msg.text)
+			# 6. Saman päivän tilitys: maine +2 ja seuraava kyyti ilmainen.
+			var o3: Array = pekka_opts.call()
+			check.call("laatikko_tilita:true" in o3, "tilitys tarjolla %s" % [o3])
+			var m0: float = main.money
+			var r0: float = main.maine
+			main._talk_open("pekka", null)
+			main._talk_choose("laatikko_tilita")
+			await wait.call(0.4)
+			await snap_pl.call("_tilitys.png")
+			check.call(is_equal_approx(main.money, m0 - 18.0) and is_equal_approx(main.maine, r0 + 2.0) and main.laatikko.free_ride,
+				"tilitys: rahaa -18, maine +2, ilmainen kyyti")
+			var kyyti: Array = main._talk_options("pekka").filter(func(o: Dictionary) -> bool: return o.id == "kyyti")
+			check.call(not kyyti.is_empty() and kyyti[0].enabled and String(kyyti[0].text).contains("Pekan piikkiin"),
+				"kyyti ilmaiseksi '%s'" % (kyyti[0].text if not kyyti.is_empty() else ""))
+			check.call("pekan_laatikko_tilitetty" in main.tilat.firsts, "sivutehtävä merkitty tehdyksi")
+			main._talk_box.close()
+			# 7. Myöhästynyt tilitys: seuraavana päivänä kyyti kiinni ja vihainen tervehdys, maksu avaa kyydin.
+			main.laatikko.free_ride = false
+			main.laatikko.record_sale({"lp": 1}, {"lp": 6.0}, main.day)
+			main.day += 2  # päivä 5: päivänä 4 Pekan Volvo ei lähde (day % 6 == 4), joten kyyti olisi kiinni muutenkin
+			kyyti = main._talk_options("pekka").filter(func(o: Dictionary) -> bool: return o.id == "kyyti")
+			check.call(main.laatikko.angry(main.day) and not kyyti.is_empty() and not kyyti[0].enabled
+				and String(kyyti[0].reason).contains("kirppisrahojaan"), "myöhässä: kyyti kiinni (%s)" % (kyyti[0].reason if not kyyti.is_empty() else ""))
+			check.call(main._talk_hello("pekka").contains("puolikas"), "vihainen tervehdys '%s'" % main._talk_hello("pekka"))
+			main._talk_open("pekka", null)
+			main._talk_choose("laatikko_tilita")
+			await wait.call(0.3)
+			await snap_pl.call("_myohassa.png")
+			kyyti = main._talk_options("pekka").filter(func(o: Dictionary) -> bool: return o.id == "kyyti")
+			check.call(not main.laatikko.free_ride and main.laatikko.late_count == 1 and kyyti[0].enabled,
+				"myöhästynyt tilitys: ei palkkiota, kyyti auki (%s, myöhässä %d, kyyti '%s')" % [main.laatikko.free_ride, main.laatikko.late_count, kyyti[0].reason])
+			main._talk_box.close()
+			# 8. Tallennus ja lataus.
+			var cfg := ConfigFile.new()
+			main.laatikko.save_to(cfg)
+			var l2: RefCounted = Main.PekanLaatikko.new()
+			l2.load_from(cfg)
+			check.call(l2.given and l2.left == main.laatikko.left and is_equal_approx(l2.paid_total, 21.0) and l2.late_count == 1,
+				"tallennus: annettu, jäljellä %s, tilitetty %s €" % [l2.left, main._eur(l2.paid_total)])
+			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_pl)
 		"reippari":
 			# Saloisten Reippari (#115): luukku kiinni ja auki, ostos reppuun, ilmoitustaulu (Miisu), iltaporukan juoru,
 			# Miisu syliin ja Aarolle, lihapiirakkahaaste ennätyksineen (uusi loppu). Kuvat kioskista ja haasteesta.
