@@ -267,7 +267,7 @@ static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
 				var mid := (hip + hip_o) / 2.0
 				var side := (hip - hip_o)
 				side.y = 0
-				p = mid + fwd0 * 0.17 * (fr / 0.6) + side.normalized() * 0.05
+				p = mid + fwd0 * 0.12 * (fr / 0.6) + side.normalized() * 0.05  # 0,17 vei isovatsaisen kädet vatsan etureunan yli ilmaan
 			var top := top_y(pts, p, 0.04)
 			p.y = (top if top > -INF else p.y + 0.07) + 0.045
 			if p.distance_to(sh) <= arm_len * 0.93:
@@ -282,6 +282,9 @@ static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
 			elbow = (sh + p) / 2.0 + out_dir * 0.1 + fwd * 0.05 + Vector3(0, -0.05, 0)
 		var fingers := (knee - hip)
 		fingers.y = clampf(fingers.y, -0.15 * fingers.length(), 0.2 * fingers.length())  # kämmen alas, sormet reiden suuntaan (ei ylös)
+		if lap:  # sylissä sormet toista kättä kohti (kädet ristissä vatsan tai reisien päällä), ei eteen ilmaan
+			var other: Vector3 = space.to_local(ch.to_global(ch.bone_position("thigh" + ("_r" if lr == "_l" else "_l"))))
+			fingers = Vector3(other.x - hip.x, 0, other.z - hip.z).normalized() + fwd0 * 0.35
 		var gb := ch.global_transform.basis.inverse()
 		var sp := space.global_transform
 		ch.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, inv * (sp * p), inv * (sp * elbow))
@@ -525,15 +528,13 @@ static func _clear_torso(ch: Node3D) -> float:
 				for k in 3:
 					var p := a.lerp(b, lerpf(seg[2], seg[3], k / 2.0))
 					var d := INF
-					var near := p
 					for q in torso:
-						var dd := p.distance_to(q)
-						if dd < d:
-							d = dd
-							near = q
+						d = minf(d, p.distance_to(q))
 					if r - d > worst:
 						worst = r - d
-						away = Vector3(p.x - near.x, 0, p.z - near.z).normalized()
+			# Työntö vain sivulle (hahmon X, käden puolelle): lähimmästä pisteestä poispäin työntö vei nojatuolissa kyynärpään
+			# vatsan edestä taakse selkänojaan (käsivarret siipinä, olkavarret vartalon takana).
+			away = Vector3(signf(ch.bone_position("upperarm" + lr).x), 0, 0)
 			if rd == 0:
 				first = maxf(first, worst)
 			if worst > 0.003 and away != Vector3.ZERO:
