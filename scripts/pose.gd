@@ -245,10 +245,12 @@ static func feet_to_floor(ch: Node3D, floor_y: float, front: Vector3) -> void:
 
 ## Kämmenet reisille (lap: sylissä keskellä) pinnasta laskien. Kutsu vasta, kun jalka-IK on ollut voimassa yhden ruudun (limb_points
 ## paistaa nykyasennon). space = solmu, jonka avaruudessa pinta luetaan. Headless: varalla reisiluu.
-static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
+## Palauttaa true, kun polvet ovat korkealla (portaat): kämmenet polvilla, kyynärpäät sivuille.
+static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> bool:
 	# Pinta, jolle käsi laskeutuu: reidet ja vatsa (isovatsaisella vatsa on reisien päällä; ilman sitä kädet upposivat vatsaan).
 	var pts := limb_points(ch, space, ["thigh_l", "thigh_r", "pelvis", "spine_01"])
 	var inv := ch.global_transform.affine_inverse()
+	var any_up := false
 	for lr: String in ["_l", "_r"]:
 		var hip: Vector3 = space.to_local(ch.to_global(ch.bone_position("thigh" + lr)))
 		var knee: Vector3 = space.to_local(ch.to_global(ch.bone_position("calf" + lr)))
@@ -272,6 +274,16 @@ static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
 			p.y = (top if top > -INF else p.y + 0.07) + 0.045
 			if p.distance_to(sh) <= arm_len * 0.93:
 				break
+		var knees_up: bool = high and not lap
+		if knees_up:
+			# Portaat (polvet korkealla): kämmen polvella. Ranne (käden luun alku) reiden päällä juuri ennen polvea, jolloin kämmen
+			# on polvilumpion päällä ja sormet sen yli eteen-alas.
+			# Polvi on lähellä olkapäätä (portaalla n. 20 cm): ranne polvilumpion päällä, kyynärpää sivulle.
+			var pk := knee
+			var tk := top_y(pts, pk, 0.04)
+			pk.y = (tk if tk > -INF else pk.y + 0.07) + 0.03
+			p = pk
+			any_up = true
 		var out_dir := (Vector3(sh.x, 0, sh.z) - Vector3(hip.x, 0, hip.z)).normalized()
 		# Olkavarsi roikkuu kyljen vieressä: kyynärpää taakse-alas (ei eteen eikä sivulle), kyynärvarsi eteen reidelle
 		var fwd := fwd0
@@ -280,8 +292,12 @@ static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
 		var elbow := (sh + p) / 2.0 - fwd * 0.3 + out_dir * 0.12 + Vector3(0, -0.06, 0)
 		if lap:  # kyynärpäät sivulle ja eteen, ei selkänojan sisään
 			elbow = (sh + p) / 2.0 + out_dir * 0.1 + fwd * 0.05 + Vector3(0, -0.05, 0)
+		elif knees_up:  # kyynärvarsi reiden yllä: kyynärpää reiden puolivälin yläpuolella, ei kyljen takana (vei kyynärvarren reiden läpi)
+			elbow = sh + out_dir * 0.2 + fwd0 * 0.05 + Vector3(0, -0.25, 0)
 		var fingers := (knee - hip)
 		fingers.y = clampf(fingers.y, -0.15 * fingers.length(), 0.2 * fingers.length())  # kämmen alas, sormet reiden suuntaan (ei ylös)
+		if knees_up:  # sormet polvilumpion yli eteen-alas
+			fingers = fwd0 + Vector3(0, -0.6, 0)
 		if lap:  # sylissä sormet toista kättä kohti (kädet ristissä vatsan tai reisien päällä), ei eteen ilmaan
 			var other: Vector3 = space.to_local(ch.to_global(ch.bone_position("thigh" + ("_r" if lr == "_l" else "_l"))))
 			fingers = Vector3(other.x - hip.x, 0, other.z - hip.z).normalized() + fwd0 * 0.35
@@ -289,7 +305,7 @@ static func hands_on_thighs(ch: Node3D, space: Node3D, lap := false) -> void:
 		var sp := space.global_transform
 		ch.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, inv * (sp * p), inv * (sp * elbow))
 		ch.set_ik_orient("arm" + lr, palm_on(gb * (sp.basis * fingers), gb * Vector3.DOWN, lr == "_l"), 1.0)
-
+	return any_up
 
 
 ## Istumatyylit (Pose.sit): JAYKKA = mummot, pysty selkä, polvet 90°, kädet reisillä; SUORA = jakkara, portaat, penkki
@@ -375,14 +391,19 @@ static func sit(ch: Node3D, node: Node3D, style := SUORA, opts := {}) -> void:
 		if kr > 0.10:
 			if Contact.diag():
 				print("KONTAKTI polvet %s: polvi %.3f lonkan yläpuolella (jalat eivät yllä pidemmälle ilman kappaleisiin menoa)" % [node.name, kr])
+		var fs := _settle_feet(ch, node, seat_g.y)
+		if fs > 0.002 and Contact.diag():
+			print("KONTAKTI jalkapohja %s: %.3f tuen sisällä, nostettu" % [node.name, fs])
 	ch.refresh_pose()
 	var hands: String = str(opts.get("hands", ""))
 	var worst := 0.0
 	if hands != "" and (d.get("hands", {}) as Dictionary).has(hands):
 		_hands_on_spot(ch, node, d.hands[hands], front)
 	else:
-		hands_on_thighs(ch, par, rento_back)
-		worst = Contact.clear_arms(ch, prof)
+		# Polvet korkealla: kapselityöntö (clear_arms) on polven kohdalla verkkoa paksumpi ja työnsi kämmenen polvelta 11 cm ilmaan;
+		# rako mitataan verkosta (_fit_hands, _clear_torso).
+		if not hands_on_thighs(ch, par, rento_back):
+			worst = Contact.clear_arms(ch, prof)
 		if baked:
 			var tc := _clear_torso(ch)
 			if tc > 0.003 and Contact.diag():
@@ -499,6 +520,37 @@ static func _fit_hands(ch: Node3D) -> float:
 			if ov > 0.003:
 				print("KONTAKTI ranne %s%s: kyynärvarsi %.3f pinnan sisällä korjauksen jälkeen" % [ch.name, lr, ov])
 	return worst
+
+
+## Jalkapohjat tuen päälle mitatusta verkosta: alin jalkaterän ja varpaiden piste tukea vasten (askelma, lattia, maa). Pohjan
+## suuntaus (Contact.place_foot) käyttää luun lepoasentoa, ja kengän kantapää voi jäädä muutaman mm tuen sisään (Honganpalon
+## portaat: kanta 6,6 mm askelmassa, päkiä 0,6 mm yllä). Nostaa jalan IK-kohdetta vajeen verran. Palauttaa suurimman vajeen.
+static func _settle_feet(ch: Node3D, node: Node3D, seat_y: float) -> float:
+	var solids := Contact.world_solids(node)
+	var first := 0.0
+	for rd in 3:
+		ch.refresh_pose()
+		var moved := false
+		for lr: String in ["_l", "_r"]:
+			if not ch._ik.has("leg" + lr):
+				continue
+			var deficit := 0.0
+			for q in limb_points(ch, ch, ["foot" + lr, "ball" + lr]):
+				var g: Vector3 = ch.to_global(q)
+				var sup := Contact.support_y(solids, g.x, g.z, minf(g.y + 0.3, seat_y - 0.05))
+				sup = maxf(sup, Contact.ground_y(node, g.x, g.z, minf(g.y + 0.3, seat_y - 0.05)))
+				if sup > -INF:
+					deficit = maxf(deficit, sup - g.y)
+			if rd == 0:
+				first = maxf(first, deficit)
+			if deficit > 0.002:
+				var e: Array = ch._ik["leg" + lr]
+				e[3] = (e[3] as Vector3) + ch.global_transform.basis.inverse() * Vector3(0, deficit + 0.001, 0)
+				moved = true
+		if not moved:
+			break
+	ch.refresh_pose()
+	return first
 
 
 ## Käsivarret irti vartalosta: olkavarren loppupuoli ja kyynärvarren alkupuoli (kyynärpää) eivät saa mennä vatsan tai

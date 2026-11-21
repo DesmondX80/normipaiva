@@ -50,18 +50,24 @@ func run() -> void:
 	for i in 6:
 		await main.get_tree().process_frame
 	var bp := func(b: String) -> Vector3: return stairs.to_local(t.to_global(t.bone_position(b)))
-	for b in ["pelvis", "thigh_l", "calf_l", "foot_l", "thigh_r", "calf_r", "foot_r"]:
+	for b in ["pelvis", "thigh_l", "calf_l", "foot_l", "thigh_r", "calf_r", "foot_r", "upperarm_l", "lowerarm_l", "hand_l"]:
 		print("PORTAAT luu %s %s" % [b, bp.call(b)])
 	var bad := Asento.report(t, room, [["upperarm_l", "lowerarm_l", "hand_l"], ["upperarm_r", "lowerarm_r", "hand_r"]],
 		["pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r"])
 	var solids := Contact.world_solids(stairs)
 	for lr: String in ["_l", "_r"]:
 		var low := INF
-		for q in Pose.limb_points(t, main.world, ["foot" + lr, "ball" + lr]):
-			var g: Vector3 = main.world.to_global(q)
-			var sup := Contact.support_y(solids, g.x, g.z, g.y + 0.3)
-			if sup > -INF:
-				low = minf(low, g.y - sup)
+		for bn in ["foot" + lr, "ball" + lr]:
+			var lb := INF
+			var at := Vector3.ZERO
+			for q in Pose.limb_points(t, main.world, [bn]):
+				var g: Vector3 = main.world.to_global(q)
+				var sup := Contact.support_y(solids, g.x, g.z, g.y + 0.3)
+				if sup > -INF and g.y - sup < lb:
+					lb = g.y - sup
+					at = stairs.to_local(g)
+			print("PORTAAT %s alin %.4f kohdassa %s" % [bn, lb, at])
+			low = minf(low, lb)
 		print("PORTAAT jalkapohja%s alin %.4f m %s" % [lr, low, "VIRHE" if low < -0.005 else "OK"])
 		if low < -0.005:
 			bad += 1
