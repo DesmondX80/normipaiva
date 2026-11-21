@@ -4234,6 +4234,7 @@ func _sinikka_sun_test(frames: Callable, snap: Callable) -> void:
 	# K7: ruutuaika rannalla, aurinko-Sinikka näkyvissä ja piilossa.
 	walker_out.global_position = ap + side * 6.0 + Vector3(0, 0.3, 0)
 	var ms := []
+	var info := []  # [kutsuja, kolmioita] per tila
 	for c in [13 * 60, 11 * 60 + 59]:  # 11.59: sama valo, mutta Sinikka piilossa (_pohjoiset_visuals)
 		clock_min = c
 		await frames.call(8)
@@ -4241,14 +4242,14 @@ func _sinikka_sun_test(frames: Callable, snap: Callable) -> void:
 		for i in 12:  # testipiirrossa ruutu voi kestää sekunteja: 12 ruutua riittää keskiarvoon
 			await get_tree().process_frame
 		ms.append((Time.get_ticks_usec() - t0) / 12000.0)
-		print("AS piirto klo %d: kutsuja %d, kolmioita %d, objekteja %d" % [c / 60,
-			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
-			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
-			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)])
-	print("AS ruutu rannalla %.1f ms (Sinikka piilossa %.1f ms)" % [ms[0], ms[1]])
-	# Testiajon ruutu on ohjelmistopiirron takia satoja ms; vika, jos Sinikka hidastaa yli 10 % (16,7 ms tavoite pelikoneella).
-	if ms[0] > ms[1] * 1.1:
-		vika.call("ruutu %.1f ms, Sinikka hidastaa yli 10 %%" % ms[0])
+		info.append([RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)])
+		print("AS piirto klo %d: kutsuja %d, kolmioita %d" % [c / 60, info[-1][0], info[-1][1]])
+	print("AS ruutu rannalla %.1f ms (Sinikka piilossa %.1f ms, vain tiedoksi)" % [ms[0], ms[1]])
+	# Ruutuaika ohjelmistopiirrossa (llvmpipe) heittelee ±15 % ajosta toiseen, joten raja on piirtomäärissä: Sinikka
+	# välineineen saa lisätä enintään 100 piirtokutsua ja 40 000 kolmiota (mitattu 60 ja 11 000; ruudussa 1,2 milj.).
+	if info[0][0] - info[1][0] > 100 or info[0][1] - info[1][1] > 40000:
+		vika.call("Sinikka lisää %d piirtokutsua ja %d kolmiota" % [info[0][0] - info[1][0], info[0][1] - info[1][1]])
 	for c in [11, 18]:
 		clock_min = c * 60
 		await frames.call(5)
