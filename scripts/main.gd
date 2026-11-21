@@ -23395,6 +23395,17 @@ func _maybe_screenshot() -> void:
 			var tarkistettava: GDScript = load("res://tools/testit/kohtaukset/%s.gd" % ryhma)
 			var kaantyy := tarkistettava != null and tarkistettava.can_instantiate()
 			print("KOHTAUSTARKISTUS %s: %s" % [ryhma, "OK" if kaantyy else "TESTI VIKA ei käänny"])
+		# Muut testiskriptit (tools/testit/*.gd): pelin sisällä, jotta autoloadit (Settings, Sfx) ovat olemassa.
+		var rikki := 0
+		var tiedostot := DirAccess.get_files_at("res://tools/testit")
+		for tiedosto: String in tiedostot:
+			if tiedosto.get_extension() != "gd":
+				continue
+			var testi: GDScript = load("res://tools/testit/" + tiedosto)
+			if testi == null or not testi.can_instantiate():
+				rikki += 1
+				print("KOHTAUSTARKISTUS tools/testit/%s: TESTI VIKA ei käänny" % tiedosto)
+		print("KOHTAUSTARKISTUS testiskriptit: %d tiedostoa, %d ei käänny" % [Array(tiedostot).filter(func(t: String) -> bool: return t.get_extension() == "gd").size(), rikki])
 		get_tree().quit()
 		return
 	if kohtaukset != null:

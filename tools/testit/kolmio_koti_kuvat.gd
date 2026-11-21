@@ -4,7 +4,6 @@ extends "res://tools/testit/kolmio_kuvat.gd"
 ## edestä, sivulta ja ylhäältä, laatikon pitely lähikuvina sekä aamu Päivin keittiössä. Otteen rako (_rako), kädet
 ## vartalosta (_kasi_vartaloon) ja läpimenot (Asento.solids, "LÄPI … -> …" = VIKA) kuten kolmio_kuvat.gd.
 ## tools/testit/aja.sh tscn tools/testit/kolmio_koti_kuvat.tscn
-const Kuva := preload("res://tools/testit/kuva.gd")
 
 
 func _run() -> void:
