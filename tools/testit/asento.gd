@@ -395,3 +395,35 @@ static func _ground(ch: Node3D, space: Node3D, bones: Array) -> int:
 			found += 1
 			print("LÄPI %s -> maa (%s) pisteitä %d syvin %.3f m, maa y %.3f" % [ch.name, grp[0], n, deepest, gy])
 	return found
+
+
+## Diagnostiikka (ei vikalaskuria): raajan todellinen 3D-limitys pintaan. Jokaisessa näytepisteessä d = luun keskilinjan
+## etäisyys lähimpään pinnan pisteeseen, r = raajan oma paksuus (raajan verkon pisteiden mediaanietäisyys luusta) ja
+## limitys = r - d (> 0: raajan iho pinnan sisällä). Tulostaa rivin "RAKO3D luu t d r limitys" pahimmista pisteistä.
+static func report_3d(ch: Node3D, space: Node3D, chains: Array, surface: Array) -> void:
+	var pts := Pose.limb_points(ch, space, surface)
+	if pts.is_empty():
+		return
+	for chain in chains:
+		for i in chain.size() - 1:
+			var bone: String = chain[i]
+			var a: Vector3 = space.to_local(ch.to_global(ch.bone_position(bone)))
+			var b: Vector3 = space.to_local(ch.to_global(ch.bone_position(chain[i + 1])))
+			var own := Pose.limb_points(ch, space, [bone])
+			var ds := []
+			for q in own:
+				var ab := b - a
+				var t := clampf((q - a).dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
+				ds.append(q.distance_to(a + ab * t))
+			ds.sort()
+			var r: float = ds[ds.size() / 2] if not ds.is_empty() else RAJA
+			for s in 5:
+				var t := s / 4.0
+				if i == 0 and t < 0.5:
+					continue  # olkanivel
+				var p := a.lerp(b, t)
+				var d := INF
+				for q in pts:
+					d = minf(d, p.distance_to(q))
+				if r - d > 0.0:
+					print("RAKO3D %s t=%.2f d=%.3f r=%.3f limitys=%.3f" % [bone, t, d, r, r - d])
