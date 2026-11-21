@@ -3,6 +3,7 @@ extends Node
 ## "$(tools/testit/godot.sh)" --path . --resolution 1280x720 -- --shot=x.png --scene=asennot --asento=0
 
 const Pose := preload("res://scripts/pose.gd")
+const Contact := preload("res://scripts/contact.gd")
 const Asento := preload("res://tools/testit/asento.gd")
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -43,8 +44,14 @@ func run() -> void:
 	for i in 3:
 		await main.get_tree().process_frame
 	Pose.hands_on_thighs(ch, room)
+	# Kuten pelissä (Pose istutus): kädet ensin reisille, sitten kyynärvarret irti jaloista (Contact.clear_arms).
+	for i in 2:
+		await main.get_tree().process_frame
+	Contact.clear_arms(ch, Contact.profile(ch, Pose.limb_points))
 	for i in 3:
 		await main.get_tree().process_frame
+	if main._talk_box.is_open():
+		main._talk_box.close()  # päivän alun puhe (Päivin kuulustelu) peitti kuvat
 	var cam := Camera3D.new()
 	room.add_child(cam)
 	cam.current = true
