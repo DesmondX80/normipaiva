@@ -124,8 +124,9 @@ func run(path: String) -> void:
 	# Peruminen: valinnat palaavat ja päävalikko aukeaa.
 	ed._finish(false)
 	await _odota(3)
-	_tarkista(main.menu.editor == null and main.menu._mode == "main" and Looks.custom == asut[-1][2],
-		"peruminen: päävalikko, valinnat ennallaan (%s)" % [Looks.custom])
+	# Editori avattiin oletuksilla, joten peruminen palauttaa oletukset (testin omat asetukset ja arvonta kumoutuvat).
+	_tarkista(main.menu.editor == null and main.menu._mode == "main" and Looks.custom.is_empty(),
+		"peruminen: päävalikko (%s), valinnat kuten ennen editoria (%s)" % [main.menu._mode, Looks.custom])
 	# Hyväksyntä: mallit vaihtuvat, peli jatkuu ja valinnat tallentuvat.
 	Looks.custom = {}
 	main.menu.open_editor(false)
@@ -152,7 +153,9 @@ func run(path: String) -> void:
 	for n in mallit:
 		if is_equal_approx(float(n.body_shape.belly), 1.0) and (n.body_mat.get_shader_parameter("shirt") as Color).is_equal_approx(Color(0.5, 0.07, 0.14)):
 			oikein += 1
-	_tarkista(main.menu.editor == null and not main.get_tree().paused and main._hud.visible, "hyväksyntä: peli käynnissä, HUD näkyy")
+	# HUD:n näkyvyyttä ei tarkisteta: aja.sh ajaa kohtaukset --nohud-valinnalla.
+	_tarkista(main.menu.editor == null and not main.menu.visible and not main.get_tree().paused,
+		"hyväksyntä: editori ja valikko kiinni, peli käynnissä (valikko %s, tauko %s)" % [main.menu.visible, main.get_tree().paused])
 	_tarkista(Looks.custom == valinta and oikein == mallit.size() and oikein > 0, "pelaajan mallit vaihtuivat: %d / %d" % [oikein, mallit.size()])
 	var cfg := ConfigFile.new()
 	cfg.load(Main.SAVE_PATH)

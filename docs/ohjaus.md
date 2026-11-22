@@ -97,7 +97,8 @@ ulkonäkö kuin ennen editoria, joten vanhat tallennukset eivät muutu.
 
 Kamera siirtyy rivin mukaan: pään valinnoissa lähikuva, mahassa ja puvussa koko hahmo. Valinnat näkyvät kaikissa
 pelaajan malleissa (pyörä, kävely, sisätilat, mopo, minipelit, välianimaatiot) ja kaikissa asuissa; puvun väri koskee
-vain tuulipukua, ja lasit ja lippis näkyvät vain asuissa, joissa ne ovat. Rasvaletin kanssa ei pidetä lippistä.
+vain tuulipukua, ja lasit ja lippis näkyvät vain asuissa, joissa ne ovat. Rasvaletin ja pitkän tukan päälle lippis ei
+mahdu (stetson, Karhu-koppa ja otsapanta mahtuvat). Tukan ja hiusten värin riveillä lippis on esikatselussa hetken pois.
 Valinnat tallentuvat pelin mukana (`pelaaja/hahmo`).
 
 ## Tallennus
