@@ -95,11 +95,9 @@ static func _apply_custom(look: Dictionary) -> void:
 	look.skin = custom_opt("iho")[2]
 	look.merge(custom_opt("keho")[2], true)
 	if look.get("model", "male") == "female":
-		# Naisen keholla nahkaliivi on kiinni (ei paljasta karvaista rintaa).
-		for k in ["vest_open", "chest_hair", "body_hair"]:
+		# Asut ovat naisen keholla samat kuin miehellä (avonainen nahkaliivi, repaleinen verkkopaita); vain rintakarvat pois.
+		for k in ["chest_hair", "body_hair"]:
 			look.erase(k)
-		# Repaleinen verkkopaita näyttäisi paljaan rinnan repeämistä: naisen keholla sen tilalla on ehjä valkoinen aluspaita.
-		look.erase("net_shirt")
 	var maha: Array = custom_opt("maha")[2]
 	look.belly = maha[0]
 	look.sag = maha[1]
