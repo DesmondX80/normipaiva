@@ -91,7 +91,8 @@ const TYPES := {
 		"sandal": {"toe": 0.04, "w": 0.022, "ankle": 0.082, "thick": 0.0028}},
 	# Släbärit ja villasukat yhtenä kenkänä (pelaajan kirppisjalkineet): villasukka on umpinainen kuori jalan ympärillä
 	# (sock: päällinen rakennetaan kuten lenkkarissa, tiukka ja pyöreäkärkinen) ja sen varsi nousee puoleen sääreen
-	# lahkeen päälle (shaft: pehmeä, painot iholta, ohut; lahje varren sisään kuten saappaissa). Alla paksu muotoiltu
+	# lahkeen päälle (shaft: pehmeä, painot iholta, löysä: pad 11 mm ja yläreuna 6 mm leveämpi; lahje varren sisään
+	# kuten saappaissa). Alla paksu muotoiltu
 	# släbärin pohja (2,6 cm) ja päällä yksi leveä remmi jalkapöydän yli (sandal.single, osa 3: remmi lasketaan sukan
 	# pinnasta). Varjostin style 8: sukka harmaa neule (varressa resori), valkoinen kanta ja kärki; pohja ja remmi
 	# tummansiniset, remmissä kolme valkoista raitaa.
@@ -99,7 +100,7 @@ const TYPES := {
 		"toe_round": 1.0, "toe_n": 2.2, "toe_h": 0.96, "toe_low": 0.3, "collar": 0.012, "spring": 0.0,
 		"sole_col": Color(0.08, 0.09, 0.12), "rough": 0.97, "sole_rough": 0.7, "style": 8, "spec": 0.15, "clearcoat": 0.0,
 		"sock": true, "sandal": {"toe": 0.06, "w": 0.072, "ankle": 0.0, "thick": 0.003, "single": true, "part": 3.0},
-		"shaft": {"join": 0.085, "top": 0.2, "top_k": 0.42, "pad": 0.004, "rigid": false, "gap": 0.001, "flare": 0.0}},
+		"shaft": {"join": 0.085, "top": 0.2, "top_k": 0.42, "pad": 0.011, "rigid": false, "gap": 0.001, "flare": 0.006}},
 	"paljas": {},
 }
 
