@@ -598,7 +598,6 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	_shoe_lift = 0.0
 	body_mat.set_shader_parameter("shoe_on", false)
 	body_mat.set_shader_parameter("foot_skin", false)
-	body_mat.set_shader_parameter("sock_on", false)
 	body_mat.set_shader_parameter("shoe_top", -10.0)
 	body_mat.set_shader_parameter("bare_foot_mode", 0)
 	if shoe_type == "paljas":
@@ -640,6 +639,10 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 		sm.set_shader_parameter("shaft_h", float(mesh.get_meta("varsi_h", float(t.shaft.top) + float(t.lift) - float(t.sole))))  # yläreuna kuoren alapinnasta
 	if mesh.has_meta("remmi"):
 		sm.set_shader_parameter("strap_u", mesh.get_meta("remmi"))  # släbärin raidat
+	if t.get("sock", false):  # släbärin villasukka (look.socks = {"col", "tip"})
+		var socks: Dictionary = look.get("socks", {})
+		sm.set_shader_parameter("sock_col", socks.get("col", Color(0.44, 0.44, 0.46)))
+		sm.set_shader_parameter("sock_tip", socks.get("tip", Color(0.93, 0.92, 0.89)))
 	var mi := MeshInstance3D.new()
 	mi.name = "Kengat"
 	mi.mesh = mesh
@@ -653,29 +656,14 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	shoe_mi = mi
 	_shoe_lift = float(mesh.get_meta("pohja"))
 	shoe_sole = _shoe_lift * _scale
-	if t.has("sandal"):  # avoin kenkä: jalkaterä näkyy ihona pohjalaatan päällä, kynnet lakattu (nail_col)
+	if t.has("sandal") and not t.get("sock", false):  # avoin kenkä: jalkaterä näkyy ihona pohjalaatan päällä, kynnet lakattu (nail_col)
 		body_mat.set_shader_parameter("foot_skin", true)
-		var single: bool = (t.sandal as Dictionary).get("single", false)  # släbäri: kynnet luonnolliset, ei kengän väriä
-		body_mat.set_shader_parameter("nail_col", look.get("nails", Color(0.93, 0.8, 0.75) if single else look.get("shoes", Color(0.8, 0.08, 0.1))))
+		body_mat.set_shader_parameter("nail_col", look.get("nails", look.get("shoes", Color(0.8, 0.08, 0.1))))
 		var kf: PackedFloat32Array = mesh.get_meta("kynnet", PackedFloat32Array())
 		var nails: Array[Vector4] = []
 		for i in 10:
 			nails.append(Vector4(kf[i * 4], kf[i * 4 + 1], kf[i * 4 + 2], kf[i * 4 + 3]) if kf.size() >= i * 4 + 4 else Vector4(0, -10, 0, 0))
 		body_mat.set_shader_parameter("nails", nails)
-		# Villasukat (look.socks = {"col", "tip"}): jalkaterä sukkana, kanta ja kärki tip-värillä (shoes.gd meta "sukka").
-		var socks: Dictionary = look.get("socks", {})
-		var sk: PackedFloat32Array = mesh.get_meta("sukka", PackedFloat32Array())
-		if not socks.is_empty() and sk.size() >= 16:
-			body_mat.set_shader_parameter("sock_on", true)
-			body_mat.set_shader_parameter("sock_col", socks.get("col", Color(0.55, 0.55, 0.57)))
-			body_mat.set_shader_parameter("sock_tip", socks.get("tip", Color(0.92, 0.91, 0.88)))
-			var sa: Array[Vector4] = []
-			var sb: Array[Vector4] = []
-			for i in 2:
-				sa.append(Vector4(sk[i * 8], sk[i * 8 + 1], sk[i * 8 + 2], sk[i * 8 + 3]))
-				sb.append(Vector4(sk[i * 8 + 4], sk[i * 8 + 5], sk[i * 8 + 6], 0.0))
-			body_mat.set_shader_parameter("sock_a", sa)
-			body_mat.set_shader_parameter("sock_b", sb)
 		return
 	body_mat.set_shader_parameter("shoe_on", true)
 	body_mat.set_shader_parameter("shoe_cut", Vector4(0, 0, 1, 10.0))  # suljettu kenkä: koko jalkaterä tason takana

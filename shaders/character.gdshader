@@ -45,14 +45,6 @@ uniform bool shoe_on = false;
 uniform bool foot_skin = false;
 uniform vec3 nail_col : source_color = vec3(0.8, 0.08, 0.1);
 uniform vec4 nails[10];  // varpaankynnet: lepopaikka (x, y, z) ja säde (shoes.gd meta "kynnet")
-// Villasukat avoimessa kengässä (släbärit): jalkaterä neulottuna sukkana, kanta ja kärki eri värillä, ei kynsiä.
-// sock_a[i] = jalan i eteen-suunta (x, y, z) ja puoli (lepo-x:n merkki), sock_b[i] = kärjen raja ja kannan raja
-// (dot(eteen, lepopaikka)) ja kantapalan yläraja (lepo-y) (shoes.gd meta "sukka").
-uniform bool sock_on = false;
-uniform vec3 sock_col : source_color = vec3(0.55, 0.55, 0.57);
-uniform vec3 sock_tip : source_color = vec3(0.92, 0.91, 0.88);
-uniform vec4 sock_a[2];
-uniform vec4 sock_b[2];
 uniform vec4 shoe_cut = vec4(0.0, 0.0, 1.0, 10.0);
 // Varrellinen kenkä (shoes.gd meta "varsi"): varren yläreunan lepo-y (UV2.y). Lahje painuu varren sisään ja pöyhistyy
 // yläreunan yllä takaisin omaan arvoonsa (kuin housut työnnettynä varteen). -10 = ei vartta.
@@ -579,30 +571,6 @@ void fragment() {
 		ROUGHNESS = 0.55;
 		SSS_STRENGTH = 0.35;
 		skin_amt = 1.0;
-		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
-	} else if (sandal_foot && sock_on) {
-		// Villasukka: neulepinta (silmukkarivit pystyyn ja V-silmukat), melanssilanka, valkoinen kanta ja kärki.
-		vec3 rp = vec3(rest, rest_zn.x);
-		int fi = (sign(rp.x) == sign(sock_a[0].w)) ? 0 : 1;
-		vec3 fw = normalize(sock_a[fi].xyz);
-		float tt = dot(fw, rp);
-		float aa = max(fwidth(tt), 0.0006);
-		float toe = smoothstep(sock_b[fi].x - aa, sock_b[fi].x + aa, tt);
-		float heel = (1.0 - smoothstep(sock_b[fi].y - aa, sock_b[fi].y + aa, tt)) * (1.0 - smoothstep(sock_b[fi].z - 0.003, sock_b[fi].z + 0.003, rp.y));
-		vec3 col = mix(sock_col, sock_tip, max(toe, heel));
-		vec3 lat = normalize(cross(vec3(0.0, 1.0, 0.0), fw));
-		float col_u = dot(lat, rp) * 260.0 + rp.y * 40.0;  // silmukkarivit
-		float row_v = tt * 330.0;
-		float v_st = abs(fract(col_u) - 0.5) * 2.0;
-		float knit = smoothstep(0.15, 0.45, abs(fract(row_v + v_st * 0.5) - 0.5) * 2.0);
-		float mel = fract(sin(dot(floor(vec2(col_u, row_v)), vec2(12.9898, 78.233))) * 43758.5453);
-		float fadek = clamp(1.0 - fwidth(col_u) * 0.6, 0.0, 1.0);  // kaukaa tasainen (ei moiréta)
-		col *= 1.0 - fadek * (0.12 * (1.0 - knit) + 0.08 * mel);
-		col *= 0.82 + 0.25 * lum;
-		ALBEDO = col;
-		ROUGHNESS = 0.97;
-		SPECULAR = 0.15;
-		SSS_STRENGTH = 0.0;
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 	} else if (sandal_foot) {
 		// Sandaalin jalkaterä: sama tasainen ihonsävy kuin paljaalla säärellä, varpaankynnet lakattu (kiiltävä).

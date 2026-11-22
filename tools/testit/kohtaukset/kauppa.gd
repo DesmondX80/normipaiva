@@ -465,7 +465,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._on_wardrobe("slabarit")
 			await wait.call(0.4)
 			var pb: Node3D = body.call()
-			check.call(Looks.feet == "slabarit" and pb != null and pb.shoe_type == "slabari" and pb.body_mat.get_shader_parameter("sock_on"),
+			check.call(Looks.feet == "slabarit" and pb != null and pb.shoe_type == "slabari",
 				"jalassa släbärit ja villasukat (%s)" % (pb.shoe_type if pb != null else "ei mallia"))
 			if main.player == main.bike:
 				main._toggle_mount()
@@ -494,7 +494,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._on_wardrobe("slabarit")  # pois
 			await wait.call(0.3)
 			pb = body.call()
-			check.call(Looks.feet == "" and pb.shoe_type == "lenkkari" and not pb.body_mat.get_shader_parameter("sock_on"), "omat kengät takaisin (%s)" % pb.shoe_type)
+			check.call(Looks.feet == "" and pb.shoe_type == "lenkkari", "omat kengät takaisin (%s)" % pb.shoe_type)
 			main._set_boots("jalassa")
 			main._on_wardrobe("slabarit")
 			check.call(Looks.feet == "" and String(main._msg.text).contains("Kumisaappaat"), "saappaat jalassa: ensin pois '%s'" % main._msg.text)

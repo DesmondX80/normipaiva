@@ -36,7 +36,7 @@ static var boots := ""
 ## 90-luvun släbärit ja harmaat villasukat (kirppikseltä). Kumisaappaat menevät näiden edelle, hiihtohaalarissa kuukengät.
 static var feet := ""
 const SLABARI_COL := Color(0.08, 0.13, 0.36)  # tummansininen remmi ja pohja, raidat valkoiset (shoe.gdshader style 8)
-const VILLASUKAT := {"col": Color(0.55, 0.55, 0.57), "tip": Color(0.93, 0.92, 0.89)}  # harmaa, valkoinen kanta ja kärki
+const VILLASUKAT := {"col": Color(0.44, 0.44, 0.46), "tip": Color(0.93, 0.92, 0.89)}  # harmaa, valkoinen kanta ja kärki (shoe.gdshader style 8)
 
 
 ## Pelaajan ulkonäkö valitussa asussa (Looks.make lisää asusteet, add_cap lippiksen asun mukaan).
