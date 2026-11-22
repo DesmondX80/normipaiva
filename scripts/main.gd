@@ -332,6 +332,8 @@ const Tokola := preload("res://scripts/tokola.gd")
 const TokolaVarasto := preload("res://scripts/tokola_varasto.gd")
 const SuloPannu := preload("res://scripts/sulo_pannu.gd")
 const PekanLaatikko := preload("res://scripts/pekan_laatikko.gd")
+const Kaisua := preload("res://scripts/kaisua.gd")
+const KaisuaTila := preload("res://scripts/kaisua_tila.gd")
 const KertunRauta := preload("res://scripts/kertun_rauta.gd")
 const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
 const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
@@ -464,6 +466,7 @@ var hs_teens: Node3D  # kaukalon iltateinit (saloinen_teinit.gd)
 var _hs_group := ""  # Saloisten myynnin ostajaryhmä: "kaukalo" / "laavu" (tappelun jälkeen ei_osta)
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var laatikko: RefCounted  # Pekan vintin romulaatikko kirppikselle (pekan_laatikko.gd)
+var kaisua_tila: KaisuaTila  # Kaisuan tilan pellot, paalit, koneet ja palkat (kaisua.gd, kaisua_tila.gd)
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
 var lemmikki: RefCounted  # Lemmikki Enkelit ja Pörrön muistokyltti (lemmikki_enkelit.gd, #148)
 var kanttori: RefCounted  # legenda: Kanttorilan yösävel (kanttori_legenda.gd, #144)
@@ -1320,6 +1323,8 @@ func _ready() -> void:
 	tokola = Tokola.new()
 	pannu = SuloPannu.new()
 	laatikko = PekanLaatikko.new()
+	kaisua_tila = KaisuaTila.new()
+	Kaisua.tila = kaisua_tila
 	kertun = KertunRauta.new()
 	aarni = Aarnivalkea.new()
 	pyhimys = PyhimysLegenda.new()
@@ -1792,6 +1797,8 @@ func _thief_abandon() -> void:
 func _mount_logic() -> void:
 	if _talk_box.is_open():
 		return
+	if Engine.get_process_frames() == _kaisua_frame or _kaisua_driving():
+		return  # Kaisuan koneisiin ja niistä pois F:llä (_kaisua_logic), ei pyörää samalla painalluksella
 	var e: bool = Input.is_action_just_pressed("mount") and not player.is_stunned()
 	# Mökillä mopo parkissa: selkään kuten pyörän, matka alkaa heti (Vaalan maailma on jo rakennettu).
 	if e and player == walker_out and mokki != null and mokki.built and mokki.mopo_parked.visible \
@@ -1844,6 +1851,8 @@ func _outside_logic() -> void:
 		return
 	# Mökillä vain mökin omat toiminnot: kauppareissu, jemmat ja kylän tapahtumat odottavat Saloisissa.
 	if _at_mokki():
+		if _kaisua_logic():
+			return
 		_drone_logic()
 		_mokki_ride_logic()
 		_viina_logic()
@@ -15546,6 +15555,85 @@ func _pekka_ride() -> void:
 
 
 ## Mökillä: jutut Santun kanssa, Santun hommat, savusauna, palju, tikanheitto, laituri ja metsästyslava.
+## Kaisuan tila (kaisua.gd): traktorin ja puimurin ratissa kaikki toiminnot ovat tilan omia; jalan isäntä, pirtti ja
+## koneisiin nousu. Palauttaa true, kun tila otti vuoron (muut mökin toiminnot ohitetaan).
+func _kaisua_logic() -> bool:
+	if mokki == null or mokki.kaisua == null or not mokki.kaisua.built:
+		return false
+	var k: Node3D = mokki.kaisua
+	if not k.has_meta("kytketty"):
+		k.set_meta("kytketty", true)
+		k.message.connect(func(t: String, secs: float) -> void: _show_message(t, secs))
+		k.paid.connect(_kaisua_paid)
+		k.legend.connect(func(id: String) -> void: _ending(id))
+		k.food_eaten.connect(_kaisua_food)
+		k.beers_given.connect(func(n: int) -> void:
+			beers += n
+			_set_beer_carry())
+		k.mount.connect(_kaisua_mount)
+		k.dismount.connect(_kaisua_dismount)
+	k.advance_day(day)
+	var driving: bool = player == k.traktori or player == k.puimuri
+	if not driving and (player != walker_out or _hint.text != "" or player.is_stunned() or not walker_out.controls_enabled):
+		return false
+	var e := Input.is_action_just_pressed("interact")
+	var f := Input.is_action_just_pressed("mount")
+	var q := Input.is_action_just_pressed("bell")
+	var hint: String = k.logic(player, walker_out, e, f, q, get_process_delta_time())
+	if hint != "":
+		_hint.text = hint
+	driving = player == k.traktori or player == k.puimuri  # F nousi tai laskeutui juuri
+	_mopo_label.visible = driving
+	if driving:
+		_mopo_label.text = k.status
+	return driving or hint != ""
+
+
+var _kaisua_frame := -1  # ruutu, jolla noustiin Kaisuan koneeseen tai siitä pois (F ei mene pyörälle)
+
+
+func _kaisua_driving() -> bool:
+	return mokki != null and mokki.kaisua != null and mokki.kaisua.built and \
+		(player == mokki.kaisua.traktori or player == mokki.kaisua.puimuri)
+
+
+func _kaisua_paid(amount: float, why: String) -> void:
+	money += amount
+	if why != "":
+		_show_message("%s: +%s €" % [why, _eur(amount)], 1.6)
+
+
+func _kaisua_food() -> void:
+	tilat.add("nalka", 0.7)
+	tilat.add("stressi", 0.15)
+	tilat.add("vireys", 0.1)
+	Sfx.play("door", -6.0)
+	_save_game()
+
+
+func _kaisua_mount(v: Node3D) -> void:
+	_kaisua_frame = Engine.get_process_frames()
+	walker_out.controls_enabled = false
+	walker_out.speed = 0.0
+	walker_out.velocity = Vector3.ZERO
+	walker_out.visible = false
+	walker_out.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # pois fysiikasta: kone ei törmää kuskiin
+	_set_avatar(v)
+
+
+func _kaisua_dismount(v: Node3D, pos: Vector3) -> void:
+	_kaisua_frame = Engine.get_process_frames()
+	walker_out.global_position = pos
+	walker_out.velocity = Vector3.ZERO
+	walker_out.visible = true
+	walker_out.process_mode = Node.PROCESS_MODE_INHERIT
+	walker_out.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
+	walker_out.controls_enabled = true
+	walker_out.rotation.y = v.global_rotation.y
+	_set_avatar(walker_out)
+	_save_game()
+
+
 func _mokki_logic() -> void:
 	var p := player.global_position
 	var mc := mokki.global_position
@@ -21435,6 +21523,7 @@ func _load_game() -> void:
 	tokola.load_from(cfg)
 	pannu.load_from(cfg)
 	laatikko.load_from(cfg)
+	kaisua_tila.load_from(cfg)
 	kertun.load_from(cfg)
 	_pohjoiset_load(cfg)
 	aarni.load_from(cfg)
@@ -21686,6 +21775,10 @@ func _save_game() -> void:
 		pannu.save_to(cfg)
 	if laatikko != null:
 		laatikko.save_to(cfg)
+	if kaisua_tila != null:
+		if mokki != null and mokki.kaisua != null:
+			mokki.kaisua.sync_state()
+		kaisua_tila.save_to(cfg)
 	if kertun != null:
 		kertun.save_to(cfg)
 	_pohjoiset_save(cfg)
@@ -23531,7 +23624,7 @@ static func _mb(pos: Vector2, pressed: bool, button := MOUSE_BUTTON_LEFT) -> Inp
 
 
 ## Testikohtausten ryhmät (tools/testit/kohtaukset/), järjestyksessä: sama nimi kahdesti -> ensimmäinen voittaa.
-const KOHTAUSRYHMAT := ["muut_a_k", "muut_k_o", "muut_s_u", "muut_p_s", "kolmio_vaala", "kartta_kota", "kauppa", "muut_k_k", "muut_u_y", "ajoneuvot", "muut_o_p", "mokki_2", "mokki_1"]
+const KOHTAUSRYHMAT := ["muut_a_k", "muut_k_o", "muut_s_u", "muut_p_s", "kolmio_vaala", "kartta_kota", "kauppa", "muut_k_k", "muut_u_y", "ajoneuvot", "muut_o_p", "mokki_2", "mokki_1", "kaisua"]
 
 
 func _maybe_screenshot() -> void:

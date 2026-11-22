@@ -52,6 +52,10 @@ const ENDINGS := [
 	["sivikkidisko", "Sivikki-disko", "Pihadisko Sivikin bassojen tahtiin. Katja tanssi sinun kanssasi, ja Timon akku loppui."],
 	["karaokekunkku", "Karaokekunkku", "Olohuoneen karaokessa parhaat pisteet rivoimmalla laululla. Naapurit kuulivat sanat."],
 	["kesaheila", "Kesäheila -96", "Kolme ympyrää leikkasi oman kodin. Ovella seisoi Päivi kerman ja mansikoiden kanssa."],
+	# Kaisuan tila (kaisua.gd): työketjut loppuun.
+	["kaisuan_heinatalkoot", "Kaisuan heinätalkoot", "Niitetty, karhottu, paalattu ja paalit latoon. Emännän lihakeitto ja isännän saunakaljat."],
+	["kaisuan_sato", "Kaisuan sato", "Ohra puitu vanhalla puimurilla ja kuivurissa. Isäntä haistoi jyviä ja nyökkäsi."],
+	["kaisuan_kylvot", "Kaisuan kylvöt", "Sänki äestetty ja ohra kylvetty suorin rivein. Isäntä sanoi, että ens kesänä nähdään."],
 ]
 
 ## Oikeat onnelliset loput: päivä päättyy loppukohtaukseen (juhlat tallissa, viinibileet, laavu). Muut ovat
