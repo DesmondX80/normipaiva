@@ -14,6 +14,7 @@ const Mokki := preload("res://scripts/mokki.gd")
 const Kaisua := preload("res://scripts/kaisua.gd")
 const Tila := preload("res://scripts/kaisua_tila.gd")
 const Koneet := preload("res://scripts/kaisua_koneet.gd")
+const Pose := preload("res://scripts/pose.gd")
 
 const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja", "mokkikaisua_kivet"]
 
@@ -221,6 +222,7 @@ func _yleiskuvat(path: String) -> void:
 		_cam.look_at(tb * Vector3(0, 1.15, -0.1))
 		await _frames(6)
 		await _shot(path, v[0])
+	await _steer_gap(k.traktori, "traktori", Koneet.T_WHEEL, Koneet.T_WHEEL_TILT, Koneet.T_COLUMN)
 	var tb2: Transform3D = k.traktori.global_transform
 	_cam.global_position = tb2 * (Koneet.T_WHEEL + Vector3(-1.5, 0.05, 0.05))
 	_cam.look_at(tb2 * Koneet.T_WHEEL)
@@ -245,6 +247,7 @@ func _yleiskuvat(path: String) -> void:
 		print("KAISUA %s ratin normaali %s, akseli %s, pistetulo %.3f" % [w[0], wn, col, wn.dot(col)])
 		if wn.dot(col) < 0.95 or wn.z <= 0.0:
 			print("TESTI VIKA %s: ratti ei ole kohtisuorassa akseliin tai ei käänny kuljettajaa kohti" % w[0])
+	await _steer_gap(k.puimuri, "puimuri", Koneet.C_WHEEL, Koneet.C_WHEEL_TILT, Koneet.C_COLUMN)
 	# Pään laki (Head-luu + 0,24 m pää ja lippis) aurinkokatoksen alapinnan alla?
 	var drv: Node3D = k.puimuri._driver
 	var head_g: Vector3 = drv.to_global(drv.bone_position("Head"))
@@ -659,3 +662,41 @@ func _kivet(path: String) -> void:
 	await _frames(5)
 	await _shot(path, "kivi_kadessa")
 	print("KAISUA kivi kädessä: %s" % k._stone_logic(main.walker_out, wp, false))
+
+
+## Kuskin vartalon, reisien ja säärten pinnan (paistettu verkko, paidan pöyhennys mukana) etäisyys ratin kehään ja
+## ohjausakseliin koneen kehyksessä. Kädet ja kyynärvarret saavat koskea rattia, joten ne eivät ole mukana.
+func _steer_gap(v: CharacterBody3D, name: String, wc: Vector3, tilt: float, col: Vector3) -> void:
+	await _frames(3)
+	var drv: Node3D = v._driver
+	var vis: Node3D = v._visual
+	var pts := Pose.limb_points(drv, vis, ["pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r", "calf_l", "calf_r"], 1, null, null, true)
+	if pts.is_empty():
+		print("KAISUA %s ratin rako: ei tarkistettu (ei näyttöä)" % name)
+		return
+	var b := Basis(Vector3.RIGHT, tilt)
+	var nrm := b * Vector3.UP
+	var best := INF
+	var where := ""
+	var worst := Vector3.ZERO
+	for p in pts:
+		# Kehä: ympyrä (säde 0,185) ratin tasossa, putken säde 0,015.
+		var rel := p - wc
+		var inplane := rel - nrm * rel.dot(nrm)
+		var on_ring := wc + inplane.normalized() * 0.185 if inplane.length() > 0.001 else wc + b * Vector3(0.185, 0, 0)
+		var d := p.distance_to(on_ring) - 0.015
+		if d < best:
+			best = d
+			where = "kehä"
+			worst = p
+		var q := Geometry3D.get_closest_point_to_segment(p, col, wc)
+		var d2 := p.distance_to(q) - 0.025
+		if d2 < best:
+			best = d2
+			where = "akseli"
+			worst = p
+	print("KAISUA %s ratin rako kuskiin %.3f m (%s, lähin kuskin piste %s, %d pistettä)" % [name, best, where, worst, pts.size()])
+	# Puimurin loivan ratin lähireuna hipaisee kuskin mahaa alle sentin: hyväksytty (käyttäjän päätös), raja 1,5 cm.
+	var allow := 0.015 if name == "puimuri" else 0.0
+	if best < -allow:
+		print("TESTI VIKA %s: kuski menee ratin %s läpi (%.3f m)" % [name, where, best])

@@ -26,19 +26,21 @@ const T_SEAT := Vector3(0, 1.24, 0.5)
 ## etureunasta (puimuri) ylös ja taakse kuljettajaa kohti, joten ratin pinta kääntyy ylös kuljettajaa kohti ja
 ## etureuna on takareunaa korkeammalla (vrt. Deeren puimuripatentti US3583518A: pystyhkö akseli tasanteen
 ## etureunasta, istuin ratin takana). Kallistus = X-kierto, + kääntää pinnan normaalin taaksepäin (+Z).
-const T_COLUMN := Vector3(0, 1.4, -0.05)  # ohjausakselin tyvi kojelaudassa
-const T_WHEEL := Vector3(0, 1.74, 0.14)  # ratin keskipiste (kuskin kädet, kaisua_ajoneuvo.gd)
-const T_WHEEL_TILT := 0.51  # = atan2(akselin z-nousu, y-nousu)
+## Vanhan traktorin akseli nousee polttoainesäiliön takaosasta 45° kulmassa kuljettajaa kohti, ja ratti on sitä
+## vastaan kohtisuorassa (pinta 45° vaakatasosta, ei bussimaisen latteana).
+const T_WHEEL := Vector3(0, 1.82, 0.06)  # ratin keskipiste (kuskin kädet, kaisua_ajoneuvo.gd)
+const T_WHEEL_TILT := PI / 4.0
+const T_COLUMN := T_WHEEL - Vector3(0, 0.7071, 0.7071) * 0.42  # akselin tyvi säiliön takaosassa
 const T_LOADER := Vector3(0, 1.52, -0.38)  # kuormaimen puomin nivel
 const T_SPEAR_LOW := Vector3(0, 0.62, -3.05)  # paalipiikin keskipiikin kärjen juuri puomi alhaalla
 ## Puimuri: vetävä akseli origossa, ohjaavat takapyörät +Z:ssa.
 const C_WHEELBASE := 3.0
-const C_SEAT := Vector3(0, 2.62, -0.62)
+const C_SEAT := Vector3(0, 2.62, -0.5)  # mahan ja ratin lähireunan väliin jää rako (testi mittaa)
 ## Aurinkokatoksen alapinta: istuvan kuskin pään laki on n. 3,6 m (pää nousi aiemmin 3,25 m:n katon läpi), joten
 ## katos on 4,0 m:ssä ja pään yläpuolelle jää noin 35 cm (testi mokkikaisua tarkistaa raon).
 const C_ROOF_Y := 3.97
-const C_COLUMN := Vector3(0, 2.3, -1.12)  # ohjausakselin tyvi tasanteen etureunassa
-const C_WHEEL := Vector3(0, 2.95, -0.86)
+const C_COLUMN := Vector3(0, 2.3, -1.16)  # ohjausakselin tyvi tasanteen etureunassa
+const C_WHEEL := Vector3(0, 3.0, -0.88)  # loivan ratin lähireuna kuskin reisien yllä (testi mittaa raon)
 const C_WHEEL_TILT := 0.38
 
 
@@ -122,22 +124,39 @@ static func traktori(parent: Node3D) -> Dictionary:
 	_p(body, B.cyl(0.07, 0.06, 0.1, 12), Vector3(-0.16, 1.78, -1.62), _m(Color(0.55, 0.5, 0.35), 0.15))
 	_p(body, B.boxm(Vector3(0.64, 0.3, 0.46)), Vector3(0, 1.38, -0.28), red)  # polttoainesäiliö
 	_p(body, B.cyl(0.05, 0.05, 0.05, 10), Vector3(0.18, 1.55, -0.32), chrome)
-	# Kojelauta, ohjausakseli ja ratti.
-	_p(body, B.boxm(Vector3(0.5, 0.34, 0.07)), Vector3(0, 1.4, -0.02), dark)
-	for sx in [-0.11, 0.11]:
-		_p(body, B.cyl(0.05, 0.05, 0.02, 14), Vector3(sx, 1.46, 0.02), _m(Color(0.92, 0.9, 0.84), 0.3), Vector3(PI / 2.0, 0, 0))
-	_tube(body, T_COLUMN, T_WHEEL, 0.025, dark)
+	# Mittaristo: vino paneeli säiliön takapinnassa (pinta kuljettajaa kohti), kaksi mittaria lasikehyksin ja
+	# punaiset viisarit, virta-avain. Ohjausakseli säiliön takaosasta 45° kuljettajaa kohti, akselin juuressa suojakuppi.
+	var dash := Basis(Vector3.RIGHT, -0.35)
+	var dc := Vector3(0, 1.4, -0.035)
+	var panel := _p(body, B.boxm(Vector3(0.54, 0.22, 0.03)), dc, dark)
+	panel.basis = dash
+	for sx in [-0.15, 0.15]:
+		var g := dc + dash * Vector3(sx, 0.01, 0.02)
+		var face := _p(body, B.cyl(0.045, 0.045, 0.012, 16), g, _m(Color(0.93, 0.92, 0.86), 0.3))
+		face.basis = dash * Basis(Vector3.RIGHT, PI / 2.0)
+		var rim := _p(body, B.cyl(0.052, 0.052, 0.008, 16), g - dash * Vector3(0, 0, 0.004), V._mat("ponykromi", Color(0.86, 0.87, 0.89), 0.45, 0.3))
+		rim.basis = dash * Basis(Vector3.RIGHT, PI / 2.0)
+		var needle := _p(body, B.boxm(Vector3(0.006, 0.035, 0.003)), g + dash * Vector3(0.008, 0.01, 0.008), _m(Color(0.8, 0.1, 0.05), 0.4))
+		needle.basis = dash * Basis(Vector3.BACK, 0.5 + sx)
+	var key := _p(body, B.boxm(Vector3(0.02, 0.02, 0.04)), dc + dash * Vector3(0, -0.07, 0.03), steel)
+	key.basis = dash
+	var nwheel := Basis(Vector3.RIGHT, T_WHEEL_TILT)  # ratin taso: paikallinen XZ, normaali akselin suunta
+	_tube(body, T_COLUMN, T_WHEEL - nwheel * Vector3(0, 0.04, 0), 0.025, dark)
+	var boot := _p(body, B.cyl(0.04, 0.06, 0.08, 12), T_COLUMN + nwheel * Vector3(0, 0.03, 0), black)
+	boot.basis = nwheel
 	var wheel := TorusMesh.new()
 	wheel.inner_radius = 0.17
 	wheel.outer_radius = 0.2
-	wheel.rings = 20
+	wheel.rings = 24
 	wheel.ring_segments = 6
 	var sw := _p(body, wheel, T_WHEEL, black, Vector3(T_WHEEL_TILT, 0, 0))
 	sw.name = "Ratti"
-	for k in 3:
-		var a := TAU * k / 3.0
-		var spoke := Vector3(cos(a), 0, sin(a)) * 0.18
-		_tube(body, T_WHEEL, T_WHEEL + Basis(Vector3.RIGHT, T_WHEEL_TILT) * spoke, 0.012, black)
+	# Napa hieman kehän alapuolella (kupera ratti) ja kolme puolaa kello 3, 9 ja 6 (6 = kuljettajan puoli, +Z).
+	var hub := T_WHEEL - nwheel * Vector3(0, 0.035, 0)
+	var cap := _p(body, B.cyl(0.04, 0.045, 0.04, 14), hub, black)
+	cap.basis = nwheel
+	for dir in [Vector3.RIGHT, Vector3.LEFT, Vector3.BACK]:
+		_tube(body, hub, T_WHEEL + nwheel * (dir * 0.175), 0.011, black)
 	# Istuin: pellinen kuppi jousipalkilla.
 	_p(body, B.boxm(Vector3(0.08, 0.06, 0.62)), Vector3(0, 1.04, 0.42), steel, Vector3(-0.35, 0, 0))
 	_p(body, B.cyl(0.22, 0.18, 0.07, 16), T_SEAT + Vector3(0, -0.04, 0), black)
