@@ -500,13 +500,16 @@ kärjen alla, ja suun yläpuolinen jalkaterä (meta `"suu"`) jää lahkeen väri
 `<nimi>_paalta` (ylhäältä ilman vartaloa), `vertailu_karki` ja `vertailu_asut` (pelaaja, hiihtohaalari, Minttu helmassa).
 **Kumisaappaat ja `Looks.boots` (#274):** `scripts/kumisaappaat.gd` rakentaa kodin eteisen ja mökin (punaisen uunin vieressä) saapaspari-esineen umpinaisista paloista ja loftatusta jalkaosasta (pitkä matala kärki) vaalealle kuramatolle (`build`, maton koko parametrina, vihje `hint`; korkeus 0,375 m mitattu pelin saappaasta). `Looks.boots` (`""` tai `"jalassa"`) on staattinen muuttuja, jonka kirjoittaa vain `main.gd` (`_toggle_boots`/`_set_boots`, kuten hattu); `Looks.player()` asettaa sen ollessa asetettuna `shoe: kumisaapas` paitsi hiihtohaalarissa. Tallennus `pelaaja/saappaat`. Sisätilat lähettävät `acted("saappaat")`, ja E avaa valikon (`_toggle_boots`/`_on_boots_menu`: jalkaan, reppuun, tähän). Saappaat ovat yksi pari, joka odottaa kummallakin matolla: repussa `Saappaat.bag = "repussa"` (`kumisaappaat.gd`, tallennus `pelaaja/saappaat_repussa`), ja matoilla pari näkyy vain, kun se ei ole jalassa eikä repussa (`Saappaat.at_mat`). Vanhat tallennukset (`"koti"`/`"mokki"`) luetaan jalassa olevaksi. Repusta ja T:llä `_bag_boots` (repun tavara `kumisaappaat`, `use: saappaat`). Testit: `aja.sh scene saappaat`, `kengat.tscn` (jakauma), `hahmot_kontakti`/`tanssi_kontakti` argumentilla `saappaat`.
 **Släbärit ja villasukat (`slabari`, `style` 8, `Looks.feet`):** yksi kenkä, jossa villasukka on umpinainen kuori
-jalan ympärillä (`sock`: päällinen rakennetaan kuten lenkkarissa, tiukka `margin` 3 mm, pyöreä kärki `toe_n` 2,2, suu
-lahkeen alla `collar`), sen alla paksu muotoiltu släbärin pohja (`lift` 0,03, `sole` 0,026) ja päällä yksi leveä remmi
+jalan ympärillä (`sock`: päällinen rakennetaan kuten lenkkarissa, tiukka `margin` 3 mm, pyöreä kärki `toe_n` 2,2) ja
+sen varsi nousee puoleen sääreen lahkeen päälle (`shaft`: pehmeä `rigid: false` eli painot iholta, `pad` 4 mm,
+`top_k` 0,42; lahje menee varren sisään kuten saappaissa, `shoe_top`), sen alla paksu muotoiltu släbärin pohja (`lift` 0,03, `sole` 0,026) ja päällä yksi leveä remmi
 (`sandal.single`: `toe` 0,06 m päkiästä taakse, `w` 0,072, osa 3). Remmi lasketaan sukkakuoren renkaista (kupera kuori
 sukan päällä, `thick` 3 mm), ja sen päät ovat siinä, missä sukka kohtaa pohjan (sukan alareunan sivuttaiset
 ääripisteet), joten remmi myötäilee sukan kylkiä. Hahmo on umpinaisen kengän tilassa (`shoe_on`, jalkaterä kuoren
-sisällä), ei sandaalin ihotilassa. `shoe.gdshader` style 8: osa 0 = villasukka (harmaa neule silmukkariveineen ja
-melanssilangalla, valkoinen kärki t > 0,925 ja kanta 6,5 cm korkeudelle; `sock_col`, `sock_tip` = `look.socks`),
+sisällä), ei sandaalin ihotilassa. `shoe.gdshader` style 8: osa 0 = villasukka (`knit`: noin 4 mm:n V-silmukat, urat
+rivien ja sarakkeiden välissä, melanssilanka ja vaaleat kuidut, kaukaa tasoittuva; villan nukka reunavalona; valkoinen
+kärki t > 0,925 ja kantapala pyöreänä kuppina; `sock_col`, `sock_tip` = `look.socks`), osa 2 = varsi resorina
+(pystyraidat kehän ympäri, kaksinkertainen yläreuna, sisäpinta tummempi),
 osa 1 = tummansininen pohja vaaleammalla jalkasängyn huulella ja mustalla kuviopohjalla, osa 3 = remmi, jossa kolme
 valkoista raitaa poikki remmin leveyden mukaan (`strap_u` = shoes.gd meta `remmi`). `Looks.feet` (`""` /
 `"slabarit"`, tallennus `pelaaja/jalkineet`, ostettu `pelaaja/slabarit`) asettaa `Looks.player()`:ssä tyypin ja sukat,

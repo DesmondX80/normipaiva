@@ -267,7 +267,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     (mitoitetaan pään ja tukan mukaan). Ostettuna moraali nousee hieman, Anna-Liisa nauraa, ja haalari tulee kodin
     vaatekaappiin. Haalarissa Anna-Liisa nauraa seuraintalolla ja Päivi motkottaa kotiovella kerran päivässä.
   - **Släbärit ja villasukat:** samalla tangolla lattialla 90-luvun släbärit (tummansininen muotoiltu pohja, leveä remmi
-    kolmella valkoisella raidalla), 3 € (tinkiä voi). Jalassa ne ovat yksi kenkä: harmaa villasukka ja släbäri päällä. Ostettuna Raili muistelee Kalajoen hiekkoja, ja Päivi kaivaa kotona
+    kolmella valkoisella raidalla), 3 € (tinkiä voi). Jalassa ne ovat yksi kenkä: harmaa villasukka (resorivarsi puoleen sääreen lahkeen päällä, valkoinen kanta ja
+    kärki) ja släbäri päällä. Ostettuna Raili muistelee Kalajoen hiekkoja, ja Päivi kaivaa kotona
     niihin harmaat villasukat (valkoinen kanta ja kärki). Kodin vaatekaapista "Släbärit ja villasukat jalkaan" ja takaisin
     "Asun omat kengät jalkaan" millä tahansa asulla paitsi hiihtohaalarilla (kuukengät). Kumisaappaat menevät edelle:
     jos ne ovat jalassa, ne riisutaan ensin eteisen matolle. Pelkkä ulkonäkö. Testi `--scene=slabarit`.

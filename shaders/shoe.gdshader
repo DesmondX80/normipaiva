@@ -31,6 +31,22 @@ float band(float x, float a, float b, float soft) {
 	return smoothstep(a - soft, a + soft, x) * (1.0 - smoothstep(b - soft, b + soft, x));
 }
 
+// Neule (villasukka): u = silmukkasarake, v = silmukkarivi (yksi silmukka = 1 x 1). Palauttaa kirkkauskertoimen:
+// V-silmukan kaksi vinoa lankaa kohollaan, urat silmukoiden välissä tummat, melanssilanka (silmukoittain vaihteleva
+// sävy ja yksittäiset vaaleat kuidut). Kaukaa kuvio tasoittuu keskiarvoonsa (fade), ettei synny moiréta.
+float knit(float u, float v, float fade) {
+	float x = fract(u);
+	float y = fract(v);
+	float leg = x < 0.5 ? abs(x - (0.27 + 0.18 * y)) : abs(x - (0.73 - 0.18 * y));
+	float yarn = 1.0 - smoothstep(0.06, 0.2, leg);  // langan keskikohta kohollaan
+	float groove = max((1.0 - smoothstep(0.0, 0.12, min(y, 1.0 - y))) * 0.6, (1.0 - smoothstep(0.0, 0.07, min(x, 1.0 - x))) * 0.5);  // rivien ja sarakkeiden väliset urat
+	vec2 cell = floor(vec2(u, v));
+	float mel = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+	float fib = step(0.93, fract(sin(dot(floor(vec2(u * 3.0, v * 3.0)), vec2(39.346, 11.135))) * 24634.6345));
+	float k = 0.8 + 0.22 * yarn - 0.12 * groove + 0.1 * (mel - 0.5) + 0.1 * fib;
+	return mix(0.9, k, fade);
+}
+
 void fragment() {
 	float t = fu.x;
 	float h = fu.y;
@@ -57,7 +73,23 @@ void fragment() {
 		float u = t;
 		float au = abs(u);
 		vec3 c = main_col;
-		if (fu2.y > 2.1 && style == 4) {
+		if (style == 8) {
+			// Villasukan varsi (lahkeen päällä): resori eli pystyraidat (kaksi oikeaa, kaksi nurjaa), yläreunassa
+			// kaksinkertainen käänne, sisäpinta (osa 2,2) tummempi. Melanssi ja nukka kuten jalkaosassa.
+			float ribs = u * 44.0;  // resoriraidat kehän ympäri
+			float rib = smoothstep(0.15, 0.45, abs(fract(ribs) - 0.5) * 2.0);  // 0 = nurja ura, 1 = oikea raita
+			float fade = clamp(1.4 - max(fwidth(ribs), fwidth(h * 330.0)) * 1.2, 0.0, 1.0);
+			c = sock_col * knit(ribs * 2.0, h * 330.0, fade);
+			c *= mix(1.0, 0.72 + 0.32 * rib, fade);
+			float cuff = smoothstep(shaft_h - 0.02, shaft_h - 0.018, h);
+			c = mix(c, c * 1.08, cuff);  // käänne
+			c = mix(c, c * 0.7, band(h, shaft_h - 0.021, shaft_h - 0.018, 0.0008));  // käänteen alareuna
+			if (fu2.y > 2.1) {
+				c = sock_col * 0.55;
+			}
+			float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);
+			c += rim * 0.22 * (c + 0.15);
+		} else if (fu2.y > 2.1 && style == 4) {
 			// Kumisaappaan suu: tumma sisäkumi, yläreunan huuli kauluksen väristä.
 			c = mix(main_col * 0.32, sole_col * vec3(0.8, 0.78, 0.74), smoothstep(shaft_h - 0.006, shaft_h - 0.002, h));
 		} else if (fu2.y > 2.1) {
@@ -116,9 +148,9 @@ void fragment() {
 			c *= 0.85 + 0.15 * smoothstep(0.03, shaft_h, h);
 		}
 		ALBEDO = c;
-		ROUGHNESS = rough;
-		SPECULAR = spec;
-		if (style >= 4) {
+		ROUGHNESS = style == 8 ? 1.0 : rough;
+		SPECULAR = style == 8 ? 0.08 : spec;
+		if (style >= 4 && style != 8) {
 			CLEARCOAT = clearcoat;
 			CLEARCOAT_ROUGHNESS = style == 4 ? 0.2 : 0.35;
 		}
@@ -228,22 +260,21 @@ void fragment() {
 		ROUGHNESS = rough;
 		SPECULAR = spec;
 	} else if (style == 8) {
-		// Villasukka (släbärin päällinen): harmaa neule, valkoinen kärki (t > 0,925) ja kanta (takaosa 6,5 cm
-		// korkeudelle), silmukkarivit ja V-silmukat, melanssilanka; kaukaa kuvio tasoittuu (ei moiréta).
+		// Villasukka (släbärin päällinen): harmaa neule (knit), valkoinen kärki (t > 0,925) ja kantapala pyöreänä kuppina,
+		// villan nukka reunoilla.
 		float toe = smoothstep(0.92, 0.93, t);
-		float heel = (1.0 - smoothstep(0.19, 0.2, t)) * (1.0 - smoothstep(0.062, 0.068, h));
+		float he = length(vec2(t / 0.215, h / 0.075));  // kantapala pyöreänä kuppina (ellipsi kannan takaa ja alta)
+		float heel = 1.0 - smoothstep(0.96, 1.0, he);
 		vec3 c = mix(sock_col, sock_tip, max(toe, heel));
-		float cu = s * 26.0;  // silmukkasarakkeet sivusuunnassa
-		float rv = t * 210.0;  // silmukkarivit pituussuunnassa
-		float vst = abs(fract(cu) - 0.5) * 2.0;
-		float knit = smoothstep(0.2, 0.5, abs(fract(rv + vst * 0.5) - 0.5) * 2.0);
-		float mel = fract(sin(dot(floor(vec2(cu * 2.0, rv)), vec2(12.9898, 78.233))) * 43758.5453);
-		float fade = clamp(1.0 - max(fwidth(cu), fwidth(rv)) * 0.7, 0.0, 1.0);
-		c *= 1.0 - fade * (0.16 * (1.0 - knit) + 0.1 * mel);
+		float cu = s * 15.0;  // silmukkasarakkeet sivusuunnassa (noin 4 mm)
+		float rv = t * 95.0;  // silmukkarivit pituussuunnassa (noin 3 mm); V osoittaa varpaisiin
+		float fade = clamp(1.4 - max(fwidth(cu), fwidth(rv)) * 1.2, 0.0, 1.0);
+		c *= knit(cu, rv, fade);
 		c *= 0.84 + 0.16 * smoothstep(0.0, 0.06, h);  // pohjan rajassa tummempi
-		ALBEDO = c;
-		ROUGHNESS = 0.97;
-		SPECULAR = 0.12;
+		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);  // villan nukka: reunoilla vaalea karvahalo
+		ALBEDO = c + rim * 0.22 * (c + 0.15);
+		ROUGHNESS = 1.0;
+		SPECULAR = 0.08;
 	} else if (style == 6) {
 		// Sandaalin hihnat: kiiltävä nahka, reunoissa tummempi kantti.
 		ALBEDO = main_col;
