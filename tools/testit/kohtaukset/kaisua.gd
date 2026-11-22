@@ -213,13 +213,19 @@ func _yleiskuvat(path: String) -> void:
 		await _shot(path, "kone_" + id)
 	# Kuski ratissa: jalat astinlaudoilla (edestä, sivulta ja ylhäältä), puimurin kuski tasanteella.
 	await _mount(k.traktori)
-	for v in [["kuski_edesta", Vector3(0.0, 1.6, -3.2)], ["kuski_sivulta", Vector3(-2.6, 1.5, -0.2)], ["kuski_ylhaalta", Vector3(-0.4, 3.4, 0.6)]]:
+	for v in [["kuski_edesta", Vector3(0.0, 1.6, -3.2)], ["kuski_sivulta", Vector3(-2.6, 1.5, -0.2)], ["kuski_ylhaalta", Vector3(-0.4, 3.4, 0.6)],
+			["kuski_ratti", Vector3(-1.3, 1.75, 0.35)]]:
 		var tb: Transform3D = k.traktori.global_transform
 		_cam.current = true
 		_cam.global_position = tb * v[1]
 		_cam.look_at(tb * Vector3(0, 1.15, -0.1))
 		await _frames(6)
 		await _shot(path, v[0])
+	var tb2: Transform3D = k.traktori.global_transform
+	_cam.global_position = tb2 * (Koneet.T_WHEEL + Vector3(-1.5, 0.05, 0.05))
+	_cam.look_at(tb2 * Koneet.T_WHEEL)
+	await _frames(4)
+	await _shot(path, "ratti_sivu_traktori")
 	k._dismount(k.traktori)
 	await _mount(k.puimuri)
 	var cb2: Transform3D = k.puimuri.global_transform
@@ -228,6 +234,17 @@ func _yleiskuvat(path: String) -> void:
 	_cam.look_at(cb2 * Vector3(0, 2.6, -0.7))
 	await _frames(6)
 	await _shot(path, "puimurin_kuski")
+	_cam.global_position = cb2 * (Koneet.C_WHEEL + Vector3(-1.6, 0.05, 0.05))
+	_cam.look_at(cb2 * Koneet.C_WHEEL)
+	await _frames(4)
+	await _shot(path, "puimurin_ratti")
+	# Ratin pinta kohtisuoraan ohjausakseliin ja kuljettajaa kohti (normaali +Z), molemmissa koneissa.
+	for w in [["traktori", Koneet.T_COLUMN, Koneet.T_WHEEL, Koneet.T_WHEEL_TILT], ["puimuri", Koneet.C_COLUMN, Koneet.C_WHEEL, Koneet.C_WHEEL_TILT]]:
+		var wn: Vector3 = Basis(Vector3.RIGHT, w[3]) * Vector3.UP
+		var col: Vector3 = (w[2] - w[1]).normalized()
+		print("KAISUA %s ratin normaali %s, akseli %s, pistetulo %.3f" % [w[0], wn, col, wn.dot(col)])
+		if wn.dot(col) < 0.95 or wn.z <= 0.0:
+			print("TESTI VIKA %s: ratti ei ole kohtisuorassa akseliin tai ei käänny kuljettajaa kohti" % w[0])
 	# Pään laki (Head-luu + 0,24 m pää ja lippis) aurinkokatoksen alapinnan alla?
 	var drv: Node3D = k.puimuri._driver
 	var head_g: Vector3 = drv.to_global(drv.bone_position("Head"))

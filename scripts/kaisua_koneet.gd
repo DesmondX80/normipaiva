@@ -22,8 +22,13 @@ const T_FRONT_R := 0.36
 const T_LINK := Vector3(0, 0.5, 1.02)  # kolmipistenostimen alavarsien päät (nostettu työkone +0,35 m)
 const T_HITCH := Vector3(0, 0.42, 1.18)  # vetoaisan silmä
 const T_SEAT := Vector3(0, 1.24, 0.5)
-const T_WHEEL := Vector3(0, 1.74, 0.14)  # ratin keskipiste ja kallistus (kuskin kädet, kaisua_ajoneuvo.gd)
-const T_WHEEL_TILT := -0.95
+## Ratti ohjausakselin päässä akselia vastaan kohtisuorassa: akseli nousee kojelaudalta (traktori) tai tasanteen
+## etureunasta (puimuri) ylös ja taakse kuljettajaa kohti, joten ratin pinta kääntyy ylös kuljettajaa kohti ja
+## etureuna on takareunaa korkeammalla (vrt. Deeren puimuripatentti US3583518A: pystyhkö akseli tasanteen
+## etureunasta, istuin ratin takana). Kallistus = X-kierto, + kääntää pinnan normaalin taaksepäin (+Z).
+const T_COLUMN := Vector3(0, 1.4, -0.05)  # ohjausakselin tyvi kojelaudassa
+const T_WHEEL := Vector3(0, 1.74, 0.14)  # ratin keskipiste (kuskin kädet, kaisua_ajoneuvo.gd)
+const T_WHEEL_TILT := 0.51  # = atan2(akselin z-nousu, y-nousu)
 const T_LOADER := Vector3(0, 1.52, -0.38)  # kuormaimen puomin nivel
 const T_SPEAR_LOW := Vector3(0, 0.62, -3.05)  # paalipiikin keskipiikin kärjen juuri puomi alhaalla
 ## Puimuri: vetävä akseli origossa, ohjaavat takapyörät +Z:ssa.
@@ -32,8 +37,9 @@ const C_SEAT := Vector3(0, 2.62, -0.62)
 ## Aurinkokatoksen alapinta: istuvan kuskin pään laki on n. 3,6 m (pää nousi aiemmin 3,25 m:n katon läpi), joten
 ## katos on 4,0 m:ssä ja pään yläpuolelle jää noin 35 cm (testi mokkikaisua tarkistaa raon).
 const C_ROOF_Y := 3.97
-const C_WHEEL := Vector3(0, 2.92, -0.92)
-const C_WHEEL_TILT := -0.6
+const C_COLUMN := Vector3(0, 2.3, -1.12)  # ohjausakselin tyvi tasanteen etureunassa
+const C_WHEEL := Vector3(0, 2.95, -0.86)
+const C_WHEEL_TILT := 0.38
 
 
 static func _m(color: Color, rough := 0.7, metal := 0.0) -> StandardMaterial3D:
@@ -120,7 +126,7 @@ static func traktori(parent: Node3D) -> Dictionary:
 	_p(body, B.boxm(Vector3(0.5, 0.34, 0.07)), Vector3(0, 1.4, -0.02), dark)
 	for sx in [-0.11, 0.11]:
 		_p(body, B.cyl(0.05, 0.05, 0.02, 14), Vector3(sx, 1.46, 0.02), _m(Color(0.92, 0.9, 0.84), 0.3), Vector3(PI / 2.0, 0, 0))
-	_tube(body, Vector3(0, 1.4, -0.05), Vector3(0, 1.72, 0.12), 0.025, dark)
+	_tube(body, T_COLUMN, T_WHEEL, 0.025, dark)
 	var wheel := TorusMesh.new()
 	wheel.inner_radius = 0.17
 	wheel.outer_radius = 0.2
@@ -269,7 +275,11 @@ static func puimuri(parent: Node3D) -> Dictionary:
 	_p(body, B.boxm(Vector3(1.62, 0.12, 0.05)), Vector3(0, C_ROOF_Y - 0.02, -1.2), red)
 	_p(body, B.cyl(0.2, 0.17, 0.07, 14), C_SEAT + Vector3(0, -0.04, 0), black)
 	_p(body, B.boxm(Vector3(0.4, 0.3, 0.05)), C_SEAT + Vector3(0, 0.14, 0.2), black, Vector3(0.2, 0, 0))
-	_tube(body, Vector3(0, 2.3, -1.0), Vector3(0, 2.9, -0.95), 0.03, dark)
+	_tube(body, C_COLUMN, C_WHEEL, 0.03, dark)
+	_p(body, B.cyl(0.05, 0.05, 0.05, 10), C_WHEEL, dark, Vector3(C_WHEEL_TILT, 0, 0))  # navan kansi
+	for k in 3:
+		var sp := Vector3(cos(TAU * k / 3.0 + PI / 2.0), 0, sin(TAU * k / 3.0 + PI / 2.0)) * 0.18
+		_tube(body, C_WHEEL, C_WHEEL + Basis(Vector3.RIGHT, C_WHEEL_TILT) * sp, 0.012, black)
 	var tor := TorusMesh.new()
 	tor.inner_radius = 0.17
 	tor.outer_radius = 0.2
