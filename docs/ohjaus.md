@@ -79,6 +79,27 @@ asetuksissa valitut napit näkyvät, nuolinäppäimet nuolina) ja perusiskut (oh
 | Oikea nappi pohjassa | tarkka tähtäys (zoom, rauhallisempi käsi) |
 | F | lopeta jahti |
 
+## Hahmoeditori
+
+Uusi peli alkaa kodin eteisen peilin edestä (päävalikon **Aloita peli**, tai **Uusi peli**, kun tallennus on jo olemassa):
+pelaaja valitsee tukan (sivujakaus, siili, pitkä, rasvaletti, kalju), hiusten värin, parran (pukinparta, täysparta,
+viikset, sileä), lasit, päähineen (lippis tai paljain päin), ihon, mahan koon ja tuulipuvun värin. Oletukset ovat sama
+ulkonäkö kuin ennen editoria, joten vanhat tallennukset eivät muutu.
+
+| | |
+|---|---|
+| W / S | rivi |
+| A / D | vaihda rivin vaihtoehtoa (myös ‹ ja › hiirellä) |
+| Q | arvo koko ulkonäkö |
+| Hiiren veto hahmon päällä | käännä hahmoa |
+| E / Enter | valmis: peli alkaa |
+| Esc | takaisin päävalikkoon (valinnat perutaan); **Uusi peli** -polulla ei käytössä |
+
+Kamera siirtyy rivin mukaan: pään valinnoissa lähikuva, mahassa ja puvussa koko hahmo. Valinnat näkyvät kaikissa
+pelaajan malleissa (pyörä, kävely, sisätilat, mopo, minipelit, välianimaatiot) ja kaikissa asuissa; puvun väri koskee
+vain tuulipukua, ja lasit ja lippis näkyvät vain asuissa, joissa ne ovat. Rasvaletin kanssa ei pidetä lippistä.
+Valinnat tallentuvat pelin mukana (`pelaaja/hahmo`).
+
 ## Tallennus
 
 Peli tallentuu automaattisesti (päävalikon **Jatka peliä**). Lisäksi on viisi omaa tallennuspaikkaa: taukovalikon

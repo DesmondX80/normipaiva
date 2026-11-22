@@ -3,6 +3,8 @@ extends CanvasLayer
 ## Peli on pysäytetty valikon ollessa auki; alkuvalikon taustalla kamera kiertää Järvikujaa.
 
 const M := preload("res://scripts/map_data.gd")
+const Looks := preload("res://scripts/looks.gd")
+const Hahmoeditori := preload("res://scripts/hahmoeditori.gd")
 const SAVE_PATH := "user://normipaiva.cfg"  # automaattitallennus (Jatka peliä)
 const SLOTS_N := 5  # omat tallennuspaikat automaattitallennuksen lisäksi: user://tallennus_<n>.cfg
 const YELLOW := Color(1.0, 0.8, 0.1)
@@ -18,6 +20,9 @@ var _capture := {}  # näppäinasetus odottaa painallusta: {row, slot}
 var _key_buttons := []  # [row, slot, Button]
 var _key_note: Label
 var _num_cbs: Array[Callable] = []  # painikkeet järjestyksessä: numeronäppäin 1-9 painaa vastaavaa (numeroita ei näytetä)
+var editor: CanvasLayer  # hahmoeditori auki (hahmoeditori.gd), muuten null
+## "Uusi peli" lataa kentän uudelleen ilman alkuvalikkoa: main.gd avaa silloin hahmoeditorin (open_editor(false)).
+static var editor_on_start := false
 
 
 func _ready() -> void:
@@ -53,6 +58,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if editor != null:
+		return  # hahmoeditori lukee näppäimet itse
 	if visible and _capture.is_empty() and event is InputEventKey and event.pressed and not event.echo:
 		var k: int = event.physical_keycode
 		var n := k - KEY_1 if k >= KEY_1 and k <= KEY_9 else (k - KEY_KP_1 if k >= KEY_KP_1 and k <= KEY_KP_9 else -1)
@@ -100,7 +107,8 @@ func open_main() -> void:
 	Sfx.music_play()
 	var has_save := FileAccess.file_exists(SAVE_PATH)
 	_title("NORMIPÄIVÄ", "S A L O I S I S S A")
-	_button("Jatka peliä" if has_save else "Aloita peli", close)
+	# Ensimmäinen peli alkaa hahmoeditorista (eteisen peili); tallennettu peli jatkuu suoraan.
+	_button("Jatka peliä" if has_save else "Aloita peli", close if has_save else func() -> void: open_editor(true))
 	if has_save:
 		_button("Uusi peli", _confirm_new)
 	if _any_slot():
@@ -139,11 +147,38 @@ func open_pause(saved := false) -> void:
 func close() -> void:
 	visible = false
 	get_tree().paused = false
-	if _mode == "main" or _mode == "sub_main":
+	if _mode == "main" or _mode == "sub_main" or _mode == "editor":
 		Sfx.music_stop()
 		game._hud.visible = true
 		game.player.activate_camera()
 	_mode = ""
+
+
+## Hahmoeditori (hahmoeditori.gd) uuden pelin alussa. from_main: avattu päävalikosta, Esc palaa sinne. Valmis vie
+## valinnat pelaajan malleihin ja tallennukseen (main.gd _set_look) ja aloittaa pelin.
+func open_editor(from_main: bool) -> void:
+	_mode = "editor"
+	visible = true
+	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_capture = {}
+	_num_cbs.clear()
+	for ch in _root.get_children():
+		ch.queue_free()
+	game._hud.visible = false
+	Sfx.music_play()
+	editor = Hahmoeditori.new()
+	editor.can_cancel = from_main
+	add_child(editor)
+	editor.finished.connect(func(accepted: bool) -> void:
+		editor.queue_free()
+		editor = null
+		if not accepted:
+			open_main()
+			return
+		game._set_look(Looks.custom, true)
+		game._save_game()
+		close())
 
 
 func _back(from: String) -> void:
@@ -161,6 +196,12 @@ func _confirm_new() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 		get_tree().paused = false
 		game.get_script().skip_menu = true
+		# Uusi hahmo: ulkonäkö oletuksiin (staattiset arvot säilyisivät kentän latauksen yli) ja editori auki alussa.
+		Looks.custom = {}
+		Looks.outfit = "tuulipuku"
+		Looks.hat = ""
+		Looks.boots = ""
+		editor_on_start = true
 		get_tree().reload_current_scene())
 	_button("Takaisin", open_main)
 

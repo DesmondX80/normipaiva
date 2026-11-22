@@ -32,6 +32,85 @@ static var hat := ""
 ## Pelaajan kumisaappaat (#274, main.gd _set_boots): "" = asun omat kengät, "jalassa" = kumisaappaat jalassa (yksi pari,
 ## joka odottaa kodin ja mökin matolla, kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
 static var boots := ""
+## Hahmoeditorin valinnat (hahmoeditori.gd, pelin alussa): rivin id -> vaihtoehdon id, puuttuva rivi = oletus (rivin
+## ensimmäinen vaihtoehto, sama ulkonäkö kuin ennen editoria). main.gd tallentaa (pelaaja/hahmo). Valinnat pätevät
+## kaikissa asuissa; puvun väri vain tuulipuvussa, lasit ja lippis vain asuissa, joissa ne ovat.
+static var custom := {}
+## Editorin rivit: id, otsikko, kameran rajaus ("paa" = lähikuva päästä, "vartalo" = koko hahmo) ja vaihtoehdot
+## [id, nimi, arvo]. Arvo on värille Color, mahalle [belly, sag], puvulle [a, b] (tuulipuvun värikentät).
+const HAHMO := [
+	{"id": "tukka", "name": "Tukka", "cam": "paa", "opts": [["jakaus", "Sivujakaus", "Hair_SimpleParted"], ["siili", "Siili", "Hair_Buzzed"],
+		["pitka", "Pitkä tukka", "Hair_Long"], ["letti", "Rasvaletti", ""], ["kalju", "Kalju", ""]]},
+	{"id": "hiusvari", "name": "Hiusten väri", "cam": "paa", "opts": [["vaalea", "Vaalea", Color(0.82, 0.66, 0.4)],
+		["ruskea", "Ruskea", Color(0.3, 0.2, 0.13)], ["musta", "Musta", Color(0.07, 0.06, 0.06)],
+		["punainen", "Punainen", Color(0.62, 0.24, 0.1)], ["harmaa", "Harmaa", Color(0.62, 0.62, 0.6)]]},
+	{"id": "parta", "name": "Parta", "cam": "paa", "opts": [["pukki", "Pukinparta", null], ["taysi", "Täysparta", null],
+		["viikset", "Viikset", null], ["silea", "Sileä leuka", null]]},
+	{"id": "lasit", "name": "Lasit", "cam": "paa", "opts": [["pilotti", "Peilipilotit", "pilotti"],
+		["valkoiset", "Valkoiset rantalasit", "valkoiset"], ["ei", "Ei laseja", ""]]},
+	{"id": "lippis", "name": "Päähine", "cam": "paa", "opts": [["lippis", "Lippis", null], ["ei", "Paljain päin", null]]},
+	{"id": "iho", "name": "Iho", "cam": "paa", "opts": [["vaalea", "Vaalea", Color(1.0, 0.92, 0.84)],
+		["kalpea", "Talvenkalpea", Color(1.0, 0.98, 0.95)], ["paivettynyt", "Päivettynyt", Color(0.9, 0.76, 0.62)],
+		["ruskea", "Ruskea", Color(0.72, 0.55, 0.43)], ["tumma", "Tumma", Color(0.47, 0.34, 0.27)]]},
+	{"id": "maha", "name": "Maha", "cam": "vartalo", "opts": [["kalja", "Kaljamaha", [0.75, 1.0]], ["jatti", "Jättimaha", [1.0, 1.0]],
+		["pieni", "Pieni pömppö", [0.45, 0.6]], ["hoikka", "Hoikka", [0.15, 0.2]]]},
+	{"id": "puku", "name": "Tuulipuku", "cam": "vartalo", "opts": [
+		["sininen", "Sininen", [Color(0.1, 0.25, 0.6), Color(0.07, 0.1, 0.3)]],
+		["viini", "Viininpunainen", [Color(0.5, 0.07, 0.14), Color(0.22, 0.04, 0.08)]],
+		["vihrea", "Metsänvihreä", [Color(0.06, 0.36, 0.2), Color(0.04, 0.16, 0.1)]],
+		["lila", "Lila", [Color(0.42, 0.16, 0.56), Color(0.08, 0.42, 0.44)]],
+		["turkoosi", "Turkoosi", [Color(0.05, 0.5, 0.52), Color(0.1, 0.1, 0.14)]],
+		["musta", "Musta", [Color(0.09, 0.09, 0.11), Color(0.5, 0.07, 0.1)]]]},
+]
+
+
+const NO_CAP_HAIR := ["pitka", "letti"]  # tukat, joiden päälle lippis ei mahdu (_apply_custom)
+
+
+## Editorin rivin valittu vaihtoehto [id, nimi, arvo] (tuntematon tai puuttuva valinta = oletus).
+static func custom_opt(row_id: String) -> Array:
+	for row: Dictionary in HAHMO:
+		if row.id == row_id:
+			for o: Array in row.opts:
+				if o[0] == custom.get(row_id, ""):
+					return o
+			return row.opts[0]
+	return []
+
+
+## Editorin valinnat pelaajan ulkonäköön (player kutsuu asun jälkeen).
+static func _apply_custom(look: Dictionary) -> void:
+	var tukka := custom_opt("tukka")
+	look.hair = tukka[2]
+	look.hair_color = custom_opt("hiusvari")[2]
+	if look.has("body_hair"):
+		look.body_hair = (look.hair_color as Color).darkened(0.3)
+	look.skin = custom_opt("iho")[2]
+	var maha: Array = custom_opt("maha")[2]
+	look.belly = maha[0]
+	look.sag = maha[1]
+	match String(custom_opt("parta")[0]):
+		"taysi":
+			look.beard = true
+			look.goatee = ""
+		"viikset":
+			look.goatee = "viikset"
+		"silea":
+			look.goatee = ""
+	if String(look.get("shades", "")) != "":
+		look.shades = custom_opt("lasit")[2]
+	if custom_opt("lippis")[0] == "ei" and String(look.get("cap", "")) in ["karhu", "karjala"]:
+		look.cap = ""
+	look.letti = tukka[0] == "letti"
+	# Rasvaletti on kuori kallon pinnalla kuten lippiksen kupu, ja pitkä tukka tulee kuvun läpi (_tuck_hair painaa vain
+	# kallonmyötäisen tukan): lippis ei mahdu niiden päälle.
+	if tukka[0] in NO_CAP_HAIR and String(look.get("cap", "")) in ["karhu", "karjala"]:
+		look.cap = ""
+	if look.has("tracksuit"):
+		var puku: Array = custom_opt("puku")[2]
+		look.shirt = puku[0]
+		look.pants = puku[0]
+		look.tracksuit = {"a": puku[0], "b": puku[1]}
 
 
 ## Pelaajan ulkonäkö valitussa asussa (Looks.make lisää asusteet, add_cap lippiksen asun mukaan).
@@ -74,6 +153,7 @@ static func player(which := "") -> Dictionary:
 				"pants_puff": 0.046, "shoes": Color(0.9, 0.9, 0.93), "shoe": "kuukenka", "stripes": false, "shine": 0.55, "cap": "panta"}, true)
 	if boots != "" and o != "hiihtohaalari":
 		look.merge({"shoe": "kumisaapas", "shoes": Color(0.13, 0.3, 0.14)}, true)  # sama vihreä kuin kumisaappaat.gd COLOR
+	_apply_custom(look)
 	return look
 
 
@@ -1403,9 +1483,13 @@ static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 	var beard := Node3D.new()
 	var bc: Color = (look.get("hair_color", PLAYER_HAIR) as Color).darkened(0.25)
 	# Leuan pinnalla: leukaparta (litistetty pallo), alahuulen tupsu ja ohuet viikset; suupielet yhdistävät.
-	B.mesh(beard, B.sphere(0.5, 12), Vector3(0, -0.006, 0.002), bc).scale = Vector3(0.042, 0.036, 0.018)
-	B.mesh(beard, B.sphere(0.5, 8), Vector3(0, 0.02, -0.004), bc).scale = Vector3(0.014, 0.014, 0.008)
-	B.mesh(beard, B.sphere(0.5, 10), Vector3(0, 0.046, -0.009), bc).scale = Vector3(0.044, 0.008, 0.009)
+	# look.goatee (hahmoeditori): "pukki" = koko pukinparta (oletus), "viikset" = vain viikset, "" = ei mitään.
+	var goatee := String(look.get("goatee", "pukki"))
+	if goatee == "pukki":
+		B.mesh(beard, B.sphere(0.5, 12), Vector3(0, -0.006, 0.002), bc).scale = Vector3(0.042, 0.036, 0.018)
+		B.mesh(beard, B.sphere(0.5, 8), Vector3(0, 0.02, -0.004), bc).scale = Vector3(0.014, 0.014, 0.008)
+	if goatee != "":
+		B.mesh(beard, B.sphere(0.5, 10), Vector3(0, 0.046, -0.009), bc).scale = Vector3(0.044, 0.008, 0.009)
 	c.attach("Head", beard, Vector3(0, -0.005, -0.088))
 	match String(look.get("shades", "")):
 		"pilotti":
