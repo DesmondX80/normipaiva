@@ -1173,6 +1173,7 @@ func _ready() -> void:
 		await world.build(_loading_step)
 		await _loading_step.call("Mökki, Siitari ja Raahen baari", 0.97)
 	home_zone = world.home_zone
+	Looks.Character.ground_lift = _ground_lift  # hahmot tien ja pihan pinnalle (kengät eivät uppoa asfalttiin)
 	_ajastus("maailma")
 	shop_zone = world.shop_zone
 	var sb := M.w2(M.SHOP_BUILDING)
@@ -5913,6 +5914,21 @@ func _koulu_logic() -> void:
 	_hint.text = "[E] Haasta kylän nuoret pihapingikseen (häviäjä tarjoaa limut, %s €)" % _eur(LIMU_HINTA)
 	if Input.is_action_just_pressed("interact"):
 		_start_pingis_nuoret()
+
+
+## Näkyvän maanpinnan nosto hahmon kohdalla (Character.ground_lift): tiet ja pihat piirretään maaston yläpuolelle, ja
+## seisova hahmo nostetaan sen verran. Saloisissa world.surface_lift, Vaalassa vaala.gd surface_lift (Vaalan koordinaatit).
+## Vain maaston korkeudella olevat hahmot: sisätilat ja minipelien lavasteet ovat muualla, eivätkä ne nouse.
+func _ground_lift(pos: Vector3) -> float:
+	if _in_vaala and mopo_trip != null and is_instance_valid(mopo_trip.vaala):
+		var vl: Node3D = mopo_trip.vaala
+		var lp := vl.to_local(pos)
+		if absf(lp.y - float(vl.h(lp.x, lp.z))) > 0.3:
+			return 0.0
+		return vl.surface_lift(lp)
+	if world == null or absf(pos.y - Terrain.h(pos.x, pos.z)) > 0.3:
+		return 0.0
+	return world.surface_lift(pos)
 
 
 ## Koulukeskuksen ovi: perjantai-iltana disko, muulloin kyltti kertoo ajan. Palauttaa true, kun ovella.

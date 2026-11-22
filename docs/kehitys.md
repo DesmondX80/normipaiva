@@ -520,6 +520,17 @@ remmin rako sukan pintaan kolmioiden keski- ja reunapisteistä, vain jalkapöyd�
 sandaalilla 22 mm) ja `aja.sh scene slabarit` (osto, vaatekaappi, haalari, saappaat, tallennus). Ensimmäinen versio
 maalasi sukan ihon pintaan (varpaat erottuivat möykkyinä); sukka kenkänä on pehmeä ja yhtenäinen.
 
+**Hahmot tien pinnalle (`Character.ground_lift`):** tiet, pientareet, polut ja asfalttipihat piirretään maaston
+yläpuolelle (Saloinen `world.gd LAYER`: polku 1,2 cm, piennar 1,7, piha 2,1, katu 2,5, tie 2,9, valtatie 3,3 cm;
+Vaala `vaala.gd LIFT_*`: asfaltti 4,5 cm, sora ja piennar 3–4 cm), ettei pinta välky maaston kanssa, mutta hahmot ja
+fysiikka kulkevat maastossa: ilman nostoa jokaisen kengän pohja jäi asfaltin sisään. `main.gd _ground_lift` antaa
+näkyvän pinnan noston hahmon kohdalla (`world.surface_lift` tieruudukosta ja pihoista, Vaalassa `vaala.surface_lift`
+`drive_code`:sta Vaalan koordinaateissa; hahmot yli 0,3 m maaston yläpuolella eli sisätilat ja lavasteet saavat 0), ja
+`character.gd _follow_ground` nostaa seisovan tai kävelevän hahmon mallin sen verran (vain kun SOLE-nosto > 0, eli ei
+istuessa, ajaessa eikä uidessa). Muutos liukuu 0,3 m/s (ei nykäystä tien reunalla), ajasta riippuen (hidas kone ei jätä
+nostoa kesken). Fysiikka ja kävelijän paikka pysyvät ennallaan. Testi `aja.sh scene slabarit` (rivi `kengän alin
+näkyvällä pinnalla`: släbärit ja lenkkarit asfaltilla ±5 mm).
+
 **Satunnaisten joukkojen kengät (#274):** `Shoes.random_type(rng, age, female)` arpoo tyypin iän ja sukupuolen mukaan (vanha `kavelykenka`; nainen 40 % `sandaali`, muuten `lenkkari`; aikuinen mies 40 % `tyokenka`, muuten `lenkkari`; nuori mies `lenkkari`). Arpa on `hash(rng.state)`, joten rng:tä ei kuluteta ja joukkojen asettelu pysyy ennallaan; sama siemen antaa samat kengät (`vaala.gd _build_lava_crowd`, `lava_game.gd`).
 **Tanssijoiden kengät:** Hilkka ja Anna-Liisa `kavelykenka`, Sinikka `sandaali`. Eri tyypin pohjat eroavat enintään 3,3 mm (`KENKA ... pohja`: lenkkari ja kumisaapas 23,0, kävelykenkä 19,7-23,0, sandaali 21,5-22,5 mm), mikä ei rikkoisi otetta (raja 5 mm). `tanssi_kontakti --kiintea`: 7 löytöä sekä mainissa että muutoksen jälkeen (myös `saappaat`). Kun tulee uusia kenkätyyppejä, tarkista tanssijoiden korkeusero.
 **Ruutuaika:** `kengat.tscn` `RUUTU`-rivi on ohjelmistorenderöinnin luku. Kenkien GPU-ruutuaikaa (lava, seuraintalo; tavoite alle 16,7 ms) ei ole mitattu: pilviympäristössä ei ole näytönohjainta, joten mittaus on testaamatta ja jää käyttäjän koneelle.

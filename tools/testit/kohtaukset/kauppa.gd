@@ -15,6 +15,8 @@ const AuctionGame := preload("res://scripts/auction_game.gd")
 const KirppisMyynti := preload("res://scripts/kirppis_myynti_game.gd")
 const KirppisInterior := preload("res://scripts/kirppis_interior.gd")
 const Looks := preload("res://scripts/looks.gd")
+const Terrain := preload("res://scripts/terrain.gd")
+const Pose := preload("res://scripts/pose.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
@@ -478,6 +480,29 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			cam_p.look_at_from_position(w.global_position + fwd * 1.3 + w.global_basis.x * 0.5 + Vector3(0, 0.55, 0), w.global_position + Vector3(0, 0.25, 0))
 			cam_p.current = true
 			await snap_sl.call("_pelaaja.png")
+			# Maakontakti pelissä: kengän alin kohta (verkon pisteet) vs. maasto ja näkyvä pinta (säde alas fysiikasta),
+			# släbärit ja vertailuksi asun omat kengät samassa kohdassa.
+			var ground := func(tag: String) -> void:
+				var b2: Node3D = body.call()
+				var lo := INF
+				for q in Pose.limb_points(b2, main, ["foot_l", "ball_l", "foot_r", "ball_r"], 0):
+					lo = minf(lo, q.y)
+				var wp: Vector3 = w.global_position
+				var q := PhysicsRayQueryParameters3D.create(wp + Vector3(0, 2.0, 0), wp - Vector3(0, 2.0, 0))
+				q.exclude = [w.get_rid()]
+				var hit: Dictionary = main.get_world_3d().direct_space_state.intersect_ray(q)
+				var lift: float = main.world.surface_lift(wp)
+				var pinta: float = Terrain.h(wp.x, wp.z) + lift
+				print("SL maakontakti %s: kengän alin %.3f, kävelijä %.3f, maasto %.3f, pinnan nosto %.3f (%s), säde %.3f, tyyppi %s" % [tag,
+					lo, wp.y, Terrain.h(wp.x, wp.z), lift, main.world.surface_at(wp), hit.get("position", Vector3.ZERO).y, b2.shoe_type])
+				check.call(absf(lo - pinta) <= 0.005, "%s: kengän alin näkyvällä pinnalla (%.1f mm)" % [tag, (lo - pinta) * 1000.0])
+			await ground.call("släbärit")
+			main._on_wardrobe("slabarit")
+			await wait.call(0.5)
+			await ground.call("omat kengät")
+			await snap_sl.call("_pelaaja_lenkkarit.png")
+			main._on_wardrobe("slabarit")
+			await wait.call(0.5)
 			cam_p.current = false
 			main.player.activate_camera()
 			# 3. Hiihtohaalarissa kuukengät, kumisaappaat edelle.
