@@ -22,11 +22,18 @@ const T_FRONT_R := 0.36
 const T_LINK := Vector3(0, 0.5, 1.02)  # kolmipistenostimen alavarsien päät (nostettu työkone +0,35 m)
 const T_HITCH := Vector3(0, 0.42, 1.18)  # vetoaisan silmä
 const T_SEAT := Vector3(0, 1.24, 0.5)
+const T_WHEEL := Vector3(0, 1.74, 0.14)  # ratin keskipiste ja kallistus (kuskin kädet, kaisua_ajoneuvo.gd)
+const T_WHEEL_TILT := -0.95
 const T_LOADER := Vector3(0, 1.52, -0.38)  # kuormaimen puomin nivel
 const T_SPEAR_LOW := Vector3(0, 0.62, -3.05)  # paalipiikin keskipiikin kärjen juuri puomi alhaalla
 ## Puimuri: vetävä akseli origossa, ohjaavat takapyörät +Z:ssa.
 const C_WHEELBASE := 3.0
 const C_SEAT := Vector3(0, 2.62, -0.62)
+## Aurinkokatoksen alapinta: istuvan kuskin pään laki on n. 3,6 m (pää nousi aiemmin 3,25 m:n katon läpi), joten
+## katos on 4,0 m:ssä ja pään yläpuolelle jää noin 35 cm (testi mokkikaisua tarkistaa raon).
+const C_ROOF_Y := 3.97
+const C_WHEEL := Vector3(0, 2.92, -0.92)
+const C_WHEEL_TILT := -0.6
 
 
 static func _m(color: Color, rough := 0.7, metal := 0.0) -> StandardMaterial3D:
@@ -119,12 +126,12 @@ static func traktori(parent: Node3D) -> Dictionary:
 	wheel.outer_radius = 0.2
 	wheel.rings = 20
 	wheel.ring_segments = 6
-	var sw := _p(body, wheel, Vector3(0, 1.74, 0.14), black, Vector3(-0.95, 0, 0))
+	var sw := _p(body, wheel, T_WHEEL, black, Vector3(T_WHEEL_TILT, 0, 0))
 	sw.name = "Ratti"
 	for k in 3:
 		var a := TAU * k / 3.0
 		var spoke := Vector3(cos(a), 0, sin(a)) * 0.18
-		_tube(body, Vector3(0, 1.74, 0.14), Vector3(0, 1.74, 0.14) + Basis(Vector3.RIGHT, -0.95) * spoke, 0.012, black)
+		_tube(body, T_WHEEL, T_WHEEL + Basis(Vector3.RIGHT, T_WHEEL_TILT) * spoke, 0.012, black)
 	# Istuin: pellinen kuppi jousipalkilla.
 	_p(body, B.boxm(Vector3(0.08, 0.06, 0.62)), Vector3(0, 1.04, 0.42), steel, Vector3(-0.35, 0, 0))
 	_p(body, B.cyl(0.22, 0.18, 0.07, 16), T_SEAT + Vector3(0, -0.04, 0), black)
@@ -254,12 +261,12 @@ static func puimuri(parent: Node3D) -> Dictionary:
 	# Ohjaamotasanne, kaide, istuin, ratti ja aurinkokatos.
 	_p(body, B.boxm(Vector3(1.5, 0.08, 1.05)), Vector3(0, 2.26, -0.6), steel)
 	for sx in [-0.72, 0.72]:
-		_tube(body, Vector3(sx, 2.3, -1.1), Vector3(sx, 3.25, -1.1), 0.025, dark)
-		_tube(body, Vector3(sx, 2.3, -0.1), Vector3(sx, 3.25, -0.1), 0.025, dark)
+		_tube(body, Vector3(sx, 2.3, -1.1), Vector3(sx, C_ROOF_Y, -1.1), 0.025, dark)
+		_tube(body, Vector3(sx, 2.3, -0.1), Vector3(sx, C_ROOF_Y, -0.1), 0.025, dark)
 		_tube(body, Vector3(sx, 2.8, -1.1), Vector3(sx, 2.8, -0.1), 0.02, dark)
 	_tube(body, Vector3(-0.72, 2.8, -1.1), Vector3(0.72, 2.8, -1.1), 0.02, dark)
-	_p(body, B.boxm(Vector3(1.6, 0.06, 1.2)), Vector3(0, 3.28, -0.6), white)
-	_p(body, B.boxm(Vector3(1.62, 0.12, 0.05)), Vector3(0, 3.23, -1.2), red)
+	_p(body, B.boxm(Vector3(1.6, 0.06, 1.2)), Vector3(0, C_ROOF_Y + 0.03, -0.6), white)
+	_p(body, B.boxm(Vector3(1.62, 0.12, 0.05)), Vector3(0, C_ROOF_Y - 0.02, -1.2), red)
 	_p(body, B.cyl(0.2, 0.17, 0.07, 14), C_SEAT + Vector3(0, -0.04, 0), black)
 	_p(body, B.boxm(Vector3(0.4, 0.3, 0.05)), C_SEAT + Vector3(0, 0.14, 0.2), black, Vector3(0.2, 0, 0))
 	_tube(body, Vector3(0, 2.3, -1.0), Vector3(0, 2.9, -0.95), 0.03, dark)
@@ -268,7 +275,7 @@ static func puimuri(parent: Node3D) -> Dictionary:
 	tor.outer_radius = 0.2
 	tor.rings = 20
 	tor.ring_segments = 6
-	_p(body, tor, Vector3(0, 2.92, -0.92), black, Vector3(-0.6, 0, 0))
+	_p(body, tor, C_WHEEL, black, Vector3(C_WHEEL_TILT, 0, 0))
 	# Tikkaat vasemmalle kyljelle.
 	for sz in [-0.95, -0.55]:
 		_tube(body, Vector3(-1.08, 0.5, sz), Vector3(-1.08, 2.3, sz), 0.02, dark)

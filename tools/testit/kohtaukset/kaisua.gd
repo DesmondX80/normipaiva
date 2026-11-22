@@ -228,6 +228,14 @@ func _yleiskuvat(path: String) -> void:
 	_cam.look_at(cb2 * Vector3(0, 2.6, -0.7))
 	await _frames(6)
 	await _shot(path, "puimurin_kuski")
+	# Pään laki (Head-luu + 0,24 m pää ja lippis) aurinkokatoksen alapinnan alla?
+	var drv: Node3D = k.puimuri._driver
+	var head_g: Vector3 = drv.to_global(drv.bone_position("Head"))
+	var head_top: float = k.puimuri._visual.to_local(head_g).y + 0.24
+	var rako := Koneet.C_ROOF_Y - head_top
+	print("KAISUA puimurin kuskin pään laki %.2f m, katos %.2f m, rako %.2f m" % [head_top, Koneet.C_ROOF_Y, rako])
+	if rako < 0.05:
+		print("TESTI VIKA puimurin kuskin pää osuu aurinkokatokseen (rako %.2f m)" % rako)
 	k._dismount(k.puimuri)
 	var ip: Vector3 = k.isanta.position
 	_look(_at(ip, Vector3(-2.4, 1.6, -1.2)), _at(ip, Vector3(0, 1.2, 0)))

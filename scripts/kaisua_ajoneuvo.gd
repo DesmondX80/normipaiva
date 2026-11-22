@@ -101,6 +101,14 @@ func _ready() -> void:
 		var fb := Contact.foot_basis(_driver, side, false)
 		_driver.set_ik("leg" + side, "thigh" + side, "calf" + side, "foot" + side, inv * foot, inv * knee)
 		_driver.set_ik_orient("leg" + side, fb, 1.0)
+		# Kädet ratille "kymmentä vaille kaksi": otteet kehällä ratin tasossa (traktori ja puimuri eri korkeudella),
+		# kyynärpäät alas ja sivulle. Driving-animaation kädet ovat traktorin ratin kohdalla, puimurin ratti on alempana.
+		var ax := signf(_driver.bone_position("upperarm" + side).x)
+		var wc: Vector3 = Koneet.T_WHEEL if kind == "traktori" else Koneet.C_WHEEL
+		var tilt: float = Koneet.T_WHEEL_TILT if kind == "traktori" else Koneet.C_WHEEL_TILT
+		var grip := wc + Basis(Vector3.RIGHT, tilt) * Vector3(ax * 0.165, 0.0, -0.09)
+		var elbow := grip + Vector3(ax * 0.3, -0.35, 0.3)
+		_driver.set_ik("arm" + side, "upperarm" + side, "lowerarm" + side, "hand" + side, inv * grip, inv * elbow)
 	_driver.visible = false
 	_cam = Camera3D.new()
 	_cam.fov = 72.0
