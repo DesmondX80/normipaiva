@@ -94,12 +94,17 @@ static func _apply_custom(look: Dictionary) -> void:
 	look.skin = custom_opt("iho")[2]
 	look.merge(custom_opt("keho")[2], true)
 	if look.get("model", "male") == "female":
-		# Naisen keholla nahkaliivi on kiinni (ei paljasta karvaista rintaa); kaljamaha on vain miehen mallissa (character.gd).
+		# Naisen keholla nahkaliivi on kiinni (ei paljasta karvaista rintaa).
 		for k in ["vest_open", "chest_hair", "body_hair"]:
 			look.erase(k)
 	var maha: Array = custom_opt("maha")[2]
 	look.belly = maha[0]
 	look.sag = maha[1]
+	if look.get("model", "male") == "female":
+		# Paidan helma sovitetaan mahan alle vain miehen mallissa (character.gd hem_front): naisen keholla maha jäisi
+		# paidan ja housujen väliin paljaaksi, joten naisen keho on aina ilman kaljamahaa.
+		look.belly = 0.0
+		look.sag = 0.0
 	match String(custom_opt("parta")[0]):
 		"taysi":
 			look.beard = true
@@ -1502,6 +1507,8 @@ static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 	if goatee != "":
 		B.mesh(beard, B.sphere(0.5, 10), Vector3(0, 0.046, -0.009), bc).scale = Vector3(0.044, 0.008, 0.009)
 	c.attach("Head", beard, Vector3(0, -0.005, -0.088))
+	# Naisen mallin silmät ovat Head-luusta katsoen ylempänä: lasit nostetaan samalle kohdalle nenänvartta kuin miehellä.
+	var shades_up := 0.014 if look.get("model", "male") == "female" else 0.0
 	match String(look.get("shades", "")):
 		"pilotti":
 			# Peililasiset pilottilasit: pisaranmuotoiset linssit (kirkas metalli heijastaa taivaan), kultasanka.
@@ -1529,7 +1536,7 @@ static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 				br.material_override = gold
 				br.position = Vector3(0, y, -0.002)
 				sh.add_child(br)
-			c.attach("Head", sh, Vector3(0, 0.07, -0.105))
+			c.attach("Head", sh, Vector3(0, 0.07 + shades_up, -0.105))
 		"valkoiset":
 			# Valkoiset ovaalit lasit (ysärin rantalasit): paksu kiiltävä kehys, tummat linssit.
 			var sh := Node3D.new()
@@ -1559,7 +1566,7 @@ static func _add_player_gear(c: Node3D, look: Dictionary) -> void:
 			bridge.material_override = frame
 			bridge.position = Vector3(0, 0.006, 0)
 			sh.add_child(bridge)
-			c.attach("Head", sh, Vector3(0, 0.07, -0.105))
+			c.attach("Head", sh, Vector3(0, 0.07 + shades_up, -0.105))
 	if look.get("chain", false):
 		# Kultaketju kaulassa paidan päällä.
 		var ch := MeshInstance3D.new()
