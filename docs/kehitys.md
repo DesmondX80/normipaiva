@@ -101,6 +101,12 @@ Uusi Satamantie (kapea asfalttikatu K-Marketilta satamaan ja Uitolle, vanha sora
 Vaalan asematie (Vaalantie torille, Aseman piha suoraan asemalle, Satamantie soraksi, tori laajennettu): `python3 tools/vaala_asematie.py` (kerran, `vaala_risteys.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). `--scene=vaala_ajo --ajo=yhteys`: kaikki Vaalan tiet tavoitettavissa mökiltä (ajoalueen tulvatäyttö; irralliset saarekkeet listataan). `--ajo=venelava`: veneen reitti lavan laituriin. `--ajo=portti`: mopo ei pääse lavan portista eikä aidan läpi (parkki aidan ulkopuolella). Tieverkon siistii ja suoristaa `python3 tools/vaala_suorat.py` (bake-ketjun viimeinen vaihe, ajetaan kerran; sivutiet, jalkakäytävät ja umpikujahaarat pois, jäljelle suorat tiet kohteisiin).
 Vaalan Ratatie (asfalttikierros aseman edestä Zabukin taakse Aseman pihaan, 3 pientä rakennusta pois): `python3 tools/vaala_kierros.py` (kerran, `vaala_asematie.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). `--scene=vaalakierros`: paperikartta keskustasta kahdella zoomilla sekä vapaan kameran kuvat `_ylhaalta`, `_ymparyra`, `_tori`, `_zabuki`, `_asemalle`.
 
+`tools/testit/aja.sh scene hahmoeditori`: hahmoeditori pelin alussa (`scripts/hahmoeditori.gd`, testi `tools/testit/hahmoeditori.gd`):
+kameran rajaus projisoimalla (pää ja koko hahmo paneelin vasemmalle jäävän alueen keskellä), jokaisen rivin jokainen vaihtoehto
+(kuvat `_<rivi>_<vaihtoehto>`), käännetty hahmo (`_kaanto_<aste>`), valinnat muissa asuissa ja päähineissä (`_asu_*`), arvonta,
+peruminen, hyväksyntä (`--he-rivi=<id>` kuvaa vain yhden rivin ja sitä käyttävät asut; pelaajan mallit vaihtuvat, kuvat `_valmis` ja `_peli`), tallennus ja lataus; rivit `HE OK` tai `TESTI VIKA`.
+Uusi vaihtoehto lisätään `looks.gd`:n `HAHMO`-taulukkoon (rivin ensimmäinen on oletus) ja sen vaikutus `_apply_custom`iin.
+
 `tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin
 HUD-laatikoita (autovarkauden tähtilaatikko `rikos/tahdet_hud.gd` on piilossa, kun valikko on auki tai tähtiä ei ole).
 

@@ -23,13 +23,19 @@ const RotkoGame := preload("res://scripts/rotko_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 
-const KOHTAUKSET := ["asennot", "juntti", "fight", "fight_ohjeet", "field", "bog", "asut", "asema", "bikini", "hupihommat", "kainuulista", "hanhikivi", "kajaani", "kalajoki", "hiidenportti", "drakkar", "haalari", "bikini_video", "eramaa", "junttikierto", "jemmat", "honganpalo", "ideat", "hiirisisalla", "juhlat", "chocotest", "fightfx", "infoboard", "guardleave", "hedgeclose", "homeview", "homeview2", "garage", "grilli", "aloitusruutu", "found", "aidat", "hiirinapit", "hiiriohjaus", "humala_ohjaus", "heitto", "jemma_ovi"]
+const KOHTAUKSET := ["hahmoeditori", "asennot", "juntti", "fight", "fight_ohjeet", "field", "bog", "asut", "asema", "bikini", "hupihommat", "kainuulista", "hanhikivi", "kajaani", "kalajoki", "hiidenportti", "drakkar", "haalari", "bikini_video", "eramaa", "junttikierto", "jemmat", "honganpalo", "ideat", "hiirisisalla", "juhlat", "chocotest", "fightfx", "infoboard", "guardleave", "hedgeclose", "homeview", "homeview2", "garage", "grilli", "aloitusruutu", "found", "aidat", "hiirinapit", "hiiriohjaus", "humala_ohjaus", "heitto", "jemma_ovi"]
 
 var main: Main
 
 
 func aja(scene: String, path: String, nohud: bool) -> int:
 	match scene:
+		"hahmoeditori":
+			# Hahmoeditori pelin alussa: tools/testit/hahmoeditori.gd (rajaus, jokainen vaihtoehto, peruminen, tallennus).
+			var he_node: Node = load("res://tools/testit/hahmoeditori.gd").new()
+			he_node.main = main
+			main.add_child(he_node)
+			await he_node.run(path)
 		"asennot":
 			# Asentojen ja kalusteiden tarkistus: --asento=<osa> ajaa tools/testit/asennot_<osa>.gd:n run():n.
 			var osa := "0"
