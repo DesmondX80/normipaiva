@@ -201,6 +201,7 @@ func _confirm_new() -> void:
 		Looks.outfit = "tuulipuku"
 		Looks.hat = ""
 		Looks.boots = ""
+		Looks.feet = ""
 		editor_on_start = true
 		get_tree().reload_current_scene())
 	_button("Takaisin", open_main)

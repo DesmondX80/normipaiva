@@ -130,6 +130,13 @@ static func _apply_custom(look: Dictionary) -> void:
 		look.tracksuit = {"a": puku[0], "b": puku[1]}
 
 
+## Pelaajan jalkineet asun kenkien tilalle (kodin vaatekaappi, main.gd _set_feet): "" = asun omat kengät, "slabarit" =
+## 90-luvun släbärit ja harmaat villasukat (kirppikseltä). Kumisaappaat menevät näiden edelle, hiihtohaalarissa kuukengät.
+static var feet := ""
+const SLABARI_COL := Color(0.08, 0.13, 0.36)  # tummansininen remmi ja pohja, raidat valkoiset (shoe.gdshader style 8)
+const VILLASUKAT := {"col": Color(0.44, 0.44, 0.46), "tip": Color(0.93, 0.92, 0.89)}  # harmaa, valkoinen kanta ja kärki (shoe.gdshader style 8)
+
+
 ## Pelaajan ulkonäkö valitussa asussa (Looks.make lisää asusteet, add_cap lippiksen asun mukaan).
 static func player(which := "") -> Dictionary:
 	var o := which if which != "" else outfit
@@ -168,6 +175,8 @@ static func player(which := "") -> Dictionary:
 				look.erase(k)
 			look.merge({"shirt": HAALARI_PINK, "pants": HAALARI_PINK, "ski_suit": true, "shirt_puff": 0.04,
 				"pants_puff": 0.046, "shoes": Color(0.9, 0.9, 0.93), "shoe": "kuukenka", "stripes": false, "shine": 0.55, "cap": "panta"}, true)
+	if feet == "slabarit" and o != "hiihtohaalari":
+		look.merge({"shoe": "slabari", "shoes": SLABARI_COL, "socks": VILLASUKAT}, true)
 	if boots != "" and o != "hiihtohaalari":
 		look.merge({"shoe": "kumisaapas", "shoes": Color(0.13, 0.3, 0.14)}, true)  # sama vihreä kuin kumisaappaat.gd COLOR
 	_apply_custom(look)

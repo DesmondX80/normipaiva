@@ -22,6 +22,7 @@ const SHAFT_RINGS := 8  # varren vaakarenkaat alhaalta yläreunaan
 const SHAFT_N := 2.6  # varren poikkileikkauksen superellipsin eksponentti
 
 static var _nails := PackedFloat32Array()  # sandaali: varpaankynnet (x, y, z lepoavaruudessa, säde) * 10 (meta "kynnet")
+static var _strap_u := Vector2(-1.0, -1.0)  # släbärin remmin alku ja loppu kengän UV.x:nä (meta "remmi", raidat)
 static var _shaft_h := 0.0  # viimeksi rakennetun varren yläreuna kuoren alapinnasta (meta "varsi_h", varjostimen shaft_h)
 static var _tip_h := 0.0  # viimeksi rakennetun kengän kärkipisteen korkeus lattiasta (meta "karki", testin profiili)
 
@@ -88,6 +89,19 @@ const TYPES := {
 		"toe_round": 1.0, "toe_n": 2.3, "collar": 0.0, "spring": 0.0, "sole_col": Color(0.66, 0.5, 0.33), "rough": 0.45,
 		"sole_rough": 0.75, "style": 6, "spec": 0.45, "clearcoat": 0.25,
 		"sandal": {"toe": 0.04, "w": 0.022, "ankle": 0.082, "thick": 0.0028}},
+	# Släbärit ja villasukat yhtenä kenkänä (pelaajan kirppisjalkineet): villasukka on umpinainen kuori jalan ympärillä
+	# (sock: päällinen rakennetaan kuten lenkkarissa, tiukka ja pyöreäkärkinen) ja sen varsi nousee puoleen sääreen
+	# lahkeen päälle (shaft: pehmeä, painot iholta, löysä: pad 11 mm ja yläreuna 6 mm leveämpi; lahje varren sisään
+	# kuten saappaissa). Alla paksu muotoiltu
+	# släbärin pohja (2,6 cm) ja päällä yksi leveä remmi jalkapöydän yli (sandal.single, osa 3: remmi lasketaan sukan
+	# pinnasta). Varjostin style 8: sukka harmaa neule (varressa resori), valkoinen kanta ja kärki; pohja ja remmi
+	# tummansiniset, remmissä kolme valkoista raitaa.
+	"slabari": {"lift": 0.03, "sole": 0.026, "rand": 0.0, "margin": 0.003, "flare": 0.005, "toe_room": 0.0045,
+		"toe_round": 1.0, "toe_n": 2.2, "toe_h": 0.96, "toe_low": 0.3, "collar": 0.012, "spring": 0.0,
+		"sole_col": Color(0.08, 0.09, 0.12), "rough": 0.97, "sole_rough": 0.7, "style": 8, "spec": 0.15, "clearcoat": 0.0,
+		"sock": true, "sandal": {"toe": 0.06, "w": 0.072, "ankle": 0.0, "thick": 0.003, "single": true, "part": 3.0},
+		"shaft": {"join": 0.085, "top": 0.2, "top_k": 0.42, "pad": 0.011, "rigid": false, "gap": 0.001, "flare": 0.006,
+			"soft_lap": true, "lap": 0.03, "wrap": 0.003}},
 	"paljas": {},
 }
 
@@ -138,6 +152,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var pohja := 0.0
 	_nails = PackedFloat32Array()
+	_strap_u = Vector2(-1.0, -1.0)
 	var above := PackedInt32Array()  # jalkaterän kärjet kengän suun yläpuolella (lahkeen alla; skin_outside ohittaa)
 	var varsi := Vector4.ZERO  # varren yläreuna (lepo-y, UV2), yläreuna ja jalkaosan suu (verkon y), UV2.y - y yläreunassa
 	for side: float in [1.0, -1.0]:
@@ -166,6 +181,7 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	out.set_meta("karki", _tip_h)
 	if p.has("sandal"):
 		out.set_meta("kynnet", _nails)  # character.gd: varjostimen nails (kynsilakka)
+		out.set_meta("remmi", _strap_u)  # shoe.gdshader strap_u: släbärin raidat
 	out.set_meta("varsi", varsi.x)  # 0 = ei vartta; character.gdshader shoe_top (lahje varren sisään)
 	out.set_meta("varsi_v", Vector3(varsi.y, varsi.z, varsi.w))  # skin_outside ja testi
 	if p.has("shaft") and p.shaft.has("top_k"):
@@ -406,7 +422,7 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		for pr in [[a, ca], [b, cb], [c, cc]]:
 			var u: Array = uv_of.call(pr[0], part, pr[1])
 			add.call(pr[0], u[0], u[1])
-	var sandal: bool = p.has("sandal")
+	var sandal: bool = p.has("sandal") and not p.get("sock", false)  # avoin sandaali: ei päällistä (släbärin sukka on päällinen)
 	for i in (0 if sandal else full.size() - 1):
 		var ca: Vector2 = full[i][1]
 		var cb: Vector2 = full[i + 1][1]
@@ -501,8 +517,19 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 		var o := fwd * (-1.0 if end == 0 else 1.0)
 		for k in np:
 			tri.call(to3.call(prof[i][0], prof[i][2][k]), to3.call(prof[i][0], prof[i][2][(k + 1) % np]), cen, o, 1.0, c2, c2, c2)
-	if sandal:
-		_build_straps(p, pts, cand, vs, org, fwd, lat, side, tb, y_welt, ymin, _at(st_t, st_m, tb), _at(st_t, st_w, tb), to3, tri)
+	if p.has("sandal"):
+		# Släbärin remmi sukan päälle: kupera kuori lasketaan sukkakuoren renkaista, ei ihosta.
+		var over := pts
+		if p.get("sock", false):
+			over = PackedVector3Array()
+			for row in up:
+				for v: Vector3 in row:
+					var dv := v - org
+					over.append(Vector3(dv.dot(fwd), dv.dot(lat), v.y))
+		_build_straps(p, over, cand, vs, org, fwd, lat, side, tb, y_welt, ymin, _at(st_t, st_m, tb), _at(st_t, st_w, tb), to3, tri)
+		var sd0: Dictionary = p.sandal
+		var t_remmi: float = tb - float(sd0.toe)
+		_strap_u = Vector2((t_remmi - float(sd0.w) / 2.0 - t0) / span, (t_remmi + float(sd0.w) / 2.0 - t0) / span)
 	return ymin - y_bot
 
 
@@ -517,6 +544,7 @@ static func _build_straps(p: Dictionary, pts: PackedVector3Array, cand: PackedIn
 	var sd: Dictionary = p.sandal
 	var w: float = sd.w
 	var thick: float = sd.thick
+	var part: float = sd.get("part", 0.0)  # varjostimen osa (släbärin remmi 3: erotetaan sukasta)
 	# Kupera ketju pisteiden yli: hull = suljettu monikulmio, palautetaan avoin ketju a -> b sitä kautta, jonka keskiarvo
 	# on suunnassa up korkeammalla (yläkautta), tasavälein n pisteeksi.
 	var chain := func(pts2: PackedVector2Array, a: Vector2, b: Vector2, up: Vector2, n: int) -> PackedVector2Array:
@@ -585,16 +613,16 @@ static func _build_straps(p: Dictionary, pts: PackedVector3Array, cand: PackedIn
 			var b0: Vector3 = at3.call(ch[j] + nrm[j] * thick, -1.0)
 			var b1: Vector3 = at3.call(ch[j] + nrm[j] * thick, 1.0)
 			var z := Vector2.ZERO
-			tri.call(a0, a1, b1, o3, 0.0, z, z, z)
-			tri.call(a0, b1, b0, o3, 0.0, z, z, z)
+			tri.call(a0, a1, b1, o3, part, z, z, z)
+			tri.call(a0, b1, b0, o3, part, z, z, z)
 			for e: float in [-1.0, 1.0]:  # reunat: ulkopinnasta ihon tasoon
 				var ua: Vector3 = at3.call(ch[i] + nrm[i] * thick, e)
 				var ub: Vector3 = at3.call(ch[j] + nrm[j] * thick, e)
 				var la: Vector3 = at3.call(ch[i] - nrm[i] * 0.001, e)
 				var lb: Vector3 = at3.call(ch[j] - nrm[j] * 0.001, e)
 				var eo: Vector3 = (at3.call(ch[i], e) - at3.call(ch[i], 0.0)).normalized()
-				tri.call(ua, ub, lb, eo, 0.0, z, z, z)
-				tri.call(ua, lb, la, eo, 0.0, z, z, z)
+				tri.call(ua, ub, lb, eo, part, z, z, z)
+				tri.call(ua, lb, la, eo, part, z, z, z)
 	# Varpaankynnet: varpaat erotetaan sivusuunnassa (k-means, 5 ryhmää) jalan etuosan kärjistä; kynsi on varpaan kärjen
 	# takana yläpinnalla. Varjostin lakkaa ne (character.gdshader nails).
 	var tmax := -INF
@@ -653,9 +681,25 @@ static func _build_straps(p: Dictionary, pts: PackedVector3Array, cand: PackedIn
 		if absf(q.x - ts) <= w / 2.0 + 0.004:
 			sel.append(Vector2(q.y, q.z))
 	if sel.size() >= 3:
-		var ch: PackedVector2Array = chain.call(sel, Vector2(mid - hw + 0.003, y_welt), Vector2(mid + hw - 0.003, y_welt), Vector2(0, 1), 18)
+		var a_end := Vector2(mid - hw + 0.003, y_welt)
+		var b_end := Vector2(mid + hw - 0.003, y_welt)
+		if p.get("sock", false):
+			# Släbäri: remmin päät siihen, missä villasukka kohtaa pohjan (sukkakuoren alareunan sivuttaiset ääripisteet
+			# tässä leikkauksessa), jolloin remmi myötäilee sukan kylkiä eikä nouse pohjan reunasta suoraan ylös.
+			var s_lo := INF
+			var s_hi := -INF
+			for q in sel:
+				if q.y < y_welt + 0.012:
+					s_lo = minf(s_lo, q.x)
+					s_hi = maxf(s_hi, q.x)
+			if s_lo < s_hi:
+				a_end = Vector2(s_lo - 0.001, y_welt)
+				b_end = Vector2(s_hi + 0.001, y_welt)
+		var ch: PackedVector2Array = chain.call(sel, a_end, b_end, Vector2(0, 1), 18)
 		band.call(ch, false, func(q: Vector2, e: float) -> Vector3: return to3.call(ts + e * w / 2.0, q),
 			func(n2: Vector2) -> Vector3: return lat * n2.x + Vector3.UP * n2.y)
+	if sd.get("single", false):
+		return  # släbäri: vain leveä remmi jalkapöydän yli
 	# Nilkkahihna: vaakaleikkaus (t, s) korkeudella ya ± (w/2 + 3 mm) jalkaterän ja säären kärjistä.
 	var ya: float = ymin + float(sd.ankle)
 	var wa: float = w * 0.8
@@ -869,7 +913,8 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 	rows.push_front([yj, c0, r0p, 0])
 	var yb := yj  # putken alin rengas (pohjaviuhka)
 	var rb := r0p
-	if rigid:  # jäykkä varsi: alareuna lap verran alaosan suun alla, kavennettuna kuoren sisään (limitys nilkassa)
+	if rigid or sh.get("soft_lap", false):  # alareuna lap verran alaosan suun alla, kavennettuna kuoren sisään (limitys nilkassa;
+		# villasukan pehmeä varsi myös: ilman limitystä jalkapöydän edessä jäi rako, josta näkyi lahkeen värinen jalkaterä)
 		yb = yj - float(sh.lap)
 		rb = PackedVector2Array()
 		for k in RING:

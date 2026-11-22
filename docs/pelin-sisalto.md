@@ -266,6 +266,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     keltainen ja turkoosi raita, tikkauskanavat, vetoketju, mustat resorit, valkoiset kuukengät ja raidallinen frotee-otsapanta
     (mitoitetaan pään ja tukan mukaan). Ostettuna moraali nousee hieman, Anna-Liisa nauraa, ja haalari tulee kodin
     vaatekaappiin. Haalarissa Anna-Liisa nauraa seuraintalolla ja Päivi motkottaa kotiovella kerran päivässä.
+  - **Släbärit ja villasukat:** samalla tangolla lattialla 90-luvun släbärit (tummansininen muotoiltu pohja, leveä remmi
+    kolmella valkoisella raidalla), 3 € (tinkiä voi). Jalassa ne ovat yksi kenkä: harmaa villasukka (resorivarsi puoleen sääreen lahkeen päällä, valkoinen kanta ja
+    kärki) ja släbäri päällä. Ostettuna Raili muistelee Kalajoen hiekkoja, ja Päivi kaivaa kotona
+    niihin harmaat villasukat (valkoinen kanta ja kärki). Kodin vaatekaapista "Släbärit ja villasukat jalkaan" ja takaisin
+    "Asun omat kengät jalkaan" millä tahansa asulla paitsi hiihtohaalarilla (kuukengät). Kumisaappaat menevät edelle:
+    jos ne ovat jalassa, ne riisutaan ensin eteisen matolle. Pelkkä ulkonäkö. Testi `--scene=slabarit`.
     Testi `--scene=haalari`.
   - **Drakkar Noir (legendaarinen hetki):** Railin pöydällä puolillaan oleva musta pullo (12 €). Kun pullo loppuu,
     Railin pöydälle tulee uusi (legendaarinen hetki vain ensimmäisestä).
@@ -1078,7 +1084,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   `nipple_cloth`). Lapsilla ja nuorilla niitä ei ole (pituus alle 1,5 m tai lookin `nipples: false`).
 - **Kengät (#272, #274):** jokaisella hahmolla on oma kenkätyyppi (`look.shoe`; `Shoes.type_for` käyttää `shoes`-väriä vain varalla).
   Pelaajalla tuulipuvussa lenkkarit, farkuissa ja työvaatteissa työkengät ja hiihtohaalarissa kuukengät; saunassa ja uidessa
-  paljain jaloin. **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin päätyseinällä punaisen uunin vieressä on
+  paljain jaloin. Kirppikseltä ostetut släbärit ja villasukat korvaavat asun kengät vaatekaapista (ks. kirppis). **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin päätyseinällä punaisen uunin vieressä on
   vihreä saapaspari vaalealla kuramatolla. Ne ovat periaatteessa yhdet saappaat: kun ne ottaa kummasta tahansa paikasta,
   ne katoavat molemmilta matoilta, ja ne voi palauttaa kummalle tahansa. E avaa valikon: matolta jalkaan tai reppuun,
   jalasta matolle tai reppuun ja repusta jalkaan tai matolle. Repussa kulkevat saappaat vaihtuvat jalkaan missä tahansa

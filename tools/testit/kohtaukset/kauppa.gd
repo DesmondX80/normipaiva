@@ -13,11 +13,15 @@ const HomeInterior := preload("res://scripts/home_interior.gd")
 const EBike := preload("res://scripts/ebike.gd")
 const AuctionGame := preload("res://scripts/auction_game.gd")
 const KirppisMyynti := preload("res://scripts/kirppis_myynti_game.gd")
+const KirppisInterior := preload("res://scripts/kirppis_interior.gd")
+const Looks := preload("res://scripts/looks.gd")
+const Terrain := preload("res://scripts/terrain.gd")
+const Pose := preload("res://scripts/pose.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
 
-const KOHTAUKSET := ["shop", "shoptest", "apteekki", "kmarket_vaala", "kirppismyynti", "pekanlaatikko", "reippari", "k18", "kirppis", "tarinamyynti", "maksamatta", "kauppapalautus", "kauppaovi", "shopfront", "shopsigns", "kauppalista"]
+const KOHTAUKSET := ["shop", "shoptest", "apteekki", "kmarket_vaala", "kirppismyynti", "pekanlaatikko", "slabarit", "reippari", "k18", "kirppis", "tarinamyynti", "maksamatta", "kauppapalautus", "kauppaovi", "shopfront", "shopsigns", "kauppalista"]
 
 var main: Main
 
@@ -405,6 +409,133 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await wait.call(0.5)
 			print("MY ulos pelistä: pelin lapsia %d, kävelijä aktiivinen %s" % [main.kirppis_int.get_children().filter(func(c): return c is KirppisMyynti).size(), main.kirppis_int.walker.controls_enabled])
 			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_my)
+		"slabarit":
+			# Släbärit ja villasukat (Looks.feet): Railin vaatetangosta kirppikseltä, vaatekaapista jalkaan ja pois,
+			# hiihtohaalarissa kuukengät ja kumisaappaat edelle, tallennus. Kuvat: släbärit tangon juurella ja pelaajan
+			# jalat. Rivit SL OK / TESTI VIKA. Pelaajan tallennus palautetaan.
+			var saved_sl := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
+			var snap_sl := func(name: String) -> void:
+				for i in 4:
+					await main.get_tree().process_frame
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
+			var wait := func(sec: float) -> void:
+				await main.get_tree().create_timer(sec).timeout
+			var check := func(ok: bool, what: String) -> void:
+				print(("SL OK %s" if ok else "TESTI VIKA släbärit: %s") % what)
+			var body := func() -> Node3D:
+				var bs: Array = main.get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
+					return n.has_meta("player_body") and n.is_visible_in_tree())
+				return bs[0] if not bs.is_empty() else null
+			main._note.visible = false
+			main.money = 10.0
+			main.day = 3
+			main.clock_min = 12 * 60
+			main.has_slabarit = false
+			main._set_feet("")
+			main._set_boots("")
+			main._set_outfit("tuulipuku")
+			# 1. Kirppis: släbärit tangon juurella, Raili myy.
+			main._enter_kirppis("kirppis")
+			await wait.call(0.6)
+			check.call(main.kirppis_int.slabarit.visible, "släbärit näkyvissä tangon juurella")
+			var cam_sl := Camera3D.new()
+			cam_sl.fov = 40.0
+			main.kirppis_int.add_child(cam_sl)
+			var rack: Vector3 = main.kirppis_int.to_global(KirppisInterior.RACK_AT + Vector3(0.35, 0.0, 0.42))
+			cam_sl.look_at_from_position(rack + Vector3(0.5, 0.75, 1.1), rack + Vector3(0, 0.05, 0))
+			cam_sl.current = true
+			await snap_sl.call("_kirppis.png")
+			cam_sl.current = false
+			cam_sl.queue_free()
+			var ro: Array = main._talk_options("raili").map(func(o: Dictionary) -> String: return "%s:%s" % [o.id, o.enabled])
+			check.call("osta_slabarit:true" in ro, "Railin valikossa släbärit %s" % [ro])
+			main._talk_open("raili", null)
+			main._talk_box._pages.clear()
+			main._talk_choose("osta_slabarit")
+			await wait.call(0.3)
+			check.call(main.has_slabarit and not main.kirppis_int.slabarit.visible and is_equal_approx(main.money, 7.0),
+				"ostettu: rahaa %s, tangolta pois" % main._eur(main.money))
+			main._talk_box.close()
+			main.kirppis_int.leave()
+			await wait.call(0.8)
+			# 2. Vaatekaappi: släbärit jalkaan.
+			main._open_wardrobe(["tuulipuku", "farkut", "hattu", "slabarit"], "testi")
+			var items: Array = main._item_menu._items.map(func(x: Array) -> String: return "%s:%s" % [x[0], x[1]])
+			check.call("slabarit:Släbärit ja villasukat jalkaan" in items, "vaatekaapissa %s" % [items])
+			main._item_menu.visible = false
+			main._on_wardrobe("slabarit")
+			await wait.call(0.4)
+			var pb: Node3D = body.call()
+			check.call(Looks.feet == "slabarit" and pb != null and pb.shoe_type == "slabari",
+				"jalassa släbärit ja villasukat (%s)" % (pb.shoe_type if pb != null else "ei mallia"))
+			if main.player == main.bike:
+				main._toggle_mount()
+			await wait.call(0.3)
+			var cam_p := Camera3D.new()
+			cam_p.fov = 35.0
+			main.add_child(cam_p)
+			var w: Node3D = main.walker_out
+			var fwd := -w.global_basis.z
+			cam_p.look_at_from_position(w.global_position + fwd * 1.3 + w.global_basis.x * 0.5 + Vector3(0, 0.55, 0), w.global_position + Vector3(0, 0.25, 0))
+			cam_p.current = true
+			await snap_sl.call("_pelaaja.png")
+			# Maakontakti pelissä: kengän alin kohta (verkon pisteet) vs. maasto ja näkyvä pinta (säde alas fysiikasta),
+			# släbärit ja vertailuksi asun omat kengät samassa kohdassa.
+			var ground := func(tag: String) -> void:
+				var b2: Node3D = body.call()
+				var lo := INF
+				for q in Pose.limb_points(b2, main, ["foot_l", "ball_l", "foot_r", "ball_r"], 0):
+					lo = minf(lo, q.y)
+				var wp: Vector3 = w.global_position
+				var q := PhysicsRayQueryParameters3D.create(wp + Vector3(0, 2.0, 0), wp - Vector3(0, 2.0, 0))
+				q.exclude = [w.get_rid()]
+				var hit: Dictionary = main.get_world_3d().direct_space_state.intersect_ray(q)
+				var lift: float = main.world.surface_lift(wp)
+				var pinta: float = Terrain.h(wp.x, wp.z) + lift
+				print("SL maakontakti %s: kengän alin %.3f, kävelijä %.3f, maasto %.3f, pinnan nosto %.3f (%s), säde %.3f, tyyppi %s" % [tag,
+					lo, wp.y, Terrain.h(wp.x, wp.z), lift, main.world.surface_at(wp), hit.get("position", Vector3.ZERO).y, b2.shoe_type])
+				check.call(absf(lo - pinta) <= 0.005, "%s: kengän alin näkyvällä pinnalla (%.1f mm)" % [tag, (lo - pinta) * 1000.0])
+			await ground.call("släbärit")
+			main._on_wardrobe("slabarit")
+			await wait.call(0.5)
+			await ground.call("omat kengät")
+			await snap_sl.call("_pelaaja_lenkkarit.png")
+			main._on_wardrobe("slabarit")
+			await wait.call(0.5)
+			cam_p.current = false
+			main.player.activate_camera()
+			# 3. Hiihtohaalarissa kuukengät, kumisaappaat edelle.
+			main._set_outfit("hiihtohaalari")
+			await wait.call(0.3)
+			pb = body.call()
+			check.call(pb.shoe_type == "kuukenka", "hiihtohaalarissa kuukengät (%s)" % pb.shoe_type)
+			main._set_outfit("tuulipuku")
+			main._set_boots("jalassa")
+			await wait.call(0.3)
+			pb = body.call()
+			check.call(pb.shoe_type == "kumisaapas", "kumisaappaat släbärien edelle (%s)" % pb.shoe_type)
+			main._set_boots("")
+			main._on_wardrobe("slabarit")  # pois
+			await wait.call(0.3)
+			pb = body.call()
+			check.call(Looks.feet == "" and pb.shoe_type == "lenkkari", "omat kengät takaisin (%s)" % pb.shoe_type)
+			main._set_boots("jalassa")
+			main._on_wardrobe("slabarit")
+			check.call(Looks.feet == "" and String(main._msg.text).contains("Kumisaappaat"), "saappaat jalassa: ensin pois '%s'" % main._msg.text)
+			main._set_boots("")
+			main._set_outfit("hiihtohaalari")
+			main._on_wardrobe("slabarit")
+			check.call(Looks.feet == "" and String(main._msg.text).contains("kuukengät"), "haalarissa ei släbäreitä '%s'" % main._msg.text)
+			main._set_outfit("tuulipuku")
+			# 4. Tallennus.
+			main._on_wardrobe("slabarit")
+			main._save_game()
+			var cfg := ConfigFile.new()
+			cfg.load(Main.SAVE_PATH)
+			check.call(cfg.get_value("pelaaja", "slabarit", false) == true and cfg.get_value("pelaaja", "jalkineet", "") == "slabarit", "tallennus")
+			main._set_feet("")
+			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_sl)
 		"pekanlaatikko":
 			# Pekan vintin romut (pekan_laatikko.gd): Pekka tarjoaa laatikon vasta oman kirppispöydän jälkeen, romut pöydälle,
 			# keräilijä, Anna-Liisa ja mummo ostavat, Pekan osuus, saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt
