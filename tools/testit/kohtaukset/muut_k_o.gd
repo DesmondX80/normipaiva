@@ -26,7 +26,7 @@ const KeinuGame := preload("res://scripts/keinu_game.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
 const Story := preload("res://scripts/story.gd")
 
-const KOHTAUKSET := ["matkaopas", "kuutonen", "laavu", "laavufire", "kuulokkeet", "lavatoiveet", "lavatappelu", "lemmikkienkelit", "koulukeskus", "kuvakirkko", "manamansalo", "kuninkaantapuli", "olavinmarkkinat", "leikki", "ohjerivi", "lappupekka2", "lappupekka", "lappu", "mummotesti", "marjapaikat", "liikenne", "minimouse", "nappaimet", "naapurit", "naapurit2", "naapurit3", "kupla", "minipelikuvat", "mkey", "mirkku_loppu", "mirkku", "laavut", "mummokeppi", "mummot", "lawnday", "lawn", "police"]
+const KOHTAUKSET := ["matkaopas", "kuutonen", "laavu", "laavufire", "kuulokkeet", "lavatoiveet", "lavatappelu", "lemmikkienkelit", "koulukeskus", "koulu_disko", "kuvakirkko", "manamansalo", "kuninkaantapuli", "olavinmarkkinat", "leikki", "ohjerivi", "lappupekka2", "lappupekka", "lappu", "mummotesti", "marjapaikat", "liikenne", "minimouse", "nappaimet", "naapurit", "naapurit2", "naapurit3", "kupla", "minipelikuvat", "mkey", "mirkku_loppu", "mirkku", "laavut", "mummokeppi", "mummot", "lawnday", "lawn", "police"]
 
 var main: Main
 
@@ -360,6 +360,156 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.boys.stone()
 			print("LE kivenheitto estetty: tila %s" % main.boys.mode)
 			main.get_tree().quit()
+		"koulu_disko":
+			# Koulun disko (koulu_disko_game.gd): ovi perjantaina ja muina päivinä, pelin vaiheet (alku, soi toiveineen,
+			# miksauspalkki, hidas pareittain, opettajan polkkatoive ja polkka, kesken katkaisu, hiljaisuus, loppu),
+			# pisteytys ja tulos, vaikutus peliin (maine, kerran illassa) ja tallennus. Rivit DI OK / TESTI VIKA.
+			var saved_di := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
+			if main.player == main.bike:
+				main._toggle_mount()
+			main._note.visible = false
+			var snap_di := func(name: String) -> void:
+				for i in 4:
+					await main.get_tree().process_frame
+				await Kuva.piirto()
+				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", name))
+			var crop_di := func(name: String, r: Rect2, zoom: int) -> void:
+				await Kuva.piirto()
+				var img := Kuva.ruutu(main.get_viewport())
+				var k := Vector2(img.get_size())
+				var rr := Rect2i(Vector2i(r.position * k), Vector2i(r.size * k))  # r suhteellisena (0..1)
+				var part := img.get_region(rr)
+				part.resize(rr.size.x * zoom, rr.size.y * zoom, Image.INTERPOLATE_LANCZOS)
+				part.save_png(path.replace(".png", name))
+			var wait := func(sec: float) -> void:
+				await main.get_tree().create_timer(sec).timeout
+			var check := func(ok: bool, what: String) -> void:
+				print(("DI OK %s" if ok else "TESTI VIKA koulun disko: %s") % what)
+			var door: Vector3 = main.world.koulu_ovi_pos
+			check.call(door != Vector3.ZERO, "koulun ovi löytyi %s" % door)
+			# 1. Ovi: torstaina lappu, perjantaina 18–21 E.
+			main.day = 4  # torstai
+			main.clock_min = 18 * 60 + 30
+			main._disko_day = -1
+			main.walker_out.global_position = door + Vector3(0, 0.3, 0)
+			await wait.call(0.4)
+			check.call(String(main._hint.text).contains("perjantaisin"), "torstaina lappu '%s'" % main._hint.text)
+			main.day = 5  # perjantai
+			await wait.call(0.3)
+			check.call(String(main._hint.text).contains("[E] Koulun disko"), "perjantaina E '%s'" % main._hint.text)
+			# Kuva ovelta: pelaaja ja kamera koulun julkisivuun päin (kyltit näkyvissä).
+			var school: Vector3 = M.w(M.KOULUKESKUS)
+			main.walker_out.global_position = door + (door - school).normalized() * 5.0 + Vector3(0, 0.3, 0)
+			main.walker_out.rotation.y = B.yaw_to(school - door)
+			await wait.call(1.2)
+			await snap_di.call("_ovi.png")
+			main.walker_out.global_position = door + Vector3(0, 0.3, 0)
+			await wait.call(0.3)
+			var m0: float = main.maine
+			main._start_koulu_disko()
+			await wait.call(1.5)
+			var gs: Array = main.get_children().filter(func(c: Node) -> bool: return c.get_script() == Main.KouluDisko)
+			check.call(gs.size() == 1, "peli auki")
+			var g: Node = gs[0]
+			await snap_di.call("_alku.png")
+			await crop_di.call("_kasetit_lahi.png", Rect2(0.5, 0.62, 0.5, 0.3), 2)
+			# 2. Pisteytys ilman ruutua.
+			var idx := func(genre: String) -> int:
+				for i in g.KASETIT.size():
+					if g.KASETIT[i][1] == genre:
+						return i
+				return -1
+			g._wants = {"tekno": 2, "dance": 1}
+			g._history = []
+			check.call(g.score_change("tekno", "sujuva") == 4, "toive täyttyi sujuvasti +4 (%d)" % g.score_change("tekno", "sujuva"))
+			check.call(g.score_change("dance", "kesken") == 0, "pienempi toive kesken 0 (%d)" % g.score_change("dance", "kesken"))
+			check.call(g.score_change("polkka", "sujuva") == -2, "polkka -2 (%d)" % g.score_change("polkka", "sujuva"))
+			check.call(g.score_change("hidas", "hiljaisuus") == -3, "ei toivottu hiljaisuuden jälkeen -3 (%d)" % g.score_change("hidas", "hiljaisuus"))
+			g._wants = {"dance": 1}
+			g._history = ["dance", "dance"]
+			check.call(g.score_change("dance", "sujuva") == 3, "kolmas samaa peräkkäin -1 (%d)" % g.score_change("dance", "sujuva"))
+			check.call(g.rating(8.5, false, false) == ["Diskon kuningas", 4] and g.rating(5.5, true, true) == ["Kelpo DJ", 3]
+				and g.rating(1.0, true, false) == ["Tyhjä lattia", -2], "arvosanat %s %s %s" % [g.rating(8.5, false, false), g.rating(5.5, true, true), g.rating(1.0, true, false)])
+			# 3. Ensimmäinen biisi: toivottu tekno.
+			g._history = []
+			g._wants = {"tekno": 2}
+			g._offer = [idx.call("tekno"), idx.call("dance"), idx.call("hidas")]
+			g._sel = 0
+			var f0: int = g._floor
+			g._mix()
+			check.call(g._phase == "soi" and g._round == 1 and g._floor == mini(f0 + 3, 12), "ensimmäinen biisi toiveesta: lattia %d -> %d" % [f0, g._floor])
+			await wait.call(2.2)
+			g._ask_random("hidas")
+			await wait.call(0.3)
+			await snap_di.call("_soi.png")
+			await crop_di.call("_lattia_lahi.png", Rect2(0.22, 0.22, 0.56, 0.5), 2)
+			await crop_di.call("_deki_lahi.png", Rect2(0.0, 0.55, 0.36, 0.45), 2)
+			# 4. Miksauspalkki: neula ennen ikkunaa ja ikkunassa; sujuva miksaus toivottuun hitaaseen.
+			g._t = g.SEG - 2.6
+			await wait.call(0.1)
+			await snap_di.call("_miksaus.png")
+			g._t = g.SEG - 0.5
+			g._wants = {"hidas": 2}
+			g._offer = [idx.call("hidas"), idx.call("tekno"), idx.call("polkka")]
+			g._sel = 0
+			var f1: int = g._floor
+			var d1: int = g.score_change("hidas", "sujuva")
+			g._mix()
+			check.call(g._last_mix == "sujuva" and g._floor == clampi(f1 + d1, 0, 12), "sujuva miksaus hitaaseen: lattia %d -> %d (%+d)" % [f1, g._floor, d1])
+			await wait.call(2.2)
+			await snap_di.call("_hidas.png")
+			# 5. Kesken biisin katkaisu.
+			g._t = 5.0
+			g._offer = [idx.call("dance"), idx.call("tekno"), idx.call("polkka")]
+			g._sel = 0
+			g._mix()
+			check.call(g._last_mix == "kesken", "kesken katkaisu (%s)" % g._last_mix)
+			# 6. Opettajan polkkatoive kolmannen biisin aikana ja polkka.
+			g._asks_done = 0
+			g._t = 3.2
+			await wait.call(0.4)
+			check.call(g._teacher_asked and int(g._wants.get("polkka", 0)) >= 1, "opettaja toivoi polkkaa")
+			await snap_di.call("_opettaja.png")
+			g._t = g.SEG - 0.4
+			g._offer = [idx.call("polkka"), idx.call("tekno"), idx.call("dance")]
+			g._sel = 0
+			var f2: int = g._floor
+			g._mix()
+			check.call(g._teacher_happy and g._floor < f2, "polkka: opettaja tyytyväinen, lattia %d -> %d" % [f2, g._floor])
+			await wait.call(1.6)
+			await snap_di.call("_polkka.png")
+			# 7. Hiljaisuus: kukaan ei miksaa.
+			g._t = g.SEG - 0.05
+			await wait.call(0.3)
+			check.call(g._phase == "tauko", "biisi loppui, hiljaista (%s)" % g._phase)
+			await wait.call(g.GAP + 0.4)
+			check.call(g._last_mix == "hiljaisuus" and g._phase == "soi", "hiljaisuuden jälkeen uusi biisi (%s)" % g._last_mix)
+			# 8. Viimeinen biisi ja tulos.
+			g._t = g.SEG - 0.5
+			g._mix()  # kuudes biisi alkaa
+			g._t = g.SEG - 0.5
+			g._mix()  # kuudes loppuu: loppu
+			check.call(g._phase == "loppu" and not g._result.is_empty(), "disko loppui (%s)" % g._phase)
+			var exp: Array = g.rating(g._result.lattia, true, true)
+			check.call(g._result.title == exp[0] and int(g._result.rep) == int(exp[1]), "tulos %s %+d, lattia %.1f" % [g._result.title, g._result.rep, g._result.lattia])
+			await wait.call(0.8)
+			await snap_di.call("_loppu.png")
+			var rep: int = g._result.rep
+			g._quit()
+			await wait.call(0.6)
+			check.call(main.state == "ulkona" and main._disko_day == main.day and is_equal_approx(main.maine, clampf(m0 + rep, 0.0, 100.0)),
+				"pelin jälkeen: tila %s, disko tänään %s, maine %.0f -> %.0f" % [main.state, main._disko_day == main.day, m0, main.maine])
+			check.call(String(main._msg.text).contains("Koulun disko"), "viesti '%s'" % main._msg.text)
+			main.walker_out.global_position = door + Vector3(0, 0.3, 0)
+			await wait.call(0.4)
+			check.call(String(main._hint.text).contains("soitettu"), "kerran illassa '%s'" % main._hint.text)
+			check.call("koulun_disko" in main.tilat.firsts and "koulu_disko_kuultu" in main.tilat.firsts, "sivutehtävä tehty")
+			var cfg := ConfigFile.new()
+			main._disko_day = 5
+			main._save_game()
+			cfg.load(Main.SAVE_PATH)
+			check.call(int(cfg.get_value("paivarajat", "koulun_disko", -1)) == 5, "tallennus")
+			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_di)
 		"koulukeskus":
 			# Koulukeskus, päiväkoti, kentät ja ulkopingis (#143): paikat, vihjeet kellonajan mukaan ja pingis nuoria vastaan
 			# (voitto ja tappio). Aja eristetyllä HOME:lla (tallennus). Kuvat vain ikkunallisena.

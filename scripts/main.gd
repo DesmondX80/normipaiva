@@ -25,6 +25,7 @@ const BarGame := preload("res://scripts/bar_game.gd")
 const LavaGame := preload("res://scripts/lava_game.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
+const KouluDisko := preload("res://scripts/koulu_disko_game.gd")
 const PaGame := preload("res://scripts/pa_game.gd")
 ## Santun hommat mökillä (santun_hommat.gd) ja niiden minipelit.
 const Hommat := preload("res://scripts/santun_hommat.gd")
@@ -5880,10 +5881,17 @@ const PINGIS_NUORET_LINES := {
 }
 var _pingis_nuoret_voitot := 0
 var _pingis_nuoret_day := -1
+## Koulun disko (koulu_disko_game.gd): perjantaisin 18–21 koulukeskuksen ovelta, kerran illassa. Pelaaja on DJ.
+const DISKO_AIKA := Vector2(18 * 60, 21 * 60)
+const DISKO_VIIKONPAIVA := 4  # perjantai (_weekday: 0 = ma)
+const DISKO_KESTO := 120.0  # min
+var _disko_day := -1
 
 
 func _koulu_logic() -> void:
 	if _hint.text != "" or world == null or world.pingis_ulko_pos == Vector3.ZERO or player != walker_out or player.is_stunned():
+		return
+	if _koulu_disko_logic():
 		return
 	var p := player.global_position
 	if Vector2(p.x - world.pingis_ulko_pos.x, p.z - world.pingis_ulko_pos.z).length() > 2.6:
@@ -5895,6 +5903,77 @@ func _koulu_logic() -> void:
 	_hint.text = "[E] Haasta kylän nuoret pihapingikseen (häviäjä tarjoaa limut, %s €)" % _eur(LIMU_HINTA)
 	if Input.is_action_just_pressed("interact"):
 		_start_pingis_nuoret()
+
+
+## Koulukeskuksen ovi: perjantai-iltana disko, muulloin kyltti kertoo ajan. Palauttaa true, kun ovella.
+func _koulu_disko_logic() -> bool:
+	if world.koulu_ovi_pos == Vector3.ZERO:
+		return false
+	var p := player.global_position
+	if Vector2(p.x - world.koulu_ovi_pos.x, p.z - world.koulu_ovi_pos.z).length() > 2.8:
+		return false
+	tilat.first("koulu_disko_kuultu", 0.0)
+	if _weekday() != DISKO_VIIKONPAIVA or not _between(clock_min, DISKO_AIKA):
+		_hint.text = "Koulukeskus. Ovessa lappu: KOULUDISKO perjantaisin 18–21, DJ kadoksissa – vapaaehtoisia kaivataan!"
+		return true
+	if _disko_day == day:
+		_hint.text = "Koulun disko on soitettu tältä illalta. Lapset kertovat siitä vielä maanantaina."
+		return true
+	_hint.text = "[E] Koulun disko: DJ puuttuu! Lupaudu kasettien pyörittäjäksi"
+	if Input.is_action_just_pressed("interact"):
+		_start_koulu_disko()
+	return true
+
+
+func _start_koulu_disko() -> void:
+	_mokki_prev = state
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	Sfx.play("door", -6.0)
+	var anchor := Node3D.new()
+	add_child(anchor)
+	anchor.global_position = world.koulu_ovi_pos
+	var g := KouluDisko.new()
+	g.anchor = anchor
+	g.sun = _sun
+	g.player_look = Looks.player()
+	g.maine = maine
+	g.finished.connect(func(r: Dictionary) -> void:
+		anchor.queue_free()
+		_koulu_disko_done(r))
+	add_child(g)
+
+
+func _koulu_disko_done(r: Dictionary) -> void:
+	state = _mokki_prev
+	player.activate_camera()
+	player.controls_enabled = true
+	_hazards.process_mode = Node.PROCESS_MODE_INHERIT
+	_hud.visible = true
+	_disko_day = day
+	if r.get("luovutti", false):
+		maine = clampf(maine - 1.0, 0.0, 100.0)
+		_show_message("Lähdit diskosta kesken. Opettaja joutui laittamaan radion soimaan. Maine −1.", 4.0)
+		_save_game()
+		return
+	_advance_clock(DISKO_KESTO)
+	tilat.first("koulun_disko", 0.4)
+	var rep := int(r.get("rep", 0))
+	maine = clampf(maine + rep, 0.0, 100.0)
+	tilat.add("moraali", 0.1 if rep > 0 else 0.0)
+	tilat.add("stressi", 0.1 if rep > 0 else -0.05)
+	tilat.add("stamina", -0.1)
+	var ope := ""
+	if r.get("opettaja") == true:
+		ope = "  Opettaja sai polkkansa."
+	elif r.get("opettaja") == false:
+		ope = "  Opettaja jäi ilman polkkaa."
+	_show_message("Koulun disko: \"%s\". Tanssilattia keskimäärin %.1f/%d.%s%s" % [r.get("title", ""), float(r.get("lattia", 0.0)),
+		KouluDisko.KIDS, "   Maine %+d." % rep if rep != 0 else "", ope], 5.0)
+	_save_game()
 
 
 func _start_pingis_nuoret() -> void:
@@ -21252,6 +21331,7 @@ func _load_game() -> void:
 	_kasetti = cfg.get_value("peli", "oma_kasetti", false)
 	_hengailu_day = cfg.get_value("paivarajat", "hengailu", -1)
 	_pingis_nuoret_day = cfg.get_value("paivarajat", "pingis_nuoret", -1)
+	_disko_day = cfg.get_value("paivarajat", "koulun_disko", -1)
 	_pingis_nuoret_voitot = cfg.get_value("peli", "pingis_nuoret_voitot", 0)
 	_myynti_day = cfg.get_value("paivarajat", "kirppis_poyta", -1)
 	_myynti_ban = cfg.get_value("paivarajat", "kirppis_myyntikielto", -1)
@@ -21390,6 +21470,7 @@ func _save_game() -> void:
 	cfg.set_value("peli", "oma_kasetti", _kasetti)
 	cfg.set_value("paivarajat", "hengailu", _hengailu_day)
 	cfg.set_value("paivarajat", "pingis_nuoret", _pingis_nuoret_day)
+	cfg.set_value("paivarajat", "koulun_disko", _disko_day)
 	cfg.set_value("peli", "pingis_nuoret_voitot", _pingis_nuoret_voitot)
 	cfg.set_value("paivarajat", "kirppis_poyta", _myynti_day)
 	cfg.set_value("paivarajat", "kirppis_myyntikielto", _myynti_ban)
