@@ -25,7 +25,7 @@ Loki: `%APPDATA%\Godot\app_userdata\Normipäivä\logs\godot.log`.
 - Vaarat: Päivin punainen Hyundai, naapurin Anna-Liisa, juntti ja mummot kettukarkkeineen.
 - Tarina "Paapeliin pääsee, kunhan…" ja sen jatko: Paapelin mökki, mopolla Vaalaan ja junalla kotiin.
 - Kymmeniä minipelejä: marjat, nurmikko, sahaus, kalastus, kädenvääntö, tanssit, bingo, Street Fighter -tappelut…
-- Hahmoeditori pelin alussa: tukka, parta, lasit, iho, maha ja tuulipuvun väri.
+- Hahmoeditori pelin alussa: tukka, parta, lasit, iho, keho, maha ja tuulipuvun väri.
 - Kylän legendat, sivutehtävät ja onnelliset loput Normipäiväkirjassa (O).
 
 ## Ohjaus lyhyesti

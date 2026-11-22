@@ -299,6 +299,8 @@ func _refresh_row(i: int) -> void:
 	var text: String = opt[1]
 	if row.id == "lippis" and Looks.custom_opt("tukka")[0] in Looks.NO_CAP_HAIR:
 		text = "Ei mahdu tukan päälle"
+	if row.id == "maha" and Looks.custom_opt("keho")[0] == "nainen":
+		text = "Vain miehen keholla"
 	(_rows[i][1] as Label).text = text
 	var sw: ColorRect = _rows[i][2]
 	var v: Variant = opt[2]

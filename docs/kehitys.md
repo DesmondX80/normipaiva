@@ -104,7 +104,7 @@ Vaalan Ratatie (asfalttikierros aseman edestä Zabukin taakse Aseman pihaan, 3 p
 `tools/testit/aja.sh scene hahmoeditori`: hahmoeditori pelin alussa (`scripts/hahmoeditori.gd`, testi `tools/testit/hahmoeditori.gd`):
 kameran rajaus projisoimalla (pää ja koko hahmo paneelin vasemmalle jäävän alueen keskellä), jokaisen rivin jokainen vaihtoehto
 (kuvat `_<rivi>_<vaihtoehto>`), käännetty hahmo (`_kaanto_<aste>`), valinnat muissa asuissa ja päähineissä (`_asu_*`), arvonta,
-peruminen, hyväksyntä (pelaajan mallit vaihtuvat, kuvat `_valmis` ja `_peli`), tallennus ja lataus; rivit `HE OK` tai `TESTI VIKA`.
+peruminen, hyväksyntä (`--he-rivi=<id>` kuvaa vain yhden rivin ja sitä käyttävät asut; pelaajan mallit vaihtuvat, kuvat `_valmis` ja `_peli`), tallennus ja lataus; rivit `HE OK` tai `TESTI VIKA`.
 Uusi vaihtoehto lisätään `looks.gd`:n `HAHMO`-taulukkoon (rivin ensimmäinen on oletus) ja sen vaikutus `_apply_custom`iin.
 
 `tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin

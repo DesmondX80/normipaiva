@@ -72,13 +72,23 @@ func run(path: String) -> void:
 				"koko hahmo ruudussa: ylä %.0f, ala %.0f / %.0f px, oikea reuna %.3f < paneeli %.3f" % [top.y, bot.y, vs.y,
 				oik.x / vs.x, (ui.x - ed.PANEL_W - ed.PANEL_GAP) / ui.x])
 	# Jokainen vaihtoehto: rivi valitaan, askel oikealle, kuva. Kierros palaa oletukseen.
+	# --he-rivi=<id>: kuvataan vain se rivi ja asuista vain ne, joissa on sama valinta (nopea uusinta yhdelle riville).
+	var vain := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--he-rivi="):
+			vain = arg.substr(10)
 	for i in Looks.HAHMO.size():
 		var row: Dictionary = Looks.HAHMO[i]
+		if vain != "" and row.id != vain:
+			continue
 		ed._select(i)
 		await _kamera(ed)
 		for k in (row.opts as Array).size():
 			var id: String = Looks.custom_opt(row.id)[0]
 			_tarkista((ed._rows[i][1] as Label).text == Looks.custom_opt(row.id)[1], "rivi %s näyttää %s" % [row.id, id])
+			if row.id == "keho":
+				_tarkista((ed._rows[7][1] as Label).text == ("Vain miehen keholla" if id == "nainen" else "Kaljamaha")
+					and String(Looks.player().get("model", "male")) == ("female" if id == "nainen" else "male"), "keho %s: malli ja mahan rivi" % id)
 			if row.id == "tukka":
 				_tarkista((ed._rows[4][1] as Label).text == ("Ei mahdu tukan päälle" if id in Looks.NO_CAP_HAIR else "Lippis")
 					and String(Looks.player().cap) == ("" if id in Looks.NO_CAP_HAIR else "karhu"),
@@ -103,8 +113,17 @@ func run(path: String) -> void:
 		["nahkaliivi", "", {"tukka": "kalju", "parta": "taysi", "hiusvari": "harmaa", "iho": "ruskea", "maha": "pieni"}],
 		["tuulipuku", "stetson", {"tukka": "pitka", "hiusvari": "musta", "puku": "viini"}],
 		["tuulipuku", "koppa", {"tukka": "letti", "puku": "vihrea", "lasit": "valkoiset"}],
-		["tyovaatteet", "", {"tukka": "siili", "parta": "silea", "iho": "tumma"}]]
+		["tyovaatteet", "", {"tukka": "siili", "parta": "silea", "iho": "tumma"}],
+		["tuulipuku", "", {"tukka": "siili", "parta": "silea", "keho": "nainen", "puku": "lila"}],
+		["farkut", "", {"tukka": "pitka", "parta": "silea", "keho": "nainen"}],
+		["tyovaatteet", "", {"tukka": "jakaus", "parta": "silea", "keho": "nainen", "hiusvari": "ruskea"}],
+		["hiihtohaalari", "", {"tukka": "pitka", "parta": "silea", "keho": "nainen", "hiusvari": "musta"}],
+		["nahkaliivi", "", {"tukka": "pitka", "parta": "silea", "keho": "nainen", "hiusvari": "punainen"}],
+		["nahkaliivi", "", {"tukka": "siili", "keho": "lihas"}],
+		["tuulipuku", "stetson", {"tukka": "kalju", "parta": "pukki", "keho": "nainen", "lasit": "pilotti"}]]
 	for a: Array in asut:
+		if vain != "" and not (a[2] as Dictionary).has(vain):
+			continue
 		Looks.outfit = a[0]
 		Looks.hat = a[1]
 		Looks.custom = a[2]
@@ -112,7 +131,7 @@ func run(path: String) -> void:
 		for rivi in [0, 6]:
 			ed._select(rivi)
 			await _kamera(ed)
-			await _kuva(path.replace(".png", "_asu_%s%s_%s_%s.png" % [a[0], a[1], a[2].tukka, Looks.HAHMO[rivi].cam]))
+			await _kuva(path.replace(".png", "_asu_%s%s_%s_%s_%s.png" % [a[0], a[1], a[2].tukka, a[2].get("keho", "mies"), Looks.HAHMO[rivi].cam]))
 	Looks.outfit = "tuulipuku"
 	Looks.hat = ""
 	# Arvonta: jokaisella rivillä on kelvollinen valinta.
@@ -133,7 +152,7 @@ func run(path: String) -> void:
 	ed = main.menu.editor
 	await _odota(4)
 	var valinta := {"tukka": "siili", "hiusvari": "punainen", "parta": "taysi", "lasit": "ei", "lippis": "ei", "iho": "paivettynyt",
-		"maha": "jatti", "puku": "viini"}
+		"keho": "roteva", "maha": "jatti", "puku": "viini"}
 	for i in Looks.HAHMO.size():
 		ed._select(i)
 		for k in 8:

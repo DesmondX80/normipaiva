@@ -37,7 +37,8 @@ static var boots := ""
 ## kaikissa asuissa; puvun väri vain tuulipuvussa, lasit ja lippis vain asuissa, joissa ne ovat.
 static var custom := {}
 ## Editorin rivit: id, otsikko, kameran rajaus ("paa" = lähikuva päästä, "vartalo" = koko hahmo) ja vaihtoehdot
-## [id, nimi, arvo]. Arvo on värille Color, mahalle [belly, sag], puvulle [a, b] (tuulipuvun värikentät).
+## [id, nimi, arvo]. Arvo on värille Color, keholle ulkonäköön yhdistettävät muotoarvot (character.gd: bulk, shoulders,
+## muscle; naisen keho vaihtaa mallin), mahalle [belly, sag], puvulle [a, b] (tuulipuvun värikentät).
 const HAHMO := [
 	{"id": "tukka", "name": "Tukka", "cam": "paa", "opts": [["jakaus", "Sivujakaus", "Hair_SimpleParted"], ["siili", "Siili", "Hair_Buzzed"],
 		["pitka", "Pitkä tukka", "Hair_Long"], ["letti", "Rasvaletti", ""], ["kalju", "Kalju", ""]]},
@@ -52,6 +53,11 @@ const HAHMO := [
 	{"id": "iho", "name": "Iho", "cam": "paa", "opts": [["vaalea", "Vaalea", Color(1.0, 0.92, 0.84)],
 		["kalpea", "Talvenkalpea", Color(1.0, 0.98, 0.95)], ["paivettynyt", "Päivettynyt", Color(0.9, 0.76, 0.62)],
 		["ruskea", "Ruskea", Color(0.72, 0.55, 0.43)], ["tumma", "Tumma", Color(0.47, 0.34, 0.27)]]},
+	{"id": "keho", "name": "Keho", "cam": "vartalo", "opts": [["tavallinen", "Tavallinen", {}],
+		["roteva", "Roteva", {"bulk": 0.6, "shoulders": 0.3}],
+		["lihas", "Lihaksikas", {"bulk": 0.25, "shoulders": 0.5, "muscle": 0.3}],
+		["hintela", "Hintelä", {"bulk": -0.6, "shoulders": -0.8, "muscle": -1.0}],
+		["nainen", "Naisen keho", {"model": "female", "bulk": 0.0, "shoulders": 0.0, "curves": 0.4, "bust": 1.4}]]},
 	{"id": "maha", "name": "Maha", "cam": "vartalo", "opts": [["kalja", "Kaljamaha", [0.75, 1.0]], ["jatti", "Jättimaha", [1.0, 1.0]],
 		["pieni", "Pieni pömppö", [0.45, 0.6]], ["hoikka", "Hoikka", [0.15, 0.2]]]},
 	{"id": "puku", "name": "Tuulipuku", "cam": "vartalo", "opts": [
@@ -86,6 +92,11 @@ static func _apply_custom(look: Dictionary) -> void:
 	if look.has("body_hair"):
 		look.body_hair = (look.hair_color as Color).darkened(0.3)
 	look.skin = custom_opt("iho")[2]
+	look.merge(custom_opt("keho")[2], true)
+	if look.get("model", "male") == "female":
+		# Naisen keholla nahkaliivi on kiinni (ei paljasta karvaista rintaa); kaljamaha on vain miehen mallissa (character.gd).
+		for k in ["vest_open", "chest_hair", "body_hair"]:
+			look.erase(k)
 	var maha: Array = custom_opt("maha")[2]
 	look.belly = maha[0]
 	look.sag = maha[1]
