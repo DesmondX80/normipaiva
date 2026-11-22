@@ -1380,7 +1380,10 @@ func _ready() -> void:
 	var bike_note := "" if debug_shot else _apply_saved_bike()  # testikuvat alkavat aina pyörän selästä kotoa
 	if not skip_menu and not debug_shot:
 		menu.open_main()
+	elif Menu.editor_on_start and not debug_shot:
+		menu.open_editor(false)  # "Uusi peli": hahmoeditori ennen ensimmäistä aamua
 	skip_menu = false
+	Menu.editor_on_start = false
 	if jemma > 0:
 		_morning_info.append("Kotijemmoissa %d kaljaa." % jemma)
 	if not _risky_stashes().is_empty():
@@ -11663,6 +11666,18 @@ func _koppa_first() -> void:
 	_save_game()
 
 
+## Hahmoeditorin valinnat (Looks.custom, hahmoeditori.gd): kaikki pelaajan mallit päivittyvät paikallaan kuten asun
+## vaihdossa. force: editori on jo asettanut Looks.customin, mallit vaihdetaan silti.
+func _set_look(d: Dictionary, force := false) -> void:
+	if d == Looks.custom and not force:
+		return
+	Looks.custom = d.duplicate(true)
+	var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
+		return n.has_meta("player_body"))
+	for n in bodies:
+		Looks.restyle_player(n)
+
+
 ## Pelaajan päähine (Looks.hat): kaikki pelaajan mallit päivittyvät paikallaan kuten asun vaihdossa.
 func _set_hat(h: String) -> void:
 	if h == Looks.hat:
@@ -21386,6 +21401,7 @@ func _load_game() -> void:
 	phone.found = cfg.get_value("puhelin", "loydetty", false)
 	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
 	_set_hat(cfg.get_value("pelaaja", "hattu", ""))
+	_set_look(cfg.get_value("pelaaja", "hahmo", {}))
 	# Yksi pari: vanhat tallennukset ("koti" / "mokki") luetaan jalassa olevaksi, ja jalassa oleva voittaa repun.
 	_set_boots("jalassa" if cfg.get_value("pelaaja", "saappaat", "") != "" else "")
 	Saappaat.bag = "repussa" if Looks.boots == "" and cfg.get_value("pelaaja", "saappaat_repussa", "") != "" else ""
@@ -21693,6 +21709,7 @@ func _save_game() -> void:
 	cfg.set_value("puhelin", "loydetty", phone.found)
 	cfg.set_value("pelaaja", "asu", Looks.outfit)
 	cfg.set_value("pelaaja", "hattu", Looks.hat)
+	cfg.set_value("pelaaja", "hahmo", Looks.custom)
 	cfg.set_value("pelaaja", "saappaat", Looks.boots)
 	cfg.set_value("pelaaja", "saappaat_repussa", Saappaat.bag)
 	cfg.set_value("puhelin", "voimakkuus", phone.volume)
