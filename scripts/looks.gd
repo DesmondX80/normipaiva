@@ -98,8 +98,8 @@ static func _apply_custom(look: Dictionary) -> void:
 		# Naisen keholla nahkaliivi on kiinni (ei paljasta karvaista rintaa).
 		for k in ["vest_open", "chest_hair", "body_hair"]:
 			look.erase(k)
-		if look.get("net_shirt", false):
-			look.nipples = false  # repaleinen verkkopaita näyttää ihon läpi: ei nännejä verkon alla
+		# Repaleinen verkkopaita näyttäisi paljaan rinnan repeämistä: naisen keholla sen tilalla on ehjä valkoinen aluspaita.
+		look.erase("net_shirt")
 	var maha: Array = custom_opt("maha")[2]
 	look.belly = maha[0]
 	look.sag = maha[1]
