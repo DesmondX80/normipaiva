@@ -57,7 +57,8 @@ const HAHMO := [
 		["roteva", "Roteva", {"bulk": 0.6, "shoulders": 0.3}],
 		["lihas", "Lihaksikas", {"bulk": 0.25, "shoulders": 0.5, "muscle": 0.3}],
 		["hintela", "Hintelä", {"bulk": -0.6, "shoulders": -0.8, "muscle": -1.0}],
-		["nainen", "Naisen keho", {"model": "female", "bulk": 0.0, "shoulders": 0.0, "curves": 0.4, "bust": 1.4}]]},
+		# Naisen keho: samat muodot kuin Sinikalla, Katjalla ja kolmiomittauksen naisilla (SINIKKA: curves 1, bust 2,7, bulk -0,2).
+		["nainen", "Naisen keho", {"model": "female", "bulk": -0.2, "shoulders": 0.0, "curves": 1.0, "bust": 2.7}]]},
 	{"id": "maha", "name": "Maha", "cam": "vartalo", "opts": [["kalja", "Kaljamaha", [0.75, 1.0]], ["jatti", "Jättimaha", [1.0, 1.0]],
 		["pieni", "Pieni pömppö", [0.45, 0.6]], ["hoikka", "Hoikka", [0.15, 0.2]]]},
 	{"id": "puku", "name": "Tuulipuku", "cam": "vartalo", "opts": [
