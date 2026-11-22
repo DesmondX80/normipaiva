@@ -23,14 +23,23 @@ const DATA_PATH := "res://assets/mokki/kartta.json"
 const HEIGHTS_PATH := "res://assets/mokki/rakennukset.json"
 const TREES_PATH := "res://assets/mokki/puut.bin"
 const Forest := preload("res://scripts/forest.gd")
+const Kaisua := preload("res://scripts/kaisua.gd")
 ## Mökin kehys karttakehyksessä: paikallisen origon paikka (m osoitepisteestä) ja kierto (OSM:n mökin mukaan).
 const YARD_C := Vector2(1.0, 2.35)
 const YARD_ROT_DEG := 17.6
 ## Kävelyalue karttakehyksessä (x itään, z etelään osoitepisteestä; näkymättömät seinät): 400 m mökin ympäri ja
-## pohjoiseen Salmisille ja Keskimmäiselle (Salmisen uimaranta, Ranta-Rosvo, laavu ja tynnyrisauna) asti.
-const AREA_MIN := Vector2(-400.0, -1750.0)
+## pohjoiseen Salmisille ja Keskimmäiselle (Salmisen uimaranta, Ranta-Rosvo, laavu ja tynnyrisauna) asti, lännessä
+## 590 m Kaisuan tilan pelloille (kaisua.gd: Isopelto ja Ojanvarsi ulottuvat x -568:aan, ja päässä pitää kääntyä).
+const AREA_MIN := Vector2(-590.0, -1750.0)
 const AREA_MAX := Vector2(600.0, 400.0)
-const VIEW_PAD := 550.0  # maasto, metsä ja kohteet näkyvät näin kauas kävelyalueen ulkopuolelle
+## Näkyvän alueen perusta (maasto, metsä, karttadata ja hakuruudukko VIEW_PAD:n verran tämän ympäri). Kävelyalueen
+## länsilaajennus ei siirrä näkyvää aluetta: puut on leivottu (tools/kartta/mokki_puut.py) tähän rajaan asti, ja
+## maaston välimuistin avain pysyy samana. Lännessä näkymää on yhä 360 m kävelyalueen reunan takana.
+const VIEW_MIN := Vector2(-400.0, -1750.0)
+const VIEW_PAD := 550.0  # maasto, metsä ja kohteet näkyvät näin kauas näkyvän alueen perustasta
+## Kaisuan tila (Kaisuantie 38, kaisua.gd): pihan sorakenttä paikallisessa kehyksessä (keskipiste, säde). Ympyröiltä
+## raivataan puut (_build_forest), ja kaisua.gd piirtää niille soran (maasto ja hakuruudukko pysyvät ennallaan).
+const KAISUA_YARD := [[Vector2(-213.0, 121.0), 25.0], [Vector2(-236.0, 104.0), 7.0], [Vector2(-186.0, 104.0), 10.0]]
 const INNER_HALF := 144.0  # tarkka 2 m maastoverkko pihan ympärillä (2 m korkeusmallin alue)
 const FAR_GRID := 8.0  # kauempana maastoverkon ruutu
 const MASK_STEP := 4.0  # teiden ja pihojen hakuruudukko (ks. _mask)
@@ -138,6 +147,7 @@ const SANTTU_LINES := [
 	"Lähin kauppa on Vaalassa, viistoista kilsaa. Täällä on rauhallista.",
 	"Synnyin 80-luvulla, opiskelin Oulun yliopistossa. Sitä ei tästä äkkiä arvais.",
 	"Vastausprosentti sata, vastaan yleensä tunnissa. Paitsi kun oon saunassa.",
+	"Kaisuan isäntä kyseli kesäapua: traktori, puimuri ja heinät. Kaisuantie 38, pari sataa metriä länteen.",
 ]
 const SANTTU_AMBIENT := [
 	"Löylyä riittää, älä säästele.", "Palju lämpiää hitaasti, mutta kunnolla.",
@@ -178,6 +188,7 @@ var _smoker_smoke: CPUParticles3D
 ## Rakennettu? Mökkialue (500 m maasto, metsä, rakennukset) rakennetaan vasta tarvittaessa (ensure_built),
 ## ettei pelin käynnistys hidastu noin 2 sekunnilla. Kartat ja sijaintilaskut (map_data, h, gpos) toimivat ilman.
 var built := false
+var kaisua: Node3D  # Kaisuan tila (kaisua.gd), rakennetaan mökin mukana
 var _pa_out: AudioStreamPlayer3D
 
 ## Savusauna: lämpö (0–1), polttopuuta pesässä (s), savua saunassa (0–1). Täysi lämpö polttaa pesän loppuun,
@@ -242,6 +253,10 @@ func ensure_built() -> void:
 	cottage_base = h(0.0, -1.0)
 	sauna_base = _sauna_body.position.y + 0.15  # terassin kansi
 	_build_hose()
+	# Kaisuan tila (kaisua.gd) kaikkien jälkeen: maassa valmiiksi, ei siirretä.
+	kaisua = Kaisua.new()
+	add_child(kaisua)
+	kaisua.build()
 
 
 # --- Pohjoiset kohteet: Salmisen uimaranta, Ranta-Rosvo ja Keskimmäisen laavu --------------------------------
@@ -669,10 +684,10 @@ static func map_data() -> Dictionary:
 	if not _map.is_empty():
 		return _map
 	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DATA_PATH))
-	var out := {"water": [], "water_names": [], "water_levels": [], "water_bbox": [], "fields": [], "field_bbox": [],
+	var out := {"water": [], "water_names": [], "water_levels": [], "water_bbox": [], "fields": [], "field_bbox": [], "field_ids": [],
 		"bogs": [], "sands": [], "forests": [], "roads": [], "buildings": [], "streams": [], "dem": d.dem,
 		"dem_far": d.get("dem_far", {})}
-	var keep := Rect2(AREA_MIN, AREA_MAX - AREA_MIN).grow(VIEW_PAD + 400.0)
+	var keep := Rect2(VIEW_MIN, AREA_MAX - VIEW_MIN).grow(VIEW_PAD + 400.0)
 	for f in d.features:
 		var pts := PackedVector2Array()
 		var fb := Rect2(Vector2(f.pts[0][0], f.pts[0][1]), Vector2.ZERO)
@@ -695,6 +710,7 @@ static func map_data() -> Dictionary:
 			"field":
 				out.fields.append(pts)
 				out.field_bbox.append(lb)
+				out.field_ids.append(str(f.id))  # OSM-tunniste: Kaisuan tilan pellot (kaisua.gd)
 			"bog":
 				out.bogs.append(pts)
 			"forest":
@@ -785,7 +801,7 @@ static func in_field(p: Vector2) -> bool:
 ## Näkyvä alue paikallisessa kehyksessä: kävelyalue + VIEW_PAD (karttakehyksen suorakaide kierrettynä) rajaavana
 ## suorakaiteena.
 static func view_rect() -> Rect2:
-	var r := Rect2(AREA_MIN, AREA_MAX - AREA_MIN).grow(VIEW_PAD)
+	var r := Rect2(VIEW_MIN, AREA_MAX - VIEW_MIN).grow(VIEW_PAD)
 	var out := Rect2(to_local2(r.position), Vector2.ZERO)
 	for c in [Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]:
 		out = out.expand(to_local2(c))
@@ -1050,6 +1066,40 @@ static func h(x: float, z: float) -> float:
 	if wi >= 0:
 		return water_level(wi) - 1.0
 	return maxf(_dem(x, z) - _base(), water_y() + 0.12)
+
+
+## Maastoverkon pinta pisteessä (sama kolmiointi kuin _ground_grid: tarkka 2 m verkko pihan ympärillä, muualla 8 m,
+## lävistäjä ruudun kulmasta (0, 0) kulmaan (1, 1)). h() on ruudun sisällä bilineaarinen ja voi poiketa verkosta
+## senttejä, joten maastoa myötäilevät pinnat (Kaisuan pellot) lasketaan tällä, etteivät ne leiju tai uppoa.
+static func mesh_h(x: float, z: float) -> float:
+	var step := GRID_STEP if absf(x) < INNER_HALF and absf(z) < INNER_HALF else FAR_GRID
+	var i := floorf(x / step)
+	var j := floorf(z / step)
+	var fx := x / step - i
+	var fz := z / step - j
+	var ii := int(i)
+	var jj := int(j)
+	var s := int(step)
+	var h00 := _vertex_h(ii, jj, s)
+	var h11 := _vertex_h(ii + 1, jj + 1, s)
+	if fx >= fz:
+		var h10 := _vertex_h(ii + 1, jj, s)
+		return h00 + (h10 - h00) * fx + (h11 - h10) * fz
+	var h01 := _vertex_h(ii, jj + 1, s)
+	return h00 + (h11 - h01) * fx + (h01 - h00) * fz
+
+
+static var _vh_cache := {}  # (ruutu i, j, askel) -> h maastoverkon kärkipisteessä
+
+
+## Maastoverkon kärkipisteen korkeus välimuistista (mesh_h kysyy samoja kärkiä moneen kertaan).
+static func _vertex_h(i: int, j: int, step: int) -> float:
+	var key := Vector3i(i, j, step)
+	var v: Variant = _vh_cache.get(key)
+	if v == null:
+		v = h(i * step, j * step)
+		_vh_cache[key] = v
+	return v
 
 
 ## Vesistön pinnan korkeus mökin tasoon nähden (jokaisella järvellä oma pinta, Likanen alimpana).
@@ -1368,8 +1418,28 @@ func _build_neighbors() -> void:
 func _build_forest() -> void:
 	var f := Forest.new()
 	add_child(f)
-	f.load_data(TREES_PATH)
+	f.load_data(TREES_PATH, _kaisua_clear())
 	_forests.append(f)
+
+
+## Kaisuan pihan raivausruudukko (forest.gd _clear_trees): 1 m ruudut pihan ympyröiden kohdalta.
+static func _kaisua_clear() -> Dictionary:
+	var lo := Vector2(INF, INF)
+	var hi := -lo
+	for y in KAISUA_YARD:
+		lo = lo.min(y[0] - Vector2.ONE * y[1])
+		hi = hi.max(y[0] + Vector2.ONE * y[1])
+	var nx := int(hi.x - lo.x) + 1
+	var nz := int(hi.y - lo.y) + 1
+	var mask := PackedByteArray()
+	mask.resize(nx * nz)
+	for j in nz:
+		for i in nx:
+			var p := lo + Vector2(i + 0.5, j + 0.5)
+			for y in KAISUA_YARD:
+				if p.distance_to(y[0]) < y[1]:
+					mask[j * nx + i] = 1
+	return {"mask": mask, "x0": lo.x, "z0": lo.y, "cell": 1.0, "nx": nx, "nz": nz}
 
 
 func _build_lake_and_dock() -> void:

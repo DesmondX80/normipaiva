@@ -70,8 +70,9 @@ mittakaava n. 1,22 m/px. Uusi alue laajennetaan samaan kehykseen, jolloin kaikki
 
 ## Mökki (scripts/mokki.gd, assets/mokki/kartta.json)
 
-Mökin ympäristö (kävelyalue `AREA_MIN..AREA_MAX` mokki.gd:ssä: 400 m mökin ympäri ja pohjoiseen Salmisille ja
-Keskimmäiselle, n. 1 × 2,15 km; näkyvä alue 550 m laajempi) on osoitepisteen kehyksessä (x itään, z etelään, metreinä;
+Mökin ympäristö (kävelyalue `AREA_MIN..AREA_MAX` mokki.gd:ssä: 400 m mökin ympäri, pohjoiseen Salmisille ja
+Keskimmäiselle ja lännessä 590 m Kaisuan pelloille, n. 1,2 × 2,15 km; näkyvä alue 550 m laajempi kuin `VIEW_MIN..AREA_MAX`,
+joten länsilaajennus ei muuttanut puita eikä maaston välimuistia) on osoitepisteen kehyksessä (x itään, z etelään, metreinä;
 origo 64.5054523 N, 26.6672225 E; lon × 111 320 × cos(lat), lat × 111 320). `kartta.json` tehdään kokonaan samoilla
 työkaluilla kuin kylä: OSM-kohteet (myös metsät) samalla muuntimella, pihan tarkka ruudukko "dem" (300 × 300 m, 2 m)
 ja kaukoalue "dem_far" (2 × 2 km, 8 m = mökin kaukomaaston ruutu) MML:n 2 m mallista (lehti R4333D kattaa koko

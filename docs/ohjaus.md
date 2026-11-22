@@ -27,6 +27,16 @@
 | A / D | ohjaa |
 | E | nouse laiturille (aja ensin laiturin viereen ja hidasta) |
 
+| Kaisuan traktorissa ja puimurissa | |
+|---|---|
+| F | nouse koneeseen (vasemmalta kyljeltä) / pois (pysäytä ensin) |
+| W / S | kaasu / jarru ja peruutus (traktori 25 km/h, töissä koneen työnopeus) |
+| A / D | ohjaa |
+| Q | kytke takana oleva työkone (peruuta kytkentäpisteeseen) / irrota (seis, kone nostettuna) |
+| E | laske työkone töihin / nosta; paali piikkiin, latoon tai maahan; täytä kylvökone säkeistä; kippaa kärry suppiloon tai kivet kivikasaan; puimurilla leikkuupöytä alas / ylös tai purku kärryyn tai suppiloon |
+| E (jalan pellolla) | nosta kivi / heitä kärryyn tai kivikasaan / laske maahan |
+| E (jalan dieselsäiliöllä tai koneen vieressä) | täytä kanisteri / kaada kanisteri koneen tankkiin |
+
 | Sahauksessa | |
 |---|---|
 | Hiiri / E | merkkaa katkaisukohta ja aloita |

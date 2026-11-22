@@ -567,13 +567,50 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   maisema OpenStreetMapista (Likanen, Syväjärvi, Ahveroinen, Tervalampi, Kiiskeroinen, Penikka ja muut lammet
   omilla pinnoillaan, Kaisuantie, Uutelanperäntie, Neittäväntie ja muut tiet, pellot, suo, purot ja noin sata
   naapurirakennusta) ja korkeudet koko alueelta Maanmittauslaitoksen 2 m korkeusmallista (kauempana 8 m ruudukkona,
-  `tools/kartta/mokki.ps1`; mökki on harjanteella ja piha viettää n. 7 m rantaan). Kävelyalue on 800 × 800 m, ja
-  maisema jatkuu horisonttiin. Data päivitetään komennolla `tools/kartta/mokki.ps1` tai `tools/kartta/mokki.py` (ks. `tools/kartta/LUEMINUT.md`). Metsä on oikea: noin 128 000 puuta
+  `tools/kartta/mokki.ps1`; mökki on harjanteella ja piha viettää n. 7 m rantaan). Kävelyalue on noin 1,2 × 2,15 km (mökin ympäri, pohjoiseen Salmisille ja
+  Keskimmäiselle ja lännessä Kaisuan tilan pelloille), ja maisema jatkuu horisonttiin. Data päivitetään komennolla `tools/kartta/mokki.ps1` tai `tools/kartta/mokki.py` (ks. `tools/kartta/LUEMINUT.md`). Metsä on oikea: noin 128 000 puuta
   Maanmittauslaitoksen laserkeilauksesta (paikka, pituus ja latvuksen leveys) ja Luken VMI:n puulajeista, ja
   naapuritalojen korkeudet on mitattu laserista (`tools/kartta/mokki_puut.py`). Mökki on tummanruskeine
   pystylautaseinineen metsän keskellä. Piha Airbnb-kuvien ja drone-kuvan mukaan: kuisti järvelle, rannan puolella
   savusauna, puulämmitteinen palju ja kesäkeittiö (avoin katos offset-savustimineen), tikanheittotaulu, laituri
   portaineen ja soutuveneineen sekä isäntä Santtu kahvikuppeineen.
+  - **Kaisuan tila (Kaisuantie 38, `kaisua.gd`):** maatilan hommat Farming Simulatorin tapaan noin 230 m mökiltä
+    länteen. Tila on OSM-kartan talon (Kaisuantie 38) kohdalla: pihalla konevaja työkoneineen ja siemensäkkeineen,
+    harmaa lato, punainen viljankuivuri elevaattoreineen ja vastaanottosuppiloineen, KAISUA-kyltti ja postilaatikko
+    tien varressa sekä isäntä (flanellipaita, henkselit, kumisaappaat). Pellot ovat oikeat OSM-pellot: Kotipelto
+    (0,71 ha) ja Ojanvarsi (0,97 ha) ovat nurmea, Tienvarsipelto (0,55 ha) ja Isopelto (2,14 ha) ohraa. Kävelyalue
+    laajennettiin länteen (x -590 m), jotta Isopelto ja Ojanvarsi ovat ajettavissa.
+    - **Koneet:** vanha ohjaamoton traktori (pyöreä konepelti, pystypakoputki, pellinen istuin, etukuormain
+      paalipiikillä) ja vanha leikkuupuimuri (kela, syöttöruuvi, viljasäiliö, kääntyvä purkuputki). Traktoriin
+      kytketään peruuttamalla (Q) sivuniittokone, kaksiroottorinen karhotin, pyöröpaalain, kääntöaura, S-piikkiäes,
+      kylvökone tai viljakärry; nostimen koneet nousevat kuljetukseen ja laskeutuvat töihin (E). Koneisiin noustaan ja niistä
+      pois F:llä, ajo W/S ja ohjaus A/D (kääntyminen akselivälin mukaan, puimuri kääntää takapyörillä).
+    - **Pellot:** ruudukko 0,5 m ruuduin, ja jokaisella ruudulla on oma vaiheensa ja työsuuntansa (`kaisua_pelto.gd`,
+      `kaisua_tila.gd`). Kasvusto on korsikortteja (nurmi timotein tähkineen, ohra tähkineen ja vihneineen), ja pinta
+      näyttää niittojäljen kaistat, äkeen viirut, kylvörivit ja orasrivit ajosuuntaan. Niitetty heinä ja olki makaavat
+      työsuuntaan, karho on harjanne.
+    - **Heinä:** niitto, karhous (karhotin kokoaa 6 m kaistan keskelle karholle), paalaus (paalain kerää karhon, ja
+      kääritty paali putoaa perästä noin 650 m² nurmesta) ja paalit latoon piikillä. Nurmi kasvaa sängestä
+      niittokypsäksi kolmessa päivässä.
+    - **Vilja:** puinti (säiliö 2 200 kg), purku purkuputkella viljakärryyn tai suoraan kuivurin suppilolle ja kärryn
+      kippaus suppiloon. Kevättyöt: kyntö nelisiipisellä kääntöauralla (sänki kääntyy palteiksi ja vaoiksi; äes ei
+      pure sänkeen), äestys ja kylvö (siemen konevajan säkeistä, säiliö 300 kg); ohra kasvaa orakselle, vihreäksi ja
+      puintikypsäksi päivä kerrallaan.
+    - **Kivien keruu:** kynnöstä nousee kiviä (noin yksi 300 m²:ltä). Jalan E nostaa kiven käteen (juoksu ei onnistu),
+      ja kivi heitetään viljakärryyn tai pellon kulman vanhaan kivikasaan; täysi kärry kipataan kasalle. Isäntä maksaa
+      0,60 € kiveltä (viljakärryyn ei kiviä, jos siinä on viljaa).
+    - **Diesel:** traktorin ja puimurin tankki kuluu ajossa ja enemmän töissä (täysi riittää noin 20 minuutin
+      töihin), ja tyhjänä moottori sammuu. Tankkaus pihan vihreältä polttoainesäiliöltä (konevajan pohjoispää) koneella
+      viereen ajaen, tai jalan kanisterilla (20 l = 35 % tankista) pellolle sammuneeseen koneeseen.
+    - **Paalikauppa:** kun ladossa on paaleja, isäntä välittää naapurin Raijan tilauksen (2–4 paalia lehmille, yksi
+      tilaus päivässä). Paali otetaan ladosta piikkiin ja viedään tien pohjoispuolen naapuritalon paalipaikalle
+      ("PAALIT TÄHÄN"); Raija maksaa 6 € paalilta ja kiittää. Myydyt paalit syötetään seuraavaan päivään mennessä.
+    - **Palkka:** isäntä maksaa jokaisesta valmiista työstä (yli 92 % pellosta): niitto 30 €/ha, karhous 18 €/ha,
+      paalaus 2,50 €/paali, paali latoon 2 €, puinti 55 €/ha, vilja kuivuriin 1,20 €/100 kg, kyntö 35 €/ha, kivi
+      kasaan 0,60 €, äestys ja kylvö 28 €/ha.
+      Valmiin työn jälkeen emäntä tarjoaa talkooruoan pirtissä (lihakeitto, ruisleipä, kahvit ja pullat; nälkä ja
+      stressi helpottavat), ja kokonaisen ketjun jälkeen isäntä antaa kolme saunakaljaa. Ketjut ovat legendaarisia
+      hetkiä: Kaisuan heinätalkoot, Kaisuan sato ja Kaisuan kylvöt.
   - **Tikka ja mökkitikka:** tikanheittotaulun männyn vieressä toisessa männyssä on naulassa suomalainen
     mökkitikkataulu (`darts_game.gd make_mokki_board`, mode "mokki", esikuva fi.wikipedia "Tikanheitto"): renkaat 1–10
     vuorotellen valkoinen ja vihreä, kymppi vihreä keskellä, numerot pysty- ja vaakarivissä. Heittomatka 5 m (taulun

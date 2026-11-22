@@ -28,8 +28,8 @@ BUILD_OUT = os.path.join(ROOT, "assets", "mokki", "rakennukset.json")
 # scripts/mokki.gd
 YARD_C = (1.0, 2.35)
 YARD_ROT_DEG = 17.6
-AREA_MIN = (-400.0, -1750.0)  # kävelyalue karttakehyksessä
-AREA_MAX = (600.0, 400.0)
+AREA_MIN = (-400.0, -1750.0)  # näkyvän alueen perusta karttakehyksessä (mokki.gd VIEW_MIN; kävelyalue AREA_MIN on
+AREA_MAX = (600.0, 400.0)      # lännessä -590, Kaisuan pellot, mutta puut ja näkymä on leivottu tähän rajaan)
 VIEW_PAD = 550.0
 FILL_PAD = 250.0  # latvuston aukot täydennetään näin kauas kävelyalueesta, kauempana vain valtapuut
 YARD_CENTER = (-2.0, 10.0)
