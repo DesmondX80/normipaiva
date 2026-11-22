@@ -679,6 +679,23 @@ func _road_clearance(p: Vector2) -> float:
 	return best
 
 
+## Näkyvän pinnan nosto maastosta pisteessä (m): tiet, pientareet, polut ja asfalttipihat piirretään maaston yläpuolelle
+## (LAYER, ettei pinta välky maaston kanssa). Seisova hahmo nostetaan tämän verran (Character.ground_lift, main.gd), etteivät
+## kengät uppoa asfalttiin. 0 = maasto.
+func surface_lift(pos: Vector3) -> float:
+	var p := Vector2(pos.x, pos.z)
+	var lift := 0.0
+	for s in _seg_grid.get(Vector2i(floori(p.x / CELL), floori(p.y / CELL)), []):
+		var d: float = p.distance_to(Geometry2D.get_closest_point_to_segment(p, s[0], s[1])) - float(s[2])
+		if d <= 0.0:
+			lift = maxf(lift, float(LAYER[s[3]]))
+		elif d <= 1.2 and STYLES[s[3]].edge != "":
+			lift = maxf(lift, float(LAYER.shoulder))
+	if lift < float(LAYER.lot) and _in_any(p, _lots):
+		lift = float(LAYER.lot)
+	return lift
+
+
 ## Mikä alusta pisteessä on (ks. TERRAIN).
 func surface_at(pos: Vector3) -> String:
 	var p := Vector2(pos.x, pos.z)

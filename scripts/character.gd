@@ -48,6 +48,12 @@ var hair_mis: Array = []  # hiusverkot (meta "hair_press"; Pose.limb_points)
 var shoe_type := "paljas"  # Shoes.TYPES-avain
 var shoe_mi: MeshInstance3D  # kenkäverkko (meta "kenka"), null paljain jaloin
 var shoe_sole := 0.0  # kengän pohja jalkapohjan alla (m, hahmon mittakaavassa; Pose.FOOT_H:n lisä)
+## Näkyvän maanpinnan nosto hahmon kohdalla: tiet ja pihat piirretään maaston yläpuolelle (world.gd LAYER, vaala.gd LIFT_*),
+## mutta hahmot kulkevat maastossa. main.gd asettaa palvelun (Callable(paikka) -> m), ja seisova tai kävelevä hahmo
+## nostetaan sen verran, etteivät kengät uppoa asfalttiin. Ei istuessa, ajaessa eikä uidessa (SOLE 0).
+static var ground_lift: Callable
+var _ground := 0.0  # nykyinen nosto (m, pehmennetty)
+var _base_y := 0.0  # mallin korkeus animaation mukaan (_lift_sole)
 var _shoe_lift := 0.0  # sama mallin mittakaavassa (_lift_sole)
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
@@ -85,7 +91,8 @@ func setup(look: Dictionary) -> void:
 	model.scale = Vector3.ONE * (float(look.get("height", REST_HEIGHT)) / REST_HEIGHT)
 	_sole = SOLE[kind]
 	_scale = model.scale.y
-	model.position.y = float(_sole[""]) * _scale
+	_base_y = float(_sole[""]) * _scale
+	model.position.y = _base_y
 	skeleton = model.get_node("Armature/Skeleton3D")
 
 	var body: MeshInstance3D = null
@@ -256,7 +263,18 @@ func _lift_sole(anim_name: String) -> void:
 			lift = _sole[pre]
 	if lift > 0.0:
 		lift += _shoe_lift  # kengänpohja (istuen, ajaessa ja uidessa kontakti nostaa jalan tukeen ft.sole:lla)
-	model.position.y = lift * _scale
+	_base_y = lift * _scale
+	model.position.y = _base_y + (_ground if _base_y > 0.0 else 0.0)
+
+
+## Maanpinnan nosto (ground_lift) jokaisella päivityksellä; muutos liukuu 0,3 m/s (tien reuna 2,5 cm noin 0,08 s), ettei
+## tulee nykäystä. Ajasta riippuva, joten hidas kone (iso delta) ei jätä nostoa kesken.
+func _follow_ground(delta: float) -> void:
+	if not ground_lift.is_valid() or model == null:
+		return
+	var want: float = ground_lift.call(global_position) if _base_y > 0.0 else 0.0
+	_ground = move_toward(_ground, want, maxf(delta, 0.016) * 0.3)
+	model.position.y = _base_y + (_ground if _base_y > 0.0 else 0.0)
 
 
 func current() -> String:
@@ -431,6 +449,7 @@ func _process(delta: float) -> void:
 			return
 	delta = _pending
 	_pending = 0.0
+	_follow_ground(delta)
 	_update_pose(delta)
 
 
@@ -637,6 +656,12 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 			sm.set_shader_parameter(k, t[k])
 	if t.has("shaft"):
 		sm.set_shader_parameter("shaft_h", float(mesh.get_meta("varsi_h", float(t.shaft.top) + float(t.lift) - float(t.sole))))  # yläreuna kuoren alapinnasta
+	if mesh.has_meta("remmi"):
+		sm.set_shader_parameter("strap_u", mesh.get_meta("remmi"))  # släbärin raidat
+	if t.get("sock", false):  # släbärin villasukka (look.socks = {"col", "tip"})
+		var socks: Dictionary = look.get("socks", {})
+		sm.set_shader_parameter("sock_col", socks.get("col", Color(0.44, 0.44, 0.46)))
+		sm.set_shader_parameter("sock_tip", socks.get("tip", Color(0.93, 0.92, 0.89)))
 	var mi := MeshInstance3D.new()
 	mi.name = "Kengat"
 	mi.mesh = mesh
@@ -650,7 +675,7 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	shoe_mi = mi
 	_shoe_lift = float(mesh.get_meta("pohja"))
 	shoe_sole = _shoe_lift * _scale
-	if t.has("sandal"):  # avoin kenkä: jalkaterä näkyy ihona pohjalaatan päällä, kynnet lakattu (nail_col)
+	if t.has("sandal") and not t.get("sock", false):  # avoin kenkä: jalkaterä näkyy ihona pohjalaatan päällä, kynnet lakattu (nail_col)
 		body_mat.set_shader_parameter("foot_skin", true)
 		body_mat.set_shader_parameter("nail_col", look.get("nails", look.get("shoes", Color(0.8, 0.08, 0.1))))
 		var kf: PackedFloat32Array = mesh.get_meta("kynnet", PackedFloat32Array())

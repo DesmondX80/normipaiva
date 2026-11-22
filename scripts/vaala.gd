@@ -214,6 +214,17 @@ func drive_code(p: Vector3) -> int:
 	return c
 
 
+## Näkyvän pinnan nosto maastosta (m, Vaalan omissa koordinaateissa): asfaltti LIFT_ASPHALT, soraiset sivutiet ja
+## pientareet (drive_code SHOULDER) soran ja pientareen välillä. Seisova hahmo nostetaan tämän verran (Character.ground_lift).
+func surface_lift(p: Vector3) -> float:
+	match drive_code(p):
+		ROAD:
+			return LIFT_ASPHALT
+		SHOULDER:
+			return (LIFT_GRAVEL + LIFT_SHOULDER) / 2.0
+	return 0.0
+
+
 ## Järviseudun järven pinta kohdassa (lähimmän järven taso), -INF jos järveä ei ole lähellä.
 func lake_level_at(x: float, z: float) -> float:
 	var best := INF

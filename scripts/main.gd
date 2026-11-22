@@ -1173,6 +1173,7 @@ func _ready() -> void:
 		await world.build(_loading_step)
 		await _loading_step.call("Mökki, Siitari ja Raahen baari", 0.97)
 	home_zone = world.home_zone
+	Looks.Character.ground_lift = _ground_lift  # hahmot tien ja pihan pinnalle (kengät eivät uppoa asfalttiin)
 	_ajastus("maailma")
 	shop_zone = world.shop_zone
 	var sb := M.w2(M.SHOP_BUILDING)
@@ -2922,6 +2923,7 @@ const KIRPPIS_STOCK := {
 	"lusikka": {"seller": "tauno", "name": "Isän kuparilusikka", "price": UkkoLegenda.LUSIKKA_HINTA},
 	"drakkar": {"seller": "raili", "name": "Drakkar Noir, puolillaan", "price": 12.0},
 	"haalari": {"seller": "raili", "name": "Neonpinkki hiihtohaalari", "price": 6.0},
+	"slabarit": {"seller": "raili", "name": "90-luvun släbärit", "price": 3.0},
 	"terva": {"seller": "tauno", "name": "Tervatuoppi (Olavinmarkkinat)", "price": 4.0},
 	"voi": {"seller": "hilkka", "name": "Talonpojan voita (Olavinmarkkinat)", "price": 3.0},
 	"makkara": {"seller": "raili", "name": "Markkinamakkara (Olavinmarkkinat)", "price": 3.5},
@@ -2935,6 +2937,7 @@ const DRAKKAR_DANCE := 0.15
 var drakkar := 0  # suihkauksia jäljellä
 var drakkar_found := false
 var has_haalari := false  # kirppikseltä ostettu hiihtohaalari kodin vaatekaapissa (Looks.OUTFITS "hiihtohaalari")
+var has_slabarit := false  # kirppikseltä ostetut släbärit (ja Päivin villasukat) kodin vaatekaapissa (Looks.feet)
 var has_liivi := false  # Pentin nahkaliivi kodin vaatekaapissa (Looks.OUTFITS "nahkaliivi"), Pentin kiertueen jälkeen
 var has_koppa := false  # Karhu-kutosen pahvikoppa hattuna (Looks.hat "koppa"), ensimmäisestä kaupasta ostetusta kutosesta
 var drakkar_day := -1  # päivä, jona tuoksuu
@@ -3014,6 +3017,7 @@ func _enter_kirppis(mode := "kirppis") -> void:
 	kirppis_int.auction_done = _auction_day == day
 	kirppis_int.drakkar.visible = drakkar <= 0
 	kirppis_int.haalari.visible = not has_haalari
+	kirppis_int.slabarit.visible = not has_slabarit
 	kirppis_int.weekday = _weekday()  # Korkki-Raimo vain lauantaisin
 	kirppis_int.enter(mode)
 	if Looks.outfit == "hiihtohaalari" and mode != "bingo" and _once_today("haalari_seura"):
@@ -3363,6 +3367,8 @@ func _kirppis_hidden(k: String) -> bool:
 			return drakkar > 0  # uusi pullo Railin pöydälle, kun edellinen on loppu
 		"haalari":
 			return has_haalari
+		"slabarit":
+			return has_slabarit
 		"terva", "voi", "makkara":
 			return not (_markkinat_paiva() and _between(clock_min, MARKKINA_OPEN))
 	return false
@@ -3427,6 +3433,11 @@ func _kirppis_give(k: String) -> String:
 			tilat.add("moraali", 0.1)
 			kirppis_int.say_id("annaliisa", "Hahhah! Pinkki haalari! Päivi saa kuulla tästä.")
 			return "Neonpinkki hiihtohaalari ja otsapanta, Levin rinteiltä vuodelta -87. Kotona vaatekaapissa."
+		"slabarit":
+			has_slabarit = true
+			kirppis_int.slabarit.visible = false
+			kirppis_int.say_id("raili", "Kolme raitaa, kulta. Niillä on kävelty Kalajoen hiekoilla.")
+			return "90-luvun släbärit. Päivi kaivaa kotona niihin harmaat villasukat: \"Ei kylällä paljain varpain.\" Vaatekaapista jalkaan."
 	return ""
 
 
@@ -5903,6 +5914,21 @@ func _koulu_logic() -> void:
 	_hint.text = "[E] Haasta kylän nuoret pihapingikseen (häviäjä tarjoaa limut, %s €)" % _eur(LIMU_HINTA)
 	if Input.is_action_just_pressed("interact"):
 		_start_pingis_nuoret()
+
+
+## Näkyvän maanpinnan nosto hahmon kohdalla (Character.ground_lift): tiet ja pihat piirretään maaston yläpuolelle, ja
+## seisova hahmo nostetaan sen verran. Saloisissa world.surface_lift, Vaalassa vaala.gd surface_lift (Vaalan koordinaatit).
+## Vain maaston korkeudella olevat hahmot: sisätilat ja minipelien lavasteet ovat muualla, eivätkä ne nouse.
+func _ground_lift(pos: Vector3) -> float:
+	if _in_vaala and mopo_trip != null and is_instance_valid(mopo_trip.vaala):
+		var vl: Node3D = mopo_trip.vaala
+		var lp := vl.to_local(pos)
+		if absf(lp.y - float(vl.h(lp.x, lp.z))) > 0.3:
+			return 0.0
+		return vl.surface_lift(lp)
+	if world == null or absf(pos.y - Terrain.h(pos.x, pos.z)) > 0.3:
+		return 0.0
+	return world.surface_lift(pos)
 
 
 ## Koulukeskuksen ovi: perjantai-iltana disko, muulloin kyltti kertoo ajan. Palauttaa true, kun ovella.
@@ -8976,7 +9002,7 @@ func _on_home_acted(kind: String) -> void:
 		"vaatekaappi":
 			_open_wardrobe(["tuulipuku", "farkut"] + (["hiihtohaalari"] if has_haalari else [])
 				+ (["nahkaliivi"] if has_liivi else []) + ["hattu"]
-				+ (["koppa"] if has_koppa else []),
+				+ (["koppa"] if has_koppa else []) + (["slabarit"] if has_slabarit else []),
 				"Kotona vaatekaapilla: mitä tänään päälle?")
 		"puhelin":
 			phone.found = true
@@ -11554,6 +11580,9 @@ func _open_wardrobe(ids: Array, title: String) -> void:
 		if id == "koppa":
 			items.append([id, "Lippis takaisin päähän" if Looks.hat == "koppa" else "Karhu-koppa päähän"])
 			continue
+		if id == "slabarit":  # jalkineet erikseen: släbärit ja villasukat asun kenkien tilalle tai takaisin
+			items.append([id, "Asun omat kengät jalkaan" if Looks.feet == "slabarit" else "Släbärit ja villasukat jalkaan"])
+			continue
 		items.append([id, Looks.OUTFITS[id].name + ("  (päällä)" if id == Looks.outfit else "")])
 	_item_menu.open(items, title)
 
@@ -11566,6 +11595,19 @@ func _on_wardrobe(id: String) -> void:
 		_set_hat("" if Looks.hat == "stetson" else "stetson")
 		Sfx.play("cloth", -2.0)
 		_show_message("Stetson päähän. Saloisten kovin cowboy." if Looks.hat == "stetson" else "Lippis takaisin päähän.", 3.0)
+		_save_game()
+		return
+	if id == "slabarit":
+		if Looks.feet != "slabarit" and Looks.outfit == "hiihtohaalari":
+			_show_message("Hiihtohaalarissa pidetään kuukengät. Släbärit odottaa kaapissa.", 3.0)
+			return
+		if Looks.feet != "slabarit" and Looks.boots != "":
+			_show_message("Kumisaappaat on jalassa: riisu ne ensin eteisen matolle.", 3.0)
+			return
+		_set_feet("" if Looks.feet == "slabarit" else "slabarit")
+		Sfx.play("cloth", -2.0)
+		_show_message("Villasukat ja släbärit jalkaan. Kolme raitaa ja harmaa kanta: kesä on täällä." if Looks.feet == "slabarit"
+			else "Omat kengät takaisin jalkaan. Villasukat kaappiin.", 3.0)
 		_save_game()
 		return
 	if id == "koppa":
@@ -11688,6 +11730,17 @@ func _bag_boots() -> void:
 		return
 	Sfx.play("cloth", -2.0)
 	_save_game()
+
+
+## Pelaajan jalkineet (Looks.feet, släbärit ja villasukat): kaikki pelaajan mallit päivittyvät kuten saappailla.
+func _set_feet(f: String) -> void:
+	if f == Looks.feet:
+		return
+	Looks.feet = f
+	var bodies := get_tree().root.find_children("*", "Node3D", true, false).filter(func(n: Node) -> bool:
+		return n.has_meta("player_body"))
+	for n in bodies:
+		Looks.restyle_player(n)
 
 
 ## Pelaajan kumisaappaat (Looks.boots): kaikki pelaajan mallit päivittyvät paikallaan kuten hatun vaihdossa.
@@ -21262,6 +21315,8 @@ func _load_game() -> void:
 	drakkar = cfg.get_value("drakkar", "suihkaukset", 0)
 	drakkar_found = cfg.get_value("drakkar", "loydetty", false)
 	has_haalari = cfg.get_value("pelaaja", "haalari", false)
+	has_slabarit = cfg.get_value("pelaaja", "slabarit", false)
+	_set_feet(cfg.get_value("pelaaja", "jalkineet", "") if has_slabarit else "")
 	has_liivi = cfg.get_value("pelaaja", "liivi", false)
 	has_koppa = cfg.get_value("pelaaja", "koppa", false)
 	drakkar_day = cfg.get_value("drakkar", "paiva", -1)
@@ -21563,6 +21618,8 @@ func _save_game() -> void:
 	cfg.set_value("drakkar", "suihkaukset", drakkar)
 	cfg.set_value("drakkar", "loydetty", drakkar_found)
 	cfg.set_value("pelaaja", "haalari", has_haalari)
+	cfg.set_value("pelaaja", "slabarit", has_slabarit)
+	cfg.set_value("pelaaja", "jalkineet", Looks.feet)
 	cfg.set_value("pelaaja", "liivi", has_liivi)
 	cfg.set_value("pelaaja", "koppa", has_koppa)
 	cfg.set_value("drakkar", "paiva", drakkar_day)
