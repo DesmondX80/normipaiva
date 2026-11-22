@@ -1341,6 +1341,7 @@ var lehto_penkki_pos := Vector3.ZERO
 var lehto_portti_pos := Vector3.ZERO
 var lehto_plate: Node3D  # Pörrön muistokyltti (näkyy tehtävän jälkeen)
 var pingis_ulko_pos := Vector3.ZERO  # ulkopingispöytä (#143)
+var koulu_ovi_pos := Vector3.ZERO  # koulukeskuksen ovi (koulun disko perjantaisin, koulu_disko_game.gd)
 var kanttorila_pos := Vector3.ZERO  # Kanttorilan pihan etuosa (yösävel)
 var kauppias_pos := Vector3.ZERO  # kauppiaan hauta
 var olavi_katko_pos := Vector3.ZERO
@@ -1611,6 +1612,13 @@ func _build_koulukeskus() -> void:
 		add_child(root)
 		var plate := B.sign_plate(root, spec[1], spec[2], spec[3], spec[5], spec[6], spec[3], "Helvetica Neue")
 		plate.position = Vector3(0, spec[4], -0.06)
+		if spec[0] == M.KOULUKESKUS:
+			# Ovi julkisivun edessä ja diskon kyltti oven vieressä (koulun disko perjantaisin 18–21).
+			var door := front + nrm * 1.6
+			koulu_ovi_pos = Vector3(door.x, T.h(door.x, door.y), door.y)
+			var disko := B.sign_plate(root, "KOULUDISKO PE 18–21", Color(0.92, 0.2, 0.5), Color(1.0, 0.95, 0.4), 0.45, 56,
+				Color(1.0, 0.95, 0.4), "Helvetica Neue")
+			disko.position = Vector3(0, 2.0, -0.06)
 	for c in M.KENTAT:
 		_build_pitch(M.w2(c), 34.0, 20.0)
 	var at := M.w2(M.ULKOPINGIS)

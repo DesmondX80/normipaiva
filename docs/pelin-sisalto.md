@@ -414,8 +414,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   mökillä, mutta koulun pihalla ja heikommalla vastustajalla (taito 0,72 ja +0,06 jokaisesta voitosta, enintään 0,96).
   Voitto: nuoret tarjoavat limut, kerran päivässä maine +3, moraali ja stressi paranevat ("Setä on ihan ok"). Tappio: tarjoat
   limut (3 €), jos rahaa ei ole, maine −2 kerran päivässä. Päiväkodin toinen paikka px (585, 12) osuu leikkipaikkaan eikä
-  omaan rakennukseen, joten kyltti on vain päiväkodilla px (725, 123). Ei vielä: koulun disko, Päivin työpaikka päiväkodissa
-  eikä juniorien treenit. Testi `--scene=koulukeskus` (logiikka headlessinä, kuvat ikkunallisena).
+  omaan rakennukseen, joten kyltti on vain päiväkodilla px (725, 123). Ei vielä: Päivin työpaikka päiväkodissa eikä juniorien
+  treenit. Testi `--scene=koulukeskus` (logiikka headlessinä, kuvat ikkunallisena).
+- **Koulun disko** (`koulu_disko_game.gd`): perjantaisin 18–21 koulukeskuksen ovelta (kyltti "KOULUDISKO PE 18–21",
+  muina aikoina ovessa lappu), kerran illassa. DJ on hukassa, ja pelaaja pyörittää kasetteja liikuntasalissa
+  (parketti pelikenttäviivoineen, puolapuut, kori, patjat, serpentiinit, ilmapallot, KOULUDISKO-banderolli,
+  peilipallo valotäplineen ja värivalot; DJ-pöydällä tuplakasettideki VU-mittareineen). 12 lasta tanssii tai
+  seisoskelee seinustalla, opettaja valvoo. Lapset huutavat toiveita (tekno, dance, hidas), ja pelaaja valitsee
+  kolmesta kasetista seuraavan (vasen/oikea) ja miksaa biisin saumassa (E, kun miksauspalkin neula on vihreällä).
+  Tanssilattia: eniten toivottu +3, muu toivottu +1, toivomaton −1, polkka −3, kolmas samaa peräkkäin −1; sujuva
+  miksaus +1, kesken biisin −1 (levyn raapaisu), hiljaisuus −2. Hitaalla lapset tanssivat pareittain. Opettaja
+  toivoo kolmannessa biisissä kerran polkkaa: lapset voihkivat, mutta soitettu polkka antaa maineen +1 (soittamatta
+  −1). Kuusi biisiä (20 s kukin); tulos keskimääräisestä täyttöasteesta: Diskon kuningas (8+, maine +4), Kelpo DJ
+  (5+, +2), Kuin mummojen tanssit (2+, 0) tai Tyhjä lattia (−1). Kesken lähtö: maine −1. Sivutehtävä "Koulun DJ".
+  Testi `--scene=koulu_disko`.
  grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
   lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
   mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa
