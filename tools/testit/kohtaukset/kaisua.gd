@@ -15,7 +15,7 @@ const Kaisua := preload("res://scripts/kaisua.gd")
 const Tila := preload("res://scripts/kaisua_tila.gd")
 const Koneet := preload("res://scripts/kaisua_koneet.gd")
 
-const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja"]
+const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja", "mokkikaisua_kivet"]
 
 var main: Main
 var _cam: Camera3D
@@ -29,6 +29,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await _heina(path)
 		"mokkikaisua_vilja":
 			await _vilja(path)
+		"mokkikaisua_kivet":
+			await _kivet(path)
 		_:
 			return 0
 	return 1
@@ -378,10 +380,12 @@ func _heina(path: String) -> void:
 	await _frames(5)
 	print("KAISUA säiliöllä: %s" % k._diesel_walk_logic(main.walker_out, main.mokki.to_local(main.walker_out.global_position), false))
 	k._diesel_walk_logic(main.walker_out, main.mokki.to_local(main.walker_out.global_position), true)
-	var tl2: Vector3 = main.mokki.to_local(k.traktori.global_position)
-	main.walker_out.global_position = _gl(tl2.x + 1.5, tl2.z + 0.5, 0.5)
+	var tside: Vector3 = k.traktori.global_transform.basis.x * -2.6
+	main.walker_out.global_position = k.traktori.global_position + tside + Vector3.UP * 0.5
 	await _frames(5)
-	_look(_at(main.mokki.to_local(main.walker_out.global_position), Vector3(-2.5, 1.6, -2.0)), _at(main.mokki.to_local(main.walker_out.global_position), Vector3(0, 0.9, 0)))
+	var wl: Vector3 = main.mokki.to_local(main.walker_out.global_position)
+	var away: Vector3 = main.mokki.global_transform.basis.inverse() * tside.normalized()
+	_look(_at(wl, Vector3(away.x * 3.0 + 1.0, 1.7, away.z * 3.0 + 1.0)), _at(wl, Vector3(0, 0.8, 0)))
 	await _frames(5)
 	await _shot(path, "kanisteri")
 	k._diesel_walk_logic(main.walker_out, main.mokki.to_local(main.walker_out.global_position), true)
@@ -596,3 +600,37 @@ func _vilja(path: String) -> void:
 		await _shot(path, "kasvu_" + names[d])
 	k._check_jobs()
 	_summary("kasvanut")
+
+
+# --- Kivet lähikuvissa -------------------------------------------------------------------------------------------
+
+## Kiviä Tienvarsipellon reunaan eri kokoina, vanha kivikasa ja kivi pelaajan kädessä (nopea kuvatarkistus).
+func _kivet(path: String) -> void:
+	var k := _k()
+	var tv = k._pelto(1)
+	var c: Vector2 = tv.center
+	for z in range(-6, 8, 2):  # kynnetty kaista: kivet nousevat vain kynnetylle
+		tv.work("puinti", c + Vector2(0, z), Vector2(1, 0), 1.5, 8.0)
+		tv.work("kynto", c + Vector2(0, z), Vector2(1, 0), 1.5, 8.0)
+	for i in 8:
+		k._add_stone(c + Vector2(-3.0 + i * 0.9, (i % 3) * 0.7), tv.index)
+	main._hud.visible = false
+	_look(Vector3(c.x - 1.0, 1.6, c.y + 3.5), Vector3(c.x, 0.1, c.y + 0.5))
+	await _frames(30)
+	await _shot(path, "kivet_lahi")
+	var kasa: Vector3 = k._kasa_pos(tv.index)
+	_look(Vector3(kasa.x - 4, 2.4, kasa.z - 3), Vector3(kasa.x, 0.3, kasa.z))
+	await _frames(10)
+	await _shot(path, "vanha_kasa")
+	main.walker_out.global_position = _gl(c.x - 3.0 + 0.6, c.y, 0.5)
+	main.walker_out.visible = true  # kohtaus alkaa mökin sisältä: kävelijä näkyviin
+	_cam.current = false
+	main._set_avatar(main.walker_out)
+	await _frames(10)
+	var wp: Vector3 = main.mokki.to_local(main.walker_out.global_position)
+	k._stone_logic(main.walker_out, wp, true)
+	await _frames(10)
+	_look(_at(wp, Vector3(1.6, 1.5, -1.8)), _at(wp, Vector3(0, 1.0, 0)))
+	await _frames(5)
+	await _shot(path, "kivi_kadessa")
+	print("KAISUA kivi kädessä: %s" % k._stone_logic(main.walker_out, wp, false))

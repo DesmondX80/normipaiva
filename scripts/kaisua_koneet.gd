@@ -744,7 +744,8 @@ static func kivi(parent: Node3D, size: float, seed: int) -> Node3D:
 	mat.albedo_color = tints[rng.randi() % tints.size()] * 1.6
 	mat.roughness = 0.88
 	mi.material_override = mat
-	mi.scale = Vector3(size * rng.randf_range(1.0, 1.3), size * rng.randf_range(0.6, 0.85), size * rng.randf_range(0.85, 1.1))
+	# SphereMeshin säde on 0,5: kerroin 2 tekee säteestä koon.
+	mi.scale = Vector3(size * rng.randf_range(1.0, 1.3), size * rng.randf_range(0.6, 0.85), size * rng.randf_range(0.85, 1.1)) * 2.0
 	mi.rotation = Vector3(rng.randf_range(-0.2, 0.2), rng.randf() * TAU, rng.randf_range(-0.2, 0.2))
 	mi.position.y = size * 0.3
 	root.add_child(mi)
@@ -760,14 +761,14 @@ static func _rock_mesh(variant: int) -> ArrayMesh:
 	var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
 	var noise := FastNoiseLite.new()
 	noise.seed = 31 + variant * 101
-	noise.frequency = 1.6
+	noise.frequency = 3.2  # kärjet säteellä 0,5
 	var moved := {}  # sama paikka = sama siirto (saumat pysyvät kiinni)
 	for i in verts.size():
 		var v := verts[i]
 		var key := Vector3i(roundi(v.x * 1000.0), roundi(v.y * 1000.0), roundi(v.z * 1000.0))
 		if not moved.has(key):
 			var n := noise.get_noise_3dv(v * 1.3)
-			var flat := 0.75 if v.y < -0.2 else 1.0  # pohja litteämpi
+			var flat := 0.75 if v.y < -0.1 else 1.0  # pohja litteämpi
 			moved[key] = v * (1.0 + n * 0.38) * Vector3(1.0, flat, 1.0)
 		verts[i] = moved[key]
 	var st := SurfaceTool.new()
@@ -783,7 +784,7 @@ static func _rock_mesh(variant: int) -> ArrayMesh:
 		var nrm := (c - a).cross(b - a).normalized()
 		if nrm.dot(mid) < 0.0:
 			nrm = -nrm  # normaali ulospäin (kiertosuunta pysyy SphereMeshin omana)
-		var shade := 0.5 + 0.12 * lich.get_noise_3dv(mid * 3.0)
+		var shade := 0.6 + 0.12 * lich.get_noise_3dv(mid * 3.0)
 		var col := Color(shade, shade, shade)
 		if lich.get_noise_3dv(mid) > 0.35 and mid.y > -0.1:
 			col = Color(shade * 0.95, shade * 1.02, shade * 0.78)  # jäkälä
