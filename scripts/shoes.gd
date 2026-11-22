@@ -22,6 +22,10 @@ const SHAFT_RINGS := 8  # varren vaakarenkaat alhaalta yläreunaan
 const SHAFT_N := 2.6  # varren poikkileikkauksen superellipsin eksponentti
 
 static var _nails := PackedFloat32Array()  # sandaali: varpaankynnet (x, y, z lepoavaruudessa, säde) * 10 (meta "kynnet")
+## Villasukan kärki- ja kantarajat jalkaa kohti (meta "sukka", character.gdshader sock_a/sock_b): eteen (x, y, z) ja
+## jalan puoli, sitten kärjen ja kannan raja (dot(eteen, lepopaikka)) ja kantapalan yläraja (lepo-y). 8 lukua per jalka.
+static var _sock := PackedFloat32Array()
+static var _strap_u := Vector2(-1.0, -1.0)  # släbärin remmin alku ja loppu kengän UV.x:nä (meta "remmi", raidat)
 static var _shaft_h := 0.0  # viimeksi rakennetun varren yläreuna kuoren alapinnasta (meta "varsi_h", varjostimen shaft_h)
 static var _tip_h := 0.0  # viimeksi rakennetun kengän kärkipisteen korkeus lattiasta (meta "karki", testin profiili)
 
@@ -88,6 +92,13 @@ const TYPES := {
 		"toe_round": 1.0, "toe_n": 2.3, "collar": 0.0, "spring": 0.0, "sole_col": Color(0.66, 0.5, 0.33), "rough": 0.45,
 		"sole_rough": 0.75, "style": 6, "spec": 0.45, "clearcoat": 0.25,
 		"sandal": {"toe": 0.04, "w": 0.022, "ankle": 0.082, "thick": 0.0028}},
+	# Släbäri (90-luvun sandaali, pelaajan villasukkien kanssa): paksu muotoiltu pohja (2,6 cm) ja yksi leveä remmi
+	# jalkapöydän yli kolmella valkoisella raidalla (varjostin style 8). Ei nilkka- eikä kantahihnaa. Jalka näkyy
+	# sukkana (character.gdshader sock_on) tai ihona.
+	"slabari": {"lift": 0.03, "sole": 0.026, "rand": 0.0, "margin": 0.006, "flare": 0.004, "toe_room": 0.01,
+		"toe_round": 1.0, "toe_n": 2.2, "collar": 0.0, "spring": 0.0, "sole_col": Color(0.08, 0.09, 0.12), "rough": 0.5,
+		"sole_rough": 0.7, "style": 8, "spec": 0.35, "clearcoat": 0.0,
+		"sandal": {"toe": 0.06, "w": 0.072, "ankle": 0.0, "thick": 0.005, "single": true}},
 	"paljas": {},
 }
 
@@ -138,6 +149,8 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var pohja := 0.0
 	_nails = PackedFloat32Array()
+	_sock = PackedFloat32Array()
+	_strap_u = Vector2(-1.0, -1.0)
 	var above := PackedInt32Array()  # jalkaterän kärjet kengän suun yläpuolella (lahkeen alla; skin_outside ohittaa)
 	var varsi := Vector4.ZERO  # varren yläreuna (lepo-y, UV2), yläreuna ja jalkaosan suu (verkon y), UV2.y - y yläreunassa
 	for side: float in [1.0, -1.0]:
@@ -166,6 +179,8 @@ static func build(kind: String, type: String, arr: Array, skin: Skin, skel: Skel
 	out.set_meta("karki", _tip_h)
 	if p.has("sandal"):
 		out.set_meta("kynnet", _nails)  # character.gd: varjostimen nails (kynsilakka)
+		out.set_meta("sukka", _sock)  # character.gd: villasukan kärki ja kanta
+		out.set_meta("remmi", _strap_u)  # shoe.gdshader strap_u: släbärin raidat
 	out.set_meta("varsi", varsi.x)  # 0 = ei vartta; character.gdshader shoe_top (lahje varren sisään)
 	out.set_meta("varsi_v", Vector3(varsi.y, varsi.z, varsi.w))  # skin_outside ja testi
 	if p.has("shaft") and p.shaft.has("top_k"):
@@ -503,6 +518,9 @@ static func _build_side(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array, 
 			tri.call(to3.call(prof[i][0], prof[i][2][k]), to3.call(prof[i][0], prof[i][2][(k + 1) % np]), cen, o, 1.0, c2, c2, c2)
 	if sandal:
 		_build_straps(p, pts, cand, vs, org, fwd, lat, side, tb, y_welt, ymin, _at(st_t, st_m, tb), _at(st_t, st_w, tb), to3, tri)
+		var sd0: Dictionary = p.sandal
+		var t_remmi: float = tb - float(sd0.toe)
+		_strap_u = Vector2((t_remmi - float(sd0.w) / 2.0 - t0) / span, (t_remmi + float(sd0.w) / 2.0 - t0) / span)
 	return ymin - y_bot
 
 
@@ -646,6 +664,12 @@ static func _build_straps(p: Dictionary, pts: PackedVector3Array, cand: PackedIn
 				n += 1
 		var c3: Vector3 = to3.call(tip - 0.008, Vector2(ms / n, top))
 		_nails.append_array([c3.x, c3.y, c3.z, clampf((hi - lo) * 0.42, 0.0035, 0.008)])
+	# Villasukka: kärkipala 4,5 cm varpaiden kärjestä, kantapala 5 cm kannan takareunasta ja 6,5 cm jalkapohjasta.
+	var tmin := INF
+	for q in pts:
+		tmin = minf(tmin, q.x)
+	var o_f := org.dot(fwd)
+	_sock.append_array([fwd.x, fwd.y, fwd.z, side, o_f + tmax - 0.045, o_f + tmin + 0.05, ymin + 0.065, 0.0])
 	# Varvashihna: pisteet (s, y) leikkauksessa ts ± (w/2 + 4 mm).
 	var ts: float = tb - float(sd.toe)
 	var sel := PackedVector2Array()
@@ -656,6 +680,8 @@ static func _build_straps(p: Dictionary, pts: PackedVector3Array, cand: PackedIn
 		var ch: PackedVector2Array = chain.call(sel, Vector2(mid - hw + 0.003, y_welt), Vector2(mid + hw - 0.003, y_welt), Vector2(0, 1), 18)
 		band.call(ch, false, func(q: Vector2, e: float) -> Vector3: return to3.call(ts + e * w / 2.0, q),
 			func(n2: Vector2) -> Vector3: return lat * n2.x + Vector3.UP * n2.y)
+	if sd.get("single", false):
+		return  # släbäri: vain leveä remmi jalkapöydän yli
 	# Nilkkahihna: vaakaleikkaus (t, s) korkeudella ya ± (w/2 + 3 mm) jalkaterän ja säären kärjistä.
 	var ya: float = ymin + float(sd.ankle)
 	var wa: float = w * 0.8

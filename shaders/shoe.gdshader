@@ -8,12 +8,13 @@ uniform vec3 main_col : source_color = vec3(0.9);
 uniform vec3 sole_col : source_color = vec3(0.95, 0.94, 0.9);
 uniform float rough = 0.6;
 uniform float sole_rough = 0.8;
-uniform int style = 0;  // 0 lenkkari, 1 varattu nauhakengälle, 2 kävelykenkä, 3 työkenkä, 4 kumisaapas, 5 nahkasaapas, 6 sandaali, 7 kuukenkä (TYPES style)
+uniform int style = 0;  // 0 lenkkari, 1 varattu nauhakengälle, 2 kävelykenkä, 3 työkenkä, 4 kumisaapas, 5 nahkasaapas, 6 sandaali, 7 kuukenkä, 8 släbäri (TYPES style)
 uniform float sole_h = 0.02;  // pohjalaatan paksuus kuoren alapinnasta alas (TYPES sole)
 uniform float rand_h = 0.0015;  // pohjan reunus kuoren kylkeä ylös (TYPES rand)
 uniform float spec = 0.4;
 uniform float clearcoat = 0.0;  // lakkakiilto (nahka)
 uniform vec3 cord_col : source_color = vec3(0.9, 0.2, 0.15);
+uniform vec2 strap_u = vec2(-1.0);  // släbärin remmin alku ja loppu UV.x:nä (shoes.gd meta "remmi"): raidat
 uniform float shaft_h = 0.133;  // varren yläreuna kuoren alapinnasta (TYPES shaft.top + lift - sole)
 
 varying vec2 fu;
@@ -137,6 +138,14 @@ void fragment() {
 			c = mix(c, c * 0.7, band(h, rand_h - 0.003, rand_h, 0.0006));
 			c = mix(c, vec3(0.2, 0.2, 0.22), bottom);
 			c *= 1.0 - 0.3 * bottom * step(0.5, fract(t * 22.0));
+		} else if (style == 8) {
+			// Släbärin muotoiltu pohja: tummansininen kumi, yläpinnan reunassa vaaleampi huuli (muotoiltu jalkasänky),
+			// kyljessä matala ura ja musta kuviopohja.
+			c = main_col * 0.9;
+			c = mix(c, main_col * 1.35 + 0.03, band(h, -0.0035, 0.0, 0.0006));
+			c = mix(c, c * 0.6, band(h, -sole_h * 0.55, -sole_h * 0.48, 0.0006));
+			c = mix(c, sole_col, bottom);
+			c *= 1.0 - 0.3 * bottom * step(0.5, fract(t * 30.0));
 		} else if (style == 6) {
 			// Sandaalin pohjalaatta: korkkikylki (rakeinen), ohut tumma kumi alla ja nahkainen sisäpohja päällä.
 			float grain = fract(sin(dot(floor(vec2(t * 420.0, h * 900.0)), vec2(12.9898, 78.233))) * 43758.5453);
@@ -199,6 +208,20 @@ void fragment() {
 		vec3 c = main_col;
 		c *= 1.0 - 0.2 * band(fract(h * 22.0), 0.0, 0.06, 0.02);
 		c *= 0.82 + 0.18 * smoothstep(0.0, 0.1, h);
+		ALBEDO = c;
+		ROUGHNESS = rough;
+		SPECULAR = spec;
+	} else if (style == 8) {
+		// Släbärin remmi: tummansininen kumi, poikki kolme valkoista raitaa (remmin leveyden 0,16-0,30, 0,43-0,57,
+		// 0,70-0,84; strap_u), reunoissa tummempi kantti.
+		vec3 c = main_col;
+		if (strap_u.y > strap_u.x) {
+			float v = (t - strap_u.x) / (strap_u.y - strap_u.x);
+			float aa = max(fwidth(v), 0.004);
+			float stripes = band(v, 0.16, 0.30, aa) + band(v, 0.43, 0.57, aa) + band(v, 0.70, 0.84, aa);
+			c = mix(c, vec3(0.95, 0.95, 0.93), clamp(stripes, 0.0, 1.0));
+			c = mix(c, c * 0.65, 1.0 - band(v, 0.03, 0.97, aa));  // kantti
+		}
 		ALBEDO = c;
 		ROUGHNESS = rough;
 		SPECULAR = spec;
