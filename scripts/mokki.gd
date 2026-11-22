@@ -147,6 +147,7 @@ const SANTTU_LINES := [
 	"Lähin kauppa on Vaalassa, viistoista kilsaa. Täällä on rauhallista.",
 	"Synnyin 80-luvulla, opiskelin Oulun yliopistossa. Sitä ei tästä äkkiä arvais.",
 	"Vastausprosentti sata, vastaan yleensä tunnissa. Paitsi kun oon saunassa.",
+	"Kaisuan isäntä kyseli kesäapua: traktori, puimuri ja heinät. Kaisuantie 38, pari sataa metriä länteen.",
 ]
 const SANTTU_AMBIENT := [
 	"Löylyä riittää, älä säästele.", "Palju lämpiää hitaasti, mutta kunnolla.",
@@ -1076,15 +1077,29 @@ static func mesh_h(x: float, z: float) -> float:
 	var j := floorf(z / step)
 	var fx := x / step - i
 	var fz := z / step - j
-	var x0 := i * step
-	var z0 := j * step
-	var h00 := h(x0, z0)
-	var h11 := h(x0 + step, z0 + step)
+	var ii := int(i)
+	var jj := int(j)
+	var s := int(step)
+	var h00 := _vertex_h(ii, jj, s)
+	var h11 := _vertex_h(ii + 1, jj + 1, s)
 	if fx >= fz:
-		var h10 := h(x0 + step, z0)
+		var h10 := _vertex_h(ii + 1, jj, s)
 		return h00 + (h10 - h00) * fx + (h11 - h10) * fz
-	var h01 := h(x0, z0 + step)
+	var h01 := _vertex_h(ii, jj + 1, s)
 	return h00 + (h11 - h01) * fx + (h01 - h00) * fz
+
+
+static var _vh_cache := {}  # (ruutu i, j, askel) -> h maastoverkon kärkipisteessä
+
+
+## Maastoverkon kärkipisteen korkeus välimuistista (mesh_h kysyy samoja kärkiä moneen kertaan).
+static func _vertex_h(i: int, j: int, step: int) -> float:
+	var key := Vector3i(i, j, step)
+	var v: Variant = _vh_cache.get(key)
+	if v == null:
+		v = h(i * step, j * step)
+		_vh_cache[key] = v
+	return v
 
 
 ## Vesistön pinnan korkeus mökin tasoon nähden (jokaisella järvellä oma pinta, Likanen alimpana).

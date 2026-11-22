@@ -5,7 +5,9 @@ render_mode cull_disabled, skip_vertex_transform;
 // korsikuvan (nurmi tai ohra) ja asennon: niitetty heinä ja olki makaavat työsuuntaan, karho on harjanne.
 // Korkeus maastoverkon kolmioista (mokki.gd mesh_h, 2 m kärkipisteet), joten tyvet ovat maan pinnassa.
 
-uniform sampler2D state_tex : filter_nearest;
+uniform sampler2D state_tex : filter_nearest;  // R8: tila
+uniform sampler2D amt_tex : filter_nearest;  // RF: heinää tai olkea (yksikköä)
+uniform sampler2D dir_tex : filter_nearest;  // R8: työsuunta (0–1 = 0–180°)
 uniform sampler2D height_tex : filter_nearest;  // R = maaston korkeus 2 m kärkipisteissä
 uniform sampler2D atlas : filter_linear;  // R = sävy, G = tähkä, A = peitto; vasen puolisko nurmi, oikea ohra
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
@@ -46,9 +48,10 @@ float th(vec2 p) {
 void vertex() {
 	ivec2 c = ivec2(chunk0) + ivec2(INSTANCE_ID % chunk_cols, INSTANCE_ID / chunk_cols);
 	bool inside = c.x < int(cells.x) && c.y < int(cells.y);
-	vec4 t = texelFetch(state_tex, clamp(c, ivec2(0), ivec2(cells) - 1), 0);
-	int s = int(t.r * 255.0 / 8.0 + 0.5);
-	float amt = t.g * 255.0 / 8.0;
+	ivec2 cc = clamp(c, ivec2(0), ivec2(cells) - 1);
+	int s = int(texelFetch(state_tex, cc, 0).r * 255.0 + 0.5);
+	float amt = texelFetch(amt_tex, cc, 0).r;
+	float dirv = texelFetch(dir_tex, cc, 0).r;
 	float H = 0.0;
 	float tilt = 0.0;
 	float W = 1.0;
@@ -100,7 +103,7 @@ void vertex() {
 		v.xz = vec2(cos(ang) * v.x - sin(ang) * v.z, sin(ang) * v.x + cos(ang) * v.z);
 		v.xz *= cell * 1.6 * W;
 		float y = v.y * H;
-		float la = t.b * 3.14159265 + (r1 - 0.5) * 0.9;
+		float la = dirv * 3.14159265 + (r1 - 0.5) * 0.9;
 		vec2 L = vec2(cos(la), sin(la)) * (r2 > 0.5 ? 1.0 : -1.0);
 		vec3 pos = vec3(v.x, 0.0, v.z) + vec3(L.x, 0.0, L.y) * sin(tilt) * y + vec3(0.0, cos(tilt) * y, 0.0);
 		pos.y += ridge * (0.55 + 0.45 * r3);

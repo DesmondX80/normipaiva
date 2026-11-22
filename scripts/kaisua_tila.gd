@@ -34,18 +34,22 @@ const V_VIHREA := 14  # vihreä vilja
 const V_KYPSA := 15  # puintikypsä ohra
 const V_PUITU := 16  # puitu sänki
 const V_OLKI := 17  # puitu sänki ja olkikarho puimurin perässä
+const V_KYNNETTY := 18  # kynnetty: aura kääntänyt sängen, vaot ja palteet
 
 ## Heinää neliömetriltä niitettäessä (yksikköä): niittokypsä antaa eniten.
 const HAY_PER_M2 := {H_LYHYT: 4.0, H_PUOLI: 7.0, H_VALMIS: 10.0}
 const BALE_HAY := 6500.0  # yksikköä pyöröpaaliin (~650 m² niittokypsää nurmea)
 const GRAIN_PER_M2 := 0.38  # kg ohraa neliömetriltä (3 800 kg/ha)
 const SEED_PER_M2 := 0.02  # kg siementä neliömetrille (200 kg/ha)
+const STONE_PER_M2 := 1.0 / 300.0  # kynnöstä nousevia kiviä (kevään routa nostaa uusia joka vuosi)
 
 ## Pellon ruudut: tunniste -> {"cells": PackedByteArray, "amt": PackedFloat32Array, "dir": PackedByteArray,
 ## "nx": int, "nz": int}. Tyhjä, kunnes pelto rakennetaan ensimmäisen kerran (kaisua_pelto.gd init_cells).
 var fields := {}
 ## Paalit: [{"pos": Vector3 (paikallinen), "yaw": float, "field": int, "lato": bool, "kind": "sailo"}]
 var bales: Array = []
+## Kivet: [{"pos": Vector3 (paikallinen), "field": int, "size": float, "where": "pelto" | "karry" | "kasa"}]
+var stones: Array = []
 ## Koneiden paikat: kone -> {"pos": Vector3, "yaw": float}. Tyhjä = kotipaikka (kaisua.gd HOME).
 var machines := {}
 var hitched := ""  # traktorin perässä oleva kone ("" = ei mitään)
@@ -53,6 +57,7 @@ var tank := 0.0  # puimurin viljasäiliö (kg)
 var trailer := 0.0  # peräkärryn viljakuorma (kg)
 var dried := 0.0  # kuivuriin kipattu vilja yhteensä (kg)
 var seed := 1.0  # kylvökoneen siemensäiliö (0–1)
+var fuel := {"traktori": 1.0, "puimuri": 1.0}  # diesel (0–1)
 var baler_hay := 0.0  # paalaimen kammiossa (yksikköä)
 ## Maksetut työt kierroksen ajan: kenttä -> {työ: true}. Nollautuu, kun pellon kierros alkaa alusta.
 var paid := {}
@@ -64,6 +69,9 @@ var food_due := false  # isäntä kutsuu pirttiin (työ tehty tänään, ruoka s
 var beer_due := 0  # isännän saunakaljoja odottamassa (koko ketju tehty)
 var legends := {}  # ketju -> kerrat (heinatalkoot, sato, kylvot)
 var talked := false  # isäntä on esitellyt hommat
+var order_total := 0  # naapurin paalitilaus: paaleja yhteensä
+var order_left := 0  # toimittamatta
+var order_day := -1  # päivä, jona tilaus tuli (yksi tilaus päivässä)
 var last_day := -1  # päivä, johon kasvu on laskettu
 
 
@@ -75,24 +83,18 @@ func cells_of(i: int) -> Dictionary:
 	return fields.get(FIELDS[i].id, {})
 
 
-## Pellon ruudukon alustus (kaisua_pelto.gd): mask = 1 pellon sisällä. Vanha tallennus pidetään, jos koko täsmää.
+## Pellon ruudukon alustus (kaisua_pelto.gd): mask = aloitustila pellon sisällä, NONE muualla. Vanha tallennus
+## pidetään, jos koko täsmää.
 func init_cells(i: int, nx: int, nz: int, mask: PackedByteArray) -> Dictionary:
 	var id: String = FIELDS[i].id
 	var f: Dictionary = fields.get(id, {})
 	if not f.is_empty() and int(f.nx) == nx and int(f.nz) == nz and (f.cells as PackedByteArray).size() == nx * nz:
 		return f
-	var cells := PackedByteArray()
-	cells.resize(nx * nz)
 	var amt := PackedFloat32Array()
 	amt.resize(nx * nz)
 	var dirs := PackedByteArray()
 	dirs.resize(nx * nz)
-	var st: int = FIELDS[i].start
-	for k in nx * nz:
-		if mask[k] != 0:
-			cells[k] = st
-			dirs[k] = 64  # oletuksena rivit vinottain
-	f = {"cells": cells, "amt": amt, "dir": dirs, "nx": nx, "nz": nz}
+	f = {"cells": mask, "amt": amt, "dir": dirs, "nx": nx, "nz": nz}
 	fields[id] = f
 	return f
 
@@ -162,8 +164,13 @@ func new_cycle(i: int) -> void:
 	books.erase(FIELDS[i].id)
 
 
+## Pellolla keräämättä olevat kivet.
+func stones_left(field: int) -> int:
+	return stones.filter(func(st: Dictionary) -> bool: return int(st.field) == field and st.where == "pelto").size()
+
+
 func bales_in_lato() -> int:
-	return bales.filter(func(b: Dictionary) -> bool: return b.lato).size()
+	return bales.filter(func(b: Dictionary) -> bool: return b.lato and not b.get("sold", false)).size()
 
 
 func save_to(cfg: ConfigFile) -> void:
@@ -176,12 +183,14 @@ func save_to(cfg: ConfigFile) -> void:
 			"nx": f.nx, "nz": f.nz}
 	cfg.set_value("kaisua", "pellot", fs)
 	cfg.set_value("kaisua", "paalit", bales)
+	cfg.set_value("kaisua", "kivet", stones)
 	cfg.set_value("kaisua", "koneet", machines)
 	cfg.set_value("kaisua", "kytketty", hitched)
 	cfg.set_value("kaisua", "sailio", tank)
 	cfg.set_value("kaisua", "perakarry", trailer)
 	cfg.set_value("kaisua", "kuivuri", dried)
 	cfg.set_value("kaisua", "siemen", seed)
+	cfg.set_value("kaisua", "diesel", fuel)
 	cfg.set_value("kaisua", "paalain", baler_hay)
 	cfg.set_value("kaisua", "maksettu", paid)
 	cfg.set_value("kaisua", "kirjanpito", books)
@@ -191,6 +200,7 @@ func save_to(cfg: ConfigFile) -> void:
 	cfg.set_value("kaisua", "kaljat", beer_due)
 	cfg.set_value("kaisua", "legendat", legends)
 	cfg.set_value("kaisua", "esitelty", talked)
+	cfg.set_value("kaisua", "tilaus", [order_total, order_left, order_day])
 	cfg.set_value("kaisua", "paiva", last_day)
 
 
@@ -208,12 +218,14 @@ func load_from(cfg: ConfigFile) -> void:
 		if cells.size() == n and amt.size() == n and dirs.size() == n:
 			fields[id] = {"cells": cells, "amt": amt, "dir": dirs, "nx": nx, "nz": nz}
 	bales = cfg.get_value("kaisua", "paalit", [])
+	stones = cfg.get_value("kaisua", "kivet", [])
 	machines = cfg.get_value("kaisua", "koneet", {})
 	hitched = cfg.get_value("kaisua", "kytketty", "")
 	tank = cfg.get_value("kaisua", "sailio", 0.0)
 	trailer = cfg.get_value("kaisua", "perakarry", 0.0)
 	dried = cfg.get_value("kaisua", "kuivuri", 0.0)
 	seed = cfg.get_value("kaisua", "siemen", 1.0)
+	fuel = cfg.get_value("kaisua", "diesel", {"traktori": 1.0, "puimuri": 1.0})
 	baler_hay = cfg.get_value("kaisua", "paalain", 0.0)
 	paid = cfg.get_value("kaisua", "maksettu", {})
 	books = cfg.get_value("kaisua", "kirjanpito", {})
@@ -223,4 +235,8 @@ func load_from(cfg: ConfigFile) -> void:
 	beer_due = cfg.get_value("kaisua", "kaljat", 0)
 	legends = cfg.get_value("kaisua", "legendat", {})
 	talked = cfg.get_value("kaisua", "esitelty", false)
+	var o: Array = cfg.get_value("kaisua", "tilaus", [0, 0, -1])
+	order_total = o[0]
+	order_left = o[1]
+	order_day = o[2]
 	last_day = cfg.get_value("kaisua", "paiva", -1)

@@ -174,7 +174,9 @@ func _mount(v: CharacterBody3D) -> void:
 
 func _yleiskuvat(path: String) -> void:
 	var k := _k()
-	print("KAISUA peltoja %d, paaleja %d, rakennettu %d ms" % [k.pellot.size(), k.tila.bales.size(), k.build_ms])
+	print("KAISUA peltoja %d, paaleja %d, rakennettu %d ms: %s" % [k.pellot.size(), k.tila.bales.size(), k.build_ms, k.build_laps])
+	for p in k.pellot:
+		print("KAISUA rakennus %s (%d x %d ruutua): %s" % [p.field_name(), p.nx, p.nz, p.laps])
 	_summary("alku")
 	main._hud.visible = false
 	var y := Kaisua.YARD
@@ -201,7 +203,7 @@ func _yleiskuvat(path: String) -> void:
 	_look(_at(t, Vector3(4.0, 1.6, 2.5)), _at(t, Vector3(0, 1.0, -0.5)))
 	await _frames(10)
 	await _shot(path, "traktori_taka")
-	for id in ["niittokone", "karhotin", "aes", "kylvokone", "paalain", "perakarry"]:
+	for id in ["niittokone", "karhotin", "aura", "aes", "kylvokone", "paalain", "perakarry"]:
 		var r: Vector3 = main.mokki.to_local(k.koneet[id].root.global_position)
 		var size: float = 3.5 if id in ["paalain", "perakarry", "karhotin"] else 3.0
 		_look(_at(r, Vector3(-size * 1.6, size * 0.8, -size * 0.9)), _at(r, Vector3(size * 0.4, 0.6, size * 0.1)))
@@ -245,6 +247,9 @@ func _heina(path: String) -> void:
 	var k := _k()
 	var pe = k._pelto(0)  # Kotipelto
 	var start_money: float = main.money
+	print("KAISUA rakennettu %d ms: %s" % [k.build_ms, k.build_laps])
+	for p in k.pellot:
+		print("KAISUA rakennus %s (%d x %d ruutua): %s" % [p.field_name(), p.nx, p.nz, p.laps])
 	await _mount(k.traktori)
 	print("KAISUA ratissa: %s" % (main.player == k.traktori))
 	k._hitch_now("niittokone")
@@ -343,6 +348,47 @@ func _heina(path: String) -> void:
 	_look(_at(lr, Vector3(-3, 3.5, -12)), _at(lr, Vector3(0, 1.5, 0)))
 	await _frames(10)
 	await _shot(path, "lato_paalit")
+	# Naapurin paalitilaus: isäntä välittää, paalit ladosta piikillä paalipaikalle.
+	k.day = main.day
+	k._talk()
+	print("KAISUA tilaus %d paalia, isäntä: %s" % [k.tila.order_total, k._bubble.text])
+	var drop2 := Vector2(Kaisua.DROP.x, Kaisua.DROP.z)
+	for d in k.tila.order_total:
+		var door3: Vector3 = main.mokki.to_local(k._lato.root.to_global(k._lato.door))
+		await _place_vehicle(k.traktori, Vector2(door3.x, door3.z) + Vector2(0, -6), Vector2(0, 1))
+		if d == 0:
+			print("KAISUA ladon ovella ilman paalia: %s" % k._tractor_logic(false, false, false))
+		k._bale_from_lato()
+		await _frames(20)
+		await _place_vehicle(k.traktori, drop2 + Vector2(0, 5.5), Vector2(0, -1))
+		if d == 0:
+			print("KAISUA paalipaikalla: %s" % k._tractor_logic(false, false, false))
+		k._deliver_bale()
+		await _frames(30)
+	_look(Vector3(Kaisua.DROP.x - 7, 3, Kaisua.DROP.z + 7), Vector3(Kaisua.DROP.x, 0.8, Kaisua.DROP.z - 1))
+	await _frames(10)
+	await _shot(path, "paalit_raijalle")
+	print("KAISUA tilaus jäljellä %d, ladossa %d, rahaa %.2f" % [k.tila.order_left, k.tila.bales_in_lato(), main.money])
+	# Diesel loppuu: moottori sammuu, kanisteri säiliöltä ja kaato tankkiin, tankkaus säiliöllä.
+	k.traktori.fuel = 0.0
+	print("KAISUA diesel loppu: %s" % k._tractor_logic(false, false, false))
+	k._dismount(k.traktori)
+	var dl: Vector3 = k._diesel.position
+	main.walker_out.global_position = _gl(dl.x - 1.2, dl.z - 1.0, 0.5)
+	await _frames(5)
+	print("KAISUA säiliöllä: %s" % k._diesel_walk_logic(main.walker_out, main.mokki.to_local(main.walker_out.global_position), false))
+	k._diesel_walk_logic(main.walker_out, main.mokki.to_local(main.walker_out.global_position), true)
+	var tl2: Vector3 = main.mokki.to_local(k.traktori.global_position)
+	main.walker_out.global_position = _gl(tl2.x + 1.5, tl2.z + 0.5, 0.5)
+	await _frames(5)
+	_look(_at(main.mokki.to_local(main.walker_out.global_position), Vector3(-2.5, 1.6, -2.0)), _at(main.mokki.to_local(main.walker_out.global_position), Vector3(0, 0.9, 0)))
+	await _frames(5)
+	await _shot(path, "kanisteri")
+	k._diesel_walk_logic(main.walker_out, main.mokki.to_local(main.walker_out.global_position), true)
+	print("KAISUA kanisterin jälkeen diesel %d %%" % roundi(k.traktori.fuel * 100.0))
+	_look(Vector3(dl.x - 4, 2.2, dl.z - 3.5), Vector3(dl.x, 1.0, dl.z))
+	await _frames(5)
+	await _shot(path, "dieselsailio")
 	# Talkooruoka ja saunakaljat.
 	var beers0: int = main.beers
 	k.day = main.day
@@ -422,14 +468,94 @@ func _vilja(path: String) -> void:
 	await _frames(240)
 	k._check_jobs()
 	_summary("kuivurissa")
-	# Isopelto: äestys ja kylvö traktorilla.
+	# Isopelto: kyntö auralla, kivien keruu, äestys ja kylvö traktorilla.
 	main._kaisua_dismount(k.puimuri, main.walker_out.global_position)
 	k.puimuri.set_driven(false)
 	await _mount(k.traktori)
-	k._hitch_now("aes")
 	var il := _lanes(iso, Vector2(1, 0), 4.4)
 	print("KAISUA Isopelto kaistoja %d" % il.size())
 	var im: Array = il[il.size() / 2]
+	k._hitch_now("aura")
+	# Äes sänkeen ennen kyntöä: ei pure (viesti).
+	print("KAISUA äes sänkeen: %s" % k._apply_work("aestys", im[0] + Vector2(10, 0), Vector2(1, 0), 2.25, 0.8))
+	await _place_vehicle(k.traktori, im[0] + Vector2(2, 0), Vector2(1, 0))
+	k.traktori.set_working(true)
+	await _drive(k.traktori, im[0] + Vector2(2, 0), im[0] + Vector2(30, 0))
+	main._hud.visible = true
+	await _shot(path, "kynto_ajo")
+	main._hud.visible = false
+	var kp: Vector3 = main.mokki.to_local(k.traktori.global_position)
+	_look(_at(kp, Vector3(-3.5, 1.6, 3.5)), _at(kp, Vector3(0.5, 0.2, 1.8)))
+	await _frames(5)
+	await _shot(path, "kynto_lahi")
+	var kl := _lanes(iso, Vector2(1, 0), 3.0)
+	for l in kl:
+		_sim_lane("kynto", l[0], l[1], 1.5, 0.6)
+	k.traktori.set_working(false)
+	k._check_jobs()
+	_summary("kynnetty")
+	print("KAISUA kiviä pellolla %d" % k.tila.stones_left(iso.index))
+	# Kivet: jalan yksi kivi syliin ja kärryyn, kärry kivikasalle ja kippaus, loput suoraan kasaan.
+	k._unhitch()
+	main._kaisua_dismount(k.traktori, main.walker_out.global_position)
+	k.traktori.set_driven(false)
+	var si := -1
+	for i in k.tila.stones.size():
+		if int(k.tila.stones[i].field) == iso.index and k.tila.stones[i].where == "pelto":
+			si = i
+			break
+	if si >= 0:
+		var sp: Vector3 = k.tila.stones[si].pos
+		_look(Vector3(sp.x - 8, 5, sp.z + 6), Vector3(sp.x, 0, sp.z))
+		await _frames(10)
+		await _shot(path, "kivet_pellolla")
+		main.walker_out.global_position = _gl(sp.x + 0.8, sp.z, 0.5)
+		_cam.current = false
+		main._set_avatar(main.walker_out)
+		await _frames(10)
+		print("KAISUA kiven luona: %s" % k._stone_logic(main.walker_out, main.mokki.to_local(main.walker_out.global_position), false))
+		k._stone_logic(main.walker_out, main.mokki.to_local(main.walker_out.global_position), true)
+		await _frames(10)
+		var wp: Vector3 = main.mokki.to_local(main.walker_out.global_position)
+		_look(_at(wp, Vector3(-2.2, 1.5, -1.6)), _at(wp, Vector3(0, 1.0, 0)))
+		await _frames(5)
+		await _shot(path, "kivi_sylissa")
+		kr.global_rotation = Vector3(0, main.mokki.global_rotation.y, 0)
+		kr.global_position = _gl(wp.x + 1.6, wp.z - 3.8)
+		await _frames(3)
+		print("KAISUA kärryn luona: %s" % k._stone_logic(main.walker_out, wp, false))
+		k._stone_logic(main.walker_out, wp, true)
+		await _frames(20)
+		print("KAISUA kärryssä kiviä %d" % k._trailer_stones())
+		# Loput saman alueen kivet kärryyn ja kärry kasalle kipattavaksi.
+		var moved := 0
+		for i in k.tila.stones.size():
+			if moved >= 9:
+				break
+			if int(k.tila.stones[i].field) == iso.index and k.tila.stones[i].where == "pelto":
+				k.tila.stones[i].where = "karry"
+				k._place_stone(i, k.stone_nodes[i])
+				moved += 1
+		_look(_at(wp, Vector3(-4, 3, -1)), _at(wp, Vector3(1.6, 0.8, -1.5)))
+		await _frames(5)
+		await _shot(path, "kivet_karryssa")
+		var kasa: Vector3 = k._kasa_pos(iso.index)
+		kr.global_rotation = Vector3(0, main.mokki.global_rotation.y, 0)
+		kr.global_position = _gl(kasa.x, kasa.z - 7.0)
+		await _frames(3)
+		print("KAISUA kärry kasalla: %d" % k._trailer_at_kasa())
+		k._tip_stones(k._trailer_at_kasa())
+		await _frames(90)
+		_look(Vector3(kasa.x - 6, 3.5, kasa.z - 6), Vector3(kasa.x, 0.3, kasa.z))
+		await _frames(5)
+		await _shot(path, "kivikasa")
+	for i in k.tila.stones.size():
+		if int(k.tila.stones[i].field) == iso.index and k.tila.stones[i].where == "pelto":
+			k.tila.stones[i].where = "kasa"
+	k._check_jobs()
+	_summary("kivet")
+	await _mount(k.traktori)
+	k._hitch_now("aes")
 	await _place_vehicle(k.traktori, im[0] + Vector2(2, 0), Vector2(1, 0))
 	k.traktori.set_working(true)
 	await _drive(k.traktori, im[0] + Vector2(2, 0), im[0] + Vector2(30, 0))
@@ -449,7 +575,7 @@ func _vilja(path: String) -> void:
 	_look(_at(ip, Vector3(-10, 4, 7)), _at(ip, Vector3(0, 0.5, 0)))
 	await _frames(5)
 	await _shot(path, "kylvo_ajo")
-	for l in il:
+	for l in _lanes(iso, Vector2(1, 0), 3.9):  # 4 m kylvökone, kaistat limittäin
 		_sim_lane("kylvo", l[0], l[1], 2.0, 0.45)
 		if k.tila.seed < 0.2:
 			k.tila.seed = 1.0  # täyttö säkeistä

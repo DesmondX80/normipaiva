@@ -39,6 +39,16 @@ const KONEVAJA := [Vector3(-192.5, 0, 126.0), PI / 2.0]  # avoin sivu länteen
 const LATO := [Vector3(-214.0, 0, 141.8), 0.0]  # ovet pohjoiseen pihalle
 const KUIVURI := [Vector3(-237.0, 0, 125.0), 0.0]  # suppilo itään pihalle
 const SIGN_POS := Vector3(-233.5, 0, 98.5)
+const DIESEL := [Vector3(-199.0, 0, 113.0), 0.0]  # polttoainesäiliö konevajan pohjoispäässä
+## Paalikauppa: naapurin talo tien pohjoispuolella (OSM 1074444650), paalipaikka vajan länsipuolen niityllä.
+const DROP := Vector3(-184.0, 0, 13.0)
+const NAAPURI := [Vector3(-181.0, 0, 9.0), PI * 0.6]
+const NAAPURI_LOOK := {
+	"shirt": Color(0.62, 0.25, 0.3), "pants": Color(0.22, 0.24, 0.3), "shoes": Color(0.1, 0.1, 0.09),
+	"shoe": "kumisaapas", "hair": "Hair_Long", "hair_color": Color(0.55, 0.42, 0.3), "height": 1.62,
+	"skin": Color(0.96, 0.8, 0.7), "model": "female",
+}
+const BALE_PRICE := 6.0
 const ISANTA := [Vector3(-207.0, 0, 117.5), PI / 2.0]
 ## Koneiden kotipaikat [paikka, yaw]: työkoneet konevajan suulla kytkentä länteen, ajoneuvot pihalla.
 const HOME := {
@@ -47,6 +57,7 @@ const HOME := {
 	"niittokone": [Vector3(-197.5, 0, 131.8), PI / 2.0],
 	"karhotin": [Vector3(-197.5, 0, 125.5), PI / 2.0],
 	"aes": [Vector3(-197.5, 0, 120.0), PI / 2.0],
+	"aura": [Vector3(-204.0, 0, 142.5), PI / 2.0],
 	"kylvokone": [Vector3(-203.5, 0, 136.5), PI / 2.0],
 	"paalain": [Vector3(-226.0, 0, 134.0), PI / 2.0],
 	"perakarry": [Vector3(-229.0, 0, 116.5), PI / 2.0],
@@ -54,22 +65,27 @@ const HOME := {
 const ISANTA_LOOK := {
 	"shirt": Color(0.22, 0.32, 0.24), "flannel": true, "pants": Color(0.2, 0.24, 0.32), "workwear": true,
 	"suspenders": true, "shoes": Color(0.1, 0.1, 0.09), "shoe": "kumisaapas", "hair": "Hair_Buzzed",
-	"hair_color": Color(0.62, 0.6, 0.56), "beard": true, "height": 1.8, "skin": Color(0.95, 0.78, 0.68),
-	"belly": 0.7, "bulk": 0.3, "shoulders": 0.25,
+	"hair_color": Color(0.62, 0.6, 0.56), "beard": true, "height": 1.84, "skin": Color(0.95, 0.78, 0.68),
+	"belly": 0.8, "bulk": 0.35, "shoulders": 0.3,
 }
+## Isännän ja Raijan vartalon mitat ovat samat kuin Saloisten jyväjemmarilla ja laavun akalla (Looks.JEMMARI ja AKKA):
+## vartaloprofiili (character.gd profile_key) on silloin jo valmiina, eikä mökin rakennus kasva 2,4 s:lla.
 
 ## Palkat (€): hehtaarilta tai paalilta, vilja kilolta.
 const PAY := {"niitto": 30.0, "karhous": 18.0, "paalaus": 2.5, "latoon": 2.0, "puinti": 55.0, "kuivuri": 0.012,
-	"aestys": 28.0, "kylvo": 28.0}
+	"kynto": 35.0, "kivet": 0.0, "kivi": 0.6, "aestys": 28.0, "kylvo": 28.0}
 const JOB_NAMES := {"niitto": "niitetty", "karhous": "karhottu", "paalaus": "paalattu", "latoon": "paalit ladossa",
-	"puinti": "puitu", "kuivuri": "vilja kuivurissa", "aestys": "äestetty", "kylvo": "kylvetty"}
+	"puinti": "puitu", "kuivuri": "vilja kuivurissa", "kynto": "kynnetty", "kivet": "kivet kerätty", "aestys": "äestetty",
+	"kylvo": "kylvetty"}
 ## Työ ja tilat, jotka sen jälkeen ovat tekemättä (osuus <= DONE = valmis, >= READY = työ on taas edessä).
 const JOBS := {
 	"heina": [["niitto", [1, 2, 3]], ["karhous", [4]], ["paalaus", [5]], ["latoon", []]],
-	"vilja": [["puinti", [15]], ["kuivuri", []], ["aestys", [10, 16, 17]], ["kylvo", [11]]],
+	"vilja": [["puinti", [15]], ["kuivuri", []], ["kynto", [10, 16, 17]], ["kivet", []], ["aestys", [18]], ["kylvo", [11]]],
 }
-## Työn esiehto: edellinen työ maksettu (vilja: puinti -> kuivuri ja äestys -> kylvö ovat erilliset parit).
-const PREREQ := {"karhous": "niitto", "paalaus": "karhous", "latoon": "paalaus", "kuivuri": "puinti", "kylvo": "aestys"}
+## Työn esiehto: edellinen työ maksettu (vilja: puinti -> kuivuri ja kyntö -> äestys -> kylvö ovat erilliset ketjut;
+## kivien keruu kynnön jälkeen on oma työnsä, ei äestyksen ehto).
+const PREREQ := {"karhous": "niitto", "paalaus": "karhous", "latoon": "paalaus", "kuivuri": "puinti", "kivet": "kynto",
+	"aestys": "kynto", "kylvo": "aestys"}
 const DONE := 0.08
 const READY := 0.9
 const SEED_KG := 300.0  # kylvökoneen säiliö
@@ -98,6 +114,13 @@ var _tipping := 0.0  # kärryn kippaus: lavan kulma (0 = alhaalla)
 var _tip_on := false
 var _gate_t := 0.0  # paalaimen luukku auki (s)
 var _talk_i := 0
+var _nag_t := 0
+var stone_nodes: Array = []  # tila.stones-järjestyksessä
+var _kasat := {}  # pellon indeksi -> kivikasan paikka (paikallinen)
+var _carry := -1  # kannettavan kiven indeksi (jalan), -1 = tyhjät kädet
+var _diesel: Node3D
+var _kanister := false  # dieselkanisteri kädessä (jalan)
+var _empty_told := {}  # kone -> diesel loppui -viesti näytetty
 
 
 func _ready() -> void:
@@ -110,6 +133,7 @@ func build() -> void:
 		return
 	built = true
 	var t0 := Time.get_ticks_msec()
+	_lap_t = Time.get_ticks_usec()
 	if tila == null:
 		tila = Tila.new()
 	for i in Tila.FIELDS.size():
@@ -119,11 +143,32 @@ func build() -> void:
 			pellot.append(p)
 		else:
 			p.queue_free()
+		_lap("pelto%d" % i)
 	_build_yard()
+	_lap("piha")
 	_build_machines()
+	_lap("koneet")
 	_build_bales()
+	_build_stones()
+	_lap("paalit_kivet")
 	_build_isanta()
+	_lap("isanta")
+	_build_naapuri()
+	_lap("naapuri")
 	build_ms = Time.get_ticks_msec() - t0
+
+
+var build_laps := {}  # vaihe -> ms (testit tulostavat)
+var _lap_t := 0
+
+
+func _lap(name: String) -> void:
+	var now := Time.get_ticks_usec()
+	if _lap_t > 0:
+		build_laps[name] = (now - _lap_t) / 1000
+	else:
+		build_laps[name] = 0
+	_lap_t = now
 
 
 func _gy(x: float, z: float) -> float:
@@ -143,6 +188,8 @@ func _build_yard() -> void:
 	_place(_konevaja.root, KONEVAJA[0], KONEVAJA[1])
 	_kuivuri = Koneet.kuivuri(self)
 	_place(_kuivuri.root, KUIVURI[0], KUIVURI[1])
+	_diesel = Koneet.diesel_tank(self)
+	_place(_diesel, DIESEL[0], DIESEL[1])
 	# Kyltti tienvarressa: kaksi tolppaa ja lautakyltti.
 	var sign_root := Node3D.new()
 	add_child(sign_root)
@@ -232,6 +279,8 @@ func _build_machines() -> void:
 	if tila.hitched != "" and koneet.has(tila.hitched):
 		_hitch_now(tila.hitched)
 	puimuri.tank = tila.tank
+	traktori.fuel = float(tila.fuel.get("traktori", 1.0))
+	puimuri.fuel = float(tila.fuel.get("puimuri", 1.0))
 
 
 func _restore(n: Node3D, id: String) -> void:
@@ -262,6 +311,7 @@ func sync_state() -> void:
 			tila.bales[i].pos = bn.position
 			tila.bales[i].yaw = bn.rotation.y
 	tila.tank = puimuri.tank
+	tila.fuel = {"traktori": traktori.fuel, "puimuri": puimuri.fuel}
 
 
 func _build_bales() -> void:
@@ -310,6 +360,10 @@ func _process(delta: float) -> void:
 		_bubble_t -= delta
 		if _bubble_t <= 0.0:
 			_bubble.text = ""
+	if _naapuri_t > 0.0:
+		_naapuri_t -= delta
+		if _naapuri_t <= 0.0:
+			_naapuri_bubble.text = ""
 	if _gate_t > 0.0 and koneet.has("paalain"):
 		_gate_t -= delta
 		var gate: Node3D = koneet.paalain.parts.gate
@@ -331,7 +385,7 @@ func advance_day(d: int) -> void:
 ## Koneen työ (kaisua_ajoneuvo.gd work_fn): pelloille, joiden alueella työalue on; heinä paalaimeen, vilja säiliöön,
 ## siemen säiliöstä.
 func _apply_work(op: String, c: Vector2, f: Vector2, hw: float, hl: float) -> Dictionary:
-	var tot := {"cells": 0, "hay": 0.0, "grain": 0.0, "seed": 0.0}
+	var tot := {"cells": 0, "hay": 0.0, "grain": 0.0, "seed": 0.0, "stones": []}
 	if op == "puinti" and puimuri.tank >= Ajoneuvo.TANK_MAX:
 		return tot
 	if op == "kylvo" and tila.seed <= 0.0:
@@ -348,6 +402,12 @@ func _apply_work(op: String, c: Vector2, f: Vector2, hw: float, hl: float) -> Di
 			bk[op] = true
 		for k in ["cells", "hay", "grain", "seed"]:
 			tot[k] += res[k]
+		for sp: Vector2 in res.stones:
+			_add_stone(sp, pe.index)
+		if op == "aestys" and int(res.cells) == 0 and pe.share([Tila.V_SANKI, Tila.V_PUITU, Tila.V_OLKI]) > 0.3 \
+				and pe.has_point(c) and Time.get_ticks_msec() > _nag_t:
+			_nag_t = Time.get_ticks_msec() + 15000
+			message.emit("Äes ei pure sänkeen: %s pitää kyntää ensin (aura konevajan suulla)." % pe.field_name(), 4.0)
 	if op == "paalaus" and tot.hay > 0.0:
 		tila.baler_hay += tot.hay
 		if tila.baler_hay >= Tila.BALE_HAY:
@@ -433,6 +493,12 @@ func logic(player: Node3D, walker: Node3D, e: bool, f: bool, q: bool, delta: flo
 		if e:
 			_eat()
 		return "%s Talkooruoalle pirttiin" % Settings.cap("interact")
+	var dh := _diesel_walk_logic(walker, p, e)
+	if dh != "":
+		return dh
+	var sh := _stone_logic(walker, p, e)
+	if sh != "":
+		return sh
 	for v in [traktori, puimuri]:
 		var veh: Node3D = v
 		var seat := veh.to_global(Vector3(-1.3, 0, 0.3 if veh == traktori else -0.8))
@@ -470,11 +536,21 @@ func _tractor_logic(e: bool, f: bool, q: bool) -> String:
 			_dismount(t)
 			return ""
 	var lines: Array[String] = []
-	var st: Array[String] = ["Traktori %d km/h" % roundi(absf(t.speed) * 3.6)]
+	var st: Array[String] = ["Traktori %d km/h  ·  diesel %d %%" % [roundi(absf(t.speed) * 3.6), roundi(t.fuel * 100.0)]]
 	var action := ""
+	var fa := _fuel_action(t, e)
+	if fa != "":
+		action = fa
+		e = false
 	# Paalipiikki: paali ladoon tai maahan, vapaa paali piikkiin.
 	var sp := t.spear_point()
-	if t.bale != null:
+	var drop_g := to_global(Vector3(DROP.x, _gy(DROP.x, DROP.z), DROP.z))
+	if t.bale != null and tila.order_left > 0 and Vector2(sp.x - drop_g.x, sp.z - drop_g.z).length() < 5.0:
+		action = "%s Toimita paali naapurin Raijalle (%d / %d)" % [Settings.cap("interact"), tila.order_total - tila.order_left + 1, tila.order_total]
+		if e:
+			_deliver_bale()
+			e = false
+	elif t.bale != null:
 		var door: Vector3 = _lato.root.to_global(_lato.door)
 		if Vector2(sp.x - door.x, sp.z - door.z).length() < 5.0:
 			action = "%s Paali latoon" % Settings.cap("interact")
@@ -488,10 +564,16 @@ func _tractor_logic(e: bool, f: bool, q: bool) -> String:
 				e = false
 	else:
 		var bi := _bale_near(sp, 1.3)
+		var door2: Vector3 = _lato.root.to_global(_lato.door)
 		if bi >= 0:
 			action = "%s Paali piikkiin" % Settings.cap("interact")
 			if e:
 				t.take_bale(bale_nodes[bi])
+				e = false
+		elif tila.order_left > 0 and tila.bales_in_lato() > 0 and Vector2(sp.x - door2.x, sp.z - door2.z).length() < 5.0:
+			action = "%s Ota paali ladosta (Raijan tilaus %d paalia)" % [Settings.cap("interact"), tila.order_left]
+			if e:
+				_bale_from_lato()
 				e = false
 	# Takana kytketty kone.
 	if t.implement != null:
@@ -510,11 +592,18 @@ func _tractor_logic(e: bool, f: bool, q: bool) -> String:
 		elif t.implement_id == "paalain":
 			istat += " (kammio %d %%)" % roundi(tila.baler_hay / Tila.BALE_HAY * 100.0)
 		elif t.implement_id == "perakarry":
-			istat += " (%d kg)" % roundi(tila.trailer)
+			var ks := _trailer_stones()
+			istat += " (%s)" % ("%d kiveä" % ks if ks > 0 else "%d kg" % roundi(tila.trailer))
 			if action == "" and tila.trailer > 0.0 and not _tip_on and _trailer_at_pit():
 				action = "%s Kippaa vilja kuivurin suppiloon" % Settings.cap("interact")
 				if e:
 					_tip_on = true
+					e = false
+			var kasa := _trailer_at_kasa()
+			if action == "" and ks > 0 and not _tip_on and kasa >= 0:
+				action = "%s Kippaa kivet kivikasaan" % Settings.cap("interact")
+				if e:
+					_tip_stones(kasa)
 					e = false
 		if info.work != "":
 			istat += "  ·  " + ("TYÖSSÄ" if t.working else "nostettu")
@@ -553,7 +642,12 @@ func _combine_logic(e: bool, f: bool) -> String:
 			_dismount(c)
 			return ""
 	var lines: Array[String] = []
-	var st: Array[String] = ["Puimuri %d km/h  ·  säiliö %d / %d kg" % [roundi(absf(c.speed) * 3.6), roundi(c.tank), roundi(Ajoneuvo.TANK_MAX)]]
+	var st: Array[String] = ["Puimuri %d km/h  ·  säiliö %d / %d kg  ·  diesel %d %%" % [roundi(absf(c.speed) * 3.6), roundi(c.tank),
+		roundi(Ajoneuvo.TANK_MAX), roundi(c.fuel * 100.0)]]
+	var fa := _fuel_action(c, e)
+	if fa != "":
+		lines.append(fa)
+		e = false
 	if c.working:
 		st.append("PUIMASSA")
 	var target := _unload_target()
@@ -626,7 +720,7 @@ func _progress(pe: Pelto, id: String, todo: Array) -> float:
 
 func _job_label(id: String) -> String:
 	return {"niitto": "niitto", "karhous": "karhous", "paalaus": "paalaus", "latoon": "paalit latoon", "puinti": "puinti",
-		"kuivuri": "vilja kuivuriin", "aestys": "äestys", "kylvo": "kylvö"}[id]
+		"kuivuri": "vilja kuivuriin", "kynto": "kyntö", "kivet": "kivien keruu", "aestys": "äestys", "kylvo": "kylvö"}[id]
 
 
 func _bale_near(p: Vector3, r: float) -> int:
@@ -634,7 +728,7 @@ func _bale_near(p: Vector3, r: float) -> int:
 	var bd := r
 	for i in bale_nodes.size():
 		var n: Node3D = bale_nodes[i]
-		if not is_instance_valid(n) or n.get_parent() != self or tila.bales[i].lato:
+		if not is_instance_valid(n) or n.get_parent() != self or tila.bales[i].lato or tila.bales[i].get("sold", false):
 			continue
 		var c := n.global_position + Vector3.UP * 0.62
 		var d := c.distance_to(p)
@@ -799,6 +893,346 @@ func _update_trailer_visual(delta: float) -> void:
 	(parts.mound as Node3D).position.y = 0.03 + fill * 0.6
 
 
+# --- Paalikauppa ----------------------------------------------------------------------------------------------------
+
+var naapuri: Node3D
+var _naapuri_bubble: Label3D
+var _naapuri_t := 0.0
+
+
+## Naapurin Raija paalipaikalla: tolppakyltti "PAALIT TÄHÄN" ja vanha paali, myydyt paalit tämän päivän ajan.
+func _build_naapuri() -> void:
+	naapuri = Looks.make(self, NAAPURI_LOOK)
+	_place(naapuri, NAAPURI[0], NAAPURI[1])
+	naapuri.play("Idle", 0.0)
+	_naapuri_bubble = B.bubble(self, naapuri.position + Vector3(0, 1.9, 0), Color.WHITE)
+	B.guide(self, "Naapurin Raija", naapuri.position + Vector3(0, 2.1, 0), 34, Color(1, 0.9, 0.6), true)
+	var post := Node3D.new()
+	add_child(post)
+	_place(post, DROP + Vector3(-2.2, 0, -2.0), PI * 0.6)
+	B.mesh(post, B.boxm(Vector3(0.1, 1.5, 0.1)), Vector3(0, 0.75, 0), Color(0.4, 0.3, 0.2))
+	var plate := B.sign_plate(post, "PAALIT TÄHÄN", Color(0.88, 0.84, 0.74), Color(0.25, 0.12, 0.08), 0.2, 36, Color(0.45, 0.35, 0.25))
+	plate.position = Vector3(0, 1.3, 0.06)
+	var old := Koneet.paali(self)
+	_place(old, DROP + Vector3(1.8, 0, 2.2), 0.4)
+	old.scale = Vector3(1.0, 0.97, 1.0)
+	# Edellisten päivien myydyt paalit on syötetty: pois tallennuksesta.
+	for i in range(tila.bales.size() - 1, -1, -1):
+		if tila.bales[i].get("sold", false) and int(tila.bales[i].get("sold_day", -1)) != day:
+			tila.bales.remove_at(i)
+			(bale_nodes[i] as Node3D).queue_free()
+			bale_nodes.remove_at(i)
+
+
+func naapuri_say(text: String, secs := 4.0) -> void:
+	_naapuri_bubble.text = text
+	_naapuri_t = secs
+
+
+## Ladon pinon päällimmäinen paali piikkiin (tilausta varten).
+func _bale_from_lato() -> void:
+	var last := -1
+	for i in tila.bales.size():
+		if tila.bales[i].lato:
+			last = i
+	if last < 0:
+		return
+	tila.bales[last].lato = false
+	traktori.take_bale(bale_nodes[last])
+
+
+func _deliver_bale() -> void:
+	var n := traktori.drop_bale(self)
+	if n == null:
+		return
+	var i := bale_nodes.find(n)
+	var k := tila.order_total - tila.order_left
+	var slot := DROP + Vector3((k % 2) * 1.35 - 0.7, 0, -(k / 2) * 1.3)
+	var tw := create_tween()
+	tw.tween_property(n, "position", Vector3(slot.x, _gy(slot.x, slot.z), slot.z), 0.5)
+	tw.parallel().tween_property(n, "rotation", Vector3(0, PI * 0.6, 0), 0.5)
+	Sfx.play_on(traktori, "body_fall", -4.0, 0.5)
+	if i >= 0:
+		tila.bales[i].sold = true
+		tila.bales[i].sold_day = day
+		tila.bales[i].pos = slot
+	tila.order_left -= 1
+	_pay(BALE_PRICE, "Paali Raijalle")
+	if tila.order_left <= 0:
+		naapuri_say(["Kiitos! Lehmät kiittää, ja tässä vielä pullaa isännälle.", "Hyvät paalit, tuoksuu kesältä!", "No nyt riittää rehua viikoksi. Kiitos!"][randi() % 3], 5.0)
+		message.emit("Raijan tilaus toimitettu: %d paalia, %d € taskuun." % [tila.order_total, roundi(BALE_PRICE * tila.order_total)], 4.0)
+	else:
+		naapuri_say(["Sinne vaan!", "Hyvä, vielä %d." % tila.order_left, "Varo aitaa!"][randi() % 3], 2.5)
+
+
+# --- Diesel ----------------------------------------------------------------------------------------------------------
+
+## Koneella säiliön vieressä: tankkaus täyteen. Tyhjä tankki: ohje kanisterista (kerran).
+func _fuel_action(v: Ajoneuvo, e: bool) -> String:
+	var tg := _diesel.global_position
+	var vp := v.global_position
+	if Vector2(vp.x - tg.x, vp.z - tg.z).length() < (6.5 if v == puimuri else 4.5) and v.fuel < 0.97:
+		if e:
+			v.fuel = 1.0
+			Sfx.play_on(v, "water", -4.0, 0.45)
+			message.emit("Tankki täynnä dieseliä. Isäntä kirjaa litrat vihkoon.", 2.5)
+		return "%s Tankkaa diesel täyteen" % Settings.cap("interact")
+	if v.fuel <= 0.0:
+		if not _empty_told.get(v.kind, false):
+			_empty_told[v.kind] = true
+			message.emit("Diesel loppui, moottori sammui! Hae kanisterilla dieseliä pihan säiliöltä.", 5.0)
+			say("No voi nyt... Kanisteri on säiliön vieressä!", 4.0)
+		return "Diesel loppui: nouse pois (%s) ja hae kanisterilla pihan säiliöltä" % Settings.cap("mount")
+	_empty_told[v.kind] = false
+	return ""
+
+
+## Jalan: kanisteri säiliöltä, kanisterista koneen tankkiin (35 %).
+func _diesel_walk_logic(walker: Node3D, p: Vector3, e: bool) -> String:
+	if _carry >= 0:
+		return ""
+	var tl := _diesel.position
+	if _kanister:
+		for v in [traktori, puimuri]:
+			var veh: Ajoneuvo = v
+			var vp := to_local(veh.global_position)
+			if Vector2(p.x - vp.x, p.z - vp.z).length() < 3.2 and veh.fuel < 0.97:
+				if e:
+					veh.fuel = minf(1.0, veh.fuel + 0.35)
+					_kanister = false
+					walker.set_kanister(false)
+					Sfx.play_on(veh, "water", -4.0, 0.6)
+					message.emit("Kanisterillinen tankkiin: diesel %d %%." % roundi(veh.fuel * 100.0), 2.5)
+				return "%s Kaada kanisteri %s tankkiin" % [Settings.cap("interact"), "traktorin" if veh == traktori else "puimurin"]
+		if Vector2(p.x - tl.x, p.z - tl.z).length() < 2.5:
+			if e:
+				_kanister = false
+				walker.set_kanister(false)
+			return "%s Laske kanisteri säiliön viereen" % Settings.cap("interact")
+		return ""
+	if Vector2(p.x - tl.x, p.z - tl.z).length() < 2.3:
+		if e:
+			_kanister = true
+			walker.set_kanister(true)
+			Sfx.play_on(_diesel, "water", -6.0, 0.7)
+			return ""
+		return "%s Täytä dieselkanisteri (20 l)" % Settings.cap("interact")
+	return ""
+
+
+# --- Kivet --------------------------------------------------------------------------------------------------------
+
+## Kivikasa pellon kulmassa lähimpänä pihaa (viljapellot): vanha raunio, johon kerätyt kivet kasataan.
+func _kasa_pos(field: int) -> Vector3:
+	if _kasat.has(field):
+		return _kasat[field]
+	var pe := _pelto(field)
+	var best := Vector2.ZERO
+	var bd := INF
+	for q in pe.poly:
+		var d := q.distance_to(Vector2(YARD.x, YARD.z))
+		if d < bd:
+			bd = d
+			best = q
+	var dir := (best - pe.center).normalized()
+	var at := best + dir * 2.5  # pellon reunan ulkopuolelle
+	_kasat[field] = Vector3(at.x, 0, at.y)
+	return _kasat[field]
+
+
+func _build_stones() -> void:
+	# Vanhat kivikasat viljapeltojen kulmiin.
+	for p in pellot:
+		var pe: Pelto = p
+		if pe.kind() != "vilja":
+			continue
+		var c := _kasa_pos(pe.index)
+		for k in 14:
+			var a := k * 2.4
+			var r := 0.25 + 0.12 * k
+			var sz := 0.3 - 0.008 * k
+			var n := Koneet.kivi(self, sz, pe.index * 100 + k)
+			n.position = Vector3(c.x + cos(a) * r * 0.6, 0, c.z + sin(a) * r * 0.6)
+			n.position.y = _gy(n.position.x, n.position.z) + maxf(0.0, 0.45 - r * 0.25)
+	var in_kasa := {}
+	for i in tila.stones.size():
+		var st: Dictionary = tila.stones[i]
+		if st.where == "kasi":
+			st.where = "pelto"
+		var n := Koneet.kivi(self, float(st.size), i)
+		stone_nodes.append(n)
+		_place_stone(i, n, in_kasa)
+
+
+## Kivi paikalleen tilansa mukaan: pellolle, kärryn lavalle tai kasaan (järjestysnumeron mukaan kekoon).
+func _place_stone(i: int, n: Node3D, in_kasa := {}) -> void:
+	var st: Dictionary = tila.stones[i]
+	match st.where:
+		"pelto":
+			var p: Vector3 = st.pos
+			n.position = Vector3(p.x, _gy(p.x, p.z), p.z)
+		"karry":
+			var bed: Node3D = koneet.perakarry.parts.bed
+			if n.get_parent() != bed:
+				n.get_parent().remove_child(n)
+				bed.add_child(n)
+			var k := 0  # monesko kivi lavalla (kivet ennen tätä)
+			for q in i:
+				if tila.stones[q].where == "karry":
+					k += 1
+			n.position = Vector3(-0.7 + (k % 5) * 0.35, 0.05, -0.5 - (k / 5) * 0.45)
+			n.rotation = Vector3.ZERO
+		"kasa":
+			var f := int(st.field)
+			var k: int = in_kasa.get(f, 0)
+			in_kasa[f] = k + 1
+			n.position = _kasa_slot(f, k)
+
+
+func _kasa_slot(field: int, k: int) -> Vector3:
+	var c := _kasa_pos(field)
+	var a := k * 2.39996 + 0.7
+	var r := 0.9 + 0.08 * (k % 25)
+	var x := c.x + cos(a) * r
+	var z := c.z + sin(a) * r
+	return Vector3(x, _gy(x, z) + 0.12 + 0.04 * (k / 25), z)
+
+
+func _add_stone(p2: Vector2, field: int) -> void:
+	var sz := randf_range(0.12, 0.26)
+	tila.stones.append({"pos": Vector3(p2.x, 0, p2.y), "field": field, "size": sz, "where": "pelto"})
+	var n := Koneet.kivi(self, sz, tila.stones.size() - 1)
+	n.position = Vector3(p2.x, _gy(p2.x, p2.y), p2.y)
+	stone_nodes.append(n)
+
+
+func _trailer_stones() -> int:
+	return tila.stones.filter(func(st: Dictionary) -> bool: return st.where == "karry").size()
+
+
+## Jalan: kivi syliin, kärryyn tai kasaan. Palauttaa vihjeen ("" = ei kiviä lähellä).
+func _stone_logic(walker: Node3D, p: Vector3, e: bool) -> String:
+	if _carry >= 0:
+		var kr: Node3D = koneet.perakarry.root
+		var bed := kr.to_global(Vector3(0, 0, 3.8))
+		var wg := walker.global_position
+		var st: Dictionary = tila.stones[_carry]
+		var kasa := _kasa_pos(int(st.field))
+		if Vector2(wg.x - bed.x, wg.z - bed.z).length() < 3.0:
+			if tila.trailer > 0.0:
+				return "Kärryssä on viljaa: kiviä ei sekaan. Kanna kivi kivikasaan."
+			if e:
+				_drop_carry(walker, "karry")
+			return "%s Heitä kivi kärryyn" % Settings.cap("interact")
+		if Vector2(p.x - kasa.x, p.z - kasa.z).length() < 3.5:
+			if e:
+				_drop_carry(walker, "kasa")
+			return "%s Heitä kivi kivikasaan" % Settings.cap("interact")
+		if e:
+			_drop_carry(walker, "pelto")
+		return "%s Laske kivi maahan  ·  kivikasa pellon kulmassa, tai tuo viljakärry viereen" % Settings.cap("interact")
+	var best := -1
+	var bd := 1.5
+	for i in tila.stones.size():
+		var st: Dictionary = tila.stones[i]
+		if st.where != "pelto":
+			continue
+		var sp: Vector3 = st.pos
+		var d := Vector2(p.x - sp.x, p.z - sp.z).length()
+		if d < bd:
+			bd = d
+			best = i
+	if best < 0:
+		return ""
+	if e:
+		_carry = best
+		(stone_nodes[best] as Node3D).visible = false
+		var held := Koneet.kivi(null, float(tila.stones[best].size) * 0.8, best)
+		held.position = Vector3.ZERO
+		walker.set_held(held)
+		walker.no_run = true
+		Sfx.play("grunt", -6.0, randf_range(0.9, 1.1))
+		return ""
+	var left := tila.stones_left(int(tila.stones[best].field))
+	return "%s Nosta kivi (pellolla %d)" % [Settings.cap("interact"), left]
+
+
+func _drop_carry(walker: Node3D, where: String) -> void:
+	var i := _carry
+	_carry = -1
+	walker.set_held(null)
+	walker.no_run = false
+	var st: Dictionary = tila.stones[i]
+	var n: Node3D = stone_nodes[i]
+	n.visible = true
+	if where == "pelto":
+		var lp := to_local(walker.global_position + walker.global_transform.basis.z * -0.6)
+		st.pos = Vector3(lp.x, 0, lp.z)
+	st.where = where
+	var from := walker.global_position + Vector3.UP * 1.0
+	_place_stone(i, n, _kasa_counts())
+	if where != "pelto":
+		var end := n.global_position
+		n.global_position = from
+		var tw := create_tween()
+		tw.tween_property(n, "global_position", end, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		Sfx.play_on(n, "rattle_hard", -4.0, randf_range(0.5, 0.7))
+	if where == "kasa":
+		_pay(PAY.kivi, "Kivi kasaan")
+
+
+## Kasoissa jo olevien kivien määrät (seuraavan kiven paikka).
+func _kasa_counts() -> Dictionary:
+	var out := {}
+	for st in tila.stones:
+		if st.where == "kasa":
+			out[int(st.field)] = int(out.get(int(st.field), 0)) + 1
+	# Viimeksi kasaan merkitty lasketaan jo mukaan: paikka on sen oma.
+	for f in out:
+		out[f] = int(out[f]) - 1
+	return out
+
+
+func _trailer_at_kasa() -> int:
+	var kr: Node3D = koneet.perakarry.root
+	var tail := to_local(kr.to_global(Vector3(0, 0, 6.2)))
+	for f in _kasat:
+		var c: Vector3 = _kasat[f]
+		if Vector2(tail.x - c.x, tail.z - c.z).length() < 5.0:
+			return f
+	return -1
+
+
+## Kärryn kivet kasaan: lava nousee, kivet vierivät kekoon (palkka kiveltä).
+func _tip_stones(field: int) -> void:
+	var bed: Node3D = koneet.perakarry.parts.bed
+	var n_st := 0
+	var counts := _kasa_counts()
+	for f in counts:
+		counts[f] = int(counts[f]) + 1
+	for i in tila.stones.size():
+		var st: Dictionary = tila.stones[i]
+		if st.where != "karry":
+			continue
+		st.field = field
+		st.where = "kasa"
+		var n: Node3D = stone_nodes[i]
+		var keep := n.global_transform
+		bed.remove_child(n)
+		add_child(n)
+		n.global_transform = keep
+		var k: int = counts.get(field, 0)
+		counts[field] = k + 1
+		var tw := create_tween()
+		tw.tween_property(n, "position", _kasa_slot(field, k), 0.6).set_delay(0.6 + n_st * 0.05)
+		n_st += 1
+	var tw2 := create_tween()
+	tw2.tween_property(bed, "rotation:x", 0.7, 0.6)
+	tw2.tween_property(bed, "rotation:x", 0.0, 0.8).set_delay(0.8)
+	Sfx.play_on(bed, "rattle_hard", -2.0, 0.5)
+	_pay(PAY.kivi * n_st, "%d kiveä kasaan" % n_st)
+
+
 # --- Työt valmiiksi, maksut ja talkoopalkka ------------------------------------------------------------------------
 
 func _check_jobs() -> void:
@@ -829,6 +1263,9 @@ func _check_jobs() -> void:
 					done = int(bk.get("baled", 0)) > 0 and out == 0
 				"kuivuri":
 					done = float(bk.get("harvested", 0.0)) > 0.0 and puimuri.tank <= 0.0 and tila.trailer <= 0.0
+				"kivet":
+					var mine := tila.stones.filter(func(st: Dictionary) -> bool: return int(st.field) == pe.index and st.where != "kasa")
+					done = mine.is_empty() and _carry < 0
 				_:
 					done = bk.has(id) and _progress(pe, id, todo) >= 1.0 - DONE
 			if done:
@@ -845,8 +1282,8 @@ func _job_done(pe: Pelto, id: String, bk: Dictionary) -> void:
 	match id:
 		"paalaus":
 			amount = PAY.paalaus * int(bk.get("baled", 0))
-		"latoon", "kuivuri":
-			amount = 0.0  # paalit maksettiin latoon vietäessä ja vilja kiloina suppilolle
+		"latoon", "kuivuri", "kivet":
+			amount = 0.0  # paalit maksettiin latoon vietäessä, vilja kiloina suppilolle ja kivet kasaan heitettäessä
 		_:
 			amount = float(PAY[id]) * pe.area / 10000.0
 	_pay(amount, "")
@@ -884,7 +1321,15 @@ func _talk() -> void:
 		say("No terve! Santun mökiltä? Traktori on konevajan edessä ja koneet vajassa. Kotipelto on niittokunnossa ja Tienvarsipelto puintikypsä. Maksan joka hommasta, ja emäntä laittaa talkooruoat.", 7.0)
 		message.emit("Kaisuan hommat: traktorilla (%s) niittokone, karhotin, paalain, äes, kylvökone ja viljakärry konevajan suulta (%s kytkee peruuttamalla). Puimuri on talon vieressä." % [Settings.cap("mount"), Settings.cap("bell")], 7.0)
 		return
+	if tila.order_left <= 0 and tila.order_day != day and tila.bales_in_lato() >= 2:
+		tila.order_total = mini(4, tila.bales_in_lato())
+		tila.order_left = tila.order_total
+		tila.order_day = day
+		say("Naapurin Raija soitti: tarvitsee %d paalia lehmille. Vie piikillä ladosta, paalipaikka on tien toisella puolella vajan vieressä. Raija maksaa %d € paalilta." % [tila.order_total, roundi(BALE_PRICE)], 7.0)
+		return
 	var parts: Array[String] = []
+	if tila.order_left > 0:
+		parts.append("Raijalle %d paalia" % tila.order_left)
 	for p in pellot:
 		var pe: Pelto = p
 		var job := _next_job(pe)

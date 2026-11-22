@@ -38,6 +38,10 @@ var implement_parts := {}
 var bale: Node3D = null  # piikissä oleva paali
 var unloading := false  # puimuri: purkuputki ulkona ja vilja valuu
 var tank := 0.0  # puimuri: kg
+## Diesel (0–1): kuluu moottorin käydessä, työssä enemmän (täysi tankki noin 20 min töitä). Tyhjänä moottori sammuu.
+var fuel := 1.0
+const FUEL_IDLE := 0.00025
+const FUEL_LOAD := 0.0006
 
 var _visual: Node3D
 var _model := {}
@@ -235,6 +239,14 @@ func _physics_process(delta: float) -> void:
 		throttle = autopilot.x
 		steer = autopilot.y
 		braking = false
+	if driven:
+		fuel = maxf(0.0, fuel - delta * (FUEL_IDLE + FUEL_LOAD * _load))
+		if fuel <= 0.0:
+			throttle = 0.0  # moottori sammui: rullaa hiljaa seis
+			if working:
+				set_working(false)
+	_engine.stream_paused = not driven or fuel <= 0.0
+	_smoke.emitting = driven and fuel > 0.0
 	var max_s := _max_speed()
 	if throttle > 0.0:
 		speed = move_toward(speed, max_s * throttle, 2.2 * delta)
@@ -402,8 +414,12 @@ func _update_implement(delta: float) -> void:
 	var info: Dictionary = Koneet.IMPLEMENTS[implement_id]
 	_lift = move_toward(_lift, 0.0 if working else 1.0, 1.5 * delta)
 	if info.mount == "nostin":
-		implement.position = Vector3(0, _lift * 0.35 + 0.02, Koneet.T_LINK.z)
+		# Aura painuu töissä vannasten syvyydelle (18 cm), muut koneet maan pintaan.
+		var sink := 0.18 if implement_id == "aura" else 0.0
+		implement.position = Vector3(0, _lift * 0.35 + 0.02 - sink * (1.0 - _lift), Koneet.T_LINK.z)
 		implement.rotation = Vector3.ZERO
+		for w in implement_parts.get("wheels", []):
+			(w as Node3D).rotation.x -= speed * delta / 0.33 * (1.0 - _lift)
 		if implement_parts.has("bar"):
 			(implement_parts.bar as Node3D).rotation.z = _lift * 1.35
 	else:
@@ -429,7 +445,7 @@ func _update_implement(delta: float) -> void:
 			n.rotation.y = _spin * 4.0
 		else:
 			n.rotation.x = -_spin
-	_dust.emitting = working and speed > 0.5 and implement_id in ["aes", "kylvokone"]
+	_dust.emitting = working and speed > 0.5 and implement_id in ["aes", "kylvokone", "aura"]
 
 
 ## Työalue pellolle (koneen kehyksestä mökin paikalliseen) ja work_fn.

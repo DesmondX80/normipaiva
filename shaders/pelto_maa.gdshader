@@ -4,7 +4,8 @@ render_mode cull_disabled;
 // sekoitetaan, ettei 0,5 m ruudukko näy portaina. Työsuunta (B) antaa niittojäljen kaistat, äkeen viirut, kylvörivit
 // ja orasrivit ajosuuntaan. Ruutu ilman peltoa (NONE) jätetään piirtämättä, jolloin alla näkyy maasto.
 
-uniform sampler2D state_tex : filter_nearest;  // R = tila * 8, G = määrä * 8, B = työsuunta (0–255 = 0–180°)
+uniform sampler2D state_tex : filter_nearest;  // R8: tila (kaisua_tila.gd)
+uniform sampler2D dir_tex : filter_nearest;  // R8: työsuunta (0–1 = 0–180°)
 uniform vec2 origin = vec2(0.0);
 uniform vec2 cells = vec2(1.0);
 uniform float cell = 0.5;
@@ -16,12 +17,12 @@ void vertex() {
 	v_p = VERTEX.xz;
 }
 
-int sid(vec4 t) {
-	return int(t.r * 255.0 / 8.0 + 0.5);
+int st_at(ivec2 c) {
+	return int(texelFetch(state_tex, clamp(c, ivec2(0), ivec2(cells) - 1), 0).r * 255.0 + 0.5);
 }
 
-vec4 st_at(ivec2 c) {
-	return texelFetch(state_tex, clamp(c, ivec2(0), ivec2(cells) - 1), 0);
+float dir_at(ivec2 c) {
+	return texelFetch(dir_tex, clamp(c, ivec2(0), ivec2(cells) - 1), 0).r;
 }
 
 float stripes(float x, float period, float width) {
@@ -34,9 +35,8 @@ vec3 soil(vec2 p, float n, float fine) {
 	return c * (0.8 + fine * 0.4);
 }
 
-vec3 ground_col(vec4 t, vec2 p, float n, float fine) {
-	int s = sid(t);
-	float a = t.b * 3.14159265;
+vec3 ground_col(int s, float dirv, vec2 p, float n, float fine) {
+	float a = dirv * 3.14159265;
 	vec2 dv = vec2(cos(a), sin(a));
 	float across = dot(p, vec2(-dv.y, dv.x));
 	float along = dot(p, dv);
@@ -76,6 +76,13 @@ vec3 ground_col(vec4 t, vec2 p, float n, float fine) {
 	if (s == 15) {  // kypsä ohra
 		return mix(vec3(0.62, 0.5, 0.24), vec3(0.78, 0.65, 0.33), n) * (0.85 + fine * 0.3);
 	}
+	if (s == 18) {  // kynnetty: auran kääntämät palteet ja vaot ajosuuntaan (35 cm välein), palteen harja vaalea
+		vec3 c = soil(p, n, fine) * 0.95;
+		float f = fract(across / 0.35 + fine * 0.15);
+		float ridge = sin(f * 3.14159265);
+		c *= 0.62 + 0.55 * ridge;
+		return mix(c, vec3(0.42, 0.36, 0.24), smoothstep(0.85, 1.0, ridge) * 0.25);
+	}
 	if (s == 16 || s == 17) {  // puitu sänki: leikkuupöydän kaistat
 		vec3 st = mix(vec3(0.6, 0.53, 0.33), vec3(0.74, 0.65, 0.41), n);
 		st *= 0.93 + 0.07 * stripes(across, 8.4, 0.5);
@@ -89,25 +96,36 @@ void fragment() {
 	ivec2 i0 = ivec2(floor(g));
 	vec2 f = fract(g);
 	ivec2 near = ivec2(floor(g + 0.5));
-	vec4 tn = st_at(near);
-	if (sid(tn) == 0) {
+	int sn = st_at(near);
+	if (sn == 0) {
 		discard;
 	}
-	vec4 t00 = st_at(i0);
-	vec4 t10 = st_at(i0 + ivec2(1, 0));
-	vec4 t01 = st_at(i0 + ivec2(0, 1));
-	vec4 t11 = st_at(i0 + ivec2(1, 1));
-	t00 = sid(t00) == 0 ? tn : t00;
-	t10 = sid(t10) == 0 ? tn : t10;
-	t01 = sid(t01) == 0 ? tn : t01;
-	t11 = sid(t11) == 0 ? tn : t11;
+	float dn = dir_at(near);
+	ivec2 cs[4] = {i0, i0 + ivec2(1, 0), i0 + ivec2(0, 1), i0 + ivec2(1, 1)};
+	vec3 col[4];
 	float n = texture(noise_tex, v_p * 0.035).r;
 	float fine = texture(noise_tex, v_p * 0.8).r;
-	vec3 c00 = ground_col(t00, v_p, n, fine);
-	vec3 c10 = ground_col(t10, v_p, n, fine);
-	vec3 c01 = ground_col(t01, v_p, n, fine);
-	vec3 c11 = ground_col(t11, v_p, n, fine);
+	for (int k = 0; k < 4; k++) {
+		int sk = st_at(cs[k]);
+		float dk = dir_at(cs[k]);
+		if (sk == 0) {
+			sk = sn;
+			dk = dn;
+		}
+		col[k] = ground_col(sk, dk, v_p, n, fine);
+	}
 	vec2 w = smoothstep(0.15, 0.85, f);
-	ALBEDO = mix(mix(c00, c10, w.x), mix(c01, c11, w.x), w.y);
+	ALBEDO = mix(mix(col[0], col[1], w.x), mix(col[2], col[3], w.x), w.y);
 	ROUGHNESS = 0.95;
+	// Kynnetyn palteet ja äestetyn viirut valon mukaan: normaali kallistuu poikkisuunnassa (vaon rinteet).
+	if (sn == 18 || sn == 11 || sn == 12) {
+		float a = dn * 3.14159265;
+		vec2 across_dir = vec2(-sin(a), cos(a));
+		float across = dot(v_p, across_dir);
+		float period = sn == 18 ? 0.35 : (sn == 11 ? 0.22 : 0.125);
+		float amp = sn == 18 ? 0.9 : 0.25;
+		float slope = cos(fract(across / period + (sn == 18 ? fine * 0.15 : 0.0)) * 6.2831853) * amp;
+		vec3 nl = normalize(vec3(across_dir.x * slope, 1.0, across_dir.y * slope));
+		NORMAL = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(nl, 0.0)).xyz);
+	}
 }

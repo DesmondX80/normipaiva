@@ -28,10 +28,17 @@ var nz := 0
 var area := 0.0  # m²
 var counts := {}  # tila -> ruutuja
 var center := Vector2.ZERO
+var laps := ""  # rakennusvaiheiden ajat (testit tulostavat)
 
 var _f: Dictionary  # tila.fields[id]
-var _img: Image
-var _tex: ImageTexture
+## Ruutujen kuvat varjostimille: tila (R8, arvo = tila), määrä (RF) ja työsuunta (R8, 0–255 = 0–180°). Tehdään
+## suoraan tallennuksen tavutaulukoista (ei pikselisilmukkaa), päivitetään muuttuneet ruudut.
+var _st_img: Image
+var _amt_img: Image
+var _dir_img: Image
+var _st_tex: ImageTexture
+var _amt_tex: ImageTexture
+var _dir_tex: ImageTexture
 var _dirty := false
 var _dirty_t := 0.0
 var _h_img: Image
@@ -67,17 +74,25 @@ func setup(t: Tila, i: int) -> bool:
 	if old.is_empty() or int(old.nx) != nx or int(old.nz) != nz:
 		mask = _scan_mask()
 	_f = tila.init_cells(i, nx, nz, mask)
+	var t0 := Time.get_ticks_usec()
 	_build_heights()
+	var t1 := Time.get_ticks_usec()
 	_build_state_image()
+	var t2 := Time.get_ticks_usec()
 	_build_ground()
+	var t3 := Time.get_ticks_usec()
 	_build_crops()
+	var t4 := Time.get_ticks_usec()
 	recount()
+	laps = "korkeus %d, kuvat %d, pinta %d, kasvusto %d, laskurit %d ms" % [(t1 - t0) / 1000, (t2 - t1) / 1000,
+		(t3 - t2) / 1000, (t4 - t3) / 1000, (Time.get_ticks_usec() - t4) / 1000]
 	area = cells_total() * c * c
 	return true
 
 
-## Pellon ruudut (1 = ruudun keskipiste monikulmion sisällä) riveittäin: rivin keskilinjan ja reunojen leikkaukset.
+## Pellon ruudut (aloitustila = ruudun keskipiste monikulmion sisällä, muuten NONE) riveittäin: rivin keskilinjan ja reunojen leikkaukset.
 func _scan_mask() -> PackedByteArray:
+	var st: int = Tila.FIELDS[index].start
 	var mask := PackedByteArray()
 	mask.resize(nx * nz)
 	var c := Tila.CELL
@@ -95,7 +110,7 @@ func _scan_mask() -> PackedByteArray:
 			var i0 := maxi(0, ceili((xs[q] - origin.x) / c - 0.5))
 			var i1 := mini(nx - 1, floori((xs[q + 1] - origin.x) / c - 0.5))
 			for i in range(i0, i1 + 1):
-				mask[j * nx + i] = 1
+				mask[j * nx + i] = st
 	return mask
 
 
@@ -127,9 +142,12 @@ func share(states: Array) -> float:
 
 func recount() -> void:
 	counts = {}
-	for s in (_f.cells as PackedByteArray):
-		if s != Tila.NONE:
-			counts[s] = int(counts.get(s, 0)) + 1
+	var cells: PackedByteArray = _f.cells
+	for st in [Tila.H_LYHYT, Tila.H_PUOLI, Tila.H_VALMIS, Tila.H_NIITETTY, Tila.H_KARHO, Tila.H_SANKI, Tila.V_SANKI,
+			Tila.V_AESTETTY, Tila.V_KYLVETTY, Tila.V_ORAS, Tila.V_VIHREA, Tila.V_KYPSA, Tila.V_PUITU, Tila.V_OLKI, Tila.V_KYNNETTY]:
+		var n := cells.count(st)
+		if n > 0:
+			counts[st] = n
 
 
 ## Onko paikallinen piste pellolla (ruutu ei ole NONE).
@@ -162,7 +180,7 @@ func ground_y(p: Vector2) -> float:
 ## op: "niitto", "karhous", "paalaus", "aestys", "kylvo", "puinti". Palauttaa {"cells": muuttuneita, "hay": heinää,
 ## "grain": kg, "seed": kg}. Kylvö käyttää siementä enintään seed_left kg.
 func work(op: String, c: Vector2, fwd: Vector2, hw: float, hl: float, seed_left := INF) -> Dictionary:
-	var out := {"cells": 0, "hay": 0.0, "grain": 0.0, "seed": 0.0}
+	var out := {"cells": 0, "hay": 0.0, "grain": 0.0, "seed": 0.0, "stones": []}
 	var right := Vector2(-fwd.y, fwd.x)
 	var ext := Vector2(absf(fwd.x) * hl + absf(right.x) * hw, absf(fwd.y) * hl + absf(right.y) * hw)
 	var cs := Tila.CELL
@@ -210,8 +228,15 @@ func work(op: String, c: Vector2, fwd: Vector2, hw: float, hl: float, seed_left 
 						out.hay += amt[k]
 						amt[k] = 0.0
 						ns = Tila.H_SANKI
-				"aestys":
+				"kynto":
 					if s == Tila.V_SANKI or s == Tila.V_PUITU or s == Tila.V_OLKI or s == Tila.V_AESTETTY:
+						ns = Tila.V_KYNNETTY
+						amt[k] = 0.0
+						if randf() < Tila.STONE_PER_M2 * area_c:
+							out.stones.append(origin + (Vector2(i, j) + Vector2(0.5, 0.5)) * cs)
+				"aestys":
+					# Äes muokkaa kynnetyn (tai uudelleen äestettävän) mullan; sänkeen se ei pure.
+					if s == Tila.V_KYNNETTY or s == Tila.V_AESTETTY:
 						ns = Tila.V_AESTETTY
 						amt[k] = 0.0
 				"kylvo":
@@ -252,18 +277,16 @@ func work(op: String, c: Vector2, fwd: Vector2, hw: float, hl: float, seed_left 
 
 ## Päivän kasvun (kaisua_tila.gd advance_to) jälkeen: kuva ja laskurit uudelleen.
 func refresh_all() -> void:
-	var cells: PackedByteArray = _f.cells
-	var amt: PackedFloat32Array = _f.amt
-	var dirs: PackedByteArray = _f.dir
-	for j in nz:
-		for i in nx:
-			var k := j * nx + i
-			_set_px(i, j, cells[k], amt[k], dirs[k])
+	_build_state_image()
+	_common_textures(_ground_mat)
+	_common_textures(_crop_mat)
 	recount()
 
 
 func _set_px(i: int, j: int, s: int, a: float, d: int) -> void:
-	_img.set_pixel(i, j, Color8(s * 8, clampi(roundi(a * 8.0), 0, 255), d, 255))
+	_st_img.set_pixel(i, j, Color(s / 255.0, 0, 0))
+	_amt_img.set_pixel(i, j, Color(a, 0, 0))
+	_dir_img.set_pixel(i, j, Color(d / 255.0, 0, 0))
 	_dirty = true
 
 
@@ -272,7 +295,9 @@ func _process(delta: float) -> void:
 	if _dirty and _dirty_t <= 0.0:
 		_dirty = false
 		_dirty_t = 0.08
-		_tex.update(_img)
+		_st_tex.update(_st_img)
+		_amt_tex.update(_amt_img)
+		_dir_tex.update(_dir_img)
 
 
 # --- Piirto --------------------------------------------------------------------------------------------------------
@@ -295,19 +320,24 @@ func _vh(i: int, j: int) -> float:
 
 
 func _build_state_image() -> void:
-	_img = Image.create(nx, nz, false, Image.FORMAT_RGBA8)
-	var cells: PackedByteArray = _f.cells
-	var amt: PackedFloat32Array = _f.amt
-	var dirs: PackedByteArray = _f.dir
-	for j in nz:
-		for i in nx:
-			var k := j * nx + i
-			_img.set_pixel(i, j, Color8(cells[k] * 8, clampi(roundi(amt[k] * 8.0), 0, 255), dirs[k], 255))
-	_tex = ImageTexture.create_from_image(_img)
+	_st_img = Image.create_from_data(nx, nz, false, Image.FORMAT_R8, _f.cells)
+	_amt_img = Image.create_from_data(nx, nz, false, Image.FORMAT_RF, (_f.amt as PackedFloat32Array).to_byte_array())
+	_dir_img = Image.create_from_data(nx, nz, false, Image.FORMAT_R8, _f.dir)
+	_st_tex = ImageTexture.create_from_image(_st_img)
+	_amt_tex = ImageTexture.create_from_image(_amt_img)
+	_dir_tex = ImageTexture.create_from_image(_dir_img)
+
+
+func _common_textures(m: ShaderMaterial) -> void:
+	if m == null:
+		return
+	m.set_shader_parameter("state_tex", _st_tex)
+	m.set_shader_parameter("amt_tex", _amt_tex)
+	m.set_shader_parameter("dir_tex", _dir_tex)
 
 
 func _common_params(m: ShaderMaterial) -> void:
-	m.set_shader_parameter("state_tex", _tex)
+	_common_textures(m)
 	m.set_shader_parameter("origin", origin)
 	m.set_shader_parameter("cells", Vector2(nx, nz))
 	m.set_shader_parameter("cell", Tila.CELL)
@@ -323,20 +353,15 @@ func _build_ground() -> void:
 	st.set_normal(Vector3.UP)
 	var w := _h_img.get_width()
 	var h := _h_img.get_height()
-	var per := int(H_STEP / Tila.CELL)
-	var cells: PackedByteArray = _f.cells
+	# 2 m ruutu mukaan, jos sen keskipiste on 2 m levennetyn monikulmion sisällä (natiivi tarkistus, ei ruutusilmukkaa).
+	var wide := Geometry2D.offset_polygon(poly, 2.0)
 	for j in h - 1:
 		for i in w - 1:
-			# Onko 2 m ruudussa yksikin pellon ruutu?
+			var cpt := _h_origin + (Vector2(i, j) + Vector2(0.5, 0.5)) * H_STEP
 			var any := false
-			var ci0 := int(roundf((_h_origin.x + i * H_STEP - origin.x) / Tila.CELL))
-			var cj0 := int(roundf((_h_origin.y + j * H_STEP - origin.y) / Tila.CELL))
-			for dj in range(-1, per + 1):
-				for di in range(-1, per + 1):
-					var ci := ci0 + di
-					var cj := cj0 + dj
-					if ci >= 0 and cj >= 0 and ci < nx and cj < nz and cells[cj * nx + ci] != Tila.NONE:
-						any = true
+			for wp in wide:
+				if Geometry2D.is_point_in_polygon(cpt, wp):
+					any = true
 			if not any:
 				continue
 			var v := func(di: int, dj: int) -> Vector3:

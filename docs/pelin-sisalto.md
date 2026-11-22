@@ -582,8 +582,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     laajennettiin länteen (x -590 m), jotta Isopelto ja Ojanvarsi ovat ajettavissa.
     - **Koneet:** vanha ohjaamoton traktori (pyöreä konepelti, pystypakoputki, pellinen istuin, etukuormain
       paalipiikillä) ja vanha leikkuupuimuri (kela, syöttöruuvi, viljasäiliö, kääntyvä purkuputki). Traktoriin
-      kytketään peruuttamalla (Q) sivuniittokone, kaksiroottorinen karhotin, pyöröpaalain, S-piikkiäes, kylvökone
-      tai viljakärry; nostimen koneet nousevat kuljetukseen ja laskeutuvat töihin (E). Koneisiin noustaan ja niistä
+      kytketään peruuttamalla (Q) sivuniittokone, kaksiroottorinen karhotin, pyöröpaalain, kääntöaura, S-piikkiäes,
+      kylvökone tai viljakärry; nostimen koneet nousevat kuljetukseen ja laskeutuvat töihin (E). Koneisiin noustaan ja niistä
       pois F:llä, ajo W/S ja ohjaus A/D (kääntyminen akselivälin mukaan, puimuri kääntää takapyörillä).
     - **Pellot:** ruudukko 0,5 m ruuduin, ja jokaisella ruudulla on oma vaiheensa ja työsuuntansa (`kaisua_pelto.gd`,
       `kaisua_tila.gd`). Kasvusto on korsikortteja (nurmi timotein tähkineen, ohra tähkineen ja vihneineen), ja pinta
@@ -593,10 +593,21 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
       kääritty paali putoaa perästä noin 650 m² nurmesta) ja paalit latoon piikillä. Nurmi kasvaa sängestä
       niittokypsäksi kolmessa päivässä.
     - **Vilja:** puinti (säiliö 2 200 kg), purku purkuputkella viljakärryyn tai suoraan kuivurin suppilolle ja kärryn
-      kippaus suppiloon. Kevättyöt: äestys ja kylvö (siemen konevajan säkeistä, säiliö 300 kg); ohra kasvaa orakselle,
-      vihreäksi ja puintikypsäksi päivä kerrallaan.
+      kippaus suppiloon. Kevättyöt: kyntö nelisiipisellä kääntöauralla (sänki kääntyy palteiksi ja vaoiksi; äes ei
+      pure sänkeen), äestys ja kylvö (siemen konevajan säkeistä, säiliö 300 kg); ohra kasvaa orakselle, vihreäksi ja
+      puintikypsäksi päivä kerrallaan.
+    - **Kivien keruu:** kynnöstä nousee kiviä (noin yksi 300 m²:ltä). Jalan E nostaa kiven käteen (juoksu ei onnistu),
+      ja kivi heitetään viljakärryyn tai pellon kulman vanhaan kivikasaan; täysi kärry kipataan kasalle. Isäntä maksaa
+      0,60 € kiveltä (viljakärryyn ei kiviä, jos siinä on viljaa).
+    - **Diesel:** traktorin ja puimurin tankki kuluu ajossa ja enemmän töissä (täysi riittää noin 20 minuutin
+      töihin), ja tyhjänä moottori sammuu. Tankkaus pihan vihreältä polttoainesäiliöltä (konevajan pohjoispää) koneella
+      viereen ajaen, tai jalan kanisterilla (20 l = 35 % tankista) pellolle sammuneeseen koneeseen.
+    - **Paalikauppa:** kun ladossa on paaleja, isäntä välittää naapurin Raijan tilauksen (2–4 paalia lehmille, yksi
+      tilaus päivässä). Paali otetaan ladosta piikkiin ja viedään tien pohjoispuolen naapuritalon paalipaikalle
+      ("PAALIT TÄHÄN"); Raija maksaa 6 € paalilta ja kiittää. Myydyt paalit syötetään seuraavaan päivään mennessä.
     - **Palkka:** isäntä maksaa jokaisesta valmiista työstä (yli 92 % pellosta): niitto 30 €/ha, karhous 18 €/ha,
-      paalaus 2,50 €/paali, paali latoon 2 €, puinti 55 €/ha, vilja kuivuriin 1,20 €/100 kg, äestys ja kylvö 28 €/ha.
+      paalaus 2,50 €/paali, paali latoon 2 €, puinti 55 €/ha, vilja kuivuriin 1,20 €/100 kg, kyntö 35 €/ha, kivi
+      kasaan 0,60 €, äestys ja kylvö 28 €/ha.
       Valmiin työn jälkeen emäntä tarjoaa talkooruoan pirtissä (lihakeitto, ruisleipä, kahvit ja pullat; nälkä ja
       stressi helpottavat), ja kokonaisen ketjun jälkeen isäntä antaa kolme saunakaljaa. Ketjut ovat legendaarisia
       hetkiä: Kaisuan heinätalkoot, Kaisuan sato ja Kaisuan kylvöt.

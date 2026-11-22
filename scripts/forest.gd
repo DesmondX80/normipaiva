@@ -74,7 +74,7 @@ func load_data(path: String, clear := {}) -> bool:
 	var raw_a := f.get_buffer(w * h * 16)
 	var raw_b := f.get_buffer(w * h * 4)
 	if not clear.is_empty():
-		raw_a = _clear_trees(raw_a, clear)
+		raw_a = _clear_trees(raw_a, clear, _clear_ranges(clear))
 	_setup(raw_a, raw_b, w, h)
 	return true
 
@@ -82,8 +82,36 @@ func load_data(path: String, clear := {}) -> bool:
 ## Raivausruudukon kohdalla puut piiloon: pituus nollaan ja maan alle (lohkojen indeksit säilyvät). Valinnainen
 ## harvennus thin = {c: Vector2, r: float, keep: float}: ympyrän keskellä puista jää osuus keep, ja osuus kasvaa
 ## reunaa kohti täyteen metsään (puun paikasta laskettu tiiviste: sama puu jää joka kerta).
-static func _clear_trees(raw_a: PackedByteArray, clear: Dictionary) -> PackedByteArray:
+## Pelkällä raivausruudukolla (ei harvennusta) käydään läpi vain lähilohkot, joiden alueelle ruudukko osuu
+## (near_tab: lohkon ja lajin puut ovat peräkkäin): koko metsän 340 000 puuta GDScriptillä vei turhaa aikaa.
+## Palauttaa [Vector2i(alku, määrä), ...] tai tyhjän (= kaikki puut).
+func _clear_ranges(clear: Dictionary) -> Array:
+	if clear.has("thin") or not clear.has("mask") or near_chunk <= 0.0:
+		return []
+	var x0: float = clear.x0
+	var z0: float = clear.z0
+	var cell: float = clear.cell
+	var i0 := maxi(0, floori((x0 - origin.x) / near_chunk))
+	var i1 := mini(nnx - 1, floori((x0 + int(clear.nx) * cell - origin.x) / near_chunk))
+	var j0 := maxi(0, floori((z0 - origin.y) / near_chunk))
+	var j1 := mini(nnz - 1, floori((z0 + int(clear.nz) * cell - origin.y) / near_chunk))
+	var out := []
+	for j in range(j0, j1 + 1):
+		for i in range(i0, i1 + 1):
+			for sp in SPECIES:
+				var r := _range(near_tab, j * nnx + i, sp)
+				if r.y > 0:
+					out.append(r)
+	if out.is_empty():
+		out.append(Vector2i(0, 0))  # ei yhtään puuta alueella
+	return out
+
+
+static func _clear_trees(raw_a: PackedByteArray, clear: Dictionary, ranges := []) -> PackedByteArray:
 	var a := raw_a.to_float32_array()
+	if not ranges.is_empty():
+		_clear_mask_ranges(a, clear, ranges)
+		return a.to_byte_array()
 	var mask: PackedByteArray = clear.get("mask", PackedByteArray())
 	var x0: float = clear.get("x0", 0.0)
 	var z0: float = clear.get("z0", 0.0)
@@ -108,6 +136,22 @@ static func _clear_trees(raw_a: PackedByteArray, clear: Dictionary) -> PackedByt
 			a[i * 4 + 1] = -1000.0
 			a[i * 4 + 3] = 0.0
 	return a.to_byte_array()
+
+
+static func _clear_mask_ranges(a: PackedFloat32Array, clear: Dictionary, ranges: Array) -> void:
+	var mask: PackedByteArray = clear.mask
+	var x0: float = clear.x0
+	var z0: float = clear.z0
+	var cell: float = clear.cell
+	var nx: int = clear.nx
+	var nz: int = clear.nz
+	for r: Vector2i in ranges:
+		for i in range(r.x, r.x + r.y):
+			var ii := int((a[i * 4] - x0) / cell)
+			var jj := int((a[i * 4 + 2] - z0) / cell)
+			if ii >= 0 and jj >= 0 and ii < nx and jj < nz and mask[jj * nx + ii] != 0:
+				a[i * 4 + 1] = -1000.0
+				a[i * 4 + 3] = 0.0
 
 
 ## Käsin sijoitetut puut (esim. mökin pihan männyt) samoilla malleilla kuin laserkeilattu metsä:

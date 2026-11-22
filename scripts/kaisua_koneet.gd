@@ -345,6 +345,7 @@ const IMPLEMENTS := {
 	"niittokone": {"name": "Niittokone", "mount": "nostin", "work": "niitto", "c": Vector3(2.05, 0, 0.9), "hw": 1.75, "hl": 0.35, "speed": 4.2},
 	"karhotin": {"name": "Karhotin", "mount": "nostin", "work": "karhous", "c": Vector3(0, 0, 1.75), "hw": 3.0, "hl": 1.2, "speed": 4.2},
 	"paalain": {"name": "Paalain", "mount": "aisa", "work": "paalaus", "c": Vector3(0, 0, 1.95), "hw": 0.95, "hl": 0.35, "axle": 2.7, "speed": 3.6},
+	"aura": {"name": "Aura", "mount": "nostin", "work": "kynto", "c": Vector3(0.9, 0, 1.6), "hw": 1.5, "hl": 0.6, "speed": 3.6},
 	"aes": {"name": "Äes", "mount": "nostin", "work": "aestys", "c": Vector3(0, 0, 1.15), "hw": 2.25, "hl": 0.8, "speed": 4.2},
 	"kylvokone": {"name": "Kylvökone", "mount": "nostin", "work": "kylvo", "c": Vector3(0, 0, 1.05), "hw": 2.0, "hl": 0.45, "speed": 3.6},
 	"perakarry": {"name": "Viljakärry", "mount": "aisa", "work": "", "c": Vector3.ZERO, "hw": 0.0, "hl": 0.0, "axle": 4.3, "speed": 7.0},
@@ -364,6 +365,8 @@ static func implement(parent: Node3D, id: String) -> Dictionary:
 			parts = _karhotin(root)
 		"paalain":
 			parts = _paalain(root)
+		"aura":
+			parts = _aura(root)
 		"aes":
 			parts = _aes(root)
 		"kylvokone":
@@ -496,6 +499,46 @@ static func _paalain(root: Node3D) -> Dictionary:
 	for sx in [-1.0, 1.0]:
 		wheels.append(V.wheel(root, Vector3(sx * 0.98, 0.36, 2.7), 0.36, 0.22, 14, white, 0.6))
 	return {"spin": [pickup], "gate": gate, "wheels": wheels}
+
+
+## Nelisiipinen kääntöaura: A-kehys ja kääntölaite, runkopalkki vinosti oikealle taakse, neljä vannasta (kiiltäväksi
+## kulunut siipi, terä ja kärki, varsi ja kantapää) ja yläpuolella samat peilattuna toiseen suuntaan (kääntöaura),
+## takana syvyyspyörä. Töissä aura painuu 18 cm maahan (kaisua_ajoneuvo.gd).
+static func _aura(root: Node3D) -> Dictionary:
+	var red := V.paint(RED)
+	var dark := _m(Color(0.12, 0.12, 0.13), 0.6, 0.3)
+	var shine := _m(Color(0.78, 0.79, 0.8), 0.22, 0.95)  # mullan kiillottama siipi
+	var steel := _m(Color(0.5, 0.5, 0.52), 0.4, 0.7)
+	var frame := Node3D.new()
+	root.add_child(frame)
+	for sx in [-0.36, 0.36]:
+		_beam(frame, Vector3(sx, 0.5, 0), Vector3(0, 1.05, 0.2), 0.07, 0.07, red)
+	_beam(frame, Vector3(-0.36, 0.5, 0.02), Vector3(0.36, 0.5, 0.02), 0.07, 0.07, red)
+	_p(frame, B.cyl(0.13, 0.13, 0.3, 14), Vector3(0, 0.78, 0.32), dark, Vector3(PI / 2.0, 0, 0))  # kääntölaite
+	var b0 := Vector3(0.05, 0.78, 0.45)
+	var b1 := Vector3(1.75, 0.78, 3.3)
+	_beam(frame, b0, b1, 0.13, 0.13, red)
+	for k in 4:
+		var t := 0.12 + k * 0.26
+		var at := b0.lerp(b1, t)
+		for up: float in [1.0, -1.0]:
+			# Varsi palkista maahan (alempi sarja) tai ylös (ylempi, kääntöpuolen sarja).
+			var foot := at + Vector3(0, -0.72 * up, 0)
+			_beam(frame, at, foot + Vector3(0, 0.12 * up, 0), 0.05, 0.12, dark)
+			# Siipi: kolme kiertyvää laattaa terältä ylös ja sivulle (oikealle käännetty multa), terä ja kärki.
+			var side := 1.0 if up > 0.0 else -1.0
+			for q in 3:
+				var y0 := foot.y + up * (0.04 + q * 0.12)
+				var x0 := foot.x - side * 0.12 + side * q * 0.1
+				var plate := _p(frame, B.boxm(Vector3(0.46, 0.14, 0.012)), Vector3(x0 + side * 0.08, y0 + up * 0.06, foot.z - 0.1 + q * 0.08), shine)
+				plate.basis = Basis(Vector3.UP, side * (0.55 + q * 0.25)) * Basis(Vector3.RIGHT, -up * (0.35 + q * 0.12))
+			_p(frame, B.boxm(Vector3(0.34, 0.012, 0.16)), foot + Vector3(-side * 0.05, up * 0.02, -0.22), steel, Vector3(0, side * 0.5, 0))
+			_p(frame, B.cyl(0.0, 0.035, 0.22, 4), foot + Vector3(-side * 0.17, up * 0.025, -0.36), steel, Vector3(-PI / 2.0, side * 0.5, 0))
+			_p(frame, B.boxm(Vector3(0.03, 0.12, 0.45)), foot + Vector3(-side * 0.16, up * 0.07, 0.0), dark)  # kantapää
+	_beam(frame, b1, b1 + Vector3(0.0, -0.3, 0.55), 0.06, 0.06, red)
+	_merge(frame, "aura_runko")
+	var wheel := V.wheel(root, b1 + Vector3(0.32, -0.42, 0.55), 0.33, 0.16, 12, V.paint(Color(0.82, 0.8, 0.76)), 0.6)
+	return {"wheels": [wheel]}
 
 
 ## S-piikkiäes: A-kehys, kolme poikkipalkkia porrastetuin S-piikein ja takana murskaintela.
@@ -645,6 +688,112 @@ static func paali(parent: Node3D) -> Node3D:
 	return root
 
 
+# --- Dieselsäiliö --------------------------------------------------------------------------------------------------
+
+## Pihan polttoainesäiliö: vihreä 1 000 l lieriö jaloillaan, mittari, letku pistoolilla ja tippa-astia, varoituskyltti.
+static func diesel_tank(parent: Node3D) -> Node3D:
+	var root := Node3D.new()
+	parent.add_child(root)
+	var green := V.paint(Color(0.16, 0.36, 0.2))
+	var dark := _m(Color(0.12, 0.12, 0.13), 0.6, 0.3)
+	var steel := _m(Color(0.5, 0.5, 0.52), 0.4, 0.7)
+	_p(root, B.cyl(0.58, 0.58, 1.9, 20), Vector3(0, 1.35, 0), green, Vector3(0, 0, PI / 2.0))
+	for sx in [-1.0, 1.0]:
+		_p(root, B.cyl(0.6, 0.6, 0.04, 20), Vector3(sx * 0.95, 1.35, 0), V.paint(Color(0.12, 0.28, 0.15)), Vector3(0, 0, PI / 2.0))
+		for sz in [-1.0, 1.0]:
+			_beam(root, Vector3(sx * 0.7, 0.0, sz * 0.5), Vector3(sx * 0.7, 0.95, sz * 0.32), 0.07, 0.07, dark)
+		_beam(root, Vector3(sx * 0.7, 0.4, -0.45), Vector3(sx * 0.7, 0.4, 0.45), 0.05, 0.05, dark)
+	_p(root, B.cyl(0.1, 0.1, 0.12, 12), Vector3(0.4, 1.96, 0), steel)  # täyttökansi
+	_p(root, B.boxm(Vector3(0.22, 0.3, 0.14)), Vector3(-0.5, 1.2, -0.62), _m(Color(0.85, 0.85, 0.82), 0.4))  # mittari
+	_p(root, B.cyl(0.06, 0.06, 0.02, 14), Vector3(-0.5, 1.25, -0.7), _m(Color(0.95, 0.95, 0.9), 0.3), Vector3(PI / 2.0, 0, 0))
+	var prev := Vector3(-0.5, 1.02, -0.62)
+	for k in 6:
+		var q := Vector3(-0.5 + 0.12 * k, 0.9 - 0.13 * k + 0.02 * k * k, -0.68 - 0.05 * k)
+		_tube(root, prev, q, 0.02, dark, 6)
+		prev = q
+	_p(root, B.boxm(Vector3(0.08, 0.2, 0.05)), prev + Vector3(0, 0.05, 0), _m(Color(0.75, 0.1, 0.05), 0.5))  # pistooli
+	_p(root, B.boxm(Vector3(0.8, 0.06, 0.6)), Vector3(0, 0.03, -0.1), _m(Color(0.3, 0.3, 0.32), 0.5, 0.5))  # tippa-astia
+	var sign := B.sign_plate(root, "DIESEL", Color(0.95, 0.8, 0.1), Color(0.08, 0.08, 0.08), 0.18, 40, Color(0.1, 0.1, 0.1))
+	sign.position = Vector3(0, 1.4, -0.6)
+	_merge(root, "dieselsailio")
+	return root
+
+
+# --- Kivi ---------------------------------------------------------------------------------------------------------
+
+## Pellon kivi (koko = säde m): särmikäs möhkäle (kuusi muunnelmaa, kärkipisteet siirretty kohinalla, tasainen
+## varjostus), väri graniitin harmaasta punertavaan ja jäkäläläiskät pisteväreinä. Alaosa maan sisässä.
+## parent = null: irrallinen solmu (käteen).
+static var _rock_meshes: Array = []
+
+
+static func kivi(parent: Node3D, size: float, seed: int) -> Node3D:
+	var root := Node3D.new()
+	if parent != null:
+		parent.add_child(root)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed * 7919 + 17
+	if _rock_meshes.is_empty():
+		for v in 6:
+			_rock_meshes.append(_rock_mesh(v))
+	var mi := MeshInstance3D.new()
+	mi.mesh = _rock_meshes[rng.randi() % _rock_meshes.size()]
+	var tints := [Color(0.48, 0.47, 0.45), Color(0.55, 0.47, 0.43), Color(0.4, 0.4, 0.41), Color(0.52, 0.5, 0.46)]
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.albedo_color = tints[rng.randi() % tints.size()] * 1.6
+	mat.roughness = 0.88
+	mi.material_override = mat
+	mi.scale = Vector3(size * rng.randf_range(1.0, 1.3), size * rng.randf_range(0.6, 0.85), size * rng.randf_range(0.85, 1.1))
+	mi.rotation = Vector3(rng.randf_range(-0.2, 0.2), rng.randf() * TAU, rng.randf_range(-0.2, 0.2))
+	mi.position.y = size * 0.3
+	root.add_child(mi)
+	return root
+
+
+static func _rock_mesh(variant: int) -> ArrayMesh:
+	var sm := SphereMesh.new()
+	sm.radial_segments = 9
+	sm.rings = 6
+	var arr := sm.get_mesh_arrays()
+	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+	var noise := FastNoiseLite.new()
+	noise.seed = 31 + variant * 101
+	noise.frequency = 1.6
+	var moved := {}  # sama paikka = sama siirto (saumat pysyvät kiinni)
+	for i in verts.size():
+		var v := verts[i]
+		var key := Vector3i(roundi(v.x * 1000.0), roundi(v.y * 1000.0), roundi(v.z * 1000.0))
+		if not moved.has(key):
+			var n := noise.get_noise_3dv(v * 1.3)
+			var flat := 0.75 if v.y < -0.2 else 1.0  # pohja litteämpi
+			moved[key] = v * (1.0 + n * 0.38) * Vector3(1.0, flat, 1.0)
+		verts[i] = moved[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var lich := FastNoiseLite.new()
+	lich.seed = 7 + variant
+	lich.frequency = 2.2
+	for t in range(0, idx.size(), 3):
+		var a := verts[idx[t]]
+		var b := verts[idx[t + 1]]
+		var c := verts[idx[t + 2]]
+		var mid := (a + b + c) / 3.0
+		var nrm := (c - a).cross(b - a).normalized()
+		if nrm.dot(mid) < 0.0:
+			nrm = -nrm  # normaali ulospäin (kiertosuunta pysyy SphereMeshin omana)
+		var shade := 0.5 + 0.12 * lich.get_noise_3dv(mid * 3.0)
+		var col := Color(shade, shade, shade)
+		if lich.get_noise_3dv(mid) > 0.35 and mid.y > -0.1:
+			col = Color(shade * 0.95, shade * 1.02, shade * 0.78)  # jäkälä
+		for q in [a, b, c]:
+			st.set_color(col)
+			st.set_normal(nrm)
+			st.add_vertex(q)
+	return st.commit()
+
+
 # --- Rakennukset ---------------------------------------------------------------------------------------------------
 
 ## Lautaseinä: pystylaudat ja peitelistat (harmaantunut puu), aukko (x0..x1) jätetään pois. Seinä kulkee paikallista
@@ -666,7 +815,8 @@ static func _board_wall(parent: Node3D, a: Vector3, yaw: float, len: float, h: f
 				continue
 			by = gap_h
 			bh = h - gap_h
-		var tone := 0.88 + 0.12 * fposmod(sin(i * 12.9898) * 43758.5453, 1.0)
+		# Sävy neljästä tasosta: jokainen eri sävy on oma materiaali ja yhdistetyn meshin pinta.
+		var tone := 0.88 + 0.04 * float(int(fposmod(sin(i * 12.9898) * 43758.5453, 1.0) * 4.0))
 		var c := Color(base.r * tone, base.g * tone, base.b * tone)
 		_p(wall, B.boxm(Vector3(w - 0.012, bh, 0.025)), Vector3(x, by + bh / 2.0, 0), _m(c, 0.92))
 		if i % 2 == 0:
@@ -701,7 +851,7 @@ static func _gable_end(parent: Node3D, pos: Vector3, yaw: float, w: float, rise:
 		var hh := rise * (1.0 - absf(x) / (w / 2.0))
 		if hh < 0.05:
 			continue
-		var tone := 0.88 + 0.12 * fposmod(sin(i * 7.31) * 43758.5453, 1.0)
+		var tone := 0.88 + 0.04 * float(int(fposmod(sin(i * 7.31) * 43758.5453, 1.0) * 4.0))
 		_p(g, B.boxm(Vector3(w / n - 0.012, hh, 0.025)), Vector3(x, hh / 2.0, 0), _m(Color(base.r * tone, base.g * tone, base.b * tone), 0.92))
 
 
