@@ -100,7 +100,8 @@ const TYPES := {
 		"toe_round": 1.0, "toe_n": 2.2, "toe_h": 0.96, "toe_low": 0.3, "collar": 0.012, "spring": 0.0,
 		"sole_col": Color(0.08, 0.09, 0.12), "rough": 0.97, "sole_rough": 0.7, "style": 8, "spec": 0.15, "clearcoat": 0.0,
 		"sock": true, "sandal": {"toe": 0.06, "w": 0.072, "ankle": 0.0, "thick": 0.003, "single": true, "part": 3.0},
-		"shaft": {"join": 0.085, "top": 0.2, "top_k": 0.42, "pad": 0.011, "rigid": false, "gap": 0.001, "flare": 0.006}},
+		"shaft": {"join": 0.085, "top": 0.2, "top_k": 0.42, "pad": 0.011, "rigid": false, "gap": 0.001, "flare": 0.006,
+			"soft_lap": true, "lap": 0.03, "wrap": 0.003}},
 	"paljas": {},
 }
 
@@ -912,7 +913,8 @@ static func _build_shaft(st: SurfaceTool, p: Dictionary, vs: PackedVector3Array,
 	rows.push_front([yj, c0, r0p, 0])
 	var yb := yj  # putken alin rengas (pohjaviuhka)
 	var rb := r0p
-	if rigid:  # jäykkä varsi: alareuna lap verran alaosan suun alla, kavennettuna kuoren sisään (limitys nilkassa)
+	if rigid or sh.get("soft_lap", false):  # alareuna lap verran alaosan suun alla, kavennettuna kuoren sisään (limitys nilkassa;
+		# villasukan pehmeä varsi myös: ilman limitystä jalkapöydän edessä jäi rako, josta näkyi lahkeen värinen jalkaterä)
 		yb = yj - float(sh.lap)
 		rb = PackedVector2Array()
 		for k in RING:
