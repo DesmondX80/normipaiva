@@ -9903,6 +9903,13 @@ func _hedge_logic() -> void:
 		_start_hedge()
 
 
+## Leikkuu katkeaa (häviö, uusi päivä): minipeli pois, ettei sen oma päätön pelaajahahmo jää aidalle trimmaamaan.
+func _abort_hedge() -> void:
+	if is_instance_valid(_hedge_game):
+		_hedge_game._finish("keskeytys")
+	_hedge_game = null
+
+
 func _start_hedge() -> void:
 	walker_out.controls_enabled = false
 	walker_out.velocity = Vector3.ZERO
@@ -9916,13 +9923,20 @@ func _start_hedge() -> void:
 	g.start_x = 7.5
 	g.drunk = _hand_shake()
 	_hedge_game = g
+	if is_instance_valid(wife):
+		wife.safe_zones = _wife_safe_zones()  # Päivi katsoo itse leikkuuta: Hyundai ei jahtaa aidan luota
 	g.finished.connect(func(result: String) -> void:
 		_hedge_game = null
+		if is_instance_valid(wife):
+			wife.safe_zones = _wife_safe_zones()
+			wife.grace = maxf(wife.grace, 15.0)  # Päivi vasta näki sinut töissä: hetki aikaa lähteä aidan luota
 		walker_out.controls_enabled = true
 		walker_out.visible = true
 		world.hedge_prop.visible = true
 		_hud.visible = true
 		tilat.add("vasymys", -0.04)  # trimmeri painaa käsissä
+		if result == "keskeytys":
+			return  # häviö tai uusi päivä katkaisi leikkuun (_abort_hedge): ei viestiä välianimaation päälle
 		if result != "ok":
 			tilat.add("stressi", -0.05)
 			_show_message("Pensasaita jäi kesken. Päivi huomaa sen kyllä.", 2.5)
@@ -17651,6 +17665,7 @@ func _on_mopo_killed(cause := "car", reason_in := "") -> void:
 	_santtu_home()
 	state = "cutscene"
 	_stop_mowing()
+	_abort_hedge()
 	_task_failed()
 	player.controls_enabled = false
 	_hud.visible = false
@@ -21936,6 +21951,7 @@ func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
 		return
 	state = "cutscene"
 	_stop_mowing()
+	_abort_hedge()
 	_task_failed()
 	player.controls_enabled = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)  # vasta ruudun lopussa: signaali voi tulla kesken vaaran fysiikkapäivityksen
@@ -21994,6 +22010,8 @@ func _wife_safe_zones() -> Array:
 		out.append([world.rauniot_youth_pos, 12.0])
 	if mowing and _mow_lawn == lawn:
 		out.append([walker_out.global_position, 40.0])  # kotipiha leikkurin ympärillä
+	if _hedge_game != null:
+		out.append([world.hedge_spot, 40.0])  # pensasaidan leikkuu: Päivi seisoo itse vahtimassa narun vieressä
 	return out
 
 
@@ -22018,6 +22036,7 @@ func _nearest_safe() -> Vector3:
 func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	_clock_fast = false
 	_thief_stop()  # yöllä teini jättää pyörän siihen, missä se on
+	_abort_hedge()
 	day += 1
 	var at_m := _at_mokki_pos(spawn)  # mökillä herätessä pääpelin asiat odottavat kotiinpaluuta
 	var stats_note := _end_day_stats(at_m)
