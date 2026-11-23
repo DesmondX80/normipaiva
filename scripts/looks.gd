@@ -12,6 +12,7 @@ const PLAYER := {
 	"tracksuit": {"a": Color(0.1, 0.25, 0.6), "b": Color(0.07, 0.1, 0.3)},
 	"stripes": true, "stripe_color": Color(0.96, 0.96, 0.98), "triple_stripe": true,
 	"belly": 0.75, "sag": 1.0, "bulk": 0.1, "shoulders": -0.55,
+	"upper_arm": 0.7,  # hartialihaksen pienennys kevyempänä: ei lovea eikä piikkiä paljaassa olkapäässä (character.gd _shape_offset)
 }
 ## Pelaajan asut (vaatekaappi kotona ja Paapelin makuuhuoneessa, main.gd tallentaa valinnan): tuulipuku ja
 ## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Nahkaliivin antaa Pentti kiertueen
@@ -58,9 +59,9 @@ const HAHMO := [
 		["lihas", "Lihaksikas", {"bulk": 0.25, "shoulders": 0.5, "muscle": 0.3, "legs": 0.5}],
 		# Hintelä: kädet ohenevat sekä bulkista että lihaksista (character.gd _shape_offset), joten bulk on maltillinen ja
 		# lihakset oletuksessa: bulk -0,6 ja muscle -1 tekivät käsistä tikut.
-		["hintela", "Hintelä", {"bulk": -0.3, "shoulders": -0.7, "legs": -0.4, "upper_arm": 0.35}],
+		["hintela", "Hintelä", {"bulk": -0.3, "shoulders": -0.7, "legs": -0.4}],
 		# Naisen keho: samat muodot kuin Sinikalla, Katjalla ja kolmiomittauksen naisilla (SINIKKA: curves 1, bust 2,7, bulk -0,2).
-		["nainen", "Naisen keho", {"model": "female", "bulk": -0.2, "shoulders": 0.0, "curves": 1.0, "bust": 2.7}]]},
+		["nainen", "Naisen keho", {"model": "female", "bulk": -0.2, "shoulders": 0.0, "curves": 1.0, "bust": 2.7, "upper_arm": 0.0}]]},
 	{"id": "maha", "name": "Maha", "cam": "vartalo", "opts": [["kalja", "Kaljamaha", [0.75, 1.0]], ["jatti", "Jättimaha", [1.0, 1.0]],
 		["pieni", "Pieni pömppö", [0.45, 0.6]], ["hoikka", "Hoikka", [0.15, 0.2]]]},
 	{"id": "puku", "name": "Tuulipuku", "cam": "vartalo", "opts": [

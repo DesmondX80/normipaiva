@@ -78,7 +78,7 @@ var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 ## beard (bool), stripes (bool), height (m), shine (0..1).
 ## Vartalo: belly (0..1 kaljamaha), bulk (-1..1 hoikka..tukeva), shoulders (-1..1 kapeat..leveät hartiat),
 ## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori),
-## upper_arm (0..1 olkapään ja olkavarren tyven täyttö, hahmoeditori).
+## upper_arm (0..1 hartialihaksen pienennyksestä tekemättä jätettävä osuus, pelaaja).
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
@@ -110,7 +110,7 @@ func setup(look: Dictionary) -> void:
 	if look.has("legs"):
 		shape["legs"] = float(look.legs)  # vain kun asetettu: muiden hahmojen verkkojen välimuistiavaimet eivät muutu
 		profile_key += "_j%.2f" % float(look.legs)
-	if look.has("upper_arm"):
+	if float(look.get("upper_arm", 0.0)) != 0.0:
 		shape["upper_arm"] = float(look.upper_arm)
 		profile_key += "_o%.2f" % float(look.upper_arm)
 	body_shape = shape
@@ -1748,28 +1748,22 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		var inner := 0.3 if legs > 0.0 and ax < 0.11 else 1.0
 		off.x += (p.x - gx) * 0.5 * legs * lg * inner
 		off.z += (p.z + 0.04) * 0.5 * legs * lg
-	var ua: float = shape.get("upper_arm", 0.0)
-	if ua != 0.0:
-		# Olkapään ja olkavarren tyven täyttö (hahmoeditorin hintelä keho): lihasten pienennys (delt, pec, upper_back) ja
-		# käsivarren ohennus osuvat tyvessä päällekkäin ja jättävät olkapään eteen ja taakse kolon (syvyys putoaa alle
-		# käsivarren oman paksuuden) ja niskan ja olkapään väliin notkon. Täyttö: syvyys akselin (z -0,06) ympäri, paksuus
-		# vain akselin alapuolelle (kainalon puoli; yläpinta ei saa nousta kyhmyksi) ja notkon pohja ylös.
-		var uy := smoothstep(1.3, 1.36, p.y)
-		off.z += (p.z + 0.06) * ua * exp(-pow((ax - 0.27) / 0.08, 2.0)) * uy
-		if p.y < 1.45:
-			off.y += (p.y - 1.45) * 0.6 * ua * exp(-pow((ax - 0.27) / 0.06, 2.0)) * uy
-		off.y += 0.04 * ua * exp(-pow((ax - 0.15) / 0.045, 2.0)) * smoothstep(1.4, 1.47, p.y)
 	var mu: float = shape.get("muscle", 0.0)
 	if mu < 0.0:
 		var m := -mu
 		var torso_x := 1.0 - smoothstep(0.24, 0.32, ax)
 		# Olkapäät (hartialihas): käsivarren tyvi kohti käsivarren akselia ja sisemmäs.
-		var delt := exp(-pow((ax - 0.2) / 0.1, 2.0)) * exp(-pow((p.y - 1.48) / 0.11, 2.0))
+		# upper_arm (0..1, pelaaja, looks.gd PLAYER): hartialihaksen ja epäkäslihaksen pienennyksestä jätetään tämä osuus
+		# tekemättä. Täysi pienennys kutistaa olkapään 64 % ja siirtää sitä 4 cm sisään: paljaalla olkapäällä (nahkaliivi,
+		# verkkopaita) niskan ja olkapään väliin jää terävä lovi ("kuin kirveellä lyöty"), olkapään kärkeen piikki ja
+		# olkavarren tyveen kolo. Pohjamallin hartia on sileä (tools/testit/hahmo_lahikuva.tscn l.muscle=0).
+		var keep := 1.0 - clampf(float(shape.get("upper_arm", 0.0)), 0.0, 1.0)
+		var delt := exp(-pow((ax - 0.2) / 0.1, 2.0)) * exp(-pow((p.y - 1.48) / 0.11, 2.0)) * keep
 		off.y += (1.45 - p.y) * 0.75 * m * delt
 		off.z += (-0.06 - p.z) * 0.55 * m * delt
 		off.x -= signf(p.x) * 0.045 * m * delt
 		# Niskan ja hartioiden väliset epäkäslihakset alemmas.
-		var trap := smoothstep(0.04, 0.1, ax) * (1.0 - smoothstep(0.16, 0.24, ax)) * exp(-pow((p.y - 1.54) / 0.06, 2.0))
+		var trap := smoothstep(0.04, 0.1, ax) * (1.0 - smoothstep(0.16, 0.24, ax)) * exp(-pow((p.y - 1.54) / 0.06, 2.0)) * keep
 		off.y -= 0.035 * m * trap
 		# Rintalihakset litteämmiksi.
 		var pec := smoothstep(0.02, 0.08, p.z) * exp(-pow((p.y - 1.36) / 0.08, 2.0)) * torso_x
