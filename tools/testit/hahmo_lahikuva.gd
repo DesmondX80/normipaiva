@@ -36,7 +36,7 @@ func _ready() -> void:
 			"nimi":
 				nimi_lisa = "_" + kv[1]
 			_:
-				if kv[0].begins_with("l."):  # suora ulkonäköarvo, esim. l.muscle=0 l.upper_arm=0.5 (muodon kokeiluun)
+				if kv[0].begins_with("l."):  # suora ulkonäköarvo, esim. l.muscle=0 l.delt_keep=0.5 (muodon kokeiluun)
 					suorat[kv[0].substr(2)] = float(kv[1])
 				else:
 					Looks.custom[kv[0]] = kv[1]

@@ -126,7 +126,7 @@ Uusi vaihtoehto lisätään `looks.gd`:n `HAHMO`-taulukkoon (rivin ensimmäinen 
 `tools/testit/aja.sh tscn tools/testit/hahmo_lahikuva.tscn keho=hintela asu=nahkaliivi`: pelaajan hahmon lähikuvat ilman pelin
 latausta (alle minuutti): yksi kohta (oletus vasen olkapää, `kohde=x,y,z`, `etaisyys=`) edestä, viistosta, sivulta, takaviistosta,
 takaa ja ylhäältä. `vari=1` näyttää vartalon yksivärisenä (kolot ja taitteet näkyvät varjoista), `l.<avain>=<luku>` asettaa
-ulkonäköarvon suoraan (esim. `l.muscle=0` = pohjamalli, `l.upper_arm=0` = hartia ilman kevennystä). Muodon korjaus tehdään
+ulkonäköarvon suoraan (esim. `l.muscle=0` = pohjamalli, `l.delt_keep=0` = hartia ilman kevennystä). Muodon korjaus tehdään
 näistä kuvista, ei koko pelin ruudusta: hartian lovi näkyi vasta lähikuvassa.
 
 `tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin
