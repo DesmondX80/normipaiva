@@ -617,6 +617,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
       päisteet kiertäen pellon reunaa 2–7 kierrosta (sivuniittokone ja aura ulkoreunan puolella, kulmat pyöristettyinä
       kääntösäteellä; paalain kiertää koko karhottimen päisteen leveydeltä, jotta reunakarhot ja karhojen päät
       kerätään), sitten sisäosa kaistoina koneen työleveyden välein pellon pituussuuntaan (paalaimella karhoja pitkin).
+      Kapealla tai käyrällä pellolla (sisäosa alle kolmen kierroksen levyinen, esim. Altaan Kotiniitty) kierroksia
+      jatketaan keskelle asti kaistojen sijaan, ja jos kääntösäteen pyöristys katkaisisi kapean kaulan, kierros
+      ajetaan terävin kulmin.
       Kun kaistaväli on alle kaksi kääntösädettä, joka toinen kaista ensin puoliympyräkäännöksin ja paluu väliin
       jääneitä pitkin (vierekkäisen kaistan käännös Ω:na). Käännökset tehdään päisteellä peruuttaen (kone nostettuna,
       perävaunu oikenee peruutuksessa), joten pientareelle tai puihin ei ajeta. Kun pelaaja on yli 120 m päässä, Santtu

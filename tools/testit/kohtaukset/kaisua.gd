@@ -1513,9 +1513,27 @@ func _altaan(path: String) -> void:
 		await _frames(40)
 		await _shot(path, sh[0])
 	for pe in k.pellot:
+		# Kohde pellon sisältä (rajauslaatikon keskipiste voi olla mutkaisen pellon ulkopuolella).
 		var c: Vector2 = pe.center
-		var far := maxf(pe.nx, pe.nz) * 0.5 * 0.6
-		_klook(k, Vector3(c.x - far * 0.7, 8 + far * 0.15, c.y + far * 0.7), Vector3(c.x, 0, c.y))
+		var far := maxf(pe.nx, pe.nz) * Tila.CELL * 0.3
+		if not pe.has_point(c):
+			var best := INF
+			var cc := c
+			for gy in range(-40, 41):
+				for gx in range(-40, 41):
+					var q := cc + Vector2(gx, gy) * far / 20.0
+					if q.distance_to(cc) < best and pe.has_point(q):
+						best = q.distance_to(cc)
+						c = q
+		# Kamera pellon reunan sisäpuolelle (ei metsän takaa) ja niin matalalle, ettei testin lyhyt näkymäetäisyys
+		# usvita peltoa.
+		var eye: Vector2 = c + Vector2(-0.7, 0.7) * far  # varalla: pellon ulkopuolelta kuten ennen
+		for sc in [1.0, 0.8, 0.6, 0.4, 0.2]:
+			var q: Vector2 = c + Vector2(-0.7, 0.7) * far * sc
+			if pe.has_point(q):
+				eye = q
+				break
+		_klook(k, Vector3(eye.x, 8 + far * 0.12, eye.y), Vector3(c.x, 0, c.y) + Vector3(c.x - eye.x, 0, c.y - eye.y) * 0.3)
 		await _frames(30)
 		await _shot(path, "altaan_" + pe.field_name().to_lower())
 	# Ajoura: kamera uran alusta pohjoiseen.
@@ -1601,7 +1619,7 @@ func _altaan_ajo(path: String) -> void:
 	_ksummary(k, "altaan puitu")
 	_check(k.tila.is_paid(0, "puinti"), "Isoahon puinti maksettu")
 	var ic: Vector2 = iso.center
-	_klook(k, Vector3(ic.x - 50, 45, ic.y + 50), Vector3(ic.x, 0, ic.y))
+	_klook(k, Vector3(ic.x - 28, 16, ic.y + 28), Vector3(ic.x, 0, ic.y))
 	await _frames(20)
 	await _shot(path, "altaan_isoaho_puitu")
 	main._kaisua_dismount(c, main.walker_out.global_position)

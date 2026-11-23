@@ -599,7 +599,8 @@ lävistäjä (0,0)-(1,1), `mokki.gd mesh_h`; Saloinen: 5 m kärjet `terrain.gd` 
 pihan rakennusten ja koneiden paikat, talon pohjan, isännän, naapurin, apumiehen, tekstit, legendat, sateen ja
 tallennusosion. Pellon pinta, kasvusto (`pelto_kasvi.gdshader diag_main`) ja piha seuraavat paikan kolmiointia, joten ne
 ovat maan pinnassa molemmissa maailmoissa. Saloisissa `world.gd` raivaa puut ja ruohon tilan pelloilta (`_farm_fields`,
-ei viljaruohoa kuten `_fields`), pihasta ja ajourasta (`map_data.gd ALTAAN_PIHA`, `ALTAAN_URA`), ja OSM-talo ja
+ei viljaruohoa kuten `_fields`), pihasta (`map_data.gd ALTAAN_PIHA`: sorakentät ja niiden kupera verho `_farm_yard`)
+ja ajourasta (`ALTAAN_URA`), ja OSM-talo ja
 -ulkorakennus jäävät pois (`OWN_BUILDINGS`). Testit `--scene=altaan` (piha, pellot, puuttomuus, isäntä) ja `altaan_ajo`
 (traktori ajouraa Isoahoon, puinti, Eetu niittää Kotiniityn).
 
