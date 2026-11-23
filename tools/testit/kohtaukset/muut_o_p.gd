@@ -1567,6 +1567,30 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.walker_out.global_position = main.world.hedge_spot - fwd * 3.0 + Vector3(0, 0.3, 0)
 			await hframes.call(30)
 			await hshot.call("loppu")
+			# Häviö kesken leikkuun (esim. Päivi nappaa ennen turvapaikkaa): minipeli ja sen päätön pelaajahahmo pois.
+			hh.grow(0.1)
+			main._hedge_done_today = false
+			main.walker_out.global_position = main.world.hedge_spot + Vector3(0, 0.3, 0)
+			main._start_hedge()
+			await hframes.call(10)
+			var g2: Node = main._hedge_game
+			main._lose("Päivi nappasi kiinni!", "wife")
+			await hframes.call(5)
+			var left_games := 0
+			for ch in hh.get_children():
+				if ch.get_script() == main.HedgeGame:
+					left_games += 1
+			print("PENSAS häviö kesken: peli %s, vanha poistettu %s, aidalla minipelejä %d" % [main._hedge_game, not is_instance_valid(g2) or g2.is_queued_for_deletion(), left_games])
+			if main._hedge_game != null or (is_instance_valid(g2) and not g2.is_queued_for_deletion()):
+				print("TESTI VIKA pensasaidan minipeli jäi päälle häviön jälkeen")
+			for i in 600:  # välianimaatio ja uusi päivä läpi
+				await main.get_tree().process_frame
+				if main.state == "ulkona":
+					break
+			await hframes.call(30)
+			print("PENSAS uusi päivä: tila %s, pelaaja näkyy %s" % [main.state, main.walker_out.visible])
+			main._hud.visible = false
+			await hshot.call("havion_jalkeen")
 			if not saved_h.is_empty():
 				FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_h)
 		_:
