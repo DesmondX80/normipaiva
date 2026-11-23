@@ -26,7 +26,7 @@ const KeinuGame := preload("res://scripts/keinu_game.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
 const Story := preload("res://scripts/story.gd")
 
-const KOHTAUKSET := ["matkaopas", "kuutonen", "laavu", "laavufire", "kuulokkeet", "lavatoiveet", "lavatappelu", "lemmikkienkelit", "koulukeskus", "koulu_disko", "kuvakirkko", "manamansalo", "kuninkaantapuli", "olavinmarkkinat", "leikki", "ohjerivi", "lappupekka2", "lappupekka", "lappu", "mummotesti", "marjapaikat", "liikenne", "minimouse", "nappaimet", "naapurit", "naapurit2", "naapurit3", "kupla", "minipelikuvat", "mkey", "mirkku_loppu", "mirkku", "laavut", "mummokeppi", "mummot", "lawnday", "lawn", "police"]
+const KOHTAUKSET := ["matkaopas", "kuutonen", "laavu", "laavufire", "kuulokkeet", "lavatoiveet", "lavatappelu", "lemmikkienkelit", "koulukeskus", "koulu_disko", "kuvakirkko", "manamansalo", "kuninkaantapuli", "olavinmarkkinat", "leikki", "ohjerivi", "lappupekka2", "lappupekka", "lappu", "mummotesti", "marjapaikat", "liikenne", "minimouse", "nappaimet", "naapurit", "naapurit2", "naapurit3", "kupla", "minipelikuvat", "mkey", "mirkku_loppu", "mirkku", "laavut", "mummokeppi", "mummot", "lawnday", "lawn", "police", "lansi_maasto"]
 
 var main: Main
 
@@ -1759,6 +1759,76 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 					main._status.text, main.state])
 			if not saved.is_empty():
 				FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
+		"lansi_maasto":
+			# Länsiosa maaston pinnalla (kirkko, kellotapuli, hautausmaa, Pirtti) ja maaston länsireuna. Lokiin rakennusten
+			# pohjan kulmien korkeus suhteessa keskipisteeseen (_lift_node nostaa keskeltä; sokkeli peittää, jos kulma on
+			# alle sokkelin korkeuden alempana) ja maaston korkeus länsireunalla. Kuvat _lansi_*.
+			var cam := Camera3D.new()
+			main.add_child(cam)
+			cam.fov = 55.0
+			cam.far = 3000.0
+			var snap := func(name: String, eye: Vector3, at: Vector3) -> void:
+				cam.global_position = eye
+				cam.look_at(at, Vector3.UP)
+				cam.current = true
+				for i in 14:
+					await main.get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_lansi_%s.png" % name))
+			main._hud.visible = false
+			main.clock_min = 12 * 60.0
+			var w: Node3D = main.world
+			var g3 := func(p: Vector2, up := 0.0) -> Vector3:
+				var q := M.w2(p)
+				return Vector3(q.x, Terrain.h(q.x, q.y) + up, q.y)
+			print("LANSI maasto: origo %s, %d x %d" % [Terrain.origin, Terrain.nx, Terrain.nz])
+			for b in [["kirkko", M.KIRKKO, 0.7], ["tapuli", M.KELLOTAPULI, 0.5], ["pirtti", M.PIRTTI, 0.0]]:
+				var f: Dictionary = w._osm_fit_at(b[1])
+				if f.is_empty():
+					print("LANSI %s: ei rakennusta  TESTI VIKA" % b[0])
+					continue
+				var c: Vector2 = f.c
+				var hc := Terrain.h(c.x, c.y)
+				var ax := Vector2(cos(f.yaw), -sin(f.yaw))
+				var az := Vector2(sin(f.yaw), cos(f.yaw))
+				var ds := []
+				var low := 0.0
+				for sx in [-1.0, 1.0]:
+					for sz in [-1.0, 1.0]:
+						var q: Vector2 = c + ax * sx * f.l / 2.0 + az * sz * f.d / 2.0
+						var dh := Terrain.h(q.x, q.y) - hc
+						low = minf(low, dh)
+						ds.append("%.2f" % dh)
+				# Kulma alempana kuin sokkeli (+0,3 m Pirtillä, jolla ei ole sokkelia) = rako seinän alla.
+				print("LANSI %s: keskellä maa %.2f, kulmat - keskus %s (sokkeli %.1f m)%s" % [b[0], hc, ds, b[2],
+					"  TESTI VIKA rako" if -low > b[2] + 0.3 else ""])
+			var edge := []
+			var zero := false
+			for x in [-995.0, -900.0, -800.0, -760.0, -740.0, -700.0]:
+				var z := M.w2(M.KIRKKO).y
+				var eh := Terrain.h(x, z)
+				zero = zero or eh == 0.0
+				edge.append("x %.0f: %.2f" % [x, eh])
+			print("LANSI reuna kirkon kohdalla: %s%s" % [", ".join(edge), "  TESTI VIKA maasto puuttuu (h = 0)" if zero else ""])
+			main.player.global_position = g3.call(M.KIRKKO, 0.3) + Vector3(40, 0, 40)
+			for i in 20:
+				await main.get_tree().process_frame
+			var kd: Vector3 = w.kirkko_pos
+			var kc: Vector3 = g3.call(M.KIRKKO)
+			var out := Vector3(kd.x - kc.x, 0, kd.z - kc.z).normalized()
+			await snap.call("kirkko_ovi", kd + out * 22.0 + Vector3(4, 3.0, 0), kc + Vector3(0, 4.0, 0))
+			await snap.call("kirkko_sivu", kc - out.cross(Vector3.UP) * 38.0 + Vector3(0, 4.0, 0), kc + Vector3(0, 3.0, 0))
+			var tp: Vector3 = w.tapuli_pos
+			var tc: Vector3 = g3.call(M.KELLOTAPULI)
+			await snap.call("tapuli", tp + (tp - tc).normalized() * 12.0 + Vector3(0, 2.0, 0), tc + Vector3(0, 2.5, 0))
+			var hm: Vector3 = g3.call(Vector2(-170, 455))
+			await snap.call("hautausmaa", hm + Vector3(30, 9, 45), hm)
+			await snap.call("hautausmaa_ylha", hm + Vector3(0, 110, 20), hm)
+			await snap.call("reuna_lanteen", kc + Vector3(60, 18, 0), kc + Vector3(-250, -5, 0))
+			await snap.call("reuna_ylha", kc + Vector3(-120, 260, 60), kc + Vector3(-160, 0, 0))
+			var md: Vector3 = w.museum_door
+			var pc: Vector3 = g3.call(M.PIRTTI)
+			await snap.call("pirtti", md + (md - pc).normalized() * 14.0 + Vector3(3, 2.5, 0), pc + Vector3(0, 2.0, 0))
 		_:
 			return 0
 	return 1

@@ -48,7 +48,7 @@ mittakaava n. 1,22 m/px. Uusi alue laajennetaan samaan kehykseen, jolloin kaikki
    - `python tools/kartta/kyla_osm.py --osm <map.osm> [--out <tiedosto>]`
    - `python tools/kartta/kyla_osm.py --osm <map.osm> --lansi`: läntinen laajennus (px x -260..-60, kirkko, kellotapuli
      ja hautausmaa) liitetään samoin; ote bbox `24.447,64.610,24.457,64.667` haetaan kolmena leveyspiirikaistana
-     (64.610–64.630–64.648–64.667) ja yhdistetään id:iden mukaan. Korkeusmalli kattaa jo px x -300:een asti.
+     (64.610–64.630–64.648–64.667) ja yhdistetään id:iden mukaan. Korkeusmalli kattaa px x -550:een asti (maastoruudukon 300 m marginaali `MAP_MIN`:n länsipuolella).
    - `python tools/kartta/kyla_osm.py --osm <map.osm> --pohjoinen`: vain pohjoinen laajennus (px y -960..-60)
      liitetään olemassa olevan `map_osm.gd`:n osioiden loppuun, jolloin vanhan alueen kohteet pysyvät täsmälleen
      ennallaan. Saumassa kohteet leikataan samasta raakageometriasta kuin vanhassa otteessa (`SAUMA`-korjaukset
