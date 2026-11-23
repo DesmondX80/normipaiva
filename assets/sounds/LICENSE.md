@@ -28,6 +28,9 @@
 
 - saw_0–7.wav (pokasahan vedot) ja axe_0–5.wav (kirveen iskut pölkkyyn): CC0, leikattu pidemmistä äänitteistä.
 - shotgun.wav (haulikon laukaus metsästysminipelissä): syntetisoitu tätä peliä varten (kohina, matala jyly ja kaiku), CC0.
+- kone_niitto, kone_karho, kone_paalain, kone_maa, kone_kylvo, kone_puinti ja sade (.ogg, Kaisuan työkoneet ja
+  sadepäivä): syntetisoitu tätä peliä varten (`tools/aanet/rakenna_tyokoneet.py`: suodatettu kohina, sävyt ja
+  kilahdukset, silmukat ristiinhäivytetty), CC0.
 - breath_0–4.ogg (raskas hengitys): "Heavy breathing 2" – ezwa, Wikimedia Commons,
   https://commons.wikimedia.org/wiki/File:Heavy_breathing_2.ogg (public domain). Leikattu hengityskierroksiksi,
   verkkohurina ja kohina poistettu (`tools/aanet/rakenna_pyora_hengitys.py`).

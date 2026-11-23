@@ -122,6 +122,7 @@ const GRID_STEP := 2.0   # maastoverkon ja törmäyksen ruutu (korkeusmallin tar
 const COTTAGE_LOCAL := Vector2(0.0, -1.0)
 ## OSM-rakennukset, jotka mallinnetaan käsin (mökki) tai jätetään tyhjäksi tontiksi (käyttämätön vaja purettu).
 const OWN_BUILDINGS := ["1074462394", "1555232405"]
+const KAISUA_HOUSE := "1074444651"  # Kaisuan päärakennus: oma malli (kaisua.gd _build_house), ei OSM-laatikkoa
 const COTTAGE_SIZE := Vector2(9.4, 5.0)
 
 const SAUNA_BURN := 260.0   # s sytytyksestä sammumiseen
@@ -254,6 +255,14 @@ func ensure_built() -> void:
 	sauna_base = _sauna_body.position.y + 0.15  # terassin kansi
 	_build_hose()
 	# Kaisuan tila (kaisua.gd) kaikkien jälkeen: maassa valmiiksi, ei siirretä.
+	rebuild_kaisua()
+
+
+## Kaisuan tila (uudelleen) Kaisua.tila:sta: mökin rakennuksessa ja testeissä (tallennuksesta ladattu tila).
+func rebuild_kaisua() -> void:
+	if kaisua != null:
+		remove_child(kaisua)
+		kaisua.queue_free()
 	kaisua = Kaisua.new()
 	add_child(kaisua)
 	kaisua.build()
@@ -1373,7 +1382,7 @@ func _build_neighbors() -> void:
 	var walls := [Color(0.6, 0.15, 0.11), Color(0.9, 0.8, 0.45), Color(0.86, 0.8, 0.66), Color(0.92, 0.91, 0.87),
 		Color(0.45, 0.3, 0.2), Color(0.58, 0.7, 0.78)]
 	for bd in map_data().buildings:
-		if bd.id in OWN_BUILDINGS:
+		if bd.id in OWN_BUILDINGS or bd.id == KAISUA_HOUSE:
 			continue
 		var poly: PackedVector2Array = bd.poly
 		if poly.size() < 4:
@@ -2593,6 +2602,15 @@ func _santtu_tick(delta: float) -> void:
 	_bubble.rest = santtu.position + Vector3(0, 1.4 if sitting else 2.05, 0)  # bubble.gd palauttaa paikan restiin
 	_bubble.position = _bubble.rest
 	_name_label.position = santtu.position + Vector3(0, 1.1 if sitting else 1.85, 0)
+
+
+## Santtu Kaisuan pellolla apumiehenä (kaisua.gd helper_changed): mökin Santtu, kupla ja nimi piiloon ajon ajaksi.
+func santtu_away(on: bool) -> void:
+	if santtu == null:
+		return
+	santtu.visible = not on
+	_bubble.visible = not on
+	_name_label.visible = not on
 
 
 ## Kävely seis (minipeli ottaa Santun katsojaksi).

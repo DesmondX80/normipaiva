@@ -22,6 +22,7 @@ const T_FRONT_R := 0.36
 const T_LINK := Vector3(0, 0.5, 1.02)  # kolmipistenostimen alavarsien päät (nostettu työkone +0,35 m)
 const T_HITCH := Vector3(0, 0.42, 1.18)  # vetoaisan silmä
 const T_SEAT := Vector3(0, 1.24, 0.5)
+const T_PLATE_Y := 0.915  # astinlautojen yläpinta (urat 1,2 cm päällä)
 ## Ratti ohjausakselin päässä akselia vastaan kohtisuorassa: akseli nousee kojelaudalta (traktori) tai tasanteen
 ## etureunasta (puimuri) ylös ja taakse kuljettajaa kohti, joten ratin pinta kääntyy ylös kuljettajaa kohti ja
 ## etureuna on takareunaa korkeammalla (vrt. Deeren puimuripatentti US3583518A: pystyhkö akseli tasanteen
@@ -71,6 +72,20 @@ static func _beam(parent: Node3D, a: Vector3, b: Vector3, w: float, h: float, ma
 	return mi
 
 
+## Ratin kehä omana kappaleenaan (ei yhdistetty runkoon): kuskin sormet puristuvat 3 cm:n kehän ympäri, joten käsi ja
+## kehä ovat tarkoituksella sisäkkäin (meta "pehmea": asentotarkistus ohittaa otteen, Asento.solids).
+static func _rim(parent: Node3D, c: Vector3, tilt: float, r_in: float, r_out: float, mat: Material) -> MeshInstance3D:
+	var tor := TorusMesh.new()
+	tor.inner_radius = r_in
+	tor.outer_radius = r_out
+	tor.rings = 24
+	tor.ring_segments = 6
+	var mi := _p(parent, tor, c, mat, Vector3(tilt, 0, 0))
+	mi.name = "Ratti"
+	mi.set_meta("pehmea", true)
+	return mi
+
+
 static func _merge(node: Node3D, key: String) -> void:
 	V._merge_parts(node, 0, "kaisua/" + key)
 
@@ -94,7 +109,7 @@ static func traktori(parent: Node3D) -> Dictionary:
 	# Moottori, vaihteisto ja taka-akselin kotelot.
 	_p(body, B.boxm(Vector3(0.48, 0.46, 1.6)), Vector3(0, 0.66, -1.1), engine)
 	_p(body, B.boxm(Vector3(0.36, 0.14, 1.3)), Vector3(0, 0.38, -1.15), engine)  # öljypohja
-	_p(body, B.boxm(Vector3(0.62, 0.6, 0.9)), Vector3(0, 0.72, -0.12), red)
+	_p(body, B.boxm(Vector3(0.56, 0.56, 0.9)), Vector3(0, 0.7, -0.12), red)  # vaihteisto: pohkeet sen ulkoreunan yllä
 	_p(body, B.cyl(0.13, 0.13, 1.3, 12), Vector3(0, T_REAR_R, 0), red, Vector3(0, 0, PI / 2.0))
 	for sx in [-1.0, 1.0]:
 		_p(body, B.cyl(0.2, 0.15, 0.14, 12), Vector3(sx * 0.33, T_REAR_R, 0), red, Vector3(0, 0, PI / 2.0))
@@ -122,7 +137,7 @@ static func traktori(parent: Node3D) -> Dictionary:
 	_p(body, B.boxm(Vector3(0.1, 0.012, 0.1)), Vector3(0.17, 2.3, -1.52), dark, Vector3(0.5, 0, 0))
 	_p(body, B.cyl(0.055, 0.055, 0.24, 12), Vector3(-0.16, 1.62, -1.62), dark)
 	_p(body, B.cyl(0.07, 0.06, 0.1, 12), Vector3(-0.16, 1.78, -1.62), _m(Color(0.55, 0.5, 0.35), 0.15))
-	_p(body, B.boxm(Vector3(0.64, 0.3, 0.46)), Vector3(0, 1.38, -0.28), red)  # polttoainesäiliö
+	_p(body, B.boxm(Vector3(0.56, 0.3, 0.46)), Vector3(0, 1.38, -0.28), red)  # polttoainesäiliö (kapea: kuskin polvet sivuilla)
 	_p(body, B.cyl(0.05, 0.05, 0.05, 10), Vector3(0.18, 1.55, -0.32), chrome)
 	# Mittaristo: vino paneeli säiliön takapinnassa (pinta kuljettajaa kohti), kaksi mittaria lasikehyksin ja
 	# punaiset viisarit, virta-avain. Ohjausakseli säiliön takaosasta 45° kuljettajaa kohti, akselin juuressa suojakuppi.
@@ -144,13 +159,6 @@ static func traktori(parent: Node3D) -> Dictionary:
 	_tube(body, T_COLUMN, T_WHEEL - nwheel * Vector3(0, 0.04, 0), 0.025, dark)
 	var boot := _p(body, B.cyl(0.04, 0.06, 0.08, 12), T_COLUMN + nwheel * Vector3(0, 0.03, 0), black)
 	boot.basis = nwheel
-	var wheel := TorusMesh.new()
-	wheel.inner_radius = 0.17
-	wheel.outer_radius = 0.2
-	wheel.rings = 24
-	wheel.ring_segments = 6
-	var sw := _p(body, wheel, T_WHEEL, black, Vector3(T_WHEEL_TILT, 0, 0))
-	sw.name = "Ratti"
 	# Napa hieman kehän alapuolella (kupera ratti) ja kolme puolaa kello 3, 9 ja 6 (6 = kuljettajan puoli, +Z).
 	var hub := T_WHEEL - nwheel * Vector3(0, 0.035, 0)
 	var cap := _p(body, B.cyl(0.04, 0.045, 0.04, 14), hub, black)
@@ -159,13 +167,14 @@ static func traktori(parent: Node3D) -> Dictionary:
 		_tube(body, hub, T_WHEEL + nwheel * (dir * 0.175), 0.011, black)
 	# Istuin: pellinen kuppi jousipalkilla.
 	_p(body, B.boxm(Vector3(0.08, 0.06, 0.62)), Vector3(0, 1.04, 0.42), steel, Vector3(-0.35, 0, 0))
-	_p(body, B.cyl(0.22, 0.18, 0.07, 16), T_SEAT + Vector3(0, -0.04, 0), black)
-	_p(body, B.boxm(Vector3(0.4, 0.2, 0.04)), T_SEAT + Vector3(0, 0.1, 0.2), black, Vector3(0.25, 0, 0))
-	# Astinlaudat uritettuina.
+	_p(body, B.cyl(0.22, 0.18, 0.07, 16), T_SEAT + Vector3(0, -0.07, 0), black)  # kuppi reisien alla (ei painu)
+	_p(body, B.boxm(Vector3(0.4, 0.2, 0.04)), T_SEAT + Vector3(0, 0.1, 0.24), black, Vector3(0.25, 0, 0))  # selkä nojaa, ei painu
+	# Astinlaudat uritettuina taka-akselin napakoteloiden yläpuolella (kotelon laki 0,86 m): jalat lepäävät korkealla,
+	# polvet koukussa, eivätkä reidet painu istuinkuppiin.
 	for sx in [-1.0, 1.0]:
-		_p(body, B.boxm(Vector3(0.28, 0.03, 0.7)), Vector3(sx * 0.44, 0.78, -0.05), steel)
+		_p(body, B.boxm(Vector3(0.28, 0.03, 0.7)), Vector3(sx * 0.44, T_PLATE_Y - 0.015, -0.05), steel)
 		for i in 5:
-			_p(body, B.boxm(Vector3(0.26, 0.012, 0.03)), Vector3(sx * 0.44, 0.8, -0.33 + i * 0.14), dark)
+			_p(body, B.boxm(Vector3(0.26, 0.012, 0.03)), Vector3(sx * 0.44, T_PLATE_Y + 0.006, -0.33 + i * 0.14), dark)
 	# Kaarevat takalokasuojat (kaari taka-akselin ympäri, -Z eteen) ja takavalot.
 	for sx in [-1.0, 1.0]:
 		var prev := Vector3.ZERO
@@ -194,6 +203,7 @@ static func traktori(parent: Node3D) -> Dictionary:
 		_p(body, B.boxm(Vector3(0.08, 0.9, 0.16)), Vector3(sx * 0.5, 1.08, -0.38), red)
 		_p(body, B.boxm(Vector3(0.12, 0.12, 0.3)), Vector3(sx * 0.48, 0.66, -0.38), red)
 	_merge(body, "traktori")
+	_rim(body, T_WHEEL, T_WHEEL_TILT, 0.17, 0.2, black)
 	# Pyörät: takana kuviopinnat (rivit vinoon), edessä ohjausnivelet.
 	var rim := V.paint(Color(0.82, 0.8, 0.76))
 	var rear: Array[Node3D] = []
@@ -252,12 +262,14 @@ static func puimuri(parent: Node3D) -> Dictionary:
 	var steel := _m(Color(0.45, 0.45, 0.47), 0.45, 0.6)
 	var black := _m(Color(0.06, 0.06, 0.06), 0.5)
 	# Runko: puintikoneisto, sivuluukut ja olkipeite.
-	_p(body, B.boxm(Vector3(2.0, 1.9, 4.4)), Vector3(0, 1.95, 1.7), red)
+	# Runko alkaa kuljettajan selän takaa (z -0,05); tasanteen alla kapeampi jalusta.
+	_p(body, B.boxm(Vector3(2.0, 1.9, 3.95)), Vector3(0, 1.95, 1.925), red)
+	_p(body, B.boxm(Vector3(1.3, 1.2, 0.5)), Vector3(0, 1.6, -0.3), red)
 	for sx in [-1.0, 1.0]:
 		for i in 3:
-			_p(body, B.boxm(Vector3(0.02, 1.2, 1.1)), Vector3(sx * 1.005, 2.0, 0.3 + i * 1.3), red)
-			_p(body, B.boxm(Vector3(0.025, 1.24, 0.03)), Vector3(sx * 1.01, 2.0, -0.26 + i * 1.3), dark)
-		_p(body, B.boxm(Vector3(0.02, 0.08, 4.4)), Vector3(sx * 1.01, 2.88, 1.7), white)
+			_p(body, B.boxm(Vector3(0.02, 1.2, 1.0)), Vector3(sx * 1.005, 2.0, 0.6 + i * 1.15), red)
+			_p(body, B.boxm(Vector3(0.025, 1.24, 0.03)), Vector3(sx * 1.01, 2.0, 0.08 + i * 1.15), dark)
+		_p(body, B.boxm(Vector3(0.02, 0.08, 3.95)), Vector3(sx * 1.01, 2.88, 1.925), white)
 		for i in 8:
 			_p(body, B.boxm(Vector3(0.025, 0.035, 0.5)), Vector3(sx * 1.01, 1.25 + i * 0.07, 3.4), dark)  # moottorin säleet
 	V.slab(body, Vector3(0, 2.9, 3.9), Vector3(0, 1.4, 4.5), 1.9, 0.05, red)  # olkipeite
@@ -293,18 +305,11 @@ static func puimuri(parent: Node3D) -> Dictionary:
 	_p(body, B.boxm(Vector3(1.6, 0.06, 1.2)), Vector3(0, C_ROOF_Y + 0.03, -0.6), white)
 	_p(body, B.boxm(Vector3(1.62, 0.12, 0.05)), Vector3(0, C_ROOF_Y - 0.02, -1.2), red)
 	_p(body, B.cyl(0.2, 0.17, 0.07, 14), C_SEAT + Vector3(0, -0.04, 0), black)
-	_p(body, B.boxm(Vector3(0.4, 0.3, 0.05)), C_SEAT + Vector3(0, 0.14, 0.2), black, Vector3(0.2, 0, 0))
+	_p(body, B.boxm(Vector3(0.4, 0.3, 0.05)), C_SEAT + Vector3(0, 0.14, 0.26), black, Vector3(0.2, 0, 0))  # selkä nojaa, ei painu
 	_tube(body, C_COLUMN, C_WHEEL, 0.03, dark)
 	_p(body, B.cyl(0.05, 0.05, 0.05, 10), C_WHEEL, dark, Vector3(C_WHEEL_TILT, 0, 0))  # navan kansi
-	for k in 3:
-		var sp := Vector3(cos(TAU * k / 3.0 + PI / 2.0), 0, sin(TAU * k / 3.0 + PI / 2.0)) * 0.18
-		_tube(body, C_WHEEL, C_WHEEL + Basis(Vector3.RIGHT, C_WHEEL_TILT) * sp, 0.012, black)
-	var tor := TorusMesh.new()
-	tor.inner_radius = 0.17
-	tor.outer_radius = 0.2
-	tor.rings = 20
-	tor.ring_segments = 6
-	_p(body, tor, C_WHEEL, black, Vector3(C_WHEEL_TILT, 0, 0))
+	for dir in [Vector3.RIGHT, Vector3.LEFT, Vector3.BACK]:  # puolat kello 3, 9 ja 6: otteet (kymmentä vaille kaksi) vapaana
+		_tube(body, C_WHEEL, C_WHEEL + Basis(Vector3.RIGHT, C_WHEEL_TILT) * dir * 0.18, 0.012, black)
 	# Tikkaat vasemmalle kyljelle.
 	for sz in [-0.95, -0.55]:
 		_tube(body, Vector3(-1.08, 0.5, sz), Vector3(-1.08, 2.3, sz), 0.02, dark)
@@ -314,6 +319,7 @@ static func puimuri(parent: Node3D) -> Dictionary:
 	_p(body, B.boxm(Vector3(2.4, 0.18, 0.2)), Vector3(0, 0.72, 0), dark)
 	_p(body, B.boxm(Vector3(2.0, 0.12, 0.14)), Vector3(0, 0.42, C_WHEELBASE), dark)
 	_merge(body, "puimuri")
+	_rim(body, C_WHEEL, C_WHEEL_TILT, 0.17, 0.2, black)
 	# Pyörät.
 	var rim := white
 	var front: Array[Node3D] = []
@@ -973,6 +979,12 @@ static func konevaja(parent: Node3D) -> Dictionary:
 	body.add_child(B.box_shape(Vector3(L, Hb, 0.2), Vector3(0, Hb / 2.0, W / 2.0)))
 	for sx in [-1.0, 1.0]:
 		body.add_child(B.box_shape(Vector3(0.2, Hb, W), Vector3(sx * L / 2.0, Hb / 2.0, 0)))
+	# Katto törmäyksenä: kameran säde (cam_ctl.gd) pysähtyy katon alle, kun traktori peruuttaa suulle kytkemään konetta.
+	var r0 := Vector3(0, Hf + 0.05, -W / 2.0 - 0.6)
+	var r1 := Vector3(0, Hb + 0.05, W / 2.0 + 0.4)
+	var roof := B.box_shape(Vector3(L + 0.8, 0.12, r0.distance_to(r1)), (r0 + r1) / 2.0)
+	roof.rotation.x = atan2(r0.y - r1.y, r1.z - r0.z)  # +X-kierto laskee +Z:n päätä (takaräystäs matalammalla)
+	body.add_child(roof)
 	return {"root": root, "seed": seed}
 
 
@@ -1022,3 +1034,221 @@ static func kuivuri(parent: Node3D) -> Dictionary:
 	body.add_child(B.box_shape(Vector3(L, H, W), Vector3(0, H / 2.0, 0)))
 	body.add_child(B.box_shape(Vector3(0.6, 9.0, 0.5), Vector3(ex, 4.5, -1.2)))
 	return {"root": root, "pit": pit}
+
+
+# --- Päärakennus ---------------------------------------------------------------------------------------------------
+
+## Lankku tai laatta p0 -> p1 (pituus), leveys wdir:n suuntaan (kohtisuoraan pituuteen), paksuus näiden normaalina.
+static func _plank(parent: Node3D, p0: Vector3, p1: Vector3, wdir: Vector3, width: float, thick: float, mat: Material) -> MeshInstance3D:
+	var z := (p1 - p0).normalized()
+	var x := (wdir - z * wdir.dot(z)).normalized()
+	var y := z.cross(x).normalized()
+	var mi := _p(parent, B.boxm(Vector3(width, thick, p0.distance_to(p1))), (p0 + p1) / 2.0, mat)
+	mi.basis = Basis(x, y, z)
+	return mi
+
+
+## Laatikko seinän tasossa: size = (seinän suunnassa, ylös, ulos), n = seinän ulkonormaali (vaakasuora).
+static func _wbox(parent: Node3D, c: Vector3, n: Vector3, size: Vector3, mat: Material) -> MeshInstance3D:
+	var r := Vector3.UP.cross(n)  # oikeakätinen kanta (r, ylös, n): laatikko ei peilaudu
+	var mi := _p(parent, B.boxm(size), c, mat)
+	mi.basis = Basis(r, Vector3.UP, n)
+	return mi
+
+
+## Kuusiruutuinen ikkuna: valkoiset vuorilaudat ja otsalauta, kaksi puitetta (kolme ruutua kumpikin), tumma lasi
+## ja ikkunapelti. c = lasin keskipiste seinän pinnassa, n = ulkonormaali.
+static func _window(parent: Node3D, c: Vector3, n: Vector3, w: float, h: float, trim: Material, glass: Material) -> void:
+	var r := Vector3.UP.cross(n)
+	var up := Vector3.UP
+	_wbox(parent, c + n * 0.01, n, Vector3(w - 0.04, h - 0.04, 0.02), glass)
+	for s in [-1.0, 1.0]:
+		_wbox(parent, c + up * s * (h / 2.0 + 0.06) + n * 0.025, n, Vector3(w + 0.24, 0.12, 0.05), trim)
+		_wbox(parent, c + r * s * (w / 2.0 + 0.06) + n * 0.025, n, Vector3(0.12, h + 0.24, 0.05), trim)
+		_wbox(parent, c + up * s * (h / 2.0 - 0.025) + n * 0.02, n, Vector3(w, 0.05, 0.03), trim)  # puitteen ylä- ja alaosa
+		_wbox(parent, c + r * s * (w / 2.0 - 0.025) + n * 0.02, n, Vector3(0.05, h, 0.03), trim)
+		_wbox(parent, c + up * s * h / 6.0 + n * 0.02, n, Vector3(w, 0.03, 0.025), trim)  # välipuitteet
+	_wbox(parent, c + n * 0.02, n, Vector3(0.07, h, 0.03), trim)  # puitteiden väli
+	_wbox(parent, c + up * (h / 2.0 + 0.16) + n * 0.045, n, Vector3(w + 0.4, 0.07, 0.09), trim)  # otsalauta
+	_wbox(parent, c - up * (h / 2.0 + 0.13) + n * 0.055, n, Vector3(w + 0.3, 0.04, 0.11), trim)  # ikkunapenkki
+
+
+## Kaisuan päärakennus (OSM 1074444651, harja laserista): puolitoistakerroksinen keltamullattu hirsitalo
+## vaakalaudoituksella, valkoiset nurkkalaudat, räystäslaudat ja kuusiruutuiset ikkunat, kivijalka, punainen
+## peltikatto, kaksi tiilipiippua ja pihan puolella lasikuisti portaineen. Kehys: X pituus, -Z pihan puoli, y = 0
+## lattia (kivijalan yläpinta). floor_drop = kuinka paljon maa on lattian alapuolella talon kohdalla (alin kohta),
+## step_drop = maa kuistin portaiden kohdalla. Palauttaa {"root", "door": portaiden edusta, "body"}.
+static func paarakennus(parent: Node3D, L: float, W: float, ridge: float, door_x: float, floor_drop: float, step_drop: float) -> Dictionary:
+	var root := Node3D.new()
+	root.name = "Paarakennus"
+	parent.add_child(root)
+	var wall_c := Color(0.86, 0.66, 0.3)
+	var wall := _m(wall_c, 0.9)
+	var line := _m(wall_c.darkened(0.22), 0.9)
+	var trim := _m(Color(0.93, 0.91, 0.85), 0.75)
+	var glass := _m(Color(0.1, 0.14, 0.18), 0.08, 0.7)
+	var roof_c := Color(0.5, 0.13, 0.09)
+	var brick := _m(Color(0.5, 0.22, 0.15), 0.95)
+	var stone := Color(0.5, 0.49, 0.46)
+	var wall_h := 3.6
+	var rise := clampf(ridge - 0.45 - wall_h, 2.4, 4.0)
+	var over := 0.5
+	# Kivijalka: harmaa pohja ja lohkareet kahdessa rivissä (sävyt neljästä tasosta).
+	var base_h := floor_drop + 0.3
+	_p(root, B.boxm(Vector3(L + 0.1, base_h, W + 0.1)), Vector3(0, -base_h / 2.0, 0), _m(stone.darkened(0.25), 0.95))
+	var k := 0
+	for side in 4:
+		var n: Vector3 = [Vector3.BACK, Vector3.FORWARD, Vector3.RIGHT, Vector3.LEFT][side]
+		var span := L if side < 2 else W
+		var off := (W if side < 2 else L) / 2.0 + 0.06
+		var r := Vector3.UP.cross(n)
+		for row in 2:
+			var x := -span / 2.0
+			while x < span / 2.0 - 0.1:
+				var sw := 0.45 + 0.35 * fposmod(sin(k * 3.7) * 91.3, 1.0)
+				sw = minf(sw, span / 2.0 - x)
+				var tone := 0.86 + 0.06 * float(int(fposmod(sin(k * 12.9898) * 43758.5453, 1.0) * 4.0))
+				var sh := 0.24 - 0.04 * fposmod(sin(k * 5.1) * 17.0, 1.0)
+				_wbox(root, n * off + r * (x + sw / 2.0) + Vector3.UP * (-0.14 - row * 0.27), n, Vector3(sw - 0.04, sh, 0.12),
+					_m(Color(stone.r * tone, stone.g * tone, stone.b * tone), 0.95))
+				x += sw
+				k += 1
+	# Seinät: runko, laudoituksen varjoviivat 16 cm välein, nurkkalaudat, räystäs- ja sokkelilaudat.
+	_p(root, B.boxm(Vector3(L, wall_h, W)), Vector3(0, wall_h / 2.0, 0), wall)
+	var y := 0.16
+	while y < wall_h - 0.2:
+		for sz in [-1.0, 1.0]:
+			_p(root, B.boxm(Vector3(L, 0.014, 0.012)), Vector3(0, y, sz * (W / 2.0 + 0.004)), line)
+		for sx in [-1.0, 1.0]:
+			_p(root, B.boxm(Vector3(0.012, 0.014, W)), Vector3(sx * (L / 2.0 + 0.004), y, 0), line)
+		y += 0.16
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			_p(root, B.boxm(Vector3(0.18, wall_h, 0.18)), Vector3(sx * L / 2.0, wall_h / 2.0, sz * W / 2.0), trim)
+		_p(root, B.boxm(Vector3(L + 0.12, 0.24, 0.05)), Vector3(0, wall_h - 0.12, sx * (W / 2.0 + 0.03)), trim)
+		_p(root, B.boxm(Vector3(L + 0.12, 0.14, 0.05)), Vector3(0, 0.07, sx * (W / 2.0 + 0.03)), trim)
+		_p(root, B.boxm(Vector3(0.05, 0.14, W + 0.12)), Vector3(sx * (L / 2.0 + 0.03), 0.07, 0), trim)
+	# Päätykolmiot (ullakko) ja niiden laudoitus, tuulilaudat valkoiset.
+	var attic := PrismMesh.new()
+	attic.size = Vector3(W, rise, L)
+	_p(root, attic, Vector3(0, wall_h + rise / 2.0, 0), wall, Vector3(0, PI / 2.0, 0))
+	y = wall_h + 0.16
+	while y < wall_h + rise - 0.15:
+		var gw := W * (1.0 - (y - wall_h) / rise)
+		for sx in [-1.0, 1.0]:
+			_p(root, B.boxm(Vector3(0.012, 0.014, gw)), Vector3(sx * (L / 2.0 + 0.004), y, 0), line)
+		y += 0.16
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			var top := Vector3(sx * (L / 2.0 + over - 0.04), wall_h + rise - 0.06, 0)
+			var low := Vector3(sx * (L / 2.0 + over - 0.04), wall_h - over * rise / (W / 2.0) - 0.06, sz * (W / 2.0 + over))
+			_plank(root, top, low, Vector3.RIGHT, 0.05, 0.22, trim)
+	_gable_roof(root, Vector3(0, wall_h, 0), L, W, rise, over, roof_c)
+	# Piiput harjalla: tiiliosa, tummat saumaviivat ja peltihattu.
+	for px in [-L * 0.2, L * 0.24]:
+		var py := wall_h + rise
+		_p(root, B.boxm(Vector3(0.62, 1.9, 0.62)), Vector3(px, py + 0.35, 0), brick)
+		for i in 4:
+			_p(root, B.boxm(Vector3(0.64, 0.02, 0.64)), Vector3(px, py + 0.3 + i * 0.22, 0), _m(Color(0.3, 0.14, 0.1), 0.95))
+		_p(root, B.boxm(Vector3(0.76, 0.08, 0.76)), Vector3(px, py + 1.34, 0), _m(Color(0.16, 0.16, 0.17), 0.6, 0.4))
+	# Ikkunat: pihan puolella kuistin molemmin puolin, takana tasaisesti, päädyissä kaksi alhaalla ja ullakolla kaksi.
+	var wy := 0.9 + 1.35 / 2.0
+	for x in [-7.2, -5.0, -2.8, -0.6, 1.6, 3.8, 6.0, 7.4]:
+		if absf(x - door_x) < 2.5 or absf(x) > L / 2.0 - 0.9:
+			continue
+		_window(root, Vector3(x, wy, -W / 2.0 - 0.004), Vector3.FORWARD, 1.0, 1.35, trim, glass)
+	for x in [-6.4, -3.6, -0.8, 2.0, 4.8, 6.9]:
+		if absf(x) > L / 2.0 - 0.9:
+			continue
+		_window(root, Vector3(x, wy, W / 2.0 + 0.004), Vector3.BACK, 1.0, 1.35, trim, glass)
+	for sx in [-1.0, 1.0]:
+		var n: Vector3 = Vector3.RIGHT * sx
+		for z in [-1.9, 1.9]:
+			_window(root, Vector3(sx * (L / 2.0 + 0.004), wy, z), n, 1.0, 1.35, trim, glass)
+			_window(root, Vector3(sx * (L / 2.0 + 0.004), wall_h + 0.85, z * 0.55), n, 0.7, 0.95, trim, glass)
+	# Lasikuisti ovella: laudoitettu alaosa, monijakoiset ikkunat valkoisin puittein, oma harjakatto (harja Z:lla
+	# päärakennuksen räystään alla), pariovi lasiaukoin, portaat maahan ja lyhty oven yllä.
+	var PW := 3.2
+	var PD := 2.3
+	var PH := 2.5
+	var pr := 0.62
+	var pz := -W / 2.0 - PD / 2.0
+	var pc := Vector3(door_x, 0, pz)
+	_p(root, B.boxm(Vector3(PW + 0.1, base_h, PD + 0.05)), pc + Vector3(0, -base_h / 2.0, 0), _m(stone.darkened(0.15), 0.95))
+	_p(root, B.boxm(Vector3(PW, 0.9, PD)), pc + Vector3(0, 0.45, 0), wall)
+	_p(root, B.boxm(Vector3(PW, 0.36, PD)), pc + Vector3(0, PH - 0.18, 0), wall)
+	_p(root, B.boxm(Vector3(PW - 0.1, PH - 1.26, PD - 0.1)), pc + Vector3(0, 0.9 + (PH - 1.26) / 2.0, 0), glass)
+	for yy in [0.92, PH - 0.37, 0.9 + (PH - 1.26) * 0.62]:
+		_p(root, B.boxm(Vector3(PW + 0.04, 0.06, PD + 0.04)), pc + Vector3(0, yy, 0), trim)
+	for i in 7:
+		var x := -PW / 2.0 + i * PW / 6.0
+		_p(root, B.boxm(Vector3(0.07, PH - 1.26, 0.07)), pc + Vector3(x, 0.9 + (PH - 1.26) / 2.0, -PD / 2.0 + 0.01), trim)
+	for sx in [-1.0, 1.0]:
+		for i in 5:
+			var z := -PD / 2.0 + i * PD / 4.0
+			_p(root, B.boxm(Vector3(0.07, PH - 1.26, 0.07)), pc + Vector3(sx * PW / 2.0, 0.9 + (PH - 1.26) / 2.0, z), trim)
+		_p(root, B.boxm(Vector3(0.12, PH, 0.12)), pc + Vector3(sx * PW / 2.0, PH / 2.0, -PD / 2.0), trim)
+	y = 0.16
+	while y < 0.85:
+		_p(root, B.boxm(Vector3(PW, 0.014, 0.012)), pc + Vector3(0, y, -PD / 2.0 - 0.004), line)
+		for sx in [-1.0, 1.0]:
+			_p(root, B.boxm(Vector3(0.012, 0.014, PD)), pc + Vector3(sx * (PW / 2.0 + 0.004), y, 0), line)
+		y += 0.16
+	# Kuistin katto: lappeet X-suunnassa, päätykolmio edessä, tuulilaudat.
+	var p_ridge := pc + Vector3(0, PH + pr, 0)
+	var pf := -PD / 2.0 - 0.35
+	var pb := PD / 2.0
+	for sx in [-1.0, 1.0]:
+		var e0 := pc + Vector3(sx * (PW / 2.0 + 0.3), PH - 0.3 * pr / (PW / 2.0), 0)
+		_plank(root, Vector3(p_ridge.x, p_ridge.y, pz + (pf + pb) / 2.0), Vector3(e0.x, e0.y, pz + (pf + pb) / 2.0), Vector3.BACK,
+			pb - pf, 0.03, _m(roof_c, 0.55, 0.3))
+		for i in 8:
+			var z := pz + pf + (i + 0.5) * (pb - pf) / 8.0
+			_plank(root, Vector3(p_ridge.x, p_ridge.y + 0.02, z), Vector3(e0.x, e0.y + 0.02, z), Vector3.BACK, 0.025, 0.02, _m(roof_c.darkened(0.15), 0.5, 0.3))
+		_plank(root, Vector3(p_ridge.x, p_ridge.y - 0.05, pz + pf + 0.03), Vector3(e0.x, e0.y - 0.05, pz + pf + 0.03), Vector3.BACK, 0.05, 0.18, trim)
+	_p(root, B.boxm(Vector3(0.24, 0.08, pb - pf)), Vector3(p_ridge.x, p_ridge.y + 0.03, pz + (pf + pb) / 2.0), _m(roof_c.darkened(0.25), 0.5, 0.3))
+	var pg := PrismMesh.new()
+	pg.size = Vector3(PW, pr, 0.1)
+	_p(root, pg, pc + Vector3(0, PH + pr / 2.0, -PD / 2.0 + 0.05), wall)
+	# Ovi: kaksi lehteä peiliovina, yläosassa lasi, kahvat ja vuorilaudat.
+	var dz := -W / 2.0 - PD - 0.02
+	var door_c := _m(Color(0.32, 0.22, 0.14), 0.7)
+	for sx in [-1.0, 1.0]:
+		var dc := Vector3(door_x + sx * 0.235, 1.05, dz)
+		_p(root, B.boxm(Vector3(0.45, 2.1, 0.05)), dc, door_c)
+		_p(root, B.boxm(Vector3(0.3, 0.5, 0.02)), dc + Vector3(0, 0.55, -0.03), glass)
+		_p(root, B.boxm(Vector3(0.3, 0.6, 0.02)), dc + Vector3(0, -0.4, -0.03), _m(Color(0.28, 0.19, 0.12), 0.7))
+		_p(root, B.boxm(Vector3(0.03, 0.12, 0.04)), dc + Vector3(-sx * 0.17, -0.05, -0.05), _m(Color(0.75, 0.68, 0.4), 0.3, 0.8))
+		_p(root, B.boxm(Vector3(0.12, 2.25, 0.06)), Vector3(door_x + sx * 0.53, 1.12, dz - 0.01), trim)
+	_p(root, B.boxm(Vector3(1.18, 0.14, 0.07)), Vector3(door_x, 2.2, dz - 0.01), trim)
+	_p(root, B.boxm(Vector3(0.14, 0.2, 0.14)), Vector3(door_x + 0.75, 2.05, dz - 0.08), _m(Color(0.12, 0.12, 0.12), 0.5, 0.4))
+	_p(root, B.cyl(0.05, 0.05, 0.12, 10), Vector3(door_x + 0.75, 1.96, dz - 0.08), V.lamp(Color(1.0, 0.86, 0.6)))
+	# Portaat maahan (harmaa betoni), reunoilla kukkaruukut.
+	var steps := maxi(1, ceili(step_drop / 0.18))  # nousuja; viimeinen nousu laskeutuu maahan
+	var rise_s := step_drop / steps
+	for i in steps - 1:
+		var top := -rise_s * (i + 1)
+		var sd := 0.32
+		var sz2 := dz - 0.05 - sd * (i + 0.5)
+		_p(root, B.boxm(Vector3(1.5, top + step_drop + 0.3, sd)), Vector3(door_x, (top - step_drop - 0.3) / 2.0, sz2), _m(Color(0.6, 0.6, 0.58), 0.95))
+	for sx in [-1.0, 1.0]:
+		var pot := Vector3(door_x + sx * 0.62, -rise_s, dz - 0.05 - 0.16)
+		_p(root, B.cyl(0.13, 0.1, 0.22, 12), pot + Vector3(0, 0.11, 0), _m(Color(0.66, 0.3, 0.16), 0.85))
+		_p(root, B.sphere(0.16, 10), pot + Vector3(0, 0.3, 0), _m(Color(0.16, 0.36, 0.12), 0.9))
+		for j in 6:
+			var a := j * 1.05
+			_p(root, B.sphere(0.04, 6), pot + Vector3(cos(a) * 0.11, 0.36 + 0.03 * sin(a * 3.0), sin(a) * 0.11), _m(Color(0.85, 0.1, 0.12), 0.6))
+	# Penkki kuistin vieressä seinustalla.
+	var bx := door_x + PW / 2.0 + 1.1
+	var bz := -W / 2.0 - 0.4
+	var gy := -step_drop  # maa kuistin edustalla
+	_p(root, B.boxm(Vector3(1.5, 0.05, 0.36)), Vector3(bx, gy + 0.45, bz), _m(Color(0.45, 0.32, 0.2), 0.85))
+	_p(root, B.boxm(Vector3(1.5, 0.22, 0.04)), Vector3(bx, gy + 0.75, bz + 0.2), _m(Color(0.45, 0.32, 0.2), 0.85), Vector3(-0.15, 0, 0))
+	for sx in [-0.6, 0.6]:
+		_p(root, B.boxm(Vector3(0.06, 0.75, 0.32)), Vector3(bx + sx, gy + 0.45 - 0.75 / 2.0 + 0.15, bz), _m(Color(0.38, 0.27, 0.17), 0.85))
+	_merge(root, "paarakennus")
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	body.add_child(B.box_shape(Vector3(L, wall_h + rise * 0.6, W), Vector3(0, (wall_h + rise * 0.6) / 2.0, 0)))
+	body.add_child(B.box_shape(Vector3(PW, PH, PD), Vector3(door_x, PH / 2.0, pz)))
+	return {"root": root, "door": Vector3(door_x, -step_drop, dz - 0.05 - (steps - 1) * 0.32 - 0.6), "body": body}
