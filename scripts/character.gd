@@ -77,7 +77,8 @@ var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 ## look: model, shirt, pants, shoes, skin, hair (tiedoston nimi ilman päätettä tai ""), hair_color,
 ## beard (bool), stripes (bool), height (m), shine (0..1).
 ## Vartalo: belly (0..1 kaljamaha), bulk (-1..1 hoikka..tukeva), shoulders (-1..1 kapeat..leveät hartiat),
-## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori).
+## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori),
+## upper_arm (0..1 olkavarren tyvi paksummaksi olkapään alta, hahmoeditori).
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
@@ -109,6 +110,9 @@ func setup(look: Dictionary) -> void:
 	if look.has("legs"):
 		shape["legs"] = float(look.legs)  # vain kun asetettu: muiden hahmojen verkkojen välimuistiavaimet eivät muutu
 		profile_key += "_j%.2f" % float(look.legs)
+	if look.has("upper_arm"):
+		shape["upper_arm"] = float(look.upper_arm)
+		profile_key += "_o%.2f" % float(look.upper_arm)
 	body_shape = shape
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
@@ -1744,6 +1748,13 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		var inner := 0.3 if legs > 0.0 and ax < 0.11 else 1.0
 		off.x += (p.x - gx) * 0.5 * legs * lg * inner
 		off.z += (p.z + 0.04) * 0.5 * legs * lg
+	var ua: float = shape.get("upper_arm", 0.0)
+	if ua != 0.0:
+		# Olkavarren tyvi heti olkapään alla (hahmoeditorin hintelä keho): lihasten pienennys (delt) ja käsivarren ohennus
+		# osuvat siinä päällekkäin ja jättävät kapean kaulan. Paksunnetaan käsivarren akselin ympäri, huippu ax 0,25.
+		var uw := exp(-pow((ax - 0.25) / 0.07, 2.0)) * smoothstep(1.3, 1.36, p.y)
+		off.y += (p.y - 1.45) * ua * uw
+		off.z += (p.z + 0.06) * ua * uw
 	var mu: float = shape.get("muscle", 0.0)
 	if mu < 0.0:
 		var m := -mu
