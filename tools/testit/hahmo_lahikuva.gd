@@ -1,7 +1,7 @@
 extends Node3D
 ## Pelaajan hahmon lähikuvat ilman pelin latausta: yksi kohta (oletus vasen olkapää) viidestä suunnasta.
 ## Käyttö: tools/testit/aja.sh tscn tools/testit/hahmo_lahikuva.tscn keho=hintela asu=nahkaliivi [kohde=x,y,z] [etaisyys=0.9]
-## [vari=1] [nimi=<lisä tiedostonimeen>] [l.<avain>=<luku> suora ulkonäköarvo, esim. l.muscle=0] (muut argumentit avain=arvo menevät Looks.customiin, esim. maha=hoikka tukka=kalju).
+## [vari=1] [hahmo=<Looks-vakio, esim. SINIKKA>] [nimi=<lisä tiedostonimeen>] [l.<avain>=<luku> suora ulkonäköarvo, esim. l.muscle=0] (muut argumentit avain=arvo menevät Looks.customiin, esim. maha=hoikka tukka=kalju).
 ## Kuvat: <kansio>/lahi_<keho>_<suunta>.png (edesta, viisto, sivu, takaa, ylhaalta, takaviisto).
 ## vari=1: vartalo yksivärisenä harmaana ilman vaatteita peittämässä muotoa (kolot ja taitteet näkyvät varjoista).
 
@@ -17,6 +17,7 @@ func _ready() -> void:
 	var harmaa := false
 	var suorat := {}
 	var nimi_lisa := ""
+	var hahmo := ""
 	Looks.custom = {"tukka": "kalju", "maha": "hoikka", "lasit": "ei"}
 	Looks.outfit = "nahkaliivi"
 	for i in range(1, a.size()):
@@ -33,6 +34,8 @@ func _ready() -> void:
 				d = float(kv[1])
 			"vari":
 				harmaa = kv[1] == "1"
+			"hahmo":  # Looks-vakion nimi (esim. SINIKKA, JUNTTI): kuvataan se pelaajan sijaan
+				hahmo = kv[1]
 			"nimi":
 				nimi_lisa = "_" + kv[1]
 			_:
@@ -63,7 +66,7 @@ func _ready() -> void:
 	cam.fov = 30.0
 	add_child(cam)
 	cam.current = true
-	var look := Looks.player()
+	var look: Dictionary = Looks.player() if hahmo == "" else ((Looks as Script).get_script_constant_map()[hahmo] as Dictionary).duplicate(true)
 	look.merge(suorat, true)
 	var c := Looks.make(self, look)
 	c.rotation.y = PI  # kasvot +Z:aan
@@ -77,7 +80,7 @@ func _ready() -> void:
 	for f in 6:
 		await get_tree().process_frame
 	c.process_mode = Node.PROCESS_MODE_DISABLED  # sama asento joka kuvaan
-	var keho: String = Looks.custom.get("keho", "tavallinen")
+	var keho: String = Looks.custom.get("keho", "tavallinen") if hahmo == "" else hahmo.to_lower()
 	# Suunnat kohteesta kameraan (hahmon vasen olkapää on +X:ssä, kun kasvot ovat +Z:aan).
 	var suunnat := {"edesta": Vector3(0, 0.1, 1), "viisto": Vector3(0.8, 0.25, 0.8), "sivu": Vector3(1, 0.1, 0),
 		"takaviisto": Vector3(0.8, 0.25, -0.8), "takaa": Vector3(0, 0.1, -1), "ylhaalta": Vector3(0.15, 1, 0.3)}
