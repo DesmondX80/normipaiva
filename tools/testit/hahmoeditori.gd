@@ -128,6 +128,7 @@ func run(path: String) -> void:
 		["nahkaliivi", "", {"tukka": "siili", "keho": "lihas"}],
 		["nahkaliivi", "", {"tukka": "jakaus", "keho": "roteva"}],
 		["farkut", "", {"tukka": "kalju", "keho": "hintela", "maha": "hoikka"}],
+		["nahkaliivi", "", {"tukka": "kalju", "keho": "hintela", "maha": "hoikka"}],
 		["tyovaatteet", "", {"tukka": "kalju", "keho": "roteva", "maha": "hoikka"}],
 		["tuulipuku", "stetson", {"tukka": "kalju", "parta": "pukki", "keho": "nainen", "lasit": "pilotti"}]]
 	for a: Array in asut:

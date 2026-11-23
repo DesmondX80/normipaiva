@@ -200,7 +200,16 @@ func setup(look: Dictionary) -> void:
 		_attach_hair(HAIR_DIR + hair + ".gltf", hair_color, kind, body_src)
 	if look.get("beard", false):
 		_attach_hair(HAIR_DIR + "Hair_Beard.gltf", hair_color, kind, body_src)
-	_attach_shoes(look, kind, body, shape)
+	# Kengät ja varret eivät kutistu ohennettujen jalkojen mukana (legs < 0, hahmoeditorin hintelä keho): ne rakennetaan
+	# verkosta, jossa jalat ovat ohentamatta. Paksummat jalat (legs > 0) kengät seuraavat, ettei pohje tule varren läpi.
+	var shoe_shape := shape
+	var shoe_src: Mesh = body.mesh
+	if float(shape.get("legs", 0.0)) < 0.0 and shoe_type != "paljas":
+		shoe_shape = shape.duplicate()
+		shoe_shape["legs"] = 0.0
+		shoe_shape["bulk"] = maxf(float(shape.bulk), 0.0)
+		shoe_src = _clothed_mesh(kind, body_src, body.skin, skeleton, bool(look.get("stripes", false)), shoe_shape)
+	_attach_shoes(look, kind, body, shoe_shape, shoe_src)
 	_attach_anatomia(look, kind, body, shape)
 
 	# Matalilla laatutasoilla kaukaiset hahmot jäävät piirtämättä (kylässä 130–190 hahmoa, jokaisella oma luusto).
@@ -614,7 +623,7 @@ static func _arc(from: Vector3, to: Vector3) -> Quaternion:
 ## Kengät (Shoes): oma skinnattu verkko luuston lapseksi kuten hiukset, painot vartalosta, joten kenkä taipuu jalkaterän
 ## mukana. Vartalon jalkaterä painuu kengän sisään (shoe_on, shoe_cut: lepoavaruuden taso, jonka takana (n·p < w)
 ## olevat jalkaterän kärjet piilotetaan; suljettu kenkä = kaikki). Verkko jaetaan saman mallin, muodon ja tyypin kesken.
-func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: Dictionary) -> void:
+func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: Dictionary, src: Mesh) -> void:
 	shoe_mi = null
 	shoe_sole = 0.0
 	_shoe_lift = 0.0
@@ -641,7 +650,7 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 		if FileAccess.file_exists(cache):
 			mesh = ResourceLoader.load(cache, "ArrayMesh", ResourceLoader.CACHE_MODE_IGNORE) as ArrayMesh
 		if mesh == null or not mesh.has_meta("pohja"):
-			mesh = Shoes.build(kind, shoe_type, body.mesh.surface_get_arrays(0), body.skin, skeleton)
+			mesh = Shoes.build(kind, shoe_type, src.surface_get_arrays(0), body.skin, skeleton)
 			DirAccess.make_dir_recursive_absolute(MESH_CACHE)
 			ResourceSaver.save(mesh, cache)
 		_meshes[key] = weakref(mesh)
