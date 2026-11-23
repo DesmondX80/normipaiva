@@ -94,6 +94,12 @@ func run(path: String) -> void:
 					and String(Looks.player().cap) == ("" if id in Looks.NO_CAP_HAIR else "karhu"),
 					"tukka %s: päähineen rivi ja lippis" % id)
 			await _kuva(path.replace(".png", "_%s_%s.png" % [row.id, id]))
+			if row.id == "keho":  # jalkojen paksuus näkyy sivulta
+				ed._yaw_to = PI * 0.5
+				await _odota(40)
+				await _kuva(path.replace(".png", "_%s_%s_sivu.png" % [row.id, id]))
+				ed._yaw_to = 0.0
+				await _odota(40)
 			ed._step(1)
 		_tarkista(Looks.custom_opt(row.id)[0] == row.opts[0][0], "rivi %s palasi oletukseen" % row.id)
 	# Käännetty hahmo (hiiren veto): selkä ja sivu.
@@ -120,6 +126,9 @@ func run(path: String) -> void:
 		["hiihtohaalari", "", {"tukka": "pitka", "parta": "silea", "keho": "nainen", "hiusvari": "musta"}],
 		["nahkaliivi", "", {"tukka": "pitka", "parta": "silea", "keho": "nainen", "hiusvari": "punainen"}],
 		["nahkaliivi", "", {"tukka": "siili", "keho": "lihas"}],
+		["nahkaliivi", "", {"tukka": "jakaus", "keho": "roteva"}],
+		["farkut", "", {"tukka": "kalju", "keho": "hintela", "maha": "hoikka"}],
+		["tyovaatteet", "", {"tukka": "kalju", "keho": "roteva", "maha": "hoikka"}],
 		["tuulipuku", "stetson", {"tukka": "kalju", "parta": "pukki", "keho": "nainen", "lasit": "pilotti"}]]
 	for a: Array in asut:
 		if vain != "" and not (a[2] as Dictionary).has(vain):

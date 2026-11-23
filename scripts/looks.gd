@@ -38,7 +38,7 @@ static var boots := ""
 static var custom := {}
 ## Editorin rivit: id, otsikko, kameran rajaus ("paa" = lähikuva päästä, "vartalo" = koko hahmo) ja vaihtoehdot
 ## [id, nimi, arvo]. Arvo on värille Color, keholle ulkonäköön yhdistettävät muotoarvot (character.gd: bulk, shoulders,
-## muscle; naisen keho vaihtaa mallin), mahalle [belly, sag], puvulle [a, b] (tuulipuvun värikentät).
+## muscle, legs; naisen keho vaihtaa mallin), mahalle [belly, sag], puvulle [a, b] (tuulipuvun värikentät).
 const HAHMO := [
 	{"id": "tukka", "name": "Tukka", "cam": "paa", "opts": [["jakaus", "Sivujakaus", "Hair_SimpleParted"], ["siili", "Siili", "Hair_Buzzed"],
 		["pitka", "Pitkä tukka", "Hair_Long"], ["letti", "Rasvaletti", ""], ["kalju", "Kalju", ""]]},
@@ -54,9 +54,9 @@ const HAHMO := [
 		["kalpea", "Talvenkalpea", Color(1.0, 0.98, 0.95)], ["paivettynyt", "Päivettynyt", Color(0.9, 0.76, 0.62)],
 		["ruskea", "Ruskea", Color(0.72, 0.55, 0.43)], ["tumma", "Tumma", Color(0.47, 0.34, 0.27)]]},
 	{"id": "keho", "name": "Keho", "cam": "vartalo", "opts": [["tavallinen", "Tavallinen", {}],
-		["roteva", "Roteva", {"bulk": 0.6, "shoulders": 0.3}],
-		["lihas", "Lihaksikas", {"bulk": 0.25, "shoulders": 0.5, "muscle": 0.3}],
-		["hintela", "Hintelä", {"bulk": -0.6, "shoulders": -0.8, "muscle": -1.0}],
+		["roteva", "Roteva", {"bulk": 0.6, "shoulders": 0.3, "legs": 0.7}],
+		["lihas", "Lihaksikas", {"bulk": 0.25, "shoulders": 0.5, "muscle": 0.3, "legs": 0.5}],
+		["hintela", "Hintelä", {"bulk": -0.6, "shoulders": -0.8, "muscle": -1.0, "legs": -0.4}],
 		# Naisen keho: samat muodot kuin Sinikalla, Katjalla ja kolmiomittauksen naisilla (SINIKKA: curves 1, bust 2,7, bulk -0,2).
 		["nainen", "Naisen keho", {"model": "female", "bulk": -0.2, "shoulders": 0.0, "curves": 1.0, "bust": 2.7}]]},
 	{"id": "maha", "name": "Maha", "cam": "vartalo", "opts": [["kalja", "Kaljamaha", [0.75, 1.0]], ["jatti", "Jättimaha", [1.0, 1.0]],

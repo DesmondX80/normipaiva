@@ -77,7 +77,7 @@ var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 ## look: model, shirt, pants, shoes, skin, hair (tiedoston nimi ilman päätettä tai ""), hair_color,
 ## beard (bool), stripes (bool), height (m), shine (0..1).
 ## Vartalo: belly (0..1 kaljamaha), bulk (-1..1 hoikka..tukeva), shoulders (-1..1 kapeat..leveät hartiat),
-## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE).
+## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori).
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
@@ -106,6 +106,9 @@ func setup(look: Dictionary) -> void:
 		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0)), "sag": float(look.get("sag", 0.0)),
 		"anat": 1.0 if anat_on else 0.0,  # anat: osa verkon avaimessa (välimuisti), ei muodon termi
 		"anat_arch": 1.0 if anat_on and shoe_type == "paljas" else 0.0}  # jalkaholvi vain paljaalle jalalle: kengät rakennetaan alkuperäisestä jalkaverkosta (ei muodon termi)
+	if look.has("legs"):
+		shape["legs"] = float(look.legs)  # vain kun asetettu: muiden hahmojen verkkojen välimuistiavaimet eivät muutu
+		profile_key += "_j%.2f" % float(look.legs)
 	body_shape = shape
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
@@ -1723,6 +1726,15 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		var cx := signf(p.x) * 0.11
 		off.x += (p.x - cx) * 0.24 * bulk * leg
 		off.z += (p.z + 0.04) * 0.24 * bulk * leg
+	var legs: float = shape.get("legs", 0.0)
+	if legs != 0.0:
+		# Jalkojen paksuus (hahmoeditorin keho): reisi ja pohje jalan akselin ympäri, sama alue kuin bulkin jaloilla (kengät
+		# seuraavat samaa muotoa). Sisäreisi kasvaa vain vähän, etteivät reidet mene toistensa sisään haarassa.
+		var lg := (1.0 - smoothstep(0.88, 0.98, p.y)) * smoothstep(0.12, 0.22, p.y) * smoothstep(0.0, 0.06, ax)
+		var gx := signf(p.x) * 0.11
+		var inner := 0.3 if legs > 0.0 and ax < 0.11 else 1.0
+		off.x += (p.x - gx) * 0.5 * legs * lg * inner
+		off.z += (p.z + 0.04) * 0.5 * legs * lg
 	var mu: float = shape.get("muscle", 0.0)
 	if mu < 0.0:
 		var m := -mu
