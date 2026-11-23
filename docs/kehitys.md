@@ -123,6 +123,12 @@ kameran rajaus projisoimalla (pää ja koko hahmo paneelin vasemmalle jäävän 
 peruminen, hyväksyntä (`--he-rivi=<id>` kuvaa vain yhden rivin ja sitä käyttävät asut; pelaajan mallit vaihtuvat, kuvat `_valmis` ja `_peli`), tallennus ja lataus; rivit `HE OK` tai `TESTI VIKA`.
 Uusi vaihtoehto lisätään `looks.gd`:n `HAHMO`-taulukkoon (rivin ensimmäinen on oletus) ja sen vaikutus `_apply_custom`iin.
 
+`tools/testit/aja.sh tscn tools/testit/hahmo_lahikuva.tscn keho=hintela asu=nahkaliivi`: pelaajan hahmon lähikuvat ilman pelin
+latausta (alle minuutti): yksi kohta (oletus vasen olkapää, `kohde=x,y,z`, `etaisyys=`) edestä, viistosta, sivulta, takaviistosta,
+takaa ja ylhäältä. `vari=1` näyttää vartalon yksivärisenä (kolot ja taitteet näkyvät varjoista), `l.<avain>=<luku>` asettaa
+ulkonäköarvon suoraan (esim. `l.muscle=0` = pohjamalli, `l.delt_keep=0` = hartia ilman kevennystä). Muodon korjaus tehdään
+näistä kuvista, ei koko pelin ruudusta: hartian lovi näkyi vasta lähikuvassa.
+
 `tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin
 HUD-laatikoita (autovarkauden tähtilaatikko `rikos/tahdet_hud.gd` on piilossa, kun valikko on auki tai tähtiä ei ole).
 

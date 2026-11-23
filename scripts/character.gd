@@ -77,7 +77,8 @@ var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 ## look: model, shirt, pants, shoes, skin, hair (tiedoston nimi ilman päätettä tai ""), hair_color,
 ## beard (bool), stripes (bool), height (m), shine (0..1).
 ## Vartalo: belly (0..1 kaljamaha), bulk (-1..1 hoikka..tukeva), shoulders (-1..1 kapeat..leveät hartiat),
-## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori).
+## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori),
+## delt_keep (0..1 hartialihaksen pienennyksestä tekemättä jätettävä osuus, pelaaja).
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
@@ -109,6 +110,9 @@ func setup(look: Dictionary) -> void:
 	if look.has("legs"):
 		shape["legs"] = float(look.legs)  # vain kun asetettu: muiden hahmojen verkkojen välimuistiavaimet eivät muutu
 		profile_key += "_j%.2f" % float(look.legs)
+	if float(look.get("delt_keep", 0.0)) != 0.0:
+		shape["delt_keep"] = float(look.delt_keep)
+		profile_key += "_d%.2f" % float(look.delt_keep)
 	body_shape = shape
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
@@ -1749,12 +1753,17 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		var m := -mu
 		var torso_x := 1.0 - smoothstep(0.24, 0.32, ax)
 		# Olkapäät (hartialihas): käsivarren tyvi kohti käsivarren akselia ja sisemmäs.
-		var delt := exp(-pow((ax - 0.2) / 0.1, 2.0)) * exp(-pow((p.y - 1.48) / 0.11, 2.0))
+		# delt_keep (0..1, pelaaja, looks.gd PLAYER): hartialihaksen ja epäkäslihaksen pienennyksestä jätetään tämä osuus
+		# tekemättä. Täysi pienennys kutistaa olkapään 64 % ja siirtää sitä 4 cm sisään: paljaalla olkapäällä (nahkaliivi,
+		# verkkopaita) niskan ja olkapään väliin jää terävä lovi ("kuin kirveellä lyöty"), olkapään kärkeen piikki ja
+		# olkavarren tyveen kolo. Pohjamallin hartia on sileä (tools/testit/hahmo_lahikuva.tscn l.muscle=0).
+		var keep := 1.0 - clampf(float(shape.get("delt_keep", 0.0)), 0.0, 1.0)
+		var delt := exp(-pow((ax - 0.2) / 0.1, 2.0)) * exp(-pow((p.y - 1.48) / 0.11, 2.0)) * keep
 		off.y += (1.45 - p.y) * 0.75 * m * delt
 		off.z += (-0.06 - p.z) * 0.55 * m * delt
 		off.x -= signf(p.x) * 0.045 * m * delt
 		# Niskan ja hartioiden väliset epäkäslihakset alemmas.
-		var trap := smoothstep(0.04, 0.1, ax) * (1.0 - smoothstep(0.16, 0.24, ax)) * exp(-pow((p.y - 1.54) / 0.06, 2.0))
+		var trap := smoothstep(0.04, 0.1, ax) * (1.0 - smoothstep(0.16, 0.24, ax)) * exp(-pow((p.y - 1.54) / 0.06, 2.0)) * keep
 		off.y -= 0.035 * m * trap
 		# Rintalihakset litteämmiksi.
 		var pec := smoothstep(0.02, 0.08, p.z) * exp(-pow((p.y - 1.36) / 0.08, 2.0)) * torso_x
