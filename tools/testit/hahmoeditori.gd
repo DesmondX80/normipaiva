@@ -78,9 +78,9 @@ func run(path: String) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--he-rivi="):
 			vain = arg.substr(10)
-		elif arg.begins_with("--he-kehot="):  # vain asut, joissa on jokin näistä kehoista (esim. roteva,hintela); rivit ohitetaan
+		elif arg.begins_with("--he-kehot="):  # vain Keho-rivin nämä vaihtoehdot (esim. roteva,hintela) ja asut, joissa on jokin niistä
 			kehot = arg.substr(11).split(",")
-			vain = "-"
+			vain = "keho"
 	for i in Looks.HAHMO.size():
 		var row: Dictionary = Looks.HAHMO[i]
 		if vain != "" and row.id != vain:
@@ -97,6 +97,9 @@ func run(path: String) -> void:
 				_tarkista((ed._rows[4][1] as Label).text == ("Ei mahdu tukan päälle" if id in Looks.NO_CAP_HAIR else "Lippis")
 					and String(Looks.player().cap) == ("" if id in Looks.NO_CAP_HAIR else "karhu"),
 					"tukka %s: päähineen rivi ja lippis" % id)
+			if row.id == "keho" and kehot.size() > 0 and not id in kehot:
+				ed._step(1)
+				continue
 			await _kuva(path.replace(".png", "_%s_%s.png" % [row.id, id]))
 			if row.id == "keho":  # jalkojen paksuus näkyy sivulta
 				ed._yaw_to = PI * 0.5
