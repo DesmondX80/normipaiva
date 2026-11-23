@@ -792,6 +792,7 @@ var menu: CanvasLayer
 var _env: Environment
 var _fps_label: Label
 var _sun: DirectionalLight3D
+var _fog_density0 := -1.0  # usvan perustiheys (sade sakeuttaa, _day_rhythm)
 static var skip_menu := false  # "Uusi peli" lataa kentän uudelleen ilman alkuvalikkoa
 var trailer_safe := false  # traileria kuvattaessa (tools/traileri) ei hävitä vahingossa, esim. liikenneauton alle
 var jemma_best := 0
@@ -15587,7 +15588,10 @@ func _kaisua_logic() -> bool:
 			_set_beer_carry())
 		k.mount.connect(_kaisua_mount)
 		k.dismount.connect(_kaisua_dismount)
+		k.helper_changed.connect(func(on: bool) -> void: mokki.santtu_away(on))
 	k.advance_day(day)
+	k.money = money
+	k.clock_min = clock_min
 	var driving: bool = player == k.traktori or player == k.puimuri
 	if not driving and (player != walker_out or _hint.text != "" or player.is_stunned() or not walker_out.controls_enabled):
 		return false
@@ -23332,6 +23336,19 @@ func _day_rhythm() -> void:
 		_env.ambient_light_energy = lerpf(0.45, 1.0, day)
 		_env.fog_light_color = Color(0.74, 0.8, 0.88).lerp(hor, 0.6)
 		_env.tonemap_exposure = lerpf(1.2, 1.05, day)
+		# Sade mökin seudulla (Kaisuan sadepäivä): harmaa pilvikatto, himmeä aurinko ja sakeampi usva.
+		var rain: float = mokki.kaisua.rain_amount if mokki != null and mokki.kaisua != null else 0.0
+		if _fog_density0 < 0.0:
+			_fog_density0 = _env.fog_density
+		_env.fog_density = lerpf(_fog_density0, maxf(_fog_density0, 0.55), rain)
+		if rain > 0.0:
+			var grey := Color(0.5, 0.53, 0.57) * lerpf(0.5, 1.0, day)
+			_sun.light_energy *= 1.0 - 0.7 * rain
+			_sky_mat.set_shader_parameter("top_color", top.lerp(grey * 0.85, rain * 0.9))
+			_sky_mat.set_shader_parameter("horizon_color", hor.lerp(grey, rain * 0.9))
+			_sky_mat.set_shader_parameter("cloud_light", Color(0.62, 0.64, 0.68).lerp(Color(0.35, 0.37, 0.42), 1.0 - day))
+			_env.fog_light_color = _env.fog_light_color.lerp(grey, rain * 0.8)
+		_sky_mat.set_shader_parameter("cloud_coverage", lerpf(0.5, 0.97, rain))
 	if world.lamps != null:
 		world.lamps.visible = _between(t, LAMPS_ON)
 	# Naapurit yöllä sisällä (piilossa ovella), aamulla taas pihalla.

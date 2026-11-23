@@ -64,6 +64,19 @@ tuontivälimuistista (`.godot/imported`) ja testit kaatuvat (esim. `voice_length
 `--scene=koulu_disko`: koulun disko (`koulu_disko_game.gd`): ovi torstaina ja perjantaina, pisteytys (`score_change`, `rating`) ilman ruutua, ensimmäinen biisi, toive kesken biisin, miksauspalkki, sujuva miksaus hitaaseen (parit), kesken katkaisu, opettajan polkkatoive ja polkka, hiljaisuus, loppu ja tulos, vaikutus peliin (maine, kerran illassa, sivutehtävä) ja tallennus; rivit `DI OK` tai `TESTI VIKA`, kuvat `_ovi`, `_alku`, `_kasetit_lahi`, `_soi`, `_lattia_lahi`, `_deki_lahi`, `_miksaus`, `_hidas`, `_opettaja`, `_polkka`, `_loppu`. Kamera rajataan projisoimalla (`_frame_cam`): kaikkien lattiapaikkojen lapset 12–88 % leveydelle ja 18–74 % korkeudelle, DJ:n pää vasempaan alakulmaan.
 `--scene=mokkikaisua`, `mokkikaisua_heina`, `mokkikaisua_vilja`, `mokkikaisua_kivet` (ryhmä `kaisua`; kivet = nopea
 lähikuva kivistä kynnetyllä kaistalla, kivikasa ja kivi kädessä): Kaisuan tila (`kaisua.gd`). Yleiskuvat pihasta, koneista, pelloista ja isännästä; heinäketju (traktori ja niittokone autopilotilla Kotipellon poikki, loput kaistat simuloiden `_sim_lane`, karhous, paalaus, paalit latoon piikillä, naapurin paalitilaus, diesel loppuu ja kanisteri, maksut, legendaarinen hetki ja talkooruoka, nurmen kasvu); viljaketju (puimuri Tienvarsipellolla, purku kärryyn, kippaus kuivuriin, äes sänkeen ei pure, kyntö auralla, kivet käteen, kärryyn ja kasaan, äestys ja kylvö Isopellolla, kasvu päivä kerrallaan). Pellon pinta ja kasvusto lasketaan maastoverkon kolmioista (`mokki.gd mesh_h`), joten kuvista tarkistetaan, ettei mikään leiju tai uppoa.
+Lisäksi samassa ryhmässä: `mokkikaisua_kuski` (kuskit ratissa: kuvat, ratin rako, pään rako puimurin katokseen ja
+läpimenot `Asento.solids`; diagnoosirivit `JALKA` kertovat raajaryhmittäin, mihin koneen osaan pisteet osuvat, säteen
+osumakorkeuksineen; puimurin kuskin maha hipaisee ratin lähireunaa alle 1,5 cm, hyväksytty), `mokkikaisua_tallennus`
+(pelataan vähän, tallennus, lataus uuteen tilaolioon ja vertailu, tila rakennetaan ladatusta uudelleen),
+`mokkikaisua_nappaimet` (oikeat painallukset `Input.action_press`: F, peruutus ja Q-kytkentä, E lasku ja nosto, kärry
+perään, puimurista purku E:llä, kärry peruuttaen suppilolle ja kippaus; vihjepalkin rivimäärä enintään 2),
+`mokkikaisua_pinnat` (päärakennus neljästä suunnasta, pellon reuna, niitetty heinä, karhot, seisovan raja ja kasvusto
+kaukana), `mokkikaisua_apumies` (Santtu Q:lla, niitto koko pellolle nopeutettuna `helper_rate_override`, paalaus
+karhoja pitkin, mökin Santtu piilossa ja takaisin) ja `mokkikaisua_sade` (sade ja pouta kuvina, paalaus estetty
+sateella, isännän repliikki, sadepäivät 1–30). Rivit `KAISUA ...` ja viat `TESTI VIKA`. Jokainen kohtaus alkaa
+tyhjästä tilasta (`_fresh`: uusi `kaisua_tila.gd` ja `mokki.gd rebuild_kaisua`, sade pois), koska ajokansion
+tallennuksessa voi olla edellisen kohtauksen Kaisua (F koneesta pois tallentaa pelin) ja sadepäivä. Vihjepalkin rivit
+mitataan rivittämällä vihjeen teksti suoraan (`hint_bar.gd _rebuild`), koska testiajo piilottaa HUDin joka ruutu.
 `--scene=pekanlaatikko`: Pekan vintin romut (`pekan_laatikko.gd`): laatikko vasta oman kirppispöydän jälkeen ja vain kerran, romut pöydälle, keräilijän, Anna-Liisan ja mummon repliikit, Pekan osuus (puolet romujen tuloista), saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt tilitys (kyyti kiinni, vihainen tervehdys) ja tallennus; rivit `PL OK` tai `TESTI VIKA`, kuvat `_pekka_laatikko`, `_keraaja`, `_poyta_lahi` (pöytä 2 × suurennettuna), `_annaliisa_taulu`, `_yhteenveto`, `_tilitys`, `_myohassa`.
 `--scene=kainuulista`: Gasthausin ruokalista (valinnat, nälän nollaus, köyhänä pois käytöstä).
 `--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).

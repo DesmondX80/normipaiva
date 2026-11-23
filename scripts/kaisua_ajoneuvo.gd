@@ -58,6 +58,21 @@ var _lift := 1.0  # 1 = työkone ylhäällä
 var _loader := 0.0  # kuormaimen nosto 0…1
 var _spin := 0.0
 var _load := 0.0  # moottorin kuorma 0…1 (ääni ja savu)
+## Työkoneen ääni (moottorin päälle): kone -> silmukka. Voimanoton koneet soivat seisoessakin, maata muokkaavat vain
+## liikkeessä (sävel nousee vauhdin mukana).
+const WORK_SOUND := {"niittokone": "kone_niitto", "karhotin": "kone_karho", "paalain": "kone_paalain", "aura": "kone_maa",
+	"aes": "kone_maa", "kylvokone": "kone_kylvo"}
+const WORK_PTO := ["niittokone", "karhotin", "paalain"]
+var _work_snd: AudioStreamPlayer3D
+## Apumies (Santtu, kaisua.gd _start_helper) ajaa valmiin reitin: [[Vector2 paikka (Kaisuan kehys), bool työssä], ...]
+## 0,4 m välein. Kone liikkuu reittiä pitkin ilman törmäyksiä (pellon päiden käännökset voivat mennä pientareelle).
+var helper_path: Array = []
+var helper_s := 0.0  # matka reitillä (m)
+var helper_rate := 1.0  # aikakerroin (kaisua.gd kiirehtii, kun pelaaja on kaukana; testit kiirehtivät)
+var helper_done := false
+var _helper: Node3D  # apumiehen hahmo ratissa
+var _work_key := ""
+var _work_amt := 0.0
 var _pitch := 0.0
 var _roll := 0.0
 
@@ -85,30 +100,7 @@ func _ready() -> void:
 		cs.position = Vector3(0, 0.8, -0.8)
 		_model = Koneet.traktori(_visual)
 	add_child(cs)
-	_driver = Looks.make(_visual, Looks.player())
-	Looks.add_cap(_driver)
-	_driver.play("Driving", 0.0)
-	_driver.anim.advance(0.01)
-	var seat: Vector3 = Koneet.C_SEAT if kind == "puimuri" else Koneet.T_SEAT
-	_driver.position = seat + Vector3(0, 0.08, 0.04) - _driver.bone_position("pelvis")
-	# Jalat IK:lla: traktorissa astinlaudoille vaihteistokotelon sivuille (kotelo on istuimen edessä keskellä),
-	# puimurissa tasanteelle ohjausakselin molemmin puolin. Polvet eteen ja hieman ulos, jalkapohja Drivingin asennossa.
-	var inv := _driver.transform.affine_inverse()
-	for side in ["_l", "_r"]:
-		var sx := signf(_driver.bone_position("thigh" + side).x)
-		var foot := Vector3(sx * 0.42, 0.89, -0.12) if kind == "traktori" else Vector3(sx * 0.2, 2.39, -0.98)
-		var knee := foot + Vector3(sx * 0.25, 0.6, -0.5)
-		var fb := Contact.foot_basis(_driver, side, false)
-		_driver.set_ik("leg" + side, "thigh" + side, "calf" + side, "foot" + side, inv * foot, inv * knee)
-		_driver.set_ik_orient("leg" + side, fb, 1.0)
-		# Kädet ratille "kymmentä vaille kaksi": otteet kehällä ratin tasossa (traktori ja puimuri eri korkeudella),
-		# kyynärpäät alas ja sivulle. Driving-animaation kädet ovat traktorin ratin kohdalla, puimurin ratti on alempana.
-		var ax := signf(_driver.bone_position("upperarm" + side).x)
-		var wc: Vector3 = Koneet.T_WHEEL if kind == "traktori" else Koneet.C_WHEEL
-		var tilt: float = Koneet.T_WHEEL_TILT if kind == "traktori" else Koneet.C_WHEEL_TILT
-		var grip := wc + Basis(Vector3.RIGHT, tilt) * Vector3(ax * 0.165, 0.0, -0.09)
-		var elbow := grip + Vector3(ax * 0.3, -0.35, 0.3)
-		_driver.set_ik("arm" + side, "upperarm" + side, "lowerarm" + side, "hand" + side, inv * grip, inv * elbow)
+	_driver = _make_driver(Looks.player())
 	_driver.visible = false
 	_cam = Camera3D.new()
 	_cam.fov = 72.0
@@ -201,6 +193,39 @@ func activate_camera() -> void:
 	_cam_ready = false
 
 
+## Kuski ratissa (pelaaja tai apumies): Driving-animaatio, lantio istuimelle, jalat ja kädet IK:lla.
+func _make_driver(look: Dictionary, cap := true) -> Node3D:
+	var drv := Looks.make(_visual, look)
+	if cap:
+		Looks.add_cap(drv)  # pelaajan lippis; apumiehellä oma ulkonäkö ilman
+	drv.play("Driving", 0.0)
+	drv.anim.advance(0.01)
+	var seat: Vector3 = Koneet.C_SEAT if kind == "puimuri" else Koneet.T_SEAT
+	drv.position = seat + Vector3(0, 0.08, 0.04) - drv.bone_position("pelvis")
+	# Jalat IK:lla: traktorissa astinlaudoille vaihteistokotelon sivuille (kotelo on istuimen edessä keskellä),
+	# puimurissa tasanteelle ohjausakselin molemmin puolin. Polvet eteen ja hieman ulos, jalkapohja Drivingin asennossa.
+	var inv := drv.transform.affine_inverse()
+	for side in ["_l", "_r"]:
+		var sx := signf(drv.bone_position("thigh" + side).x)
+		# Jalkapohjat astinlaudan urien päällä (nilkka 14 cm laudan yllä, pohja n. 1 cm urien yllä; traktorissa varpaat kuormaimen tornien
+		# sisäpuolella), puimurissa tasanteella.
+		var foot := Vector3(sx * 0.36, Koneet.T_PLATE_Y + 0.14, -0.13) if kind == "traktori" else Vector3(sx * 0.2, 2.44, -0.98)
+		var knee := foot + Vector3(sx * 0.25, 0.6, -0.5)
+		var fb := Contact.foot_basis(drv, side, false)
+		drv.set_ik("leg" + side, "thigh" + side, "calf" + side, "foot" + side, inv * foot, inv * knee)
+		drv.set_ik_orient("leg" + side, fb, 1.0)
+		# Kädet ratille "kymmentä vaille kaksi": otteet kehällä ratin tasossa (traktori ja puimuri eri korkeudella),
+		# kyynärpäät alas ja sivulle. Driving-animaation kädet ovat traktorin ratin kohdalla, puimurin ratti on alempana.
+		var ax := signf(drv.bone_position("upperarm" + side).x)
+		var wc: Vector3 = Koneet.T_WHEEL if kind == "traktori" else Koneet.C_WHEEL
+		var tilt: float = Koneet.T_WHEEL_TILT if kind == "traktori" else Koneet.C_WHEEL_TILT
+		var grip := wc + Basis(Vector3.RIGHT, tilt) * Vector3(ax * 0.165, 0.0, -0.09)
+		var elbow := grip + Vector3(ax * 0.3, -0.35, 0.3)
+		drv.set_ik("arm" + side, "upperarm" + side, "lowerarm" + side, "hand" + side, inv * grip, inv * elbow)
+	drv.visible = false
+	return drv
+
+
 ## Kuski ratissa (pelaaja kyydissä) vai kone parkissa.
 func set_driven(on: bool) -> void:
 	driven = on
@@ -234,6 +259,9 @@ func _max_speed() -> float:
 
 
 func _physics_process(delta: float) -> void:
+	if not helper_path.is_empty():
+		_helper_drive(delta)
+		return
 	var throttle := 0.0
 	var steer := 0.0
 	var braking := false
@@ -285,6 +313,7 @@ func _physics_process(delta: float) -> void:
 		Sfx.play_on(self, "punch_heavy", -6.0, 0.6)
 	_ground_follow(delta)
 	_animate(delta, throttle)
+	_work_sound(delta)
 	_update_implement(delta)
 	if working and speed > 0.25:
 		_do_work()
@@ -356,6 +385,145 @@ func _animate(delta: float, throttle: float) -> void:
 		_engine.volume_db = -9.0 + _load * 5.0
 		_smoke.amount = 24
 		_smoke.initial_velocity_max = 1.0 + _load * 2.0
+
+
+## Työkoneen ääni: soitin vaihtuu koneen mukana, voimakkuus häivytetään (laskettu kone hiljenee 0,4 s:ssa).
+func _work_sound(delta: float) -> void:
+	var key := ""
+	var pto := true
+	if kind == "puimuri":
+		key = "kone_puinti"
+	elif implement != null:
+		key = WORK_SOUND.get(implement_id, "")
+		pto = implement_id in WORK_PTO
+	var on := working and key != "" and (pto or absf(speed) > 0.3)
+	_work_amt = move_toward(_work_amt, 1.0 if on else 0.0, delta * (1.5 if on else 2.5))
+	if key != _work_key:
+		if _work_snd != null:
+			_work_snd.queue_free()
+			_work_snd = null
+		_work_key = key
+		if key != "":
+			_work_snd = Sfx.loop_on(self, key, -60.0)
+			_work_snd.stream_paused = true
+	if _work_snd == null:
+		return
+	_work_snd.stream_paused = _work_amt <= 0.001
+	_work_snd.volume_db = linear_to_db(maxf(_work_amt, 0.001)) + (-2.0 if kind == "puimuri" else -4.0)
+	_work_snd.pitch_scale = 1.0 if pto else 0.85 + clampf(absf(speed) / 3.0, 0.0, 1.0) * 0.3
+
+
+# --- Apumies -------------------------------------------------------------------------------------------------------
+
+const HELPER_STEP := 0.4  # reitin pisteväli (m)
+const HELPER_TURN_SPEED := 2.2
+
+
+## Apumies rattiin ja reitti ajoon (look = hahmon ulkonäkö).
+func start_helper(path: Array, look: Dictionary) -> void:
+	if _helper == null:
+		_helper = _make_driver(look, false)
+	_helper.visible = true
+	_driver.visible = false
+	helper_path = path
+	helper_s = 0.0
+	helper_done = false
+	velocity = Vector3.ZERO
+	speed = 0.0
+	_engine.stream_paused = false
+	_smoke.emitting = true
+
+
+func stop_helper() -> void:
+	helper_path = []
+	speed = 0.0
+	set_working(false)
+	if _helper != null:
+		_helper.visible = false
+	if not driven:
+		_engine.stream_paused = true
+		_smoke.emitting = false
+
+
+func helper_active() -> bool:
+	return not helper_path.is_empty()
+
+
+## Ajettu osuus reitistä (0…1).
+func helper_progress() -> float:
+	return 0.0 if helper_path.size() < 2 else clampf(helper_s / ((helper_path.size() - 1) * HELPER_STEP), 0.0, 1.0)
+
+
+## Koneen keulan suunta reitin pisteessä i: saman suunnan (ajo tai peruutus) naapuripisteistä, ettei suunta hyppää
+## peruutuksen ja ajon vaihtokohdassa; peruuttaessa keula osoittaa kulkusuuntaa vastaan.
+func _helper_dir(i: int) -> Vector2:
+	var n := helper_path.size()
+	var rev: bool = helper_path[i][2]
+	var a := i
+	var b := i
+	for k in 3:
+		if a > 0 and helper_path[a - 1][2] == rev:
+			a -= 1
+		if b < n - 1 and helper_path[b + 1][2] == rev:
+			b += 1
+	var d := (helper_path[b][0] as Vector2) - (helper_path[a][0] as Vector2)
+	if d.length() < 0.01:
+		return Vector2(-sin(rotation.y), -cos(rotation.y))
+	return -d.normalized() if rev else d.normalized()
+
+
+func _helper_point(s: float) -> Vector2:
+	var f := s / HELPER_STEP
+	var i := clampi(int(f), 0, helper_path.size() - 2)
+	return (helper_path[i][0] as Vector2).lerp(helper_path[i + 1][0], clampf(f - i, 0.0, 1.0))
+
+
+## Reittiä eteenpäin: työkaistalla koneen työnopeus, käännöksissä hitaammin. Askel enintään reitin pisteväli, jotta
+## työ (kaisua.gd _apply_work) kattaa kaistan aukoitta myös aikakertoimella.
+func _helper_drive(delta: float) -> void:
+	var n := helper_path.size()
+	var total := (n - 1) * HELPER_STEP
+	var i := clampi(int(helper_s / HELPER_STEP), 0, n - 1)
+	var on_work: bool = helper_path[i][1]
+	var v: float = HELPER_TURN_SPEED
+	if on_work and implement != null:
+		v = float(Koneet.IMPLEMENTS[implement_id].speed)
+	elif on_work and kind == "puimuri":
+		v = 3.0
+	fuel = maxf(0.0, fuel - delta * helper_rate * (FUEL_IDLE + FUEL_LOAD * _load))
+	if fuel <= 0.0:
+		helper_done = true  # kaisua.gd kertoo ja lopettaa
+		speed = 0.0
+		return
+	if on_work != working:
+		set_working(on_work)
+	var rev: bool = helper_path[i][2]
+	if rev:
+		v = 1.6
+	var dist := v * delta * helper_rate
+	var steps := maxi(1, ceili(dist / HELPER_STEP))
+	var prev_yaw := rotation.y
+	for k in steps:
+		helper_s = minf(helper_s + dist / steps, total)
+		var p := _helper_point(helper_s)
+		var f := _helper_dir(clampi(int(helper_s / HELPER_STEP), 0, n - 1))
+		position = Vector3(p.x, Mokki.mesh_h(p.x, p.y), p.y)
+		rotation.y = atan2(-f.x, -f.y)
+		_update_implement(delta * helper_rate / steps)  # nosto ja lasku samassa aikakertoimessa kuin ajo
+		if working:
+			_do_work()
+	speed = -v if rev else v
+	var turn := wrapf(rotation.y - prev_yaw, -PI, PI) / maxf(dist, 0.01)  # kaarevuus 1/m
+	var wb := Koneet.C_WHEELBASE if kind == "puimuri" else Koneet.T_WHEELBASE
+	_steer = clampf(atan(turn * wb) / 0.6, -1.0, 1.0)
+	_ground_follow(delta)
+	_animate(delta, 0.6)
+	_work_sound(delta)
+	_engine.stream_paused = false
+	if helper_s >= total:
+		helper_done = true
+		speed = 0.0
+		set_working(false)
 
 
 # --- Työkone -------------------------------------------------------------------------------------------------------
@@ -440,6 +608,9 @@ func _update_implement(delta: float) -> void:
 		if dir.length() > 0.01:
 			dir = dir.normalized()
 			implement.global_rotation = Vector3(0, atan2(-dir.x, -dir.z), 0)
+			if speed < 0.0 and not helper_path.is_empty():
+				# Santun lyhyet peruutukset päisteessä: vaunu oikenee traktorin linjaan (ei linkkaa).
+				implement.global_rotation.y = lerp_angle(implement.global_rotation.y, global_rotation.y, clampf(delta * 3.0, 0.0, 1.0))
 		implement.global_position = _ground_at(hp)
 		for w in implement_parts.get("wheels", []):
 			(w as Node3D).rotation.x -= speed * delta / 0.4

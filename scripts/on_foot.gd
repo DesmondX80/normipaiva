@@ -112,6 +112,11 @@ func set_kanister(on: bool) -> void:
 	_kanister.visible = on
 
 
+## Onko kanisteri kädessä (Kaisuan diesel ei ota toista, jos muun tehtävän kanisteri on jo kädessä).
+func kanister_on() -> bool:
+	return _kanister.visible
+
+
 func is_stunned() -> bool:
 	return _stun > 0.0
 

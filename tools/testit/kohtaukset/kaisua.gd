@@ -5,6 +5,17 @@ extends Node
 ## mokkikaisua: pellot, piha ja koneet kuvina (yläkuva, piha, konevaja, lato, kuivuri, puimuri, isäntä, pellot).
 ## mokkikaisua_heina: traktori ja niittokone autopilotilla Kotipellon poikki (kuvat), loppu niitto simuloiden, karhous,
 ##   paalaus (paaleja putoaa), paalit latoon, maksut, legendaarinen hetki ja talkooruoka.
+## mokkikaisua_nappaimet: oikeilla näppäinpainalluksilla (Input.action_press): traktoriin F:llä, peruutus karhottimen
+##   eteen ja kytkentä Q:lla, irrotus, kärry perään, puimurista purku kärryyn E:llä, kärry peruuttaen kuivurin suppilolle
+##   ja kippaus E:llä. Joka vaiheessa vihjepalkin rivimäärä (enintään 2).
+## mokkikaisua_kuski: vain kuskit ratissa (yleiskuvien osa): kuvat, ratin rako, läpimenot ja pään rako.
+## mokkikaisua_pinnat: ulkonäkö: päärakennus (edestä, kuisti, takaa, ylhäältä), pellon reuna läheltä, niitetty heinä
+##   ja karhot läheltä, seisovan heinän raja ja kasvusto kaukana (painuu maahan ilman lohkoreunaa).
+## mokkikaisua_apumies: Santtu apumieheksi Q:lla (niittokone Kotipellolla): Santtu ratissa, niitto koko pellolle
+##   nopeutettuna, mökin Santtu piilossa ja takaisin, palkkio; sitten karhous simuloiden ja paalaus Santun reitillä karhoja
+##   pitkin (karhoja jää alle 5 %).
+## mokkikaisua_sade: sadepäivä: pisarat, harmaa taivas ja märkä pelto (kuvat sateessa ja poudalla), paalaus estetty
+##   sateella, isännän repliikki.
 ## mokkikaisua_vilja: puimuri Tienvarsipellolla (kuvat), purku kärryyn, kippaus kuivuriin, äestys ja kylvö Isopellolla,
 ##   kasvu päivä kerrallaan (oras, vihreä, kypsä).
 const Kuva := preload("res://tools/testit/kuva.gd")
@@ -15,14 +26,19 @@ const Kaisua := preload("res://scripts/kaisua.gd")
 const Tila := preload("res://scripts/kaisua_tila.gd")
 const Koneet := preload("res://scripts/kaisua_koneet.gd")
 const Pose := preload("res://scripts/pose.gd")
+const Asento := preload("res://tools/testit/asento.gd")
 
-const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja", "mokkikaisua_kivet"]
+const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja", "mokkikaisua_kivet", "mokkikaisua_tallennus", "mokkikaisua_hahmot",
+	"mokkikaisua_nappaimet", "mokkikaisua_kuski", "mokkikaisua_pinnat", "mokkikaisua_apumies", "mokkikaisua_sade"]
 
 var main: Main
 var _cam: Camera3D
 
 
 func aja(scene: String, path: String, nohud: bool) -> int:
+	if not scene in KOHTAUKSET:
+		return 0
+	await _fresh()
 	match scene:
 		"mokkikaisua":
 			await _yleiskuvat(path)
@@ -32,12 +48,37 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await _vilja(path)
 		"mokkikaisua_kivet":
 			await _kivet(path)
+		"mokkikaisua_tallennus":
+			await _tallennus(path)
+		"mokkikaisua_hahmot":
+			_hahmot()
+		"mokkikaisua_nappaimet":
+			await _nappaimet(path)
+		"mokkikaisua_kuski":
+			main._hud.visible = false
+			await _kuskit(path)
+		"mokkikaisua_pinnat":
+			await _pinnat(path)
+		"mokkikaisua_apumies":
+			await _apumies(path)
+		"mokkikaisua_sade":
+			await _sade(path)
 		_:
 			return 0
 	return 1
 
 
 # --- Apurit --------------------------------------------------------------------------------------------------------
+
+## Puhdas tila joka kohtaukselle: ajokansion tallennuksessa voi olla edellisen testin Kaisua (koneet siirretty, paalain
+## kytketty; F:llä koneesta pois tallentaa pelin), ja tallennuksen päivä voi olla sadepäivä.
+func _fresh() -> void:
+	var t := Tila.new()
+	Kaisua.tila = t
+	main.kaisua_tila = t
+	main.mokki.rebuild_kaisua()
+	_k().rain_force = 0.0
+	await _frames(5)
 
 func _k() -> Kaisua:
 	return main.mokki.kaisua
@@ -177,7 +218,7 @@ func _mount(v: CharacterBody3D) -> void:
 
 func _yleiskuvat(path: String) -> void:
 	var k := _k()
-	print("KAISUA peltoja %d, paaleja %d, rakennettu %d ms: %s" % [k.pellot.size(), k.tila.bales.size(), k.build_ms, k.build_laps])
+	print("KAISUA peltoja %d, paaleja %d, rakennettu %d ms: %s, Raija: %s" % [k.pellot.size(), k.tila.bales.size(), k.build_ms, k.build_laps, k.naapuri_laps])
 	for p in k.pellot:
 		print("KAISUA rakennus %s (%d x %d ruutua): %s" % [p.field_name(), p.nx, p.nz, p.laps])
 	_summary("alku")
@@ -212,7 +253,27 @@ func _yleiskuvat(path: String) -> void:
 		_look(_at(r, Vector3(-size * 1.6, size * 0.8, -size * 0.9)), _at(r, Vector3(size * 0.4, 0.6, size * 0.1)))
 		await _frames(10)
 		await _shot(path, "kone_" + id)
-	# Kuski ratissa: jalat astinlaudoilla (edestä, sivulta ja ylhäältä), puimurin kuski tasanteella.
+	await _kuskit(path)
+	var ip: Vector3 = k.isanta.position
+	_look(_at(ip, Vector3(-2.4, 1.6, -1.2)), _at(ip, Vector3(0, 1.2, 0)))
+	k.say("No terve! Santun mökiltä?", 5.0)
+	await _frames(10)
+	await _shot(path, "isanta")
+	# Jalan isännän luo: vihje.
+	_cam.current = false
+	main.walker_out.global_position = _g(ip + Vector3(-1.5, 0.5, 0))
+	main._set_avatar(main.walker_out)
+	await _frames(20)
+	print("KAISUA vihje isännällä: ", main._hint.text)
+	await _shot(path, "jalan")
+
+
+## Kuskit ratissa: jalat astinlaudoilla (edestä, sivulta ja ylhäältä), puimurin kuski tasanteella; ratin rako,
+## läpimenot (Asento.solids) ja pään rako katokseen.
+func _kuskit(path: String) -> void:
+	var k := _k()
+	if _cam == null:
+		_look(Kaisua.YARD + Vector3(0, 5, 0), Kaisua.YARD + Vector3(5, 0, 5))  # luo vapaan kameran
 	await _mount(k.traktori)
 	for v in [["kuski_edesta", Vector3(0.0, 1.6, -3.2)], ["kuski_sivulta", Vector3(-2.6, 1.5, -0.2)], ["kuski_ylhaalta", Vector3(-0.4, 3.4, 0.6)],
 			["kuski_ratti", Vector3(-1.3, 1.75, 0.35)]]:
@@ -223,6 +284,8 @@ func _yleiskuvat(path: String) -> void:
 		await _frames(6)
 		await _shot(path, v[0])
 	await _steer_gap(k.traktori, "traktori", Koneet.T_WHEEL, Koneet.T_WHEEL_TILT, Koneet.T_COLUMN)
+	_solids(k.traktori, "traktori")
+	_leg_rays(k.traktori)
 	var tb2: Transform3D = k.traktori.global_transform
 	_cam.global_position = tb2 * (Koneet.T_WHEEL + Vector3(-1.5, 0.05, 0.05))
 	_cam.look_at(tb2 * Koneet.T_WHEEL)
@@ -248,6 +311,8 @@ func _yleiskuvat(path: String) -> void:
 		if wn.dot(col) < 0.95 or wn.z <= 0.0:
 			print("TESTI VIKA %s: ratti ei ole kohtisuorassa akseliin tai ei käänny kuljettajaa kohti" % w[0])
 	await _steer_gap(k.puimuri, "puimuri", Koneet.C_WHEEL, Koneet.C_WHEEL_TILT, Koneet.C_COLUMN)
+	_solids(k.puimuri, "puimuri")
+	_leg_rays(k.puimuri)
 	# Pään laki (Head-luu + 0,24 m pää ja lippis) aurinkokatoksen alapinnan alla?
 	var drv: Node3D = k.puimuri._driver
 	var head_g: Vector3 = drv.to_global(drv.bone_position("Head"))
@@ -257,18 +322,6 @@ func _yleiskuvat(path: String) -> void:
 	if rako < 0.05:
 		print("TESTI VIKA puimurin kuskin pää osuu aurinkokatokseen (rako %.2f m)" % rako)
 	k._dismount(k.puimuri)
-	var ip: Vector3 = k.isanta.position
-	_look(_at(ip, Vector3(-2.4, 1.6, -1.2)), _at(ip, Vector3(0, 1.2, 0)))
-	k.say("No terve! Santun mökiltä?", 5.0)
-	await _frames(10)
-	await _shot(path, "isanta")
-	# Jalan isännän luo: vihje.
-	_cam.current = false
-	main.walker_out.global_position = _g(ip + Vector3(-1.5, 0.5, 0))
-	main._set_avatar(main.walker_out)
-	await _frames(20)
-	print("KAISUA vihje isännällä: ", main._hint.text)
-	await _shot(path, "jalan")
 
 
 # --- Heinä ---------------------------------------------------------------------------------------------------------
@@ -666,6 +719,69 @@ func _kivet(path: String) -> void:
 
 ## Kuskin vartalon, reisien ja säärten pinnan (paistettu verkko, paidan pöyhennys mukana) etäisyys ratin kehään ja
 ## ohjausakseliin koneen kehyksessä. Kädet ja kyynärvarret saavat koskea rattia, joten ne eivät ole mukana.
+## Kuskin koko verkko koneen kiinteitä osia (astinlauta, istuin, lokasuoja, kojelauta) vasten: Asento.solids.
+func _solids(v: CharacterBody3D, name: String) -> void:
+	var n := Asento.solids(v._driver, v._visual, 2.5)
+	print("KAISUA %s kuskin läpimenot: %d" % [name, n])
+	if n > 0:
+		print("TESTI VIKA %s: kuskin raaja menee koneen osan läpi (%d kpl)" % [name, n])
+
+
+## Diagnoosi: kuskin jalkapisteet koneen kehyksessä ja säteen osumat ylös koneen yhdistettyihin verkkoihin.
+func _leg_rays(v: CharacterBody3D) -> void:
+	var drv: Node3D = v._driver
+	var vis: Node3D = v._visual
+	var skel: Skeleton3D = drv.skeleton
+	var hands := []
+	for i in skel.get_bone_count():
+		var bn := skel.get_bone_name(i)
+		if bn.begins_with("hand") or bn.begins_with("index") or bn.begins_with("middle") or bn.begins_with("ring") or bn.begins_with("pinky") or bn.begins_with("thumb"):
+			hands.append(bn)
+	for bones in [["thigh_l", "thigh_r"], ["calf_l", "calf_r"], ["foot_l", "foot_r", "ball_l", "ball_r"], hands,
+			["lowerarm_l", "lowerarm_r", "upperarm_l", "upperarm_r"], ["pelvis", "spine_01", "spine_02", "spine_03"]]:
+		var pts := Pose.limb_points(drv, vis, bones)
+		var lo := Vector3(INF, INF, INF)
+		var hi := -lo
+		for q in pts:
+			lo = lo.min(q)
+			hi = hi.max(q)
+		print("JALKA %s: %d pistettä, alue %s .. %s" % [bones.slice(0, 4), pts.size(), lo.snapped(Vector3.ONE * 0.01), hi.snapped(Vector3.ONE * 0.01)])
+		var all := []
+		_mesh_list(vis, all)
+		for mi: MeshInstance3D in all:
+			if drv.is_ancestor_of(mi) or mi.mesh == null:
+				continue
+			var tri := mi.mesh.generate_triangle_mesh()
+			if tri == null:
+				continue
+			var xf: Transform3D = vis.global_transform.affine_inverse() * mi.global_transform
+			var inv := xf.affine_inverse()
+			var inside := 0
+			var ex := []
+			for q in pts:
+				var o := inv * q
+				var hits := []
+				for _i in 8:
+					var h := tri.intersect_ray(o, inv.basis * Vector3.UP)
+					if h.is_empty():
+						break
+					hits.append(snappedf((xf * (h.position as Vector3)).y, 0.01))
+					o = h.position + inv.basis * Vector3.UP * 0.0005
+				if hits.size() % 2 == 1:
+					inside += 1
+					if ex.size() < 6 and (ex.is_empty() or inside % 7 == 0):
+						ex.append([q.snapped(Vector3.ONE * 0.01), hits])
+			if inside > 0:
+				print("JALKA   %s sisällä %d: esim. %s" % [vis.get_path_to(mi), inside, ex])
+
+
+func _mesh_list(n: Node, out: Array) -> void:
+	if n is MeshInstance3D:
+		out.append(n)
+	for c in n.get_children():
+		_mesh_list(c, out)
+
+
 func _steer_gap(v: CharacterBody3D, name: String, wc: Vector3, tilt: float, col: Vector3) -> void:
 	await _frames(3)
 	var drv: Node3D = v._driver
@@ -700,3 +816,525 @@ func _steer_gap(v: CharacterBody3D, name: String, wc: Vector3, tilt: float, col:
 	var allow := 0.015 if name == "puimuri" else 0.0
 	if best < -allow:
 		print("TESTI VIKA %s: kuski menee ratin %s läpi (%.3f m)" % [name, where, best])
+
+
+# --- Tallennus ja lataus ---------------------------------------------------------------------------------------------
+
+## Pelataan vähän (niittokaista, paali, kivet, diesel, kytketty paalain, tilaus), tallennetaan pelin tallennukseen,
+## luetaan uuteen tilaolioon ja verrataan, ja rakennetaan tila ladatusta oliosta uudelleen kuin pelin käynnistyessä.
+func _tallennus(path: String) -> void:
+	var k := _k()
+	var kp = k._pelto(0)
+	kp.work("niitto", kp.center, Vector2(1, 0), 1.75, 20.0)
+	var tv = k._pelto(1)
+	tv.work("puinti", tv.center + Vector2(0, 6), Vector2(1, 0), 2.0, 10.0)
+	tv.work("kynto", tv.center + Vector2(0, 6), Vector2(1, 0), 1.5, 10.0)
+	k._add_stone(tv.center + Vector2(2, 6), tv.index)
+	k._add_stone(tv.center + Vector2(4, 6.5), tv.index)
+	k.tila.stones[1].where = "karry"
+	k._place_stone(1, k.stone_nodes[1])
+	k.tila.baler_hay = Tila.BALE_HAY + 10.0
+	k._hitch_now("paalain")
+	k._apply_work("paalaus", kp.center, Vector2(1, 0), 0.9, 0.3)  # ei karhoa: ei mitään
+	k._eject_bale(0)
+	k.traktori.fuel = 0.42
+	k.puimuri.tank = 777.0
+	k.tila.trailer = 0.0
+	k.tila.order_total = 3
+	k.tila.order_left = 2
+	k.tila.order_day = main.day
+	k.tila.set_paid(0, "niitto")
+	var tp := Vector2(-180.0, 118.0)
+	k.traktori.global_position = _gl(tp.x, tp.y, 0.3)
+	await _frames(30)
+	main._save_game()
+	var cfg := ConfigFile.new()
+	var rc := cfg.load(Main.SAVE_PATH)
+	var t2 := Tila.new()
+	t2.load_from(cfg)
+	var a: Tila = k.tila
+	var viat := 0
+	for id in a.fields:
+		var f1: Dictionary = a.fields[id]
+		var f2: Dictionary = t2.fields.get(id, {})
+		var same: bool = not f2.is_empty() and f1.cells == f2.cells and f1.amt == f2.amt and f1.dir == f2.dir
+		print("KAISUA tallennus pelto %s: %s" % [id, "sama" if same else "EROAA"])
+		if not same:
+			viat += 1
+	var checks := {
+		"paalit": [a.bales.size(), t2.bales.size()], "kivet": [a.stones.size(), t2.stones.size()],
+		"kivi kärryssä": [a.stones[1].where, t2.stones[1].where], "kytketty": [a.hitched, t2.hitched],
+		"diesel": [snappedf(float(a.fuel.traktori), 0.01), snappedf(float(t2.fuel.traktori), 0.01)],
+		"säiliö": [roundi(a.tank), roundi(t2.tank)], "tilaus": [a.order_left, t2.order_left],
+		"maksettu": [a.paid, t2.paid], "traktori": [a.machines.get("traktori", {}).get("pos", Vector3.ZERO).snappedf(0.01),
+			t2.machines.get("traktori", {}).get("pos", Vector3.ZERO).snappedf(0.01)],
+	}
+	for key in checks:
+		var v: Array = checks[key]
+		var ok: bool = str(v[0]) == str(v[1])
+		print("KAISUA tallennus %s: %s -> %s %s" % [key, v[0], v[1], "" if ok else "EROAA"])
+		if not ok:
+			viat += 1
+	# Tila uudelleen ladatusta oliosta (kuten pelin käynnistyessä) ja vertailu.
+	Kaisua.tila = t2
+	main.mokki.rebuild_kaisua()
+	await _frames(10)
+	var k2 := _k()
+	var tl: Vector3 = main.mokki.to_local(k2.traktori.global_position)
+	print("KAISUA uudelleen: traktori (%.1f, %.1f), kytketty %s, diesel %.2f, säiliö %d, paaleja %d, kiviä %d, kärryssä %d, Kotipellolla niitetty %d" % [
+		tl.x, tl.z, k2.traktori.implement_id, k2.traktori.fuel, roundi(k2.puimuri.tank), k2.bale_nodes.size(), k2.stone_nodes.size(),
+		k2._trailer_stones(), int(k2._pelto(0).counts.get(Tila.H_NIITETTY, 0))])
+	if k2.traktori.implement_id != "paalain" or absf(k2.traktori.fuel - 0.42) > 0.01 or k2.bale_nodes.size() != a.bales.size():
+		viat += 1
+	print("KAISUA tallennus: %s" % ("OK" if viat == 0 and rc == OK else "TESTI VIKA %d eroa" % viat))
+	main._hud.visible = false
+	var kc: Vector2 = k2._pelto(0).center  # uudelleen rakennetun tilan pelto (vanha vapautettiin)
+	_look(Vector3(kc.x - 14, 9, kc.y + 14), Vector3(kc.x, 0, kc.y))
+	await _frames(30)
+	await _shot(path, "ladattu_kotipelto")
+
+
+## Hahmojen rakennusajat (Looks.make): Raija, laavun akka ja muunnelmat, jotta kallis osa löytyy.
+func _hahmot() -> void:
+	const Looks := preload("res://scripts/looks.gd")
+	print("KAISUA rakennettu %d ms: %s, Raija: %s" % [_k().build_ms, _k().build_laps, _k().naapuri_laps])
+	var looks := {
+		"raija": Kaisua.NAAPURI_LOOK, "raija2": Kaisua.NAAPURI_LOOK, "akka": Looks.AKKA, "isanta": Kaisua.ISANTA_LOOK,
+	}
+	var no_boot: Dictionary = Kaisua.NAAPURI_LOOK.duplicate()
+	no_boot.shoe = "tyokenka"
+	looks["raija_tyokenka"] = no_boot
+	var short_hair: Dictionary = Kaisua.NAAPURI_LOOK.duplicate()
+	short_hair.hair = "Hair_Buns"
+	looks["raija_nuttura"] = short_hair
+	for key in looks:
+		var t0 := Time.get_ticks_usec()
+		var c := Looks.make(main, looks[key])
+		print("KAISUA hahmo %s %d ms" % [key, (Time.get_ticks_usec() - t0) / 1000])
+		c.queue_free()
+
+
+# --- Näppäimet -------------------------------------------------------------------------------------------------------
+
+var _viat := 0
+
+
+func _press(action: String) -> void:
+	await _frames(1)  # ruudun alkuun: kuvanoton jälkeen jatketaan piirron jälkeen, ja painallus leimautuisi edelliselle ruudulle
+	Input.action_press(action)
+	await _frames(2)
+	Input.action_release(action)
+	await _frames(2)
+
+
+## Vihjeen rivit vihjepalkissa: pitkä rivi jaetaan, enintään kaksi riviä mahtuu luettavasti.
+func _hint_rows(tag: String) -> void:
+	await _frames(3)
+	# Testiajo piilottaa HUDin joka ruutu (--nohud), jolloin palkki saa tyhjän tekstin: rivitys suoraan vihjeestä.
+	main._hint_bar.set_text(main._hint.text)
+	main._hint_bar._rebuild()
+	var rows: int = main._hint_bar._rows.get_child_count()
+	print("KAISUA vihje %s (%d riviä, %d merkkiä): %s" % [tag, rows, main._hint.text.length(), main._hint.text])
+	if rows > 2:
+		_viat += 1
+		print("TESTI VIKA vihje %s: %d riviä vihjepalkissa" % [tag, rows])
+
+
+func _check(ok: bool, what: String) -> void:
+	print("KAISUA %s: %s" % [what, "OK" if ok else "EI"])
+	if not ok:
+		_viat += 1
+		print("TESTI VIKA %s" % what)
+
+
+## Kävelijä koneen nousukohtaan (sama kohta kuin kaisua.gd logic) ja F.
+func _walk_mount(v: CharacterBody3D) -> void:
+	var seat := v.to_global(Vector3(-1.3, 0, 0.3 if v == _k().traktori else -0.8))
+	var sl: Vector3 = main.mokki.to_local(seat)
+	main.walker_out.global_position = _gl(sl.x, sl.z, 0.4)
+	main.walker_out.velocity = Vector3.ZERO
+	if main.player != main.walker_out:
+		main._set_avatar(main.walker_out)  # pelaajana voi olla vielä Saloisten pyörä: mökin logiikka ei aja
+	await _frames(8)
+	await _hint_rows("nousu")
+	await _press("mount")
+	await _frames(4)
+
+
+## Pidä näppäintä (voimakkuus 0..1) fysiikkaruutuja, kunnes ehto täyttyy tai aika loppuu; sitten jarru. Palauttaa ajan.
+func _hold(action: String, strength: float, until: Callable, max_t := 20.0) -> float:
+	var t := 0.0
+	await _frames(1)
+	Input.action_press(action, strength)
+	while t < max_t and not until.call():
+		await main.get_tree().physics_frame
+		t += 1.0 / 60.0
+	Input.action_release(action)
+	Input.action_press("brake")
+	for i in 40:
+		await main.get_tree().physics_frame
+	Input.action_release("brake")
+	await _frames(2)
+	return t
+
+
+func _nappaimet(path: String) -> void:
+	var k := _k()
+	main._kaisua_logic()  # signaalit
+	if _cam != null:
+		_cam.current = false
+	main._hud.visible = true
+	var t := k.traktori
+	# 1. Traktoriin F:llä kotipaikalta.
+	await _walk_mount(t)
+	_check(main.player == t, "F nosti traktorin rattiin")
+	await _hint_rows("traktorissa")
+	# 2. Peruutus karhottimen eteen (S puoliteholla) ja kytkentä Q:lla.
+	var bt := await _hold("back", 0.5, func() -> bool: return k._hitchable() != "", 15.0)
+	print("KAISUA peruutettu %.1f s, kytkettävä '%s', traktori %s" % [bt, k._hitchable(), main.mokki.to_local(t.global_position)])
+	await _hint_rows("kytkettävissä")
+	await _shot(path, "nappain_kytkenta")
+	await _press("bell")
+	_check(k.tila.hitched == "karhotin", "Q kytki karhottimen (kytketty '%s')" % k.tila.hitched)
+	await _hint_rows("karhotin perässä")
+	await _press("interact")
+	await _frames(30)
+	_check(t.working, "E laski karhottimen töihin")
+	await _press("interact")
+	await _frames(60)
+	_check(not t.working, "E nosti karhottimen")
+	await _press("bell")
+	_check(k.tila.hitched == "", "Q irrotti karhottimen")
+	# 3. Kärry perään: traktori kärryn aisan eteen (keula itään, kärry länteen), Q.
+	var pit_l: Vector3 = main.mokki.to_local(k._kuivuri.root.to_global(k._kuivuri.pit))
+	var r_goal := Vector2(pit_l.x, pit_l.z) + Vector2(6.2, 0)  # kärryn aisan silmä, kun takaluukku on suppilon päällä
+	var r0 := r_goal + Vector2(10, 0)
+	var kr: Node3D = k.koneet.perakarry.root
+	kr.global_rotation = Vector3(0, main.mokki.global_rotation.y + atan2(-1.0, 0.0), 0)
+	kr.global_position = _gl(r0.x, r0.y)
+	await _place_vehicle(t, r0 + Vector2(Koneet.T_HITCH.z + 0.3, 0), Vector2(1, 0))
+	await _hint_rows("kärryn edessä")
+	await _press("bell")
+	_check(k.tila.hitched == "perakarry", "Q kytki peräkärryn (kytketty '%s')" % k.tila.hitched)
+	await _frames(10)
+	# 4. Puimuri kärryn viereen, säiliössä viljaa; puimuriin F:llä ja purku E:llä.
+	await _press("mount")
+	_check(main.player == main.walker_out, "F laski traktorista")
+	var c := k.puimuri
+	c.tank = 600.0
+	k.tila.trailer = 0.0
+	await _place_vehicle(c, r0 + Vector2(-1.6, 4.3), Vector2(1, 0))
+	await _walk_mount(c)
+	_check(main.player == c, "F nosti puimuriin")
+	await _hint_rows("puimuri kärryn vieressä")
+	await _press("interact")
+	_check(c.unloading, "E aloitti purun kärryyn (kohde '%s')" % k._unload_target())
+	var t0 := Time.get_ticks_msec()
+	while c.tank > 0.0 and Time.get_ticks_msec() - t0 < 30000:
+		await _frames(5)
+		if k.tila.trailer > 200.0 and not has_meta("kuva"):
+			set_meta("kuva", true)
+			await _shot(path, "nappain_purku")
+	print("KAISUA purettu: kärryssä %d kg, säiliö %d kg" % [roundi(k.tila.trailer), roundi(c.tank)])
+	_check(k.tila.trailer > 550.0, "vilja siirtyi kärryyn")
+	await _frames(20)
+	await _press("mount")
+	_check(main.player == main.walker_out, "F laski puimurista")
+	# 5. Traktoriin, peruutus suppilolle ja kippaus.
+	await _walk_mount(t)
+	_check(main.player == t, "F nosti taas traktoriin")
+	var rt := await _hold("back", 0.5, func() -> bool: return k._trailer_at_pit(), 25.0)
+	var rl: Vector3 = main.mokki.to_local(kr.global_position)
+	print("KAISUA kärry peruutettu %.1f s, aisan silmä (%.2f, %.2f), tavoite (%.2f, %.2f), suppilolla %s" % [rt, rl.x, rl.z, r_goal.x, r_goal.y, k._trailer_at_pit()])
+	await _hint_rows("kärry suppilolla")
+	_check(main._hint.text.contains("Kippaa vilja"), "vihjeessä kippaus")
+	await _shot(path, "nappain_suppilo")
+	var dried0: float = k.tila.dried
+	await _press("interact")
+	t0 = Time.get_ticks_msec()
+	while k.tila.trailer > 0.0 and Time.get_ticks_msec() - t0 < 30000:
+		await _frames(5)
+		if k.tila.dried - dried0 > 200.0 and not has_meta("kuva2"):
+			set_meta("kuva2", true)
+			_look(_at(pit_l, Vector3(7, 4, -9)), _at(pit_l, Vector3(3, 1.0, 0)))
+			await _frames(3)
+			await _shot(path, "nappain_kippaus")
+			_cam.current = false
+			t.activate_camera()
+	print("KAISUA kipattu kuivuriin %d kg, kärryssä %d kg" % [roundi(k.tila.dried - dried0), roundi(k.tila.trailer)])
+	_check(k.tila.dried - dried0 > 550.0, "E kippasi viljan kuivuriin")
+	print("KAISUA näppäimet: %s" % ("OK" if _viat == 0 else "%d vikaa" % _viat))
+
+
+# --- Pinnat ja päärakennus -------------------------------------------------------------------------------------------
+
+func _cam_xf(xf: Transform3D, eye: Vector3, target: Vector3) -> void:
+	if _cam == null:
+		_look(Kaisua.YARD + Vector3(0, 5, 0), Kaisua.YARD + Vector3(5, 0, 5))
+	_cam.current = true
+	_cam.global_position = xf * eye
+	_cam.look_at(xf * target)
+
+
+func _pinnat(path: String) -> void:
+	var k := _k()
+	main._hud.visible = false
+	var hr: Node3D = k.get_node("Paarakennus")
+	var hx := hr.global_transform
+	var dl: Vector3 = hr.to_local(_g(Vector3(k.house_door.x, Mokki.mesh_h(k.house_door.x, k.house_door.z), k.house_door.z)))
+	print("KAISUA talo %s, kuistin edusta talon kehyksessä %s" % [main.mokki.to_local(hr.global_position), dl])
+	for v in [["talo_edesta", Vector3(-4.0, 2.0, -17.0), Vector3(0, 3.0, 0)], ["talo_kuisti", Vector3(dl.x - 3.0, 1.2, dl.z - 3.5), Vector3(dl.x, 1.2, dl.z + 2.5)],
+			["talo_takaa", Vector3(13.0, 3.5, 13.0), Vector3(0, 3.0, 0)], ["talo_ylhaalta", Vector3(-16.0, 15.0, -20.0), Vector3(0, 2.0, 0)]]:
+		_cam_xf(hx, v[1], v[2])
+		await _frames(20)
+		await _shot(path, v[0])
+	# Kotipelto: puolet niitetään, niitetystä puolet karhotaan.
+	var pe = k._pelto(0)
+	var lanes := _lanes(pe, Vector2(1, 0), 3.4)
+	for i in lanes.size() / 2:
+		_sim_lane("niitto", lanes[i][0], lanes[i][1], 1.75, 0.35)
+	var rl := _lanes(pe, Vector2(0, 1), 6.0)
+	for i in rl.size() / 2:
+		_sim_lane("karhous", rl[i][0], rl[i][1], 3.0, 1.2)
+	pe.refresh_all()
+	await _frames(10)
+	_summary("pinnat")
+	# Kohdat: niitetty (karhoamaton), karho ja seisovan raja tilan mukaan ruudukosta.
+	var spot := {}
+	var best := {}
+	var c: Vector2 = pe.center
+	for dz in range(-60, 61, 1):
+		for dx in range(-80, 81, 1):
+			var q := c + Vector2(dx, dz)
+			var st: int = pe.state_at(q)
+			var key := ""
+			if st == Tila.H_NIITETTY and pe.state_at(q + Vector2(4, 0)) == Tila.H_NIITETTY and pe.state_at(q + Vector2(-4, 0)) == Tila.H_NIITETTY \
+					and pe.state_at(q + Vector2(0, 4)) == Tila.H_NIITETTY and pe.state_at(q + Vector2(0, -4)) == Tila.H_NIITETTY:
+				key = "niitetty"
+			elif st == Tila.H_KARHO and pe.state_at(q + Vector2(0, 6)) == Tila.H_KARHO and pe.state_at(q + Vector2(0, -6)) == Tila.H_KARHO:
+				key = "karho"
+			elif st == Tila.H_VALMIS and pe.state_at(q + Vector2(0, -2)) == Tila.H_NIITETTY:
+				key = "raja"
+			# Lähin pellon keskustaa: ei metsänreunan varjoa kuvaan.
+			if key != "" and q.distance_to(c) < float(best.get(key, INF)):
+				best[key] = q.distance_to(c)
+				spot[key] = q
+	print("KAISUA pinnat kohdat %s" % spot)
+	if spot.has("niitetty"):
+		var q: Vector2 = spot.niitetty
+		_look(Vector3(q.x - 2.5, 1.7, q.y + 2.5), Vector3(q.x + 1.0, 0.0, q.y - 1.0))
+		await _frames(10)
+		await _shot(path, "niitetty_lahi")
+	if spot.has("karho"):
+		var q: Vector2 = spot.karho
+		_look(Vector3(q.x - 3.0, 1.3, q.y + 4.0), Vector3(q.x + 0.5, 0.1, q.y - 2.0))
+		await _frames(10)
+		await _shot(path, "karho_lahi")
+		_look(Vector3(q.x - 10.0, 6.0, q.y + 8.0), Vector3(q.x + 4.0, 0.0, q.y - 6.0))
+		await _frames(10)
+		await _shot(path, "karhot")
+	if spot.has("raja"):
+		var q: Vector2 = spot.raja
+		_look(Vector3(q.x - 4.0, 1.8, q.y - 5.0), Vector3(q.x + 1.0, 0.3, q.y + 1.0))
+		await _frames(10)
+		await _shot(path, "seisova_raja")
+	# Pellon reuna läheltä: monikulmion kärki ja sivun keskikohta ylhäältä viistosti.
+	var poly: PackedVector2Array = pe.poly
+	for i in 2:
+		var a := poly[i]
+		var b := poly[(i + 1) % poly.size()]
+		var m := (a + b) / 2.0
+		var inward := (c - m).normalized()
+		_look(Vector3(m.x - inward.x * 5.0, 4.5, m.y - inward.y * 5.0), Vector3(m.x + inward.x * 2.0, 0.0, m.y + inward.y * 2.0))
+		await _frames(10)
+		await _shot(path, "reuna_%d" % i)
+	# Kasvusto kaukana: matalalta pellon poikki (Tienvarsipelto kypsää ohraa, Kotipellon seisova heinä).
+	for fi in [1, 0]:
+		var pf = k._pelto(fi)
+		var pc: Vector2 = pf.center
+		var dir := Vector2(1, 0) if fi == 1 else Vector2(-1, 0.3).normalized()
+		_look(Vector3(pc.x - dir.x * 40.0, 1.8, pc.y - dir.y * 40.0), Vector3(pc.x + dir.x * 40.0, 0.5, pc.y + dir.y * 40.0))
+		await _frames(20)
+		await _shot(path, "kauas_%s" % ("ohra" if fi == 1 else "heina"))
+
+
+# --- Apumies ja sää --------------------------------------------------------------------------------------------------
+
+## Santun reitti ylhäältä kuvana (0,25 m/px): pelto harmaa, työssä vihreä, siirtymä sininen, peruutus punainen.
+func _path_png(path: String, name: String, route: Array, pe) -> void:
+	var sc := 4.0
+	var w := int(pe.nx * Tila.CELL * sc) + 40
+	var h := int(pe.nz * Tila.CELL * sc) + 40
+	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
+	img.fill(Color(0.12, 0.16, 0.1))
+	var o: Vector2 = pe.origin - Vector2(5, 5)
+	for y in h:
+		for x in w:
+			if pe.has_point(o + Vector2(x, y) / sc):
+				img.set_pixel(x, y, Color(0.45, 0.45, 0.42))
+	for r in route:
+		var q: Vector2 = ((r[0] as Vector2) - o) * sc
+		var col := Color(0.9, 0.15, 0.1) if r[2] else (Color(0.2, 0.85, 0.2) if r[1] else Color(0.3, 0.5, 1.0))
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var px := int(q.x) + dx
+				var py := int(q.y) + dy
+				if px >= 0 and py >= 0 and px < w and py < h:
+					img.set_pixel(px, py, col)
+	var pth := path.replace(".png", "_%s.png" % name)
+	img.save_png(pth)
+	print("KAISUA kuva ", pth)
+
+
+## Santtu ajaa (nopeutettuna) loppuun tai aikaraja; kuvat kerran tavallisella vauhdilla. Palauttaa ajetun ajan (s).
+func _helper_run(path: String, tag: String, rate: float) -> float:
+	var k := _k()
+	var t := k.traktori
+	var t0 := Time.get_ticks_msec()
+	k.helper_rate_override = 1.0
+	for i in 90:
+		await main.get_tree().physics_frame
+	var tp: Vector3 = main.mokki.to_local(t.global_position)
+	_look(_at(tp, Vector3(-3.5, 2.2, 3.0)), _at(tp, Vector3(0, 1.4, 0)))
+	await _frames(4)
+	await _shot(path, tag + "_santtu")
+	_look(_at(tp, Vector3(-14.0, 9.0, 12.0)), _at(tp, Vector3(0, 0, 0)))
+	await _frames(4)
+	await _shot(path, tag + "_ajo")
+	k.helper_rate_override = rate
+	var turn_shot := false
+	while t.helper_active() and Time.get_ticks_msec() - t0 < 400000:
+		await main.get_tree().physics_frame
+		if not turn_shot and t.helper_progress() > 0.3 and not t.working:
+			turn_shot = true
+			k.helper_rate_override = 1.0
+			for i in 30:
+				await main.get_tree().physics_frame
+			tp = main.mokki.to_local(t.global_position)
+			_look(_at(tp, Vector3(-10.0, 8.0, 10.0)), _at(tp, Vector3(0, 0, 0)))
+			await _frames(3)
+			await _shot(path, tag + "_kaanto")
+			k.helper_rate_override = rate
+	k.helper_rate_override = 0.0
+	return (Time.get_ticks_msec() - t0) / 1000.0
+
+
+func _apumies(path: String) -> void:
+	var k := _k()
+	main._hud.visible = true
+	main._kaisua_logic()
+	main.money = 100.0
+	var pe = k._pelto(0)
+	var lanes := _lanes(pe, Vector2(1, 0), 3.4)
+	var l0: Array = lanes[0]
+	k._hitch_now("niittokone")
+	await _place_vehicle(k.traktori, l0[0] + Vector2(-2, -4), Vector2(1, 0))
+	# Jalan traktorin viereen: vihje ja Q.
+	if _cam != null:
+		_cam.current = false
+	var seat: Vector3 = main.mokki.to_local(k.traktori.to_global(Vector3(-1.3, 0, 0.3)))
+	main.walker_out.global_position = _gl(seat.x, seat.z, 0.4)
+	main._set_avatar(main.walker_out)
+	await _frames(10)
+	print("KAISUA vihje traktorin vieressä: %s" % main._hint.text)
+	_check(main._hint.text.contains("Santtu"), "vihjeessä Santun pyyntö")
+	var money0: float = main.money
+	await _press("bell")
+	await _frames(3)
+	var t := k.traktori
+	_check(t.helper_active(), "Q: Santtu ajaa (reitti %d pistettä, %.0f m)" % [t.helper_path.size(), t.helper_path.size() * Kaisua.HELPER_STEP])
+	_check(not main.mokki.santtu.visible, "mökin Santtu poissa")
+	_check(absf(main.money - (money0 - Kaisua.HELPER_FEE)) < 0.01, "palkkio maksettu (%.2f -> %.2f)" % [money0, main.money])
+	print("KAISUA vihje Santun ajaessa: %s" % k._helper_logic(main.walker_out, false))
+	_path_png(path, "reitti_niitto", t.helper_path, pe)
+	var secs := await _helper_run(path, "niitto", 40.0)
+	k._check_jobs()
+	var cut := int(pe.counts.get(Tila.H_NIITETTY, 0))
+	var left := int(pe.counts.get(Tila.H_VALMIS, 0)) + int(pe.counts.get(Tila.H_PUOLI, 0)) + int(pe.counts.get(Tila.H_LYHYT, 0))
+	print("KAISUA Santun niitto %.0f s: niitetty %d, pystyssä %d (%.1f %%), maksettu %s" % [secs, cut, left, 100.0 * left / maxf(1, cut + left), k.tila.is_paid(0, "niitto")])
+	_check(not t.helper_active(), "Santun ajo päättyi")
+	_check(float(left) / maxf(1, cut + left) < 0.03, "Santtu niitti pellon (pystyyn jäi alle 3 %)")
+	_check(main.mokki.santtu.visible, "mökin Santtu palasi")
+	_look(Vector3(pe.center.x - 30, 40, pe.center.y + 45), Vector3(pe.center.x, 0, pe.center.y))
+	await _frames(10)
+	await _shot(path, "niitto_valmis")
+	# Karhous simuloiden, sitten paalaus Santun reitillä (karhoja pitkin).
+	var rl := _lanes(pe, Vector2(0, 1), 6.0)
+	for l in rl:
+		_sim_lane("karhous", l[0], l[1], 3.0, 1.2)
+	k._check_jobs()
+	_summary("karhottu")
+	var karho0 := int(pe.counts.get(Tila.H_KARHO, 0))
+	k._unhitch()
+	await _place_vehicle(t, l0[0] + Vector2(-2, -4), Vector2(1, 0))
+	k._hitch_now("paalain")
+	var wr := k._windrows(pe)
+	print("KAISUA karhot: suunta %s, %d karhoa: %s" % [wr[0], (wr[1] as Array).size(), wr[1]])
+	main.walker_out.global_position = _gl(seat.x, seat.z, 0.4)
+	await _frames(5)
+	main.money = 100.0
+	await _press("bell")
+	await _frames(3)
+	_check(t.helper_active(), "Q: Santtu paalaa")
+	_path_png(path, "reitti_paalaus", t.helper_path, pe)
+	secs = await _helper_run(path, "paalaus", 40.0)
+	var karho1 := int(pe.counts.get(Tila.H_KARHO, 0))
+	print("KAISUA Santun paalaus %.0f s: karhoa %d -> %d ruutua, paaleja %d" % [secs, karho0, karho1, k.tila.bales.size()])
+	_check(float(karho1) / maxf(1, karho0) < 0.05, "Santtu paalasi karhot (jäi alle 5 %)")
+	await _frames(30)
+	_look(Vector3(pe.center.x - 30, 40, pe.center.y + 45), Vector3(pe.center.x, 0, pe.center.y))
+	await _frames(10)
+	await _shot(path, "paalaus_valmis")
+	print("KAISUA apumies: %s" % ("OK" if _viat == 0 else "%d vikaa" % _viat))
+
+
+func _sade(path: String) -> void:
+	var k := _k()
+	main._hud.visible = false
+	var shots := [["piha", Vector3(-235, 6, 100), Vector3(-205, 1, 128)], ["pelto", Vector3(-185, 4, 105), Vector3(-150, 0, 70)]]
+	k.rain_force = 0.0
+	k.rain_amount = 0.0
+	for s in shots:
+		_look(s[1], s[2])
+		await _frames(30)
+		await _shot(path, "pouta_" + s[0])
+	k.rain_force = 1.0
+	k.rain_amount = 1.0
+	await _frames(40)
+	for s in shots:
+		_look(s[1], s[2])
+		await _frames(30)
+		await _shot(path, "sade_" + s[0])
+	print("KAISUA sade: sataa %s, voimakkuus %.2f, pisarat %s" % [k.raining(), k.rain_amount, k._rain != null and k._rain.emitting])
+	_check(k.raining() and k._rain != null and k._rain.emitting, "sade näkyy")
+	# Paalaus sateella: karhoruutuja ei kerätä.
+	var pe = k._pelto(0)
+	var lanes := _lanes(pe, Vector2(1, 0), 3.4)
+	for l in lanes:
+		_sim_lane("niitto", l[0], l[1], 1.75, 0.35)
+	var rl := _lanes(pe, Vector2(0, 1), 6.0)
+	var mid: Array = rl[rl.size() / 2]
+	_sim_lane("karhous", mid[0], mid[1], 3.0, 1.2)
+	pe.recount()
+	var before := int(pe.counts.get(Tila.H_KARHO, 0))
+	_sim_lane("paalaus", mid[0], mid[1], 0.95, 0.35)
+	pe.recount()
+	var during := int(pe.counts.get(Tila.H_KARHO, 0))
+	_check(before > 0 and during == before, "sateella ei paalata (karhoja %d -> %d)" % [before, during])
+	k._talk_i = 0
+	k.tila.talked = true
+	k._talk()
+	print("KAISUA isäntä sateella: %s" % k._bubble.text)
+	_check(k._bubble.text.contains("sataa"), "isäntä mainitsee sateen")
+	k.rain_force = 0.0
+	_sim_lane("paalaus", mid[0], mid[1], 0.95, 0.35)
+	pe.recount()
+	_check(int(pe.counts.get(Tila.H_KARHO, 0)) < before, "poudalla paalataan")
+	# Sadepäivät: ensimmäiset 30 päivää.
+	var days := []
+	for d in range(1, 31):
+		var w := Tila.rain_window(d)
+		if w.x >= 0.0:
+			days.append("%d (%d–%d)" % [d, int(w.x / 60), int(w.y / 60)])
+	print("KAISUA sadepäivät 1–30: %s" % ", ".join(days))
+	print("KAISUA sade: %s" % ("OK" if _viat == 0 else "%d vikaa" % _viat))

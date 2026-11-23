@@ -17,7 +17,7 @@ const Tila := preload("res://scripts/kaisua_tila.gd")
 const CHUNK := 32  # ruutua lohkon sivulla (16 m)
 const H_STEP := 2.0  # korkeusruudukko (mokki.gd GRID_STEP: verkon kärkipisteet osuvat siihen tarkasti)
 const LIFT := 0.05  # pinta maaston yllä
-const CROP_RANGE := 80.0
+const CROP_RANGE := 80.0  # lohkon keskipisteen etäisyys; lähin tupsu silloin yli 66 m (pelto_kasvi fade_far)
 
 var tila: Tila
 var index := 0
@@ -276,6 +276,12 @@ func work(op: String, c: Vector2, fwd: Vector2, hw: float, hl: float, seed_left 
 
 
 ## Päivän kasvun (kaisua_tila.gd advance_to) jälkeen: kuva ja laskurit uudelleen.
+## Sade: pinta tummuu ja kiiltää (pelto_maa.gdshader wet).
+func set_wet(w: float) -> void:
+	if _ground_mat != null:
+		_ground_mat.set_shader_parameter("wet", w)
+
+
 func refresh_all() -> void:
 	_build_state_image()
 	_common_textures(_ground_mat)
@@ -414,12 +420,11 @@ func _build_crops() -> void:
 			var mmi := MultiMeshInstance3D.new()
 			mmi.multimesh = mm
 			mmi.material_override = _crop_mat
-			mmi.set_instance_shader_parameter("chunk0", Vector2(ci, cj))
-			mmi.custom_aabb = AABB(Vector3(p0.x, lo - 1.0, p0.y), Vector3(size, hi - lo + 3.0, size))
+			# Lohkon alkuruutu solmun siirtona (varjostin lukee MODEL_MATRIX:sta); rajaava laatikko siirretään vastaavasti.
+			mmi.position = Vector3(ci, 0, cj)
+			mmi.custom_aabb = AABB(Vector3(p0.x - ci, lo - 1.0, p0.y - cj), Vector3(size, hi - lo + 3.0, size))
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			mmi.visibility_range_end = CROP_RANGE
-			mmi.visibility_range_end_margin = 8.0
-			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			mmi.visibility_range_end = CROP_RANGE  # varjostin painaa tupsut maahan jo ennen (fade_far), ei kovaa reunaa
 			add_child(mmi)
 
 
@@ -431,6 +436,7 @@ func _ready() -> void:
 func _sync_xform() -> void:
 	if _crop_mat != null and is_inside_tree():
 		_crop_mat.set_shader_parameter("to_world", global_transform)
+		_crop_mat.set_shader_parameter("from_world", global_transform.affine_inverse())
 
 
 static var _noise_tex: Texture2D

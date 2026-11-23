@@ -100,6 +100,18 @@ func init_cells(i: int, nx: int, nz: int, mask: PackedByteArray) -> Dictionary:
 
 
 ## Päivien kasvu: nurmi kasvaa sängestä niittokypsäksi kolmessa päivässä ja kylvetty ohra puintikypsäksi kolmessa.
+## Sadepäivä: noin joka kolmas päivä (ei ensimmäisenä) sataa 3–7 tuntia klo 8–14 alkaen. Palauttaa [alku, loppu]
+## minuutteina keskiyöstä, tai (-1, -1) poutapäivänä. Sateella paalaus ja puinti odottavat (märkä heinä ja vilja).
+static func rain_window(day: int) -> Vector2:
+	if day <= 1:
+		return Vector2(-1, -1)
+	var h := (day * 2654435761 + 97) & 0x7fffffff
+	if h % 100 >= 32:
+		return Vector2(-1, -1)
+	var start := 8 * 60 + (h / 100) % 7 * 60
+	return Vector2(start, start + 180 + (h / 1000) % 5 * 60)
+
+
 func advance_to(day: int) -> void:
 	if last_day < 0:
 		last_day = day
