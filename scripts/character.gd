@@ -24,6 +24,7 @@ const SOLE := {
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
 const Elastic := preload("res://scripts/elastic.gd")
 const Shoes := preload("res://scripts/shoes.gd")
+const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const Anatomia := preload("res://scripts/anatomia.gd")
 const PRESS_MAX := 6  # kontaktilaatikoita enintään (varjostimen press_xf0..5)
 
@@ -656,7 +657,7 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 		if mesh == null or not mesh.has_meta("pohja"):
 			mesh = Shoes.build(kind, shoe_type, src.surface_get_arrays(0), body.skin, skeleton)
 			DirAccess.make_dir_recursive_absolute(MESH_CACHE)
-			ResourceSaver.save(mesh, cache)
+			MeshBundle.save_atomic(mesh, cache)
 		_meshes[key] = weakref(mesh)
 	var t: Dictionary = Shoes.TYPES[shoe_type]
 	var sm := ShaderMaterial.new()
@@ -724,7 +725,7 @@ func _attach_anatomia(look: Dictionary, kind: String, body: MeshInstance3D, shap
 			if mesh == null:
 				return
 			DirAccess.make_dir_recursive_absolute(MESH_CACHE)
-			ResourceSaver.save(mesh, cache)
+			MeshBundle.save_atomic(mesh, cache)
 		_meshes[key] = weakref(mesh)
 	var mi := MeshInstance3D.new()
 	mi.name = "Anatomia"
@@ -1336,7 +1337,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	if kind != "female" and shape.get("belly", 0.0) > 0.0:
 		_hem_front(out)  # metatieto tallentuu välimuistiin
 	DirAccess.make_dir_recursive_absolute(MESH_CACHE)
-	ResourceSaver.save(out, cache)
+	MeshBundle.save_atomic(out, cache)
 	return out
 
 
