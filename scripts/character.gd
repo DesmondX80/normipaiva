@@ -78,7 +78,7 @@ var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 ## beard (bool), stripes (bool), height (m), shine (0..1).
 ## Vartalo: belly (0..1 kaljamaha), bulk (-1..1 hoikka..tukeva), shoulders (-1..1 kapeat..leveät hartiat),
 ## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori),
-## upper_arm (0..1 olkavarren tyvi paksummaksi olkapään alta, hahmoeditori).
+## upper_arm (0..1 olkapään ja olkavarren tyven täyttö, hahmoeditori).
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
@@ -1750,11 +1750,15 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		off.z += (p.z + 0.04) * 0.5 * legs * lg
 	var ua: float = shape.get("upper_arm", 0.0)
 	if ua != 0.0:
-		# Olkavarren tyvi heti olkapään alla (hahmoeditorin hintelä keho): lihasten pienennys (delt) ja käsivarren ohennus
-		# osuvat siinä päällekkäin ja jättävät kapean kaulan. Paksunnetaan käsivarren akselin ympäri, huippu ax 0,25.
-		var uw := exp(-pow((ax - 0.25) / 0.07, 2.0)) * smoothstep(1.3, 1.36, p.y)
-		off.y += (p.y - 1.45) * ua * uw
-		off.z += (p.z + 0.06) * ua * uw
+		# Olkapään ja olkavarren tyven täyttö (hahmoeditorin hintelä keho): lihasten pienennys (delt, pec, upper_back) ja
+		# käsivarren ohennus osuvat tyvessä päällekkäin ja jättävät olkapään eteen ja taakse kolon (syvyys putoaa alle
+		# käsivarren oman paksuuden) ja niskan ja olkapään väliin notkon. Täyttö: syvyys akselin (z -0,06) ympäri, paksuus
+		# vain akselin alapuolelle (kainalon puoli; yläpinta ei saa nousta kyhmyksi) ja notkon pohja ylös.
+		var uy := smoothstep(1.3, 1.36, p.y)
+		off.z += (p.z + 0.06) * ua * exp(-pow((ax - 0.27) / 0.08, 2.0)) * uy
+		if p.y < 1.45:
+			off.y += (p.y - 1.45) * 0.6 * ua * exp(-pow((ax - 0.27) / 0.06, 2.0)) * uy
+		off.y += 0.04 * ua * exp(-pow((ax - 0.15) / 0.045, 2.0)) * smoothstep(1.4, 1.47, p.y)
 	var mu: float = shape.get("muscle", 0.0)
 	if mu < 0.0:
 		var m := -mu
