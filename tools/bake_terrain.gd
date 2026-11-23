@@ -39,6 +39,7 @@ func _init() -> void:
 	# Ei pehmennystä eikä teiden tasoitusta: korkeudet suoraan 2 m mallista samoissa pisteissä (tools/kartta/kyla.ps1).
 	# Maakerrokset (tiet, pihat) pilkotaan maastokolmioiden mukaan (world.gd _conform), joten maasto ei pistä läpi.
 	_flatten_site(hs, nx, nz, lo, M.w2(M.KOTA) + Vector2(3, 3), 13.0)  # kota, halkovaja ja lintutorni tasamaalle
+	_flatten_site(hs, nx, nz, lo, M.w2(M.HONGAN_KENTTA), 23.0)  # Honganpalon koulun kenttä (22 x 34 m, kulmat 20 m) tasamaalle
 	_flatten_water(hs, nx, nz, lo)  # vesi viimeisenä, ettei piha nosta järven pintaa
 	var f := FileAccess.open(T.BIN, FileAccess.WRITE)
 	f.store_32(nx)

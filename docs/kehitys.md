@@ -79,6 +79,7 @@ tyhjästä tilasta (`_fresh`: uusi `kaisua_tila.gd` ja `mokki.gd rebuild_kaisua`
 tallennuksessa voi olla edellisen kohtauksen Kaisua (F koneesta pois tallentaa pelin) ja sadepäivä. Vihjepalkin rivit
 mitataan rivittämällä vihjeen teksti suoraan (`hint_bar.gd _rebuild`), koska testiajo piilottaa HUDin joka ruutu.
 `--scene=pekanlaatikko`: Pekan vintin romut (`pekan_laatikko.gd`): laatikko vasta oman kirppispöydän jälkeen ja vain kerran, romut pöydälle, keräilijän, Anna-Liisan ja mummon repliikit, Pekan osuus (puolet romujen tuloista), saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt tilitys (kyyti kiinni, vihainen tervehdys) ja tallennus; rivit `PL OK` tai `TESTI VIKA`, kuvat `_pekka_laatikko`, `_keraaja`, `_poyta_lahi` (pöytä 2 × suurennettuna), `_annaliisa_taulu`, `_yhteenveto`, `_tilitys`, `_myohassa`.
+`--scene=honganpalo_maasto`: Honganpalon koulu ja kenttä maaston pinnalla (kentän rako maahan yhdeksästä pisteestä, `TESTI VIKA` yli 0,15 m; kuvat `_hongan_*` kentästä sivulta, päädystä ja ylhäältä, koulusta edestä ja takaa sekä pihasta). Kentän alla maasto on tasoitettu leivonnassa (`tools/bake_terrain.gd`, `_flatten_site`).
 `--scene=kainuulista`: Gasthausin ruokalista (valinnat, nälän nollaus, köyhänä pois käytöstä).
 `--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).
 `--scene=kalalampi`: retkirunko ja Teeriniemen kalalampi (taksivalikko, matka, lupa, onkiminen, paluu ja kello; kuvat `_alue`, `_tiski`, `_ranta`, `_koho`, `_kirjolohi`, `_taimen`; `--shot=`).
