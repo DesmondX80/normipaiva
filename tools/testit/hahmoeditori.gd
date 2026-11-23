@@ -74,9 +74,13 @@ func run(path: String) -> void:
 	# Jokainen vaihtoehto: rivi valitaan, askel oikealle, kuva. Kierros palaa oletukseen.
 	# --he-rivi=<id>: kuvataan vain se rivi ja asuista vain ne, joissa on sama valinta (nopea uusinta yhdelle riville).
 	var vain := ""
+	var kehot := PackedStringArray()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--he-rivi="):
 			vain = arg.substr(10)
+		elif arg.begins_with("--he-kehot="):  # vain asut, joissa on jokin näistä kehoista (esim. roteva,hintela); rivit ohitetaan
+			kehot = arg.substr(11).split(",")
+			vain = "-"
 	for i in Looks.HAHMO.size():
 		var row: Dictionary = Looks.HAHMO[i]
 		if vain != "" and row.id != vain:
@@ -132,7 +136,10 @@ func run(path: String) -> void:
 		["tyovaatteet", "", {"tukka": "kalju", "keho": "roteva", "maha": "hoikka"}],
 		["tuulipuku", "stetson", {"tukka": "kalju", "parta": "pukki", "keho": "nainen", "lasit": "pilotti"}]]
 	for a: Array in asut:
-		if vain != "" and not (a[2] as Dictionary).has(vain):
+		if kehot.size() > 0:
+			if not String((a[2] as Dictionary).get("keho", "")) in kehot:
+				continue
+		elif vain != "" and not (a[2] as Dictionary).has(vain):
 			continue
 		Looks.outfit = a[0]
 		Looks.hat = a[1]
