@@ -334,6 +334,7 @@ const SuloPannu := preload("res://scripts/sulo_pannu.gd")
 const PekanLaatikko := preload("res://scripts/pekan_laatikko.gd")
 const Kaisua := preload("res://scripts/kaisua.gd")
 const KaisuaTila := preload("res://scripts/kaisua_tila.gd")
+const MaatilaPaikka := preload("res://scripts/maatila_paikka.gd")
 const KertunRauta := preload("res://scripts/kertun_rauta.gd")
 const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
 const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
@@ -467,6 +468,8 @@ var _hs_group := ""  # Saloisten myynnin ostajaryhmä: "kaukalo" / "laavu" (tapp
 var pannu: RefCounted  # legenda: Sulon isän kadonnut pannu (sulo_pannu.gd, #130)
 var laatikko: RefCounted  # Pekan vintin romulaatikko kirppikselle (pekan_laatikko.gd)
 var kaisua_tila: KaisuaTila  # Kaisuan tilan pellot, paalit, koneet ja palkat (kaisua.gd, kaisua_tila.gd)
+var altaan_tila: KaisuaTila  # Altaan tilan (Saloinen, kodin itäpuoli) pysyvä tila, tallennusosio "altaantie"
+var altaan: Node3D  # Altaan tila (kaisua.gd, paikka maatila_paikka.gd altaantie) Saloisten maailmassa
 var kertun: RefCounted  # legenda: Kertunkankaan rauta (kertun_rauta.gd, #122)
 var lemmikki: RefCounted  # Lemmikki Enkelit ja Pörrön muistokyltti (lemmikki_enkelit.gd, #148)
 var kanttori: RefCounted  # legenda: Kanttorilan yösävel (kanttori_legenda.gd, #144)
@@ -1325,7 +1328,9 @@ func _ready() -> void:
 	pannu = SuloPannu.new()
 	laatikko = PekanLaatikko.new()
 	kaisua_tila = KaisuaTila.new()
-	Kaisua.tila = kaisua_tila
+	Kaisua.mokki_tila = kaisua_tila
+	altaan_tila = KaisuaTila.new()
+	altaan_tila.section = "altaantie"
 	kertun = KertunRauta.new()
 	aarni = Aarnivalkea.new()
 	pyhimys = PyhimysLegenda.new()
@@ -1354,6 +1359,7 @@ func _ready() -> void:
 	_rikos_init()
 	tilat.on_first = func(k: String) -> void: _rikos_event("first", {"key": k})  # Päivin jäljet (rikos/paivi.gd)
 	_load_game()
+	_build_altaan()  # tallennuksen jälkeen: pellot ja koneet tallennetusta tilasta
 	_rossi_update_clock()  # rossiradan kellotaulu: ennätys heti, ei vasta kierroksen jälkeen
 	_story_check_jemma.call_deferred()  # vanha tallennus, jossa kuutonen jo kotijemmoissa
 	_pannu_update()
@@ -1863,6 +1869,9 @@ func _outside_logic() -> void:
 		_kalle_logic()
 		_kauppa_auto_logic()
 		_mokki_logic()
+		return
+	# Altaan tila (kodin itäpuoli): koneissa ja tilan toiminnoissa muut kylän toiminnot odottavat.
+	if _altaan_logic():
 		return
 	_compass.has_cache = false
 	var ppos := player.global_position
@@ -15576,7 +15585,30 @@ func _pekka_ride() -> void:
 func _kaisua_logic() -> bool:
 	if mokki == null or mokki.kaisua == null or not mokki.kaisua.built:
 		return false
-	var k: Node3D = mokki.kaisua
+	return _farm_logic(mokki.kaisua)
+
+
+## Altaan tila Saloisissa (kodin itäpuoli): sama logiikka kuin Kaisualla (_farm_logic).
+func _altaan_logic() -> bool:
+	if altaan == null or not altaan.built:
+		return false
+	return _farm_logic(altaan)
+
+
+## Altaan tila Saloisten maailmaan pihoineen, peltoineen ja koneineen (tallennuksen jälkeen).
+func _build_altaan() -> void:
+	if world == null or altaan != null:
+		return
+	altaan = Kaisua.new()
+	altaan.site = MaatilaPaikka.altaantie()
+	altaan.tila = altaan_tila
+	world.add_child(altaan)
+	altaan.build()
+
+
+## Maatilan (Kaisua tai Altaan tila) vuoro: signaalit, päivä ja raha tilalle, näppäimet ja vihje; koneissa tilarivi.
+## Palauttaa true, kun tila otti vuoron (muut alueen toiminnot ohitetaan).
+func _farm_logic(k: Node3D) -> bool:
 	if not k.has_meta("kytketty"):
 		k.set_meta("kytketty", true)
 		k.message.connect(func(t: String, secs: float) -> void: _show_message(t, secs))
@@ -15588,7 +15620,9 @@ func _kaisua_logic() -> bool:
 			_set_beer_carry())
 		k.mount.connect(_kaisua_mount)
 		k.dismount.connect(_kaisua_dismount)
-		k.helper_changed.connect(func(on: bool) -> void: mokki.santtu_away(on))
+		k.helper_changed.connect(func(on: bool) -> void:
+			if mokki != null:
+				mokki.santtu_away(on))
 	k.advance_day(day)
 	k.money = money
 	k.clock_min = clock_min
@@ -15612,8 +15646,10 @@ var _kaisua_frame := -1  # ruutu, jolla noustiin Kaisuan koneeseen tai siitä po
 
 
 func _kaisua_driving() -> bool:
-	return mokki != null and mokki.kaisua != null and mokki.kaisua.built and \
-		(player == mokki.kaisua.traktori or player == mokki.kaisua.puimuri)
+	for k: Node3D in [mokki.kaisua if mokki != null else null, altaan]:
+		if k != null and k.built and (player == k.traktori or player == k.puimuri):
+			return true
+	return false
 
 
 func _kaisua_paid(amount: float, why: String) -> void:
@@ -21544,6 +21580,7 @@ func _load_game() -> void:
 	pannu.load_from(cfg)
 	laatikko.load_from(cfg)
 	kaisua_tila.load_from(cfg)
+	altaan_tila.load_from(cfg)
 	kertun.load_from(cfg)
 	_pohjoiset_load(cfg)
 	aarni.load_from(cfg)
@@ -21800,6 +21837,10 @@ func _save_game() -> void:
 		if mokki != null and mokki.kaisua != null:
 			mokki.kaisua.sync_state()
 		kaisua_tila.save_to(cfg)
+	if altaan_tila != null:
+		if altaan != null and altaan.built:
+			altaan.sync_state()
+		altaan_tila.save_to(cfg)
 	if kertun != null:
 		kertun.save_to(cfg)
 	_pohjoiset_save(cfg)
@@ -23338,6 +23379,8 @@ func _day_rhythm() -> void:
 		_env.tonemap_exposure = lerpf(1.2, 1.05, day)
 		# Sade mökin seudulla (Kaisuan sadepäivä): harmaa pilvikatto, himmeä aurinko ja sakeampi usva.
 		var rain: float = mokki.kaisua.rain_amount if mokki != null and mokki.kaisua != null else 0.0
+		if altaan != null:
+			rain = maxf(rain, altaan.rain_amount)
 		if _fog_density0 < 0.0:
 			_fog_density0 = _env.fog_density
 		_env.fog_density = lerpf(_fog_density0, maxf(_fog_density0, 0.55), rain)

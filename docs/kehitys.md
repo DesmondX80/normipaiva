@@ -593,6 +593,16 @@ lopetus ja kuvat).
 
 `tools/testit/aja.sh --ei-kuvia --kiintea tscn tools/testit/lataus.tscn <kansio> --ajastus` mittaa Saloisten latauksen (`LATAUS Saloinen`), Vaalan latauksen (`LATAUS Vaala`, jaettuna rakennukseen, `_start_mopo`:on ja viiteen ensimmäiseen ruutuun) ja vaihekohtaiset ajat (`VAALA vaiheet`). Testi tallentaa yhden kuvan (`lataus.png`, Vaalan ensiruutu) tulostekansioon, joten `--ei-kuvia` ei ole pakollinen (se käy silti, jos kuvaa ei tarvita). Kylmä mittaus: poista ajon `HOME`:n `.local/share/godot/app_userdata/Normipäivä/cache`. Lisävalitsimet: `--avaintesti` (ajoalueen välimuistiavaimen kattavuus: syötteen muutos muuttaa maskin ja avaimen), `--tarkista-ajomaski` (välimuistista ladattu maski vs. laskettu), `--ei-valimuistia` (ohita ajomaskin levyvälimuisti `vaala_ajo`). Luvut ennen/jälkeen: työkansion `03-baseline.md`.
 
+Maatila on paikkariippumaton (`maatila_paikka.gd`): paikka kertoo pellot (Kaisualla mökin OSM-pellot tunnisteella,
+Altaan tilalla monikulmiot `map_tila.gd`:stä), maaston korkeusfunktion ja verkon kolmioinnin (mökki: 2 m kärjet,
+lävistäjä (0,0)-(1,1), `mokki.gd mesh_h`; Saloinen: 5 m kärjet `terrain.gd` origosta, lävistäjä (1,0)-(0,1), `Terrain.h`),
+pihan rakennusten ja koneiden paikat, talon pohjan, isännän, naapurin, apumiehen, tekstit, legendat, sateen ja
+tallennusosion. Pellon pinta, kasvusto (`pelto_kasvi.gdshader diag_main`) ja piha seuraavat paikan kolmiointia, joten ne
+ovat maan pinnassa molemmissa maailmoissa. Saloisissa `world.gd` raivaa puut ja ruohon tilan pelloilta (`_farm_fields`,
+ei viljaruohoa kuten `_fields`), pihasta ja ajourasta (`map_data.gd ALTAAN_PIHA`, `ALTAAN_URA`), ja OSM-talo ja
+-ulkorakennus jäävät pois (`OWN_BUILDINGS`). Testit `--scene=altaan` (piha, pellot, puuttomuus, isäntä) ja `altaan_ajo`
+(traktori ajouraa Isoahoon, puinti, Eetu niittää Kotiniityn).
+
 Kaisuan kasvustolohkot (satoja MultiMeshInstanceja) eivät käytä varjostimen instanssimuuttujia: GLES3 sallii niitä
 koko pelissä 4096 paikkaa, ja tilan uudelleenrakennus (testien `_fresh`) ylitti rajan, jolloin lohkot piirsivät väärän
 kohdan. Lohkon alkuruutu on solmun siirto, jonka `pelto_kasvi.gdshader` lukee `MODEL_MATRIX`:sta (`from_world`).

@@ -154,8 +154,18 @@ const NEIGHBOR_PEKKA := Vector2(868.8, 1108.7)
 const NEIGHBOR_SINIKKA := Vector2(855.5, 1204.2)
 const MAILBOX := Vector2(814, 1169)
 ## OSM-rakennukset, joiden tilalle tehdään oma malli (koti, autotalli, naapurit, kauppa).
+## Altaan tila (kaisua.gd, maatila_paikka.gd altaantie) kodin itäpuolella Altaantien varressa: pihan sora ja raivaus
+## [keskipiste px, säde] ja ajoura pihasta peltojen välistä polkua Isoahon eteläkärkeen (puut raivataan, world.gd).
+## Päärakennus tulee OSM-talon ja konevaja OSM-ulkorakennuksen paikalle (OWN_BUILDINGS).
+const ALTAAN_PIHA := [[Vector2(1288, 1566), 19.0], [Vector2(1301, 1548), 12.0], [Vector2(1275, 1543), 9.0],
+	[Vector2(1314, 1577), 9.0], [Vector2(1266, 1594), 8.0], [Vector2(1252, 1612), 7.0], [Vector2(1158, 1603), 12.0]]
+const ALTAAN_URA := [Vector2(1288, 1540), Vector2(1300, 1470), Vector2(1319, 1389), Vector2(1341, 1252)]
+const ALTAAN_TALO := Vector2(1155.1, 1611.1)
+const ALTAAN_VAJA := Vector2(1268.2, 1567.6)
+
 const OWN_BUILDINGS := [Vector2(812.4, 1177.9), GARAGE, NEIGHBOR_ARTO, NEIGHBOR_PEKKA, NEIGHBOR_SINIKKA,
-	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, KIRKKO, KELLOTAPULI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS, HONGAN_KOULU, SEPPO, SAASTOPIHA, KORPELA, HEISKANEN, HUHTALA]
+	Vector2(85.6, 541), Vector2(80.1, 521.8), SEURAINTALO, REIPPARI, KIRKKO, KELLOTAPULI, PUKUKOPPI, SEO_KATOS, SEO, KATSASTUS, ARTTIM, RUDUS, HONGAN_KOULU, SEPPO, SAASTOPIHA, KORPELA, HEISKANEN, HUHTALA,
+	ALTAAN_TALO, ALTAAN_VAJA]
 
 ## type: highway | road | street | path. h = katuvalot/kylämäisyys tien varrella (0..1).
 ## Tiet ja polut: Osm.ROADS (OpenStreetMap). Tässä vain käsin tehdyt laavupolut (laavu ei ole OSM:ssä).

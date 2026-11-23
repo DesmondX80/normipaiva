@@ -258,7 +258,7 @@ func ensure_built() -> void:
 	rebuild_kaisua()
 
 
-## Kaisuan tila (uudelleen) Kaisua.tila:sta: mökin rakennuksessa ja testeissä (tallennuksesta ladattu tila).
+## Kaisuan tila (uudelleen) Kaisua.mokki_tila:sta: mökin rakennuksessa ja testeissä (tallennuksesta ladattu tila).
 func rebuild_kaisua() -> void:
 	if kaisua != null:
 		remove_child(kaisua)

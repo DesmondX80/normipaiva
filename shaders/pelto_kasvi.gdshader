@@ -16,6 +16,7 @@ uniform vec2 cells = vec2(1.0);
 uniform float cell = 0.5;
 uniform vec2 h_origin = vec2(0.0);
 uniform float h_step = 2.0;
+uniform bool diag_main = true;  // maastoverkon kolmion lävistäjä (kaisua_pelto.gd)
 uniform mat4 to_world = mat4(1.0);
 uniform mat4 from_world = mat4(1.0);  // to_world käänteisenä: lohkon alkuruutu solmun siirrosta
 uniform int chunk_cols = 32;
@@ -42,12 +43,19 @@ float th(vec2 p) {
 	ivec2 ii = ivec2(i);
 	float h00 = texelFetch(height_tex, ii, 0).r;
 	float h11 = texelFetch(height_tex, ii + ivec2(1, 1), 0).r;
-	if (f.x >= f.y) {
-		float h10 = texelFetch(height_tex, ii + ivec2(1, 0), 0).r;
-		return h00 + (h10 - h00) * f.x + (h11 - h10) * f.y;
-	}
+	float h10 = texelFetch(height_tex, ii + ivec2(1, 0), 0).r;
 	float h01 = texelFetch(height_tex, ii + ivec2(0, 1), 0).r;
-	return h00 + (h11 - h01) * f.x + (h01 - h00) * f.y;
+	if (diag_main) {  // lävistäjä (0,0)-(1,1) (mökin maastoverkko)
+		if (f.x >= f.y) {
+			return h00 + (h10 - h00) * f.x + (h11 - h10) * f.y;
+		}
+		return h00 + (h11 - h01) * f.x + (h01 - h00) * f.y;
+	}
+	// lävistäjä (1,0)-(0,1) (Saloisten terrain.gd)
+	if (f.x + f.y <= 1.0) {
+		return h00 + (h10 - h00) * f.x + (h01 - h00) * f.y;
+	}
+	return h11 + (h01 - h11) * (1.0 - f.x) + (h10 - h11) * (1.0 - f.y);
 }
 
 void vertex() {

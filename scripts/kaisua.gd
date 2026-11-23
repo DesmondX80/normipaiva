@@ -1,7 +1,8 @@
 extends Node3D
 ## Kaisuan tila (Kaisuantie 38, Neittävä, noin 230 m mökiltä länteen): maatilan hommat Farming Simulatorin
 ## tapaan. Mökin lapsi (mokki.gd ensure_built) mökin paikallisessa kehyksessä origossa; pysyvä tila on main.gd:n
-## kaisua_tila.gd-oliossa (Kaisua.tila).
+## kaisua_tila.gd-oliossa (Kaisua.mokki_tila; Altaan tilalla oma). Paikka (pellot, piha, isäntä, tekstit):
+## maatila_paikka.gd (site).
 ##
 ## Piha talon (OSM) ympärillä: konevaja (työkoneet ja siemensäkit), lato (paalit), viljankuivuri vastaanotto-
 ## suppiloineen, KAISUA-kyltti tien varressa ja isäntä. Pellot (kaisua_pelto.gd): Kotipelto ja Ojanvarsi ovat
@@ -22,7 +23,9 @@ const Pelto := preload("res://scripts/kaisua_pelto.gd")
 const Koneet := preload("res://scripts/kaisua_koneet.gd")
 const Ajoneuvo := preload("res://scripts/kaisua_ajoneuvo.gd")
 
-static var tila: Tila  # main.gd asettaa ennen mökin rakentamista
+static var mokki_tila: Tila  # Kaisuan pysyvä tila (main.gd asettaa ennen mökin rakentamista)
+var tila: Tila  # tämän tilan pysyvä tila (build ottaa mokki_tila:n Kaisualle, muuten uusi tai annettu)
+var site: RefCounted  # maatila_paikka.gd: pellot, piha, isäntä, tekstit (null = Kaisua)
 
 signal message(text: String, secs: float)
 signal paid(amount: float, why: String)
@@ -33,42 +36,9 @@ signal mount(vehicle: Node3D)
 signal dismount(vehicle: Node3D, pos: Vector3)
 signal helper_changed(on: bool)  # Santtu lähti mökiltä ajamaan (true) tai palasi (false): mökin Santtu piiloon
 
-# --- Piha (mökin paikallinen kehys; yaw = rotation.y, -Z eteen) ----------------------------------------------------
-const YARD := Vector3(-213.0, 0, 121.0)
-const HOUSE_DOOR := Vector3(-207.5, 0, 110.2)  # pirtin ovi pihan puolella (OSM-talo 1074444651); kuisti tähän kohtaan
-const KONEVAJA := [Vector3(-192.5, 0, 126.0), PI / 2.0]  # avoin sivu länteen
-const LATO := [Vector3(-214.0, 0, 141.8), 0.0]  # ovet pohjoiseen pihalle
-const KUIVURI := [Vector3(-237.0, 0, 125.0), 0.0]  # suppilo itään pihalle
-const SIGN_POS := Vector3(-233.5, 0, 98.5)
-const DIESEL := [Vector3(-199.0, 0, 113.0), 0.0]  # polttoainesäiliö konevajan pohjoispäässä
-## Paalikauppa: naapurin talo tien pohjoispuolella (OSM 1074444650), paalipaikka vajan länsipuolen niityllä.
-const DROP := Vector3(-184.0, 0, 13.0)
-const NAAPURI := [Vector3(-181.0, 0, 9.0), PI * 0.6]
-const NAAPURI_LOOK := {
-	"shirt": Color(0.62, 0.25, 0.3), "pants": Color(0.22, 0.24, 0.3), "shoes": Color(0.1, 0.1, 0.09),
-	"shoe": "kumisaapas", "hair": "Hair_Long", "hair_color": Color(0.55, 0.42, 0.3), "height": 1.62,
-	"skin": Color(0.96, 0.8, 0.7), "model": "female",
-}
+# --- Piha: paikka-asetukset (maatila_paikka.gd site) -------------------------------------------------------------
+const Paikka := preload("res://scripts/maatila_paikka.gd")
 const BALE_PRICE := 6.0
-const ISANTA := [Vector3(-207.0, 0, 117.5), PI / 2.0]
-## Koneiden kotipaikat [paikka, yaw]: työkoneet konevajan suulla kytkentä länteen, ajoneuvot pihalla.
-const HOME := {
-	"traktori": [Vector3(-207.0, 0, 125.0), PI / 2.0],
-	"puimuri": [Vector3(-226.0, 0, 108.0), PI * 0.15],
-	"niittokone": [Vector3(-197.5, 0, 131.8), PI / 2.0],
-	"karhotin": [Vector3(-197.5, 0, 125.5), PI / 2.0],
-	"aes": [Vector3(-197.5, 0, 120.0), PI / 2.0],
-	"aura": [Vector3(-204.0, 0, 142.5), PI / 2.0],
-	"kylvokone": [Vector3(-203.5, 0, 136.5), PI / 2.0],
-	"paalain": [Vector3(-226.0, 0, 134.0), PI / 2.0],
-	"perakarry": [Vector3(-229.0, 0, 116.5), PI / 2.0],
-}
-const ISANTA_LOOK := {
-	"shirt": Color(0.22, 0.32, 0.24), "flannel": true, "pants": Color(0.2, 0.24, 0.32), "workwear": true,
-	"suspenders": true, "shoes": Color(0.1, 0.1, 0.09), "shoe": "kumisaapas", "hair": "Hair_Buzzed",
-	"hair_color": Color(0.62, 0.6, 0.56), "beard": true, "height": 1.84, "skin": Color(0.95, 0.78, 0.68),
-	"belly": 0.8, "bulk": 0.35, "shoulders": 0.3,
-}
 ## Isännän ja Raijan vartalon mitat ovat samat kuin Saloisten jyväjemmarilla ja laavun akalla (Looks.JEMMARI ja AKKA):
 ## vartaloprofiili (character.gd profile_key) on silloin jo valmiina, eikä mökin rakennus kasva 2,4 s:lla.
 
@@ -104,7 +74,7 @@ var built := false
 var build_ms := 0  # rakennusaika (testit tulostavat)
 var status := ""  # koneen tilarivi ratissa (main.gd näyttää mopon mittarin paikalla): nopeus, kone, pelto ja työ
 var day := 0
-var house_door := HOUSE_DOOR  # talkooruoalle: kuistin portaiden edusta (_build_house)
+var house_door := Vector3.ZERO  # talkooruoalle: kuistin portaiden edusta (_build_house)
 var money := 0.0  # pelaajan rahat (main.gd asettaa): apumiehen palkkio
 var helper_field := -1  # pelto, jota Santtu ajaa
 var helper_rate_override := 0.0  # testit: Santun aikakerroin (0 = pelaajan etäisyyden mukaan)
@@ -138,19 +108,24 @@ func _ready() -> void:
 	set_meta("ground", true)  # mokki.gd ensure_built ei siirrä (kaikki on jo maassa)
 
 
-## Rakentaa tilan (mokki.gd ensure_built). Pysyvä tila Kaisua.tila:sta; ilman sitä tyhjä tila (testit).
+## Rakentaa tilan (mokki.gd ensure_built). Pysyvä tila: annettu tila, Kaisualle Kaisua.mokki_tila, muuten tyhjä.
 func build() -> void:
 	if built:
 		return
 	built = true
 	var t0 := Time.get_ticks_msec()
 	_lap_t = Time.get_ticks_usec()
+	if site == null:
+		site = Paikka.kaisua()
 	if tila == null:
-		tila = Tila.new()
-	for i in Tila.FIELDS.size():
+		tila = mokki_tila if site.id == "kaisua" and mokki_tila != null else Tila.new()
+	tila.defs = site.fields
+	tila.section = site.section
+	house_door = site.house_door
+	for i in tila.defs.size():
 		var p := Pelto.new()
 		add_child(p)
-		if p.setup(tila, i):
+		if p.setup(tila, i, site):
 			pellot.append(p)
 		else:
 			p.queue_free()
@@ -183,7 +158,7 @@ func _lap(name: String) -> void:
 
 
 func _gy(x: float, z: float) -> float:
-	return Mokki.mesh_h(x, z)
+	return site.height.call(x, z)
 
 
 func _place(n: Node3D, pos: Vector3, yaw: float) -> void:
@@ -195,22 +170,22 @@ func _build_yard() -> void:
 	_build_gravel()
 	_build_house()
 	_lato = Koneet.lato(self)
-	_place(_lato.root, LATO[0], LATO[1])
+	_place(_lato.root, site.lato[0], site.lato[1])
 	_konevaja = Koneet.konevaja(self)
-	_place(_konevaja.root, KONEVAJA[0], KONEVAJA[1])
+	_place(_konevaja.root, site.konevaja[0], site.konevaja[1])
 	_kuivuri = Koneet.kuivuri(self)
-	_place(_kuivuri.root, KUIVURI[0], KUIVURI[1])
+	_place(_kuivuri.root, site.kuivuri[0], site.kuivuri[1])
 	_diesel = Koneet.diesel_tank(self)
-	_place(_diesel, DIESEL[0], DIESEL[1])
+	_place(_diesel, site.diesel[0], site.diesel[1])
 	# Kyltti tienvarressa: kaksi tolppaa ja lautakyltti.
 	var sign_root := Node3D.new()
 	add_child(sign_root)
-	_place(sign_root, SIGN_POS, PI * 0.1)
+	_place(sign_root, site.sign[0], site.sign[1])
 	for sx in [-0.7, 0.7]:
 		B.mesh(sign_root, B.boxm(Vector3(0.1, 1.9, 0.1)), Vector3(sx, 0.95, 0), Color(0.4, 0.3, 0.2))
-	var plate := B.sign_plate(sign_root, "KAISUA", Color(0.16, 0.3, 0.18), Color(0.96, 0.94, 0.86), 0.36, 72, Color(0.9, 0.86, 0.75))
+	var plate := B.sign_plate(sign_root, site.sign_text, Color(0.16, 0.3, 0.18), Color(0.96, 0.94, 0.86), 0.36, 72, Color(0.9, 0.86, 0.75))
 	plate.position = Vector3(0, 1.55, 0)
-	var sub := B.sign_plate(sign_root, "Kaisuantie 38", Color(0.95, 0.94, 0.9), Color(0.1, 0.1, 0.1), 0.16, 34, Color(0.3, 0.3, 0.3))
+	var sub := B.sign_plate(sign_root, site.sign_sub, Color(0.95, 0.94, 0.9), Color(0.1, 0.1, 0.1), 0.16, 34, Color(0.3, 0.3, 0.3))
 	sub.position = Vector3(0, 1.12, 0)
 	# Postilaatikko tolpassa kyltin vieressä.
 	B.mesh(sign_root, B.boxm(Vector3(0.08, 1.15, 0.08)), Vector3(1.4, 0.57, 0.1), Color(0.4, 0.3, 0.2))
@@ -218,76 +193,75 @@ func _build_yard() -> void:
 
 
 ## Päärakennus OSM-pohjan (mokki.gd KAISUA_HOUSE) mukaan: pisin sivu pituudeksi, pihan puoli -Z:ksi, harja
-## laserkeilauksesta, lattia 45 cm ylimmän nurkan yllä ja kuisti HOUSE_DOOR:n kohdalle. house_door = portaiden edusta.
+## laserkeilauksesta, lattia 45 cm ylimmän nurkan yllä ja kuisti paikan house_door-kohdalle. house_door = portaiden edusta.
 func _build_house() -> void:
-	var ridge := 7.6
-	if FileAccess.file_exists(Mokki.HEIGHTS_PATH):
-		var hj: Variant = JSON.parse_string(FileAccess.get_file_as_string(Mokki.HEIGHTS_PATH))
-		if hj is Dictionary:
-			ridge = float((hj as Dictionary).get("height", {}).get(Mokki.KAISUA_HOUSE, ridge))
-	for bd in Mokki.map_data().buildings:
-		if bd.id != Mokki.KAISUA_HOUSE:
-			continue
-		var poly: PackedVector2Array = bd.poly
-		var e1 := poly[1] - poly[0]
-		var e2 := poly[2] - poly[1]
-		var ax := (e1 if e1.length() > e2.length() else e2).normalized()
-		var az := ax.orthogonal()
-		var mn := Vector2(INF, INF)
-		var mx := -mn
-		var lo := INF
-		var hi := -INF
-		for p in poly:
-			var q := Vector2((p - poly[0]).dot(ax), (p - poly[0]).dot(az))
-			mn = mn.min(q)
-			mx = mx.max(q)
-			var gh := Mokki.mesh_h(p.x, p.y)
-			lo = minf(lo, gh)
-			hi = maxf(hi, gh)
-		var cen := poly[0] + ax * ((mn.x + mx.x) / 2.0) + az * ((mn.y + mx.y) / 2.0)
-		var n := az if az.dot(Vector2(YARD.x, YARD.z) - cen) > 0.0 else -az  # pihan puoli
-		var yaw := atan2(-n.x, -n.y)  # mallin -Z -> n
-		var xa := Vector2(cos(yaw), -sin(yaw))  # mallin +X
-		var L := mx.x - mn.x
-		var W := mx.y - mn.y
-		var door_x := clampf((Vector2(HOUSE_DOOR.x, HOUSE_DOOR.z) - cen).dot(xa), -L / 2.0 + 2.2, L / 2.0 - 2.2)
-		var floor_y := hi + 0.45
-		var front := cen + xa * door_x + n * (W / 2.0 + 3.0)
-		var step_drop := maxf(0.18, floor_y - Mokki.mesh_h(front.x, front.y))
-		var d := Koneet.paarakennus(self, L, W, ridge, door_x, floor_y - lo, step_drop)
-		var root: Node3D = d.root
-		root.position = Vector3(cen.x, floor_y, cen.y)
-		root.rotation.y = yaw
-		house_door = root.transform * (d.door as Vector3)
-		house_door.y = 0.0
+	if (site.house as Dictionary).is_empty():
+		return
+	var ridge: float = site.house.ridge
+	var poly: PackedVector2Array = site.house.poly
+	var e1 := poly[1] - poly[0]
+	var e2 := poly[2] - poly[1]
+	var ax := (e1 if e1.length() > e2.length() else e2).normalized()
+	var az := ax.orthogonal()
+	var mn := Vector2(INF, INF)
+	var mx := -mn
+	var lo := INF
+	var hi := -INF
+	for p in poly:
+		var q := Vector2((p - poly[0]).dot(ax), (p - poly[0]).dot(az))
+		mn = mn.min(q)
+		mx = mx.max(q)
+		var gh := _gy(p.x, p.y)
+		lo = minf(lo, gh)
+		hi = maxf(hi, gh)
+	var cen := poly[0] + ax * ((mn.x + mx.x) / 2.0) + az * ((mn.y + mx.y) / 2.0)
+	var hd: Vector3 = site.house_door
+	var n := az if az.dot(Vector2(hd.x, hd.z) - cen) > 0.0 else -az  # kuistin puoli (ovi)
+	var yaw := atan2(-n.x, -n.y)  # mallin -Z -> n
+	var xa := Vector2(cos(yaw), -sin(yaw))  # mallin +X
+	var L := mx.x - mn.x
+	var W := mx.y - mn.y
+	var door_x := clampf((Vector2(hd.x, hd.z) - cen).dot(xa), -L / 2.0 + 2.2, L / 2.0 - 2.2)
+	var floor_y := hi + 0.45
+	var front := cen + xa * door_x + n * (W / 2.0 + 3.0)
+	var step_drop := maxf(0.18, floor_y - _gy(front.x, front.y))
+	var d := Koneet.paarakennus(self, L, W, ridge, door_x, floor_y - lo, step_drop)
+	var root: Node3D = d.root
+	root.position = Vector3(cen.x, floor_y, cen.y)
+	root.rotation.y = yaw
+	house_door = root.transform * (d.door as Vector3)
+	house_door.y = 0.0
 
 
-## Pihan sora (mokki.gd KAISUA_YARD): 2 m ruudukko maastoverkon pinnassa, reuna rikkonainen (varjostin karsii
+## Pihan sora (paikan yard_circles): maastoverkon ruudukko pinnassa, reuna rikkonainen (varjostin karsii
 ## ympyröiden ulkopuolen kohinan mukaan), joten sora vaihtuu nurmeen luonnollisesti.
 func _build_gravel() -> void:
 	var lo := Vector2(INF, INF)
 	var hi := -lo
 	var circles := PackedVector3Array()
-	for y in Mokki.KAISUA_YARD:
+	for y in site.yard_circles:
 		var c: Vector2 = y[0]
 		var r: float = y[1]
 		lo = lo.min(c - Vector2.ONE * (r + 6.0))
 		hi = hi.max(c + Vector2.ONE * (r + 6.0))
 		circles.append(Vector3(c.x, c.y, r))
-	lo = (lo / 2.0).floor() * 2.0
-	var nx := int((hi.x - lo.x) / 2.0) + 1
-	var nz := int((hi.y - lo.y) / 2.0) + 1
+	# Maastoverkon ruudukossa (paikan kärkiväli, origo ja lävistäjä), jolloin sora on tarkasti maan pinnassa.
+	var gs: float = site.grid_step
+	var go: Vector2 = site.grid_origin
+	lo = go + ((lo - go) / gs).floor() * gs
+	var nx := int((hi.x - lo.x) / gs) + 1
+	var nz := int((hi.y - lo.y) / gs) + 1
 	var hs := PackedFloat32Array()
 	hs.resize((nx + 1) * (nz + 1))
 	for j in nz + 1:
 		for i in nx + 1:
-			hs[j * (nx + 1) + i] = Mokki.mesh_h(lo.x + i * 2.0, lo.y + j * 2.0) + 0.03
+			hs[j * (nx + 1) + i] = _gy(lo.x + i * gs, lo.y + j * gs) + 0.03
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.UP)
 	for j in nz:
 		for i in nx:
-			var cc := lo + Vector2(i + 0.5, j + 0.5) * 2.0
+			var cc := lo + Vector2(i + 0.5, j + 0.5) * gs
 			var inside := false
 			for c in circles:
 				if cc.distance_to(Vector2(c.x, c.y)) < c.z + 5.0:  # varjostimen reuna enintään +3 m
@@ -295,8 +269,10 @@ func _build_gravel() -> void:
 			if not inside:
 				continue
 			var v := func(di: int, dj: int) -> Vector3:
-				return Vector3(lo.x + (i + di) * 2.0, hs[(j + dj) * (nx + 1) + i + di], lo.y + (j + dj) * 2.0)
-			for corner in [v.call(0, 0), v.call(1, 0), v.call(1, 1), v.call(0, 0), v.call(1, 1), v.call(0, 1)]:
+				return Vector3(lo.x + (i + di) * gs, hs[(j + dj) * (nx + 1) + i + di], lo.y + (j + dj) * gs)
+			var corners: Array = [v.call(0, 0), v.call(1, 0), v.call(1, 1), v.call(0, 0), v.call(1, 1), v.call(0, 1)] if site.diag_main \
+				else [v.call(0, 0), v.call(1, 0), v.call(0, 1), v.call(1, 0), v.call(1, 1), v.call(0, 1)]
+			for corner in corners:
 				st.add_vertex(corner)
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
@@ -306,7 +282,7 @@ func _build_gravel() -> void:
 	for c in circles:
 		cv.append(c)
 	var count := cv.size()
-	while cv.size() < 4:
+	while cv.size() < 8:
 		cv.append(Vector3(0, 0, -1))
 	m.set_shader_parameter("circles", cv)
 	m.set_shader_parameter("circle_count", count)
@@ -343,7 +319,7 @@ func _build_machines() -> void:
 func _restore(n: Node3D, id: String) -> void:
 	var m: Dictionary = tila.machines.get(id, {})
 	if m.is_empty():
-		_place(n, HOME[id][0], HOME[id][1])
+		_place(n, site.home[id][0], site.home[id][1])
 	else:
 		var p: Vector3 = m.pos
 		n.position = Vector3(p.x, _gy(p.x, p.z), p.z)
@@ -397,11 +373,11 @@ func _stack_xf(slot: int) -> Transform3D:
 
 
 func _build_isanta() -> void:
-	isanta = Looks.make(self, ISANTA_LOOK)
-	_place(isanta, ISANTA[0], ISANTA[1])
+	isanta = Looks.make(self, site.isanta_look)
+	_place(isanta, site.isanta[0], site.isanta[1])
 	isanta.play("Idle", 0.0)
 	_bubble = B.bubble(self, isanta.position + Vector3(0, 2.05, 0), Color.WHITE)
-	B.guide(self, "Kaisuan isäntä", isanta.position + Vector3(0, 2.25, 0), 34, Color(1, 0.9, 0.6), true)
+	B.guide(self, site.isanta_name, isanta.position + Vector3(0, 2.25, 0), 34, Color(1, 0.9, 0.6), true)
 
 
 func say(text: String, secs := 3.5) -> void:
@@ -444,20 +420,20 @@ func advance_day(d: int) -> void:
 func raining() -> bool:
 	if rain_force >= 0.0:
 		return rain_force > 0.5
-	var w := Tila.rain_window(day)
+	var w := Tila.rain_window(day, site.rain_offset)
 	return w.x >= 0.0 and clock_min >= w.x and clock_min < w.y
 
 
 ## Poutaa odotellessa: sateen loppuminen tekstinä ("klo 15").
 func rain_end_text() -> String:
-	var w := Tila.rain_window(day)
+	var w := Tila.rain_window(day, site.rain_offset)
 	return "klo %d" % ceili(w.y / 60.0) if w.x >= 0.0 else "pian"
 
 
 ## Sade näkyviin kameran ympärille (pisarat, ääni) ja pellot märiksi; voimakkuus nousee ja laskee pehmeästi.
 func _rain_tick(delta: float) -> void:
 	var cam := get_viewport().get_camera_3d()
-	var near := cam != null and to_local(cam.global_position).distance_to(YARD) < 1500.0
+	var near := cam != null and to_local(cam.global_position).distance_to(site.yard) < float(site.rain_radius)
 	rain_amount = move_toward(rain_amount, 1.0 if raining() and near else 0.0, delta / 8.0)
 	if rain_amount > 0.0 and _rain == null:
 		_rain = GPUParticles3D.new()
@@ -510,15 +486,17 @@ const HELPER_STEP := 0.4
 ## Traktorin vieressä jalan: Santtu ajaa koneen työn pellolla, jonka seuraava työ se on (Q), tai Santun ajon tila ja
 ## keskeytys.
 func _helper_logic(walker: Node3D, q: bool) -> String:
+	if (site.helper as Dictionary).is_empty():
+		return ""
 	var t := traktori
 	var seat := t.to_global(Vector3(-1.3, 0, 0.3))
 	if Vector2(walker.global_position.x - seat.x, walker.global_position.z - seat.z).length() > 3.0:
 		return ""
 	if t.helper_active():
 		if q:
-			_stop_helper("Santtu: – No jätetään kesken. Mää meen mökille.")
+			_stop_helper(site.helper.stop)
 			return ""
-		return "Santtu ajaa: %s, %d %%  ·  %s Keskeytä" % [_pelto(helper_field).field_name(), roundi(t.helper_progress() * 100.0),
+		return "%s ajaa: %s, %d %%  ·  %s Keskeytä" % [site.helper.name, _pelto(helper_field).field_name(), roundi(t.helper_progress() * 100.0),
 			Settings.cap("bell")]
 	if t.implement == null:
 		return ""
@@ -530,11 +508,11 @@ func _helper_logic(walker: Node3D, q: bool) -> String:
 		return ""
 	var pe := _pelto(fi)
 	if money < HELPER_FEE:
-		return "Santtu ajaisi %s (%d €), mutta rahat ei riitä" % [pe.field_name(), roundi(HELPER_FEE)]
+		return "%s ajaisi %s (%d €), mutta rahat ei riitä" % [site.helper.name, pe.field_name(), roundi(HELPER_FEE)]
 	if q:
 		_start_helper(fi, info)
 		return ""
-	return "%s Pyydä Santtu ajamaan: %s, %s (%d €)" % [Settings.cap("bell"), pe.field_name(), _job_label(info.work).to_lower(),
+	return "%s Pyydä %s ajamaan: %s, %s (%d €)" % [Settings.cap("bell"), site.helper.name, pe.field_name(), _job_label(info.work).to_lower(),
 		roundi(HELPER_FEE)]
 
 
@@ -555,24 +533,25 @@ func _start_helper(fi: int, info: Dictionary) -> void:
 	var pe := _pelto(fi)
 	var path := helper_path(pe, info, to_local(traktori.global_position), traktori.rotation.y)
 	if path.size() < 2:
-		message.emit("Santtu: – Ei tässä oo mitään ajettavaa.", 2.5)
+		message.emit(site.helper.none, 2.5)
 		return
 	paid.emit(-HELPER_FEE, "")
 	helper_field = fi
-	traktori.start_helper(path, Mokki.SANTTU_LOOK)
-	helper_changed.emit(true)
+	traktori.start_helper(path, site.helper.look)
+	if site.helper.get("away", false):
+		helper_changed.emit(true)
 	# Dieselin tarve: reitin pituus työnopeudella ja kuormalla (moottori töissä noin 0,85).
 	var need := path.size() * HELPER_STEP / float(info.speed) * (Ajoneuvo.FUEL_IDLE + Ajoneuvo.FUEL_LOAD * 0.85)
 	var fuel_note := ""
 	if need > traktori.fuel:
 		fuel_note = " Diesel riittää noin %d %%:iin pellosta, tankkaa välillä." % roundi(traktori.fuel / need * 100.0)
-	message.emit("Santtu polkaisi mökiltä (%d €): – Mää ajan %s, sää voit vaikka kerätä kiviä.%s" % [roundi(HELPER_FEE),
-		pe.field_name(), fuel_note], 4.5)
+	message.emit((site.helper.start as String) % [roundi(HELPER_FEE), pe.field_name()] + fuel_note, 4.5)
 
 
 func _stop_helper(msg: String) -> void:
 	traktori.stop_helper()
-	helper_changed.emit(false)
+	if site.helper.get("away", false):
+		helper_changed.emit(false)
 	sync_state()
 	_check_jobs()
 	if msg != "":
@@ -591,9 +570,9 @@ func _helper_tick() -> void:
 	if t.helper_done:
 		var fname := _pelto(helper_field).field_name()
 		if t.fuel <= 0.0:
-			_stop_helper("Santtu soitti: – Diesel loppu kesken, traktori jäi pellolle (%s)." % fname)
+			_stop_helper(site.helper.fuel_out % fname)
 		else:
-			_stop_helper("Santtu soitti: – %s ajettu! Mää lähin mökille." % fname)
+			_stop_helper(site.helper.done % fname)
 
 
 ## Santun reitti pellolle (Kaisuan kehys): kaistat koneen työleveyden välein pellon pituussuuntaan (paalaimella karhoja
@@ -626,6 +605,18 @@ func helper_path(pe: Pelto, info: Dictionary, from: Vector3, from_yaw: float) ->
 			todo = j[1]
 	var poly: PackedVector2Array = pe.poly
 	var inner: Array = Geometry2D.offset_polygon(poly, -head)
+	# Kapea tai käyrä sisäosa (leveys 2 × ala / piiri alle kolme kierrosväliä): suorat kaistat eivät kata sitä, joten
+	# kierroksia jatketaan spiraalina keskelle asti eikä kaistoja ajeta.
+	var in_area := 0.0
+	var in_perim := 0.0
+	for ip: PackedVector2Array in inner:
+		in_area += _poly_area(ip)
+		for i in ip.size():
+			in_perim += ip[i].distance_to(ip[(i + 1) % ip.size()])
+	if not inner.is_empty() and in_perim > 0.0 and 2.0 * in_area / in_perim < 3.0 * lap_sp:
+		while laps < 40 and not _round_offset(poly, (laps + 0.5) * lap_sp).is_empty():
+			laps += 1
+		inner = []
 	var dir: Vector2
 	var offsets: Array = []
 	var c: Vector2 = pe.center
@@ -635,9 +626,19 @@ func helper_path(pe: Pelto, info: Dictionary, from: Vector3, from_yaw: float) ->
 		offsets = wr[1]
 	else:
 		dir = _field_axis(pe)
-		var reach := int(maxf(pe.nx, pe.nz) * Tila.CELL * 0.75 / spacing) + 1
-		for k in range(-reach, reach + 1):
-			offsets.append(k * spacing)
+		# Kaistat päisteen sisäosan leveydeltä (ei pellon keskipisteestä): kapeaankin sisäosaan osuu kaista.
+		var rt := Vector2(-dir.y, dir.x)
+		var omin := INF
+		var omax := -INF
+		for ip: PackedVector2Array in inner:
+			for q in ip:
+				omin = minf(omin, (q - c).dot(rt))
+				omax = maxf(omax, (q - c).dot(rt))
+		if omax > omin:
+			var n_l := maxi(1, ceili((omax - omin) / spacing))
+			var sp2 := (omax - omin) / n_l
+			for k in n_l:
+				offsets.append(omin + sp2 * (k + 0.5))
 	var right := Vector2(-dir.y, dir.x)
 	var lanes: Array = []  # [poikittainen, alku, loppu] (alku < loppu dir-suunnassa), päisteen sisällä
 	var tr := int(maxf(pe.nx, pe.nz) * 0.5) + 4
@@ -764,18 +765,41 @@ func _in_any(q: Vector2, polys: Array) -> bool:
 ## pyöreästi).
 func _round_offset(poly: PackedVector2Array, d: float) -> Array:
 	var out: Array = []
+	var src: Array = []
 	for p1: PackedVector2Array in Geometry2D.offset_polygon(poly, -(d + HELPER_R), Geometry2D.JOIN_MITER):
-		for p2: PackedVector2Array in Geometry2D.offset_polygon(p1, HELPER_R, Geometry2D.JOIN_ROUND):
-			var loop := p2
-			# Sisäpuoli vasemmalla: ajosuunnan oikea kylki (sivukone) ulkoreunaa kohti.
-			var e0 := loop[1] - loop[0]
-			var mid := (loop[0] + loop[1]) / 2.0
-			var left := -Vector2(-e0.y, e0.x).normalized()
-			if not Geometry2D.is_point_in_polygon(mid + left * 0.5, loop):
-				loop = loop.duplicate()
-				loop.reverse()
-			out.append(loop)
+		src.append_array(Geometry2D.offset_polygon(p1, HELPER_R, Geometry2D.JOIN_ROUND))
+	# Pyöristys ei mahdu (keskimmäinen kierros) tai se katkaisee kapean kaulan (kierros jakautuu tai menettää ison osan
+	# alasta): kierros ajetaan terävin kulmin, jotta kapeakin kohta tulee ajettua (traktori oikaisee kulmat).
+	var plain: Array = Geometry2D.offset_polygon(poly, -d)
+	var a_src := 0.0
+	var a_plain := 0.0
+	for q: PackedVector2Array in src:
+		a_src += _poly_area(q)
+	for q: PackedVector2Array in plain:
+		a_plain += _poly_area(q)
+	if src.is_empty() or src.size() > plain.size() or a_src < 0.8 * a_plain:
+		src = plain
+	for p2: PackedVector2Array in src:
+		if p2.size() < 3:
+			continue
+		var loop := p2
+		# Sisäpuoli vasemmalla: ajosuunnan oikea kylki (sivukone) ulkoreunaa kohti.
+		var e0 := loop[1] - loop[0]
+		var mid := (loop[0] + loop[1]) / 2.0
+		var left := -Vector2(-e0.y, e0.x).normalized()
+		if not Geometry2D.is_point_in_polygon(mid + left * 0.5, loop):
+			loop = loop.duplicate()
+			loop.reverse()
+		out.append(loop)
 	return out
+
+
+func _poly_area(q: PackedVector2Array) -> float:
+	var a := 0.0
+	for i in q.size():
+		var b := q[(i + 1) % q.size()]
+		a += q[i].x * b.y - b.x * q[i].y
+	return absf(a) / 2.0
 
 
 ## Pellon pääsuunta: pisin reunan sivu (kulma 0…π).
@@ -1089,7 +1113,8 @@ func _tractor_logic(e: bool, f: bool, q: bool) -> String:
 		e = false
 	# Paalipiikki: paali ladoon tai maahan, vapaa paali piikkiin.
 	var sp := t.spear_point()
-	var drop_g := to_global(Vector3(DROP.x, _gy(DROP.x, DROP.z), DROP.z))
+	var drop: Vector3 = site.naapuri.get("drop", Vector3.INF)
+	var drop_g := to_global(Vector3(drop.x, _gy(drop.x, drop.z), drop.z)) if drop != Vector3.INF else Vector3.INF
 	if t.bale != null and tila.order_left > 0 and Vector2(sp.x - drop_g.x, sp.z - drop_g.z).length() < 5.0:
 		action = "%s Toimita paali naapurin Raijalle (%d / %d)" % [Settings.cap("interact"), tila.order_total - tila.order_left + 1, tila.order_total]
 		if e:
@@ -1454,22 +1479,24 @@ var naapuri_laps := ""  # testit tulostavat
 
 
 func _build_naapuri() -> void:
+	if (site.naapuri as Dictionary).is_empty():
+		return  # ei paalikauppaa tällä tilalla
 	var t0 := Time.get_ticks_usec()
-	naapuri = Looks.make(self, NAAPURI_LOOK)
+	naapuri = Looks.make(self, site.naapuri.look)
 	var t1 := Time.get_ticks_usec()
-	_place(naapuri, NAAPURI[0], NAAPURI[1])
+	_place(naapuri, site.naapuri.pos[0], site.naapuri.pos[1])
 	naapuri.play("Idle", 0.0)
 	_naapuri_bubble = B.bubble(self, naapuri.position + Vector3(0, 1.9, 0), Color.WHITE)
 	B.guide(self, "Naapurin Raija", naapuri.position + Vector3(0, 2.1, 0), 34, Color(1, 0.9, 0.6), true)
 	var post := Node3D.new()
 	add_child(post)
-	_place(post, DROP + Vector3(-2.2, 0, -2.0), PI * 0.6)
+	_place(post, (site.naapuri.drop as Vector3) + Vector3(-2.2, 0, -2.0), PI * 0.6)
 	B.mesh(post, B.boxm(Vector3(0.1, 1.5, 0.1)), Vector3(0, 0.75, 0), Color(0.4, 0.3, 0.2))
 	var plate := B.sign_plate(post, "PAALIT TÄHÄN", Color(0.88, 0.84, 0.74), Color(0.25, 0.12, 0.08), 0.2, 36, Color(0.45, 0.35, 0.25))
 	plate.position = Vector3(0, 1.3, 0.06)
 	var t2 := Time.get_ticks_usec()
 	var old := Koneet.paali(self)
-	_place(old, DROP + Vector3(1.8, 0, 2.2), 0.4)
+	_place(old, (site.naapuri.drop as Vector3) + Vector3(1.8, 0, 2.2), 0.4)
 	old.scale = Vector3(1.0, 0.97, 1.0)
 	naapuri_laps = "hahmo %d, kupla ja kyltti %d, paali %d ms" % [(t1 - t0) / 1000, (t2 - t1) / 1000, (Time.get_ticks_usec() - t2) / 1000]
 	# Edellisten päivien myydyt paalit on syötetty: pois tallennuksesta.
@@ -1503,7 +1530,7 @@ func _deliver_bale() -> void:
 		return
 	var i := bale_nodes.find(n)
 	var k := tila.order_total - tila.order_left
-	var slot := DROP + Vector3((k % 2) * 1.35 - 0.7, 0, -(k / 2) * 1.3)
+	var slot: Vector3 = (site.naapuri.drop as Vector3) + Vector3((k % 2) * 1.35 - 0.7, 0, -(k / 2) * 1.3)
 	var tw := create_tween()
 	tw.tween_property(n, "position", Vector3(slot.x, _gy(slot.x, slot.z), slot.z), 0.5)
 	tw.parallel().tween_property(n, "rotation", Vector3(0, PI * 0.6, 0), 0.5)
@@ -1588,7 +1615,7 @@ func _kasa_pos(field: int) -> Vector3:
 	var best := Vector2.ZERO
 	var bd := INF
 	for q in pe.poly:
-		var d := q.distance_to(Vector2(YARD.x, YARD.z))
+		var d := q.distance_to(Vector2(site.yard.x, site.yard.z))
 		if d < bd:
 			bd = d
 			best = q
@@ -1851,7 +1878,7 @@ func _job_done(pe: Pelto, id: String, bk: Dictionary) -> void:
 	if amount > 0.0:
 		msg += " Isäntä maksoi %s €." % _eur(amount)
 	if id == "latoon" or id == "kuivuri" or id == "kylvo":
-		var lid: String = {"latoon": "kaisuan_heinatalkoot", "kuivuri": "kaisuan_sato", "kylvo": "kaisuan_kylvot"}[id]
+		var lid: String = site.legends[id]
 		tila.legends[lid] = int(tila.legends.get(lid, 0)) + 1
 		tila.beer_due += 3
 		msg += " Koko ketju tehty: isäntä lupasi saunakaljat ja talkooruoan."
@@ -1877,10 +1904,10 @@ static func _eur(v: float) -> String:
 func _talk() -> void:
 	if not tila.talked:
 		tila.talked = true
-		say("No terve! Santun mökiltä? Traktori on konevajan edessä ja koneet vajassa. Kotipelto on niittokunnossa ja Tienvarsipelto puintikypsä. Maksan joka hommasta, ja emäntä laittaa talkooruoat.", 7.0)
-		message.emit("Kaisuan hommat: traktorilla (%s) niittokone, karhotin, paalain, äes, kylvökone ja viljakärry konevajan suulta (%s kytkee peruuttamalla). Puimuri on talon vieressä." % [Settings.cap("mount"), Settings.cap("bell")], 7.0)
+		say(site.texts.hello, 7.0)
+		message.emit(site.texts.intro % [Settings.cap("mount"), Settings.cap("bell")], 7.0)
 		return
-	if tila.order_left <= 0 and tila.order_day != day and tila.bales_in_lato() >= 2:
+	if not (site.naapuri as Dictionary).is_empty() and tila.order_left <= 0 and tila.order_day != day and tila.bales_in_lato() >= 2:
 		tila.order_total = mini(4, tila.bales_in_lato())
 		tila.order_left = tila.order_total
 		tila.order_day = day

@@ -73,20 +73,23 @@ var order_total := 0  # naapurin paalitilaus: paaleja yhteensä
 var order_left := 0  # toimittamatta
 var order_day := -1  # päivä, jona tilaus tuli (yksi tilaus päivässä)
 var last_day := -1  # päivä, johon kasvu on laskettu
+## Tilan pellot (maatila_paikka.gd fields) ja tallennusosio: Kaisua oletuksena, Altaan tila Saloisissa omansa.
+var defs: Array = FIELDS
+var section := "kaisua"
 
 
 func field_def(i: int) -> Dictionary:
-	return FIELDS[i]
+	return defs[i]
 
 
 func cells_of(i: int) -> Dictionary:
-	return fields.get(FIELDS[i].id, {})
+	return fields.get(defs[i].id, {})
 
 
 ## Pellon ruudukon alustus (kaisua_pelto.gd): mask = aloitustila pellon sisällä, NONE muualla. Vanha tallennus
 ## pidetään, jos koko täsmää.
 func init_cells(i: int, nx: int, nz: int, mask: PackedByteArray) -> Dictionary:
-	var id: String = FIELDS[i].id
+	var id: String = defs[i].id
 	var f: Dictionary = fields.get(id, {})
 	if not f.is_empty() and int(f.nx) == nx and int(f.nz) == nz and (f.cells as PackedByteArray).size() == nx * nz:
 		return f
@@ -102,10 +105,10 @@ func init_cells(i: int, nx: int, nz: int, mask: PackedByteArray) -> Dictionary:
 ## Päivien kasvu: nurmi kasvaa sängestä niittokypsäksi kolmessa päivässä ja kylvetty ohra puintikypsäksi kolmessa.
 ## Sadepäivä: noin joka kolmas päivä (ei ensimmäisenä) sataa 3–7 tuntia klo 8–14 alkaen. Palauttaa [alku, loppu]
 ## minuutteina keskiyöstä, tai (-1, -1) poutapäivänä. Sateella paalaus ja puinti odottavat (märkä heinä ja vilja).
-static func rain_window(day: int) -> Vector2:
+static func rain_window(day: int, offset := 0) -> Vector2:
 	if day <= 1:
 		return Vector2(-1, -1)
-	var h := (day * 2654435761 + 97) & 0x7fffffff
+	var h := ((day + offset * 101) * 2654435761 + 97) & 0x7fffffff  # offset: eri tiloilla eri sadepäivät
 	if h % 100 >= 32:
 		return Vector2(-1, -1)
 	var start := 8 * 60 + (h / 100) % 7 * 60
@@ -153,18 +156,18 @@ func census(i: int) -> Dictionary:
 
 
 func book(i: int) -> Dictionary:
-	var id: String = FIELDS[i].id
+	var id: String = defs[i].id
 	if not books.has(id):
 		books[id] = {"karho_max": 0, "baled": 0, "harvested": 0.0}
 	return books[id]
 
 
 func is_paid(i: int, job: String) -> bool:
-	return (paid.get(FIELDS[i].id, {}) as Dictionary).has(job)
+	return (paid.get(defs[i].id, {}) as Dictionary).has(job)
 
 
 func set_paid(i: int, job: String) -> void:
-	var id: String = FIELDS[i].id
+	var id: String = defs[i].id
 	if not paid.has(id):
 		paid[id] = {}
 	paid[id][job] = true
@@ -172,8 +175,8 @@ func set_paid(i: int, job: String) -> void:
 
 ## Pellon kierros alkaa alusta (niitto tai äestys): maksut ja kirjanpito nollaan.
 func new_cycle(i: int) -> void:
-	paid.erase(FIELDS[i].id)
-	books.erase(FIELDS[i].id)
+	paid.erase(defs[i].id)
+	books.erase(defs[i].id)
 
 
 ## Pellolla keräämättä olevat kivet.
@@ -193,32 +196,32 @@ func save_to(cfg: ConfigFile) -> void:
 			"amt": Marshalls.raw_to_base64((f.amt as PackedFloat32Array).to_byte_array().compress(FileAccess.COMPRESSION_DEFLATE)),
 			"dir": Marshalls.raw_to_base64((f.dir as PackedByteArray).compress(FileAccess.COMPRESSION_DEFLATE)),
 			"nx": f.nx, "nz": f.nz}
-	cfg.set_value("kaisua", "pellot", fs)
-	cfg.set_value("kaisua", "paalit", bales)
-	cfg.set_value("kaisua", "kivet", stones)
-	cfg.set_value("kaisua", "koneet", machines)
-	cfg.set_value("kaisua", "kytketty", hitched)
-	cfg.set_value("kaisua", "sailio", tank)
-	cfg.set_value("kaisua", "perakarry", trailer)
-	cfg.set_value("kaisua", "kuivuri", dried)
-	cfg.set_value("kaisua", "siemen", seed)
-	cfg.set_value("kaisua", "diesel", fuel)
-	cfg.set_value("kaisua", "paalain", baler_hay)
-	cfg.set_value("kaisua", "maksettu", paid)
-	cfg.set_value("kaisua", "kirjanpito", books)
-	cfg.set_value("kaisua", "ansiot", earned)
-	cfg.set_value("kaisua", "ruoka_paiva", food_day)
-	cfg.set_value("kaisua", "ruoka", food_due)
-	cfg.set_value("kaisua", "kaljat", beer_due)
-	cfg.set_value("kaisua", "legendat", legends)
-	cfg.set_value("kaisua", "esitelty", talked)
-	cfg.set_value("kaisua", "tilaus", [order_total, order_left, order_day])
-	cfg.set_value("kaisua", "paiva", last_day)
+	cfg.set_value(section, "pellot", fs)
+	cfg.set_value(section, "paalit", bales)
+	cfg.set_value(section, "kivet", stones)
+	cfg.set_value(section, "koneet", machines)
+	cfg.set_value(section, "kytketty", hitched)
+	cfg.set_value(section, "sailio", tank)
+	cfg.set_value(section, "perakarry", trailer)
+	cfg.set_value(section, "kuivuri", dried)
+	cfg.set_value(section, "siemen", seed)
+	cfg.set_value(section, "diesel", fuel)
+	cfg.set_value(section, "paalain", baler_hay)
+	cfg.set_value(section, "maksettu", paid)
+	cfg.set_value(section, "kirjanpito", books)
+	cfg.set_value(section, "ansiot", earned)
+	cfg.set_value(section, "ruoka_paiva", food_day)
+	cfg.set_value(section, "ruoka", food_due)
+	cfg.set_value(section, "kaljat", beer_due)
+	cfg.set_value(section, "legendat", legends)
+	cfg.set_value(section, "esitelty", talked)
+	cfg.set_value(section, "tilaus", [order_total, order_left, order_day])
+	cfg.set_value(section, "paiva", last_day)
 
 
 func load_from(cfg: ConfigFile) -> void:
 	fields = {}
-	var fs: Dictionary = cfg.get_value("kaisua", "pellot", {})
+	var fs: Dictionary = cfg.get_value(section, "pellot", {})
 	for id in fs:
 		var e: Dictionary = fs[id]
 		var nx: int = e.nx
@@ -229,26 +232,26 @@ func load_from(cfg: ConfigFile) -> void:
 		var dirs := Marshalls.base64_to_raw(e.dir).decompress(n, FileAccess.COMPRESSION_DEFLATE)
 		if cells.size() == n and amt.size() == n and dirs.size() == n:
 			fields[id] = {"cells": cells, "amt": amt, "dir": dirs, "nx": nx, "nz": nz}
-	bales = cfg.get_value("kaisua", "paalit", [])
-	stones = cfg.get_value("kaisua", "kivet", [])
-	machines = cfg.get_value("kaisua", "koneet", {})
-	hitched = cfg.get_value("kaisua", "kytketty", "")
-	tank = cfg.get_value("kaisua", "sailio", 0.0)
-	trailer = cfg.get_value("kaisua", "perakarry", 0.0)
-	dried = cfg.get_value("kaisua", "kuivuri", 0.0)
-	seed = cfg.get_value("kaisua", "siemen", 1.0)
-	fuel = cfg.get_value("kaisua", "diesel", {"traktori": 1.0, "puimuri": 1.0})
-	baler_hay = cfg.get_value("kaisua", "paalain", 0.0)
-	paid = cfg.get_value("kaisua", "maksettu", {})
-	books = cfg.get_value("kaisua", "kirjanpito", {})
-	earned = cfg.get_value("kaisua", "ansiot", 0.0)
-	food_day = cfg.get_value("kaisua", "ruoka_paiva", -1)
-	food_due = cfg.get_value("kaisua", "ruoka", false)
-	beer_due = cfg.get_value("kaisua", "kaljat", 0)
-	legends = cfg.get_value("kaisua", "legendat", {})
-	talked = cfg.get_value("kaisua", "esitelty", false)
-	var o: Array = cfg.get_value("kaisua", "tilaus", [0, 0, -1])
+	bales = cfg.get_value(section, "paalit", [])
+	stones = cfg.get_value(section, "kivet", [])
+	machines = cfg.get_value(section, "koneet", {})
+	hitched = cfg.get_value(section, "kytketty", "")
+	tank = cfg.get_value(section, "sailio", 0.0)
+	trailer = cfg.get_value(section, "perakarry", 0.0)
+	dried = cfg.get_value(section, "kuivuri", 0.0)
+	seed = cfg.get_value(section, "siemen", 1.0)
+	fuel = cfg.get_value(section, "diesel", {"traktori": 1.0, "puimuri": 1.0})
+	baler_hay = cfg.get_value(section, "paalain", 0.0)
+	paid = cfg.get_value(section, "maksettu", {})
+	books = cfg.get_value(section, "kirjanpito", {})
+	earned = cfg.get_value(section, "ansiot", 0.0)
+	food_day = cfg.get_value(section, "ruoka_paiva", -1)
+	food_due = cfg.get_value(section, "ruoka", false)
+	beer_due = cfg.get_value(section, "kaljat", 0)
+	legends = cfg.get_value(section, "legendat", {})
+	talked = cfg.get_value(section, "esitelty", false)
+	var o: Array = cfg.get_value(section, "tilaus", [0, 0, -1])
 	order_total = o[0]
 	order_left = o[1]
 	order_day = o[2]
-	last_day = cfg.get_value("kaisua", "paiva", -1)
+	last_day = cfg.get_value(section, "paiva", -1)
