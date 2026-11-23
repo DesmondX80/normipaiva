@@ -65,6 +65,24 @@ const CHAPTERS := [
 		{"id": "p_valinta", "text": "Kotiovella odottaa Päivi ja Sinikka: naura, tunnusta tai suutu.",
 			"done": "first:kesaheila_valinta", "k18": true, "hint": "auto"},
 	]},
+	# Luku 7: maatilan hommat (Kaisua mökin naapurissa, Altaan tila kodin itäpuolella). Rinnakkainen: aukeaa, kun jommankumman
+	# tilan isäntä on tavattu. Jokainen työ on pakollinen ja kuittautuu, kun pelaaja tekee sen itse (apumiehen ajama ei
+	# käy) jommallakummalla tilalla (kaisua.gd progress -> main.gd tilat.first("maatila_<työ>")).
+	{"id": "luku7", "title": "7. Talkoissa", "parallel": true, "open": "first:maatila_isanta", "steps": [
+		{"id": "m_isanta", "text": "Isäntä tarvitsee apua pelloille: Kaisuassa mökin naapurissa, Altaan tilalla kodin itäpuolella.",
+			"done": "first:maatila_isanta", "hint": "auto"},
+		{"id": "m_niitto", "text": "Niitä nurmi traktorin sivuniittokoneella.", "done": "first:maatila_niitto", "hint": "auto"},
+		{"id": "m_karhous", "text": "Karhota niitetty heinä karhoille.", "done": "first:maatila_karhous", "hint": "auto"},
+		{"id": "m_paalaus", "text": "Paalaa karhot pyöröpaalaimella.", "done": "first:maatila_paalaus", "hint": "auto"},
+		{"id": "m_latoon", "text": "Vie paalit etukuormaajan piikillä latoon.", "done": "first:maatila_latoon", "hint": "auto"},
+		{"id": "m_puinti", "text": "Pui kypsä ohra puimurilla.", "done": "first:maatila_puinti", "hint": "auto"},
+		{"id": "m_kuivuri", "text": "Vie vilja kuivurin suppilolle.", "done": "first:maatila_kuivuri", "hint": "auto"},
+		{"id": "m_kynto", "text": "Kynnä sänki kääntöauralla.", "done": "first:maatila_kynto", "hint": "auto"},
+		{"id": "m_kivet", "text": "Kerää kynnöstä nousseet kivet kasaan.", "done": "first:maatila_kivet", "hint": "auto"},
+		{"id": "m_aestys", "text": "Äestä kynnös.", "done": "first:maatila_aestys", "hint": "auto"},
+		{"id": "m_kylvo", "text": "Kylvä ohra konevajan siemenillä.", "done": "first:maatila_kylvo", "hint": "auto"},
+		{"id": "m_paalikauppa", "text": "Vie Kaisuan naapurin Raijan paalitilaus lehmille.", "done": "first:maatila_paalikauppa", "hint": "auto"},
+	]},
 ]
 
 ## Sivutehtävät: id, otsikko, kuvaus (kun tiedossa), tiedossa-ehto, valmis-ehto ja valinnainen edistymisavain

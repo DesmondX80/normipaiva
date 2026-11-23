@@ -34,6 +34,9 @@ signal food_eaten
 signal beers_given(n: int)
 signal mount(vehicle: Node3D)
 signal dismount(vehicle: Node3D, pos: Vector3)
+## Pelaajan oma edistyminen tarinaan (luku 7, main.gd): "isanta" (isäntä tavattu), työn id (pelaaja teki työn itse,
+## ei apumies) tai "paalikauppa" (Raijan tilaus toimitettu).
+signal progress(id: String)
 signal helper_changed(on: bool)  # Santtu lähti mökiltä ajamaan (true) tai palasi (false): mökin Santtu piiloon
 
 # --- Piha: paikka-asetukset (maatila_paikka.gd site) -------------------------------------------------------------
@@ -77,6 +80,7 @@ var day := 0
 var house_door := Vector3.ZERO  # talkooruoalle: kuistin portaiden edusta (_build_house)
 var money := 0.0  # pelaajan rahat (main.gd asettaa): apumiehen palkkio
 var helper_field := -1  # pelto, jota Santtu ajaa
+var _helper_checking := false  # apumiehen lopetus tarkistaa työt: valmistunut työ on apumiehen, ei pelaajan
 var helper_rate_override := 0.0  # testit: Santun aikakerroin (0 = pelaajan etäisyyden mukaan)
 var clock_min := 720.0  # kellonaika (main.gd asettaa): sade
 var rain_amount := 0.0  # sateen voimakkuus 0…1 pehmeästi (main.gd tummentaa taivaan ja valon)
@@ -553,7 +557,9 @@ func _stop_helper(msg: String) -> void:
 	if site.helper.get("away", false):
 		helper_changed.emit(false)
 	sync_state()
+	_helper_checking = true
 	_check_jobs()
+	_helper_checking = false
 	if msg != "":
 		message.emit(msg, 3.5)
 
@@ -1543,6 +1549,7 @@ func _deliver_bale() -> void:
 	_pay(BALE_PRICE, "Paali Raijalle")
 	if tila.order_left <= 0:
 		naapuri_say(["Kiitos! Lehmät kiittää, ja tässä vielä pullaa isännälle.", "Hyvät paalit, tuoksuu kesältä!", "No nyt riittää rehua viikoksi. Kiitos!"][randi() % 3], 5.0)
+		progress.emit("paalikauppa")
 		message.emit("Raijan tilaus toimitettu: %d paalia, %d € taskuun." % [tila.order_total, roundi(BALE_PRICE * tila.order_total)], 4.0)
 	else:
 		naapuri_say(["Sinne vaan!", "Hyvä, vielä %d." % tila.order_left, "Varo aitaa!"][randi() % 3], 2.5)
@@ -1860,6 +1867,8 @@ func _check_jobs() -> void:
 
 func _job_done(pe: Pelto, id: String, bk: Dictionary) -> void:
 	tila.set_paid(pe.index, id)
+	if not (_helper_checking or (traktori.helper_active() and helper_field == pe.index)):
+		progress.emit(id)
 	if id == "paalaus" and tila.baler_hay > Tila.BALE_HAY * 0.2:
 		_eject_bale(pe.index)  # viimeinen, vajaa paali kammiosta
 	if id == "paalaus":
@@ -1904,6 +1913,7 @@ static func _eur(v: float) -> String:
 func _talk() -> void:
 	if not tila.talked:
 		tila.talked = true
+		progress.emit("isanta")
 		say(site.texts.hello, 7.0)
 		message.emit(site.texts.intro % [Settings.cap("mount"), Settings.cap("bell")], 7.0)
 		return

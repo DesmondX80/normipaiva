@@ -15628,6 +15628,9 @@ func _farm_logic(k: Node3D) -> bool:
 		k.message.connect(func(t: String, secs: float) -> void: _show_message(t, secs))
 		k.paid.connect(_kaisua_paid)
 		k.legend.connect(func(id: String) -> void: _ending(id))
+		k.progress.connect(func(id: String) -> void: tilat.first("maatila_" + id, 0.2))  # luku 7 (quests.gd)
+		if k.tila.talked:
+			tilat.first("maatila_isanta", 0.0)  # vanha tallennus: isäntä tavattu ennen lukua 7
 		k.food_eaten.connect(_kaisua_food)
 		k.beers_given.connect(func(n: int) -> void:
 			beers += n

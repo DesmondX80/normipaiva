@@ -140,6 +140,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   **K-18 pois:** vain korkkikansion ja Drakkarin jäljet, puheeksiotto ja hyvitykset toimivat; Päivi ei tutki, eikä
   huipennusta tule. Päiväkirjan Tarina-sivulla luku 6 näkyy vaiheineen ja Päivin piirretyllä ilmeellä (rauhallinen,
   kulmat koholla, kädet puuskassa, laukku pakattu). Vihjeitä: Pekka ("Päivi kyseli musta eilen..."), Sinikka ja Pentti.
+- **Luku 7: Talkoissa (`quests.gd luku7`):** rinnakkainen luku maatilan hommille. Aukeaa, kun Kaisuan tai Altaan tilan
+  isäntä on tavattu (vanhassa tallennuksessa jo tavattu isäntä avaa luvun heti). Kaikki työt ovat pakollisia vaiheita:
+  niitto, karhous, paalaus, paalit latoon, puinti, vilja kuivuriin, kyntö, kivien keruu, äestys, kylvö ja Raijan
+  paalitilaus (vain Kaisualla). Vaihe kuittautuu, kun pelaaja tekee työn itse jommallakummalla tilalla
+  (`kaisua.gd progress` -> `tilat.first("maatila_<työ>")`); apumiehen ajama työ ei kuittaa. Aikaa kuluu laskennallisesti
+  noin 50 min / ha heinäketjuun ja 90 min / ha viljaketjuun, ja ohra kasvaa kylvöstä puintikypsäksi päivä kerrallaan.
+  Testi `--scene=altaan_ajo` (luku aukeaa, oma puinti kuittaa, Eetun niitto ei).
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
   kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
   tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
