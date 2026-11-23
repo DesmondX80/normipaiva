@@ -1436,6 +1436,27 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			if g == null:
 				main.get_tree().quit()
 				return 2
+			# Päivi vahtii itse leikkuuta: Hyundai ei saa pelaajaa kiinni aidan luota, vaikka jahti olisi päällä.
+			var wf: Node3D = main.wife
+			var w_save := [wf.global_position, wf.parked, wf.visible, wf.process_mode, wf.alerted, wf.mode]
+			wf.reset_to(main.world.nearest_node(main.world.hedge_spot))
+			wf.parked = false
+			wf.visible = true
+			wf.process_mode = Node.PROCESS_MODE_INHERIT
+			wf.alerted = true
+			wf.mode = "chase"
+			for i in 180:
+				await main.get_tree().physics_frame
+			var w_d: float = Vector2(wf.global_position.x - main.player.global_position.x, wf.global_position.z - main.player.global_position.z).length()
+			print("PENSAS Päivin auto %.1f m, turvassa %s, tila %s" % [w_d, wf.is_target_safe(), main.state])
+			if not wf.is_target_safe() or main.state != "ulkona":
+				print("TESTI VIKA Päivi otti kiinni pensasaidan leikkuussa")
+			wf.global_position = w_save[0]
+			wf.parked = w_save[1]
+			wf.visible = w_save[2]
+			wf.process_mode = w_save[3]
+			wf.alerted = w_save[4]
+			wf.mode = w_save[5]
 			var aim := func(y: float) -> float:  # katseen kulma, jolla terä on korkeudella y
 				return atan((y - g.EYE) / g.STAND)
 			g._pitch = aim.call(1.75)
@@ -1538,6 +1559,9 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				g._bubble.text if is_instance_valid(g) else ""])
 			await hshot.call("valmis")
 			await main.get_tree().create_timer(3.6).timeout
+			print("PENSAS Päivin armonaika leikkuun jälkeen %.1f s" % main.wife.grace)
+			if main._hedge_game == null and main.wife.grace <= 0.0:
+				print("TESTI VIKA Päivin auto jahtaa heti leikkuun jälkeen")
 			print("PENSAS loppu: peli %s, rehotus %.2f, kehu %s, viesti '%s'" % [main._hedge_game, hh.overgrowth(), main._hedge_praise, main._msg.text.replace("\n", " | ")])
 			main._hud.visible = false
 			main.walker_out.global_position = main.world.hedge_spot - fwd * 3.0 + Vector3(0, 0.3, 0)

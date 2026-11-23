@@ -9916,8 +9916,13 @@ func _start_hedge() -> void:
 	g.start_x = 7.5
 	g.drunk = _hand_shake()
 	_hedge_game = g
+	if is_instance_valid(wife):
+		wife.safe_zones = _wife_safe_zones()  # Päivi katsoo itse leikkuuta: Hyundai ei jahtaa aidan luota
 	g.finished.connect(func(result: String) -> void:
 		_hedge_game = null
+		if is_instance_valid(wife):
+			wife.safe_zones = _wife_safe_zones()
+			wife.grace = maxf(wife.grace, 15.0)  # Päivi vasta näki sinut töissä: hetki aikaa lähteä aidan luota
 		walker_out.controls_enabled = true
 		walker_out.visible = true
 		world.hedge_prop.visible = true
@@ -21994,6 +21999,8 @@ func _wife_safe_zones() -> Array:
 		out.append([world.rauniot_youth_pos, 12.0])
 	if mowing and _mow_lawn == lawn:
 		out.append([walker_out.global_position, 40.0])  # kotipiha leikkurin ympärillä
+	if _hedge_game != null:
+		out.append([world.hedge_spot, 40.0])  # pensasaidan leikkuu: Päivi seisoo itse vahtimassa narun vieressä
 	return out
 
 
