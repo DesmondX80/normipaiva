@@ -2,7 +2,8 @@ shader_type spatial;
 render_mode cull_disabled;
 // Kaisuan pellon pinta (kaisua_pelto.gd): väri ruudun tilasta (kaisua_tila.gd), neljän lähimmän ruudun värit
 // sekoitetaan, ettei 0,5 m ruudukko näy portaina. Työsuunta (B) antaa niittojäljen kaistat, äkeen viirut, kylvörivit
-// ja orasrivit ajosuuntaan. Ruutu ilman peltoa (NONE) jätetään piirtämättä, jolloin alla näkyy maasto.
+// ja orasrivit ajosuuntaan. Ruutu ilman peltoa (NONE) jätetään piirtämättä, jolloin alla näkyy maasto; raja kulkee
+// ruutujen välissä peiton mukaan kohinalla rikottuna (ei portaita).
 
 uniform sampler2D state_tex : filter_nearest;  // R8: tila (kaisua_tila.gd)
 uniform sampler2D dir_tex : filter_nearest;  // R8: työsuunta (0–1 = 0–180°)
@@ -10,6 +11,7 @@ uniform vec2 origin = vec2(0.0);
 uniform vec2 cells = vec2(1.0);
 uniform float cell = 0.5;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
+uniform float wet = 0.0;  // sade (kaisua.gd): tummempi ja kiiltävämpi
 
 varying vec2 v_p;
 
@@ -48,7 +50,11 @@ vec3 ground_col(int s, float dirv, vec2 p, float n, float fine) {
 		vec3 hay = mix(vec3(0.33, 0.45, 0.15), vec3(0.45, 0.55, 0.22), n);
 		return hay * (0.85 + fine * 0.3);
 	}
-	if (s == 5 || s == 6) {  // sänki: niittokoneen kaistat ajosuuntaan
+	if (s == 5) {  // karhon alla kuivaa heinää yhtenäisenä kaistana
+		vec3 hay = mix(vec3(0.43, 0.48, 0.2), vec3(0.6, 0.62, 0.3), n);
+		return hay * (0.78 + fine * 0.42);
+	}
+	if (s == 6) {  // sänki: niittokoneen kaistat ajosuuntaan
 		vec3 st = mix(vec3(0.42, 0.5, 0.22), vec3(0.56, 0.6, 0.31), n);
 		st *= 0.92 + 0.08 * stripes(across, 7.2, 0.5);
 		return st * (0.85 + fine * 0.3);
@@ -96,15 +102,32 @@ void fragment() {
 	ivec2 i0 = ivec2(floor(g));
 	vec2 f = fract(g);
 	ivec2 near = ivec2(floor(g + 0.5));
-	int sn = st_at(near);
-	if (sn == 0) {
-		discard;
-	}
-	float dn = dir_at(near);
 	ivec2 cs[4] = {i0, i0 + ivec2(1, 0), i0 + ivec2(0, 1), i0 + ivec2(1, 1)};
-	vec3 col[4];
 	float n = texture(noise_tex, v_p * 0.035).r;
 	float fine = texture(noise_tex, v_p * 0.8).r;
+	// Reuna: neljän ruudun peltopeitto lineaarisesti ja kohinalla rikottuna (ei 0,5 m portaita, vaan rosoinen
+	// pientareen raja). Peitto 0,5 on ruutujen välinen raja; kohina siirtää sitä ±15 cm.
+	float m00 = st_at(cs[0]) != 0 ? 1.0 : 0.0;
+	float m10 = st_at(cs[1]) != 0 ? 1.0 : 0.0;
+	float m01 = st_at(cs[2]) != 0 ? 1.0 : 0.0;
+	float m11 = st_at(cs[3]) != 0 ? 1.0 : 0.0;
+	float cover = mix(mix(m00, m10, f.x), mix(m01, m11, f.x), f.y);
+	float edge_n = texture(noise_tex, v_p * 0.37).r * 0.7 + fine * 0.3;
+	if (cover < 0.5 + (edge_n - 0.5) * 0.6) {
+		discard;
+	}
+	int sn = st_at(near);
+	if (sn == 0) {  // reunan yli ulottuva kohta: lähin peltoruutu
+		for (int k = 0; k < 4; k++) {
+			int sk = st_at(cs[k]);
+			if (sk != 0) {
+				sn = sk;
+				near = cs[k];
+			}
+		}
+	}
+	float dn = dir_at(near);
+	vec3 col[4];
 	for (int k = 0; k < 4; k++) {
 		int sk = st_at(cs[k]);
 		float dk = dir_at(cs[k]);
@@ -115,8 +138,8 @@ void fragment() {
 		col[k] = ground_col(sk, dk, v_p, n, fine);
 	}
 	vec2 w = smoothstep(0.15, 0.85, f);
-	ALBEDO = mix(mix(col[0], col[1], w.x), mix(col[2], col[3], w.x), w.y);
-	ROUGHNESS = 0.95;
+	ALBEDO = mix(mix(col[0], col[1], w.x), mix(col[2], col[3], w.x), w.y) * (1.0 - 0.3 * wet);
+	ROUGHNESS = mix(0.95, 0.55, wet);
 	// Kynnetyn palteet ja äestetyn viirut valon mukaan: normaali kallistuu poikkisuunnassa (vaon rinteet).
 	if (sn == 18 || sn == 11 || sn == 12) {
 		float a = dn * 3.14159265;

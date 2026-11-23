@@ -56,6 +56,14 @@ const FILES := {
 	"axe": [["axe_0.wav", "axe_1.wav", "axe_2.wav", "axe_3.wav", "axe_4.wav", "axe_5.wav"], false],
 	"fart": [["fart_0.wav", "fart_1.wav", "fart_2.wav"], false],
 	"shotgun": [["shotgun.wav"], false],
+	# Kaisuan työkoneet (syntetisoitu, tools/aanet/rakenna_tyokoneet.py): silmukat moottorin äänen päälle.
+	"kone_niitto": [["kone_niitto.ogg"], true],
+	"kone_karho": [["kone_karho.ogg"], true],
+	"kone_paalain": [["kone_paalain.ogg"], true],
+	"kone_maa": [["kone_maa.ogg"], true],
+	"kone_kylvo": [["kone_kylvo.ogg"], true],
+	"kone_puinti": [["kone_puinti.ogg"], true],
+	"sade": [["sade.ogg"], true],  # sadepäivä mökin seudulla (syntetisoitu)
 }
 
 

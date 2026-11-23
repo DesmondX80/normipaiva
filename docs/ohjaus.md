@@ -36,6 +36,7 @@
 | E | laske työkone töihin / nosta; paali piikkiin, latoon tai maahan; täytä kylvökone säkeistä; kippaa kärry suppiloon tai kivet kivikasaan; puimurilla leikkuupöytä alas / ylös tai purku kärryyn tai suppiloon |
 | E (jalan pellolla) | nosta kivi / heitä kärryyn tai kivikasaan / laske maahan |
 | E (jalan dieselsäiliöllä tai koneen vieressä) | täytä kanisteri / kaada kanisteri koneen tankkiin |
+| Q (jalan traktorin vieressä) | pyydä Santtu ajamaan pellon työ (15 €) / keskeytä Santun ajo |
 
 | Sahauksessa | |
 |---|---|

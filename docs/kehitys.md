@@ -64,6 +64,20 @@ tuontivälimuistista (`.godot/imported`) ja testit kaatuvat (esim. `voice_length
 `--scene=koulu_disko`: koulun disko (`koulu_disko_game.gd`): ovi torstaina ja perjantaina, pisteytys (`score_change`, `rating`) ilman ruutua, ensimmäinen biisi, toive kesken biisin, miksauspalkki, sujuva miksaus hitaaseen (parit), kesken katkaisu, opettajan polkkatoive ja polkka, hiljaisuus, loppu ja tulos, vaikutus peliin (maine, kerran illassa, sivutehtävä) ja tallennus; rivit `DI OK` tai `TESTI VIKA`, kuvat `_ovi`, `_alku`, `_kasetit_lahi`, `_soi`, `_lattia_lahi`, `_deki_lahi`, `_miksaus`, `_hidas`, `_opettaja`, `_polkka`, `_loppu`. Kamera rajataan projisoimalla (`_frame_cam`): kaikkien lattiapaikkojen lapset 12–88 % leveydelle ja 18–74 % korkeudelle, DJ:n pää vasempaan alakulmaan.
 `--scene=mokkikaisua`, `mokkikaisua_heina`, `mokkikaisua_vilja`, `mokkikaisua_kivet` (ryhmä `kaisua`; kivet = nopea
 lähikuva kivistä kynnetyllä kaistalla, kivikasa ja kivi kädessä): Kaisuan tila (`kaisua.gd`). Yleiskuvat pihasta, koneista, pelloista ja isännästä; heinäketju (traktori ja niittokone autopilotilla Kotipellon poikki, loput kaistat simuloiden `_sim_lane`, karhous, paalaus, paalit latoon piikillä, naapurin paalitilaus, diesel loppuu ja kanisteri, maksut, legendaarinen hetki ja talkooruoka, nurmen kasvu); viljaketju (puimuri Tienvarsipellolla, purku kärryyn, kippaus kuivuriin, äes sänkeen ei pure, kyntö auralla, kivet käteen, kärryyn ja kasaan, äestys ja kylvö Isopellolla, kasvu päivä kerrallaan). Pellon pinta ja kasvusto lasketaan maastoverkon kolmioista (`mokki.gd mesh_h`), joten kuvista tarkistetaan, ettei mikään leiju tai uppoa.
+Lisäksi samassa ryhmässä: `mokkikaisua_kuski` (kuskit ratissa: kuvat, ratin rako, pään rako puimurin katokseen ja
+läpimenot `Asento.solids`; diagnoosirivit `JALKA` kertovat raajaryhmittäin, mihin koneen osaan pisteet osuvat, säteen
+osumakorkeuksineen; puimurin kuskin maha hipaisee ratin lähireunaa alle 1,5 cm, hyväksytty), `mokkikaisua_tallennus`
+(pelataan vähän, tallennus, lataus uuteen tilaolioon ja vertailu, tila rakennetaan ladatusta uudelleen),
+`mokkikaisua_nappaimet` (oikeat painallukset `Input.action_press`: F, peruutus ja Q-kytkentä, E lasku ja nosto, kärry
+perään, puimurista purku E:llä, kärry peruuttaen suppilolle ja kippaus; vihjepalkin rivimäärä enintään 2),
+`mokkikaisua_pinnat` (päärakennus neljästä suunnasta, pellon reuna, niitetty heinä, karhot, seisovan raja ja kasvusto
+kaukana), `mokkikaisua_apumies` (Santtu Q:lla, keskeytys 40 %:ssa ja uudelleenpalkkaus lyhyemmällä reitillä, niitto koko
+pellolle nopeutettuna `helper_rate_override`, tankkaus, paalaus karhoja pitkin, mökin Santtu piilossa ja takaisin;
+reittikuvat `_reitti_*` ylhäältä: pelto harmaa, työssä vihreä, siirtymä sininen, peruutus punainen) ja `mokkikaisua_sade` (sade ja pouta kuvina, paalaus estetty
+sateella, isännän repliikki, sadepäivät 1–30). Rivit `KAISUA ...` ja viat `TESTI VIKA`. Jokainen kohtaus alkaa
+tyhjästä tilasta (`_fresh`: uusi `kaisua_tila.gd` ja `mokki.gd rebuild_kaisua`, sade pois), koska ajokansion
+tallennuksessa voi olla edellisen kohtauksen Kaisua (F koneesta pois tallentaa pelin) ja sadepäivä. Vihjepalkin rivit
+mitataan rivittämällä vihjeen teksti suoraan (`hint_bar.gd _rebuild`), koska testiajo piilottaa HUDin joka ruutu.
 `--scene=pekanlaatikko`: Pekan vintin romut (`pekan_laatikko.gd`): laatikko vasta oman kirppispöydän jälkeen ja vain kerran, romut pöydälle, keräilijän, Anna-Liisan ja mummon repliikit, Pekan osuus (puolet romujen tuloista), saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt tilitys (kyyti kiinni, vihainen tervehdys) ja tallennus; rivit `PL OK` tai `TESTI VIKA`, kuvat `_pekka_laatikko`, `_keraaja`, `_poyta_lahi` (pöytä 2 × suurennettuna), `_annaliisa_taulu`, `_yhteenveto`, `_tilitys`, `_myohassa`.
 `--scene=kainuulista`: Gasthausin ruokalista (valinnat, nälän nollaus, köyhänä pois käytöstä).
 `--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).
@@ -578,6 +592,10 @@ lopetus ja kuvat).
 ## Latausaika (lataus-testi)
 
 `tools/testit/aja.sh --ei-kuvia --kiintea tscn tools/testit/lataus.tscn <kansio> --ajastus` mittaa Saloisten latauksen (`LATAUS Saloinen`), Vaalan latauksen (`LATAUS Vaala`, jaettuna rakennukseen, `_start_mopo`:on ja viiteen ensimmäiseen ruutuun) ja vaihekohtaiset ajat (`VAALA vaiheet`). Testi tallentaa yhden kuvan (`lataus.png`, Vaalan ensiruutu) tulostekansioon, joten `--ei-kuvia` ei ole pakollinen (se käy silti, jos kuvaa ei tarvita). Kylmä mittaus: poista ajon `HOME`:n `.local/share/godot/app_userdata/Normipäivä/cache`. Lisävalitsimet: `--avaintesti` (ajoalueen välimuistiavaimen kattavuus: syötteen muutos muuttaa maskin ja avaimen), `--tarkista-ajomaski` (välimuistista ladattu maski vs. laskettu), `--ei-valimuistia` (ohita ajomaskin levyvälimuisti `vaala_ajo`). Luvut ennen/jälkeen: työkansion `03-baseline.md`.
+
+Kaisuan kasvustolohkot (satoja MultiMeshInstanceja) eivät käytä varjostimen instanssimuuttujia: GLES3 sallii niitä
+koko pelissä 4096 paikkaa, ja tilan uudelleenrakennus (testien `_fresh`) ylitti rajan, jolloin lohkot piirsivät väärän
+kohdan. Lohkon alkuruutu on solmun siirto, jonka `pelto_kasvi.gdshader` lukee `MODEL_MATRIX`:sta (`from_world`).
 
 Kaisuan tila rakentuu mökin mukana noin 0,26 sekunnissa (`--scene=mokkikaisua` tulostaa vaiheet, `kaisua.gd build_laps`
 ja pelloittain `kaisua_pelto.gd laps`). Opit: uuden hahmon vaatetettu verkko (`character.gd _clothed_mesh`, välimuisti

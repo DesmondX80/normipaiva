@@ -577,7 +577,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   - **Kaisuan tila (Kaisuantie 38, `kaisua.gd`):** maatilan hommat Farming Simulatorin tapaan noin 230 m mökiltä
     länteen. Tila on OSM-kartan talon (Kaisuantie 38) kohdalla: pihalla konevaja työkoneineen ja siemensäkkeineen,
     harmaa lato, punainen viljankuivuri elevaattoreineen ja vastaanottosuppiloineen, KAISUA-kyltti ja postilaatikko
-    tien varressa sekä isäntä (flanellipaita, henkselit, kumisaappaat). Pellot ovat oikeat OSM-pellot: Kotipelto
+    tien varressa sekä isäntä (flanellipaita, henkselit, kumisaappaat). Päärakennus on mallinnettu OSM-pohjan ja
+    laserkeilauksen harjakorkeuden mukaan: puolitoistakerroksinen keltamullattu talo vaakalaudoituksella, valkoiset
+    nurkka-, räystäs- ja ikkunalaudat, kuusiruutuiset ikkunat (ullakolla päädyissä pienemmät), kivijalka, punainen
+    peltikatto ja kaksi tiilipiippua; pihan puolella lasikuisti pariovineen, portaat kukkaruukkuineen, lyhty ja penkki.
+    Talkooruoalle mennään kuistin portaille. Pellot ovat oikeat OSM-pellot: Kotipelto
     (0,71 ha) ja Ojanvarsi (0,97 ha) ovat nurmea, Tienvarsipelto (0,55 ha) ja Isopelto (2,14 ha) ohraa. Kävelyalue
     laajennettiin länteen (x -590 m), jotta Isopelto ja Ojanvarsi ovat ajettavissa.
     - **Koneet:** vanha ohjaamoton traktori (pyöreä konepelti, pystypakoputki, pellinen istuin, etukuormain
@@ -588,7 +592,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     - **Pellot:** ruudukko 0,5 m ruuduin, ja jokaisella ruudulla on oma vaiheensa ja työsuuntansa (`kaisua_pelto.gd`,
       `kaisua_tila.gd`). Kasvusto on korsikortteja (nurmi timotein tähkineen, ohra tähkineen ja vihneineen), ja pinta
       näyttää niittojäljen kaistat, äkeen viirut, kylvörivit ja orasrivit ajosuuntaan. Niitetty heinä ja olki makaavat
-      työsuuntaan, karho on harjanne.
+      työsuuntaan, karho on yhtenäinen pöyheä harjanne kuivan heinän värisellä kaistalla. Pellon reuna kulkee ruutujen
+      välissä rosoisena pientareena (ei ruutuportaita), ja kasvusto painuu kaukana (46–66 m) tupsu kerrallaan maahan,
+      joten pellolle ei näy kovaa näkyvyysrajaa.
     - **Heinä:** niitto, karhous (karhotin kokoaa 6 m kaistan keskelle karholle), paalaus (paalain kerää karhon, ja
       kääritty paali putoaa perästä noin 650 m² nurmesta) ja paalit latoon piikillä. Nurmi kasvaa sängestä
       niittokypsäksi kolmessa päivässä.
@@ -605,6 +611,27 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     - **Paalikauppa:** kun ladossa on paaleja, isäntä välittää naapurin Raijan tilauksen (2–4 paalia lehmille, yksi
       tilaus päivässä). Paali otetaan ladosta piikkiin ja viedään tien pohjoispuolen naapuritalon paalipaikalle
       ("PAALIT TÄHÄN"); Raija maksaa 6 € paalilta ja kiittää. Myydyt paalit syötetään seuraavaan päivään mennessä.
+    - **Apumies:** kun traktorin perässä on pellon seuraavaan työhön sopiva kone ja traktori on pellolla (tai enintään
+      25 m päässä), jalan traktorin vieressä Q pyytää Santun ajamaan (15 €). Santtu polkaisee mökiltä (mökin pihalta
+      hän on sillä välin poissa), istuu rattiin ja ajaa pellon valmiiksi lasketulla reitillä kuten oikeasti: ensin
+      päisteet kiertäen pellon reunaa 2–7 kierrosta (sivuniittokone ja aura ulkoreunan puolella, kulmat pyöristettyinä
+      kääntösäteellä; paalain kiertää koko karhottimen päisteen leveydeltä, jotta reunakarhot ja karhojen päät
+      kerätään), sitten sisäosa kaistoina koneen työleveyden välein pellon pituussuuntaan (paalaimella karhoja pitkin).
+      Kun kaistaväli on alle kaksi kääntösädettä, joka toinen kaista ensin puoliympyräkäännöksin ja paluu väliin
+      jääneitä pitkin (vierekkäisen kaistan käännös Ω:na). Käännökset tehdään päisteellä peruuttaen (kone nostettuna,
+      perävaunu oikenee peruutuksessa), joten pientareelle tai puihin ei ajeta. Kun pelaaja on yli 120 m päässä, Santtu
+      ajaa nelinkertaisella vauhdilla. Q traktorin vieressä keskeyttää. Valmiista työstä isäntä maksaa pelaajalle
+      tavalliseen tapaan. Diesel kuluu (Kotipellon niitto vie noin 65 % tankista): jos tankki ei riitä koko reitille,
+      Santtu sanoo sen aloittaessaan, ja tyhjällä tankilla hän jättää traktorin pellolle. Kesken jäänyttä työtä
+      jatkettaessa reitti ohittaa kaistat ja kierrokset, joilla työ on jo tehty.
+    - **Sää:** noin joka kolmas päivä (ei ensimmäisenä) mökin seudulla sataa 3–7 tuntia klo 8–14 alkaen
+      (`kaisua_tila.gd rain_window`). Sateella taivas harmaantuu, aurinko himmenee, usva sakenee, kameran ympärillä
+      sataa ja pellot tummuvat märiksi; sateen ääni soi. Märkää heinää ei paalata eikä märkää viljaa puida (viesti
+      kertoo, milloin sade loppuu); kyntää, äestää, kylvää, niittää ja karhota voi. Isäntä ja koneen tilarivi
+      kertovat sateesta.
+    - **Äänet:** moottorin lisäksi työkoneilla on omat äänensä (syntetisoitu `tools/aanet/rakenna_tyokoneet.py`):
+      niittokone, karhotin, paalaimen mäntä, auran ja äkeen mullan rouhinta, kylvökoneen tikitys ja puimurin
+      puintikoneisto. Voimanotolla pyörivät koneet soivat seisoessakin, maata muokkaavat vain liikkeessä.
     - **Palkka:** isäntä maksaa jokaisesta valmiista työstä (yli 92 % pellosta): niitto 30 €/ha, karhous 18 €/ha,
       paalaus 2,50 €/paali, paali latoon 2 €, puinti 55 €/ha, vilja kuivuriin 1,20 €/100 kg, kyntö 35 €/ha, kivi
       kasaan 0,60 €, äestys ja kylvö 28 €/ha.
