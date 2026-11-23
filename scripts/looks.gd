@@ -56,7 +56,9 @@ const HAHMO := [
 	{"id": "keho", "name": "Keho", "cam": "vartalo", "opts": [["tavallinen", "Tavallinen", {}],
 		["roteva", "Roteva", {"bulk": 0.6, "shoulders": 0.3, "legs": 0.7}],
 		["lihas", "Lihaksikas", {"bulk": 0.25, "shoulders": 0.5, "muscle": 0.3, "legs": 0.5}],
-		["hintela", "Hintelä", {"bulk": -0.6, "shoulders": -0.8, "muscle": -1.0, "legs": -0.4}],
+		# Hintelä: kädet ohenevat sekä bulkista että lihaksista (character.gd _shape_offset), joten bulk on maltillinen ja
+		# lihakset oletuksessa: bulk -0,6 ja muscle -1 tekivät käsistä tikut.
+		["hintela", "Hintelä", {"bulk": -0.3, "shoulders": -0.7, "legs": -0.4}],
 		# Naisen keho: samat muodot kuin Sinikalla, Katjalla ja kolmiomittauksen naisilla (SINIKKA: curves 1, bust 2,7, bulk -0,2).
 		["nainen", "Naisen keho", {"model": "female", "bulk": -0.2, "shoulders": 0.0, "curves": 1.0, "bust": 2.7}]]},
 	{"id": "maha", "name": "Maha", "cam": "vartalo", "opts": [["kalja", "Kaljamaha", [0.75, 1.0]], ["jatti", "Jättimaha", [1.0, 1.0]],
