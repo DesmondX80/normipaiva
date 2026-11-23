@@ -65,6 +65,25 @@ const CHAPTERS := [
 		{"id": "p_valinta", "text": "Kotiovella odottaa Päivi ja Sinikka: naura, tunnusta tai suutu.",
 			"done": "first:kesaheila_valinta", "k18": true, "hint": "auto"},
 	]},
+	# Luku 7: maatilan hommat (Kaisua mökin naapurissa, Altaan tila kodin itäpuolella). Rinnakkainen: aukeaa, kun jommankumman
+	# tilan isäntä on tavattu. Jokainen työ on pakollinen molemmilla tiloilla ja kuittautuu, kun pelaaja on tehnyt sen itse
+	# (apumiehen ajama ei käy) kummallakin (kaisua.gd progress -> main.gd tilat.first("maatila_<tila>_<työ>")). Raijan
+	# paalikauppa on vain Kaisualla.
+	{"id": "luku7", "title": "7. Talkoissa", "parallel": true, "open": "first:maatila_isanta", "steps": [
+		{"id": "m_isanta", "text": "Kaksi isäntää tarvitsee apua pelloille: Kaisuassa mökin naapurissa ja Altaan tilalla kodin itäpuolella.",
+			"tilat": "isanta", "done": "first:maatila_kaisua_isanta&first:maatila_altaantie_isanta", "hint": "auto"},
+		{"id": "m_niitto", "text": "Niitä nurmi traktorin sivuniittokoneella molemmilla tiloilla.", "tilat": "niitto", "done": "first:maatila_kaisua_niitto&first:maatila_altaantie_niitto", "hint": "auto"},
+		{"id": "m_karhous", "text": "Karhota niitetty heinä karhoille molemmilla tiloilla.", "tilat": "karhous", "done": "first:maatila_kaisua_karhous&first:maatila_altaantie_karhous", "hint": "auto"},
+		{"id": "m_paalaus", "text": "Paalaa karhot pyöröpaalaimella molemmilla tiloilla.", "tilat": "paalaus", "done": "first:maatila_kaisua_paalaus&first:maatila_altaantie_paalaus", "hint": "auto"},
+		{"id": "m_latoon", "text": "Vie paalit etukuormaajan piikillä latoon molemmilla tiloilla.", "tilat": "latoon", "done": "first:maatila_kaisua_latoon&first:maatila_altaantie_latoon", "hint": "auto"},
+		{"id": "m_puinti", "text": "Pui kypsä ohra puimurilla molemmilla tiloilla.", "tilat": "puinti", "done": "first:maatila_kaisua_puinti&first:maatila_altaantie_puinti", "hint": "auto"},
+		{"id": "m_kuivuri", "text": "Vie vilja kuivurin suppilolle molemmilla tiloilla.", "tilat": "kuivuri", "done": "first:maatila_kaisua_kuivuri&first:maatila_altaantie_kuivuri", "hint": "auto"},
+		{"id": "m_kynto", "text": "Kynnä sänki kääntöauralla molemmilla tiloilla.", "tilat": "kynto", "done": "first:maatila_kaisua_kynto&first:maatila_altaantie_kynto", "hint": "auto"},
+		{"id": "m_kivet", "text": "Kerää kynnöstä nousseet kivet kasaan molemmilla tiloilla.", "tilat": "kivet", "done": "first:maatila_kaisua_kivet&first:maatila_altaantie_kivet", "hint": "auto"},
+		{"id": "m_aestys", "text": "Äestä kynnös molemmilla tiloilla.", "tilat": "aestys", "done": "first:maatila_kaisua_aestys&first:maatila_altaantie_aestys", "hint": "auto"},
+		{"id": "m_kylvo", "text": "Kylvä ohra konevajan siemenillä molemmilla tiloilla.", "tilat": "kylvo", "done": "first:maatila_kaisua_kylvo&first:maatila_altaantie_kylvo", "hint": "auto"},
+		{"id": "m_paalikauppa", "text": "Vie Kaisuan naapurin Raijan paalitilaus lehmille.", "done": "first:maatila_kaisua_paalikauppa", "hint": "auto"},
+	]},
 ]
 
 ## Sivutehtävät: id, otsikko, kuvaus (kun tiedossa), tiedossa-ehto, valmis-ehto ja valinnainen edistymisavain
@@ -477,8 +496,14 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 				var by_flag := h.begins_with("flag:")
 				if not d and ((open and h == "auto") or (by_flag and check(h, firsts, flag))):
 					heard[st.id] = true
-				if d or ((open or by_flag) and heard.has(st.id)):
-					rows.append([st.text, d, done_day.get(st.id, 0) if d else 0])
+				# Luku 7: toisella tilalla tehty työ näkyy heti, ja kesken olevassa näkyy, kumpi tila on vielä tekemättä.
+				var farm_k: bool = st.has("tilat") and check("first:maatila_kaisua_" + st.tilat, firsts, flag)
+				var farm_a: bool = st.has("tilat") and check("first:maatila_altaantie_" + st.tilat, firsts, flag)
+				if d or farm_k or farm_a or ((open or by_flag) and heard.has(st.id)):
+					var txt: String = st.text
+					if st.has("tilat") and not d:
+						txt += " (Kaisua %s, Altaan tila %s)" % ["tehty" if farm_k else "tekemättä", "tehty" if farm_a else "tekemättä"]
+					rows.append([txt, d, done_day.get(st.id, 0) if d else 0])
 				if not d and not st.get("optional", false):
 					open = false
 		var entry := {"title": ch.title, "rows": rows, "done": ch_done}

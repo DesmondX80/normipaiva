@@ -1566,6 +1566,11 @@ func _altaan_ajo(path: String) -> void:
 	main._hud.visible = false
 	main.money = 50.0
 	var t: CharacterBody3D = k.traktori
+	# Luku 7: isännän ensimmäinen juttu avaa luvun (signaalit kytketään tilan ensimmäisellä vuorolla).
+	main._farm_logic(k)
+	k._talk()
+	await _frames(2)
+	_check(main.tilat.firsts.has("maatila_isanta"), "luku 7 aukeaa isännän jutusta")
 	# F traktorin vieressä.
 	var seat := t.to_global(Vector3(-1.3, 0, 0.3))
 	main.walker_out.global_position = seat + Vector3(0, 0.5, 0)
@@ -1618,6 +1623,7 @@ func _altaan_ajo(path: String) -> void:
 	k._check_jobs()
 	_ksummary(k, "altaan puitu")
 	_check(k.tila.is_paid(0, "puinti"), "Isoahon puinti maksettu")
+	_check(main.tilat.firsts.has("maatila_altaantie_puinti"), "oma puinti kirjautuu Altaan tilalle (luku 7)")
 	var ic: Vector2 = iso.center
 	_klook(k, Vector3(ic.x - 28, 16, ic.y + 28), Vector3(ic.x, 0, ic.y))
 	await _frames(20)
@@ -1652,6 +1658,19 @@ func _altaan_ajo(path: String) -> void:
 	var cut := int(kn.counts.get(Tila.H_NIITETTY, 0))
 	print("KAISUA altaan Eetun niitto: niitetty %d, pystyssä %d, %.0f s, kesken %s" % [cut, left, (Time.get_ticks_msec() - t0) / 1000.0, t.helper_active()])
 	_check(float(left) / maxf(1, cut + left) < 0.05, "Eetu niitti Kotiniityn")
+	_check(not main.tilat.firsts.has("maatila_altaantie_niitto"), "Eetun niitto ei kuittaa luvun 7 vaihetta")
+	var l7 := {}
+	for ch in main.journal_data().chapters:
+		if str(ch.title).begins_with("7."):
+			l7 = ch
+	print("KAISUA luku 7: %s" % [l7.get("rows", []).map(func(r): return "%s%s" % [str(r[0]).left(28), " ✔" if r[1] else ""])])
+	_check(not l7.is_empty() and not l7.done and l7.rows.size() >= 2, "luku 7 päiväkirjassa, kesken")
+	var puinti_rivi := ""
+	for r in l7.get("rows", []):
+		if str(r[0]).begins_with("Pui "):
+			puinti_rivi = str(r[0])
+	print("KAISUA luku 7 puinti: '%s'" % puinti_rivi)
+	_check(puinti_rivi.contains("Kaisua tekemättä, Altaan tila tehty"), "luvun 7 puinti odottaa vielä Kaisuaa")
 	_klook(k, Vector3(kc.x - 25, 22, kc.y + 25), Vector3(kc.x, 0, kc.y))
 	await _frames(20)
 	await _shot(path, "altaan_kotiniitty_niitetty")
