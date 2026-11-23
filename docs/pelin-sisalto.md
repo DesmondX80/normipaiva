@@ -617,6 +617,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
       päisteet kiertäen pellon reunaa 2–7 kierrosta (sivuniittokone ja aura ulkoreunan puolella, kulmat pyöristettyinä
       kääntösäteellä; paalain kiertää koko karhottimen päisteen leveydeltä, jotta reunakarhot ja karhojen päät
       kerätään), sitten sisäosa kaistoina koneen työleveyden välein pellon pituussuuntaan (paalaimella karhoja pitkin).
+      Kapealla tai käyrällä pellolla (sisäosa alle kolmen kierroksen levyinen, esim. Altaan Kotiniitty) kierroksia
+      jatketaan keskelle asti kaistojen sijaan, ja jos kääntösäteen pyöristys katkaisisi kapean kaulan, kierros
+      ajetaan terävin kulmin.
       Kun kaistaväli on alle kaksi kääntösädettä, joka toinen kaista ensin puoliympyräkäännöksin ja paluu väliin
       jääneitä pitkin (vierekkäisen kaistan käännös Ω:na). Käännökset tehdään päisteellä peruuttaen (kone nostettuna,
       perävaunu oikenee peruutuksessa), joten pientareelle tai puihin ei ajeta. Kun pelaaja on yli 120 m päässä, Santtu
@@ -638,6 +641,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
       Valmiin työn jälkeen emäntä tarjoaa talkooruoan pirtissä (lihakeitto, ruisleipä, kahvit ja pullat; nälkä ja
       stressi helpottavat), ja kokonaisen ketjun jälkeen isäntä antaa kolme saunakaljaa. Ketjut ovat legendaarisia
       hetkiä: Kaisuan heinätalkoot, Kaisuan sato ja Kaisuan kylvöt.
+  - **Altaan tila (Saloinen, kodin itäpuoli, `kaisua.gd` paikalla `maatila_paikka.gd altaantie`):** samat maatilan
+    hommat kuin Kaisuassa noin 650 m kodista itään Altaantien varressa. Pellot ovat oikeat peltolohkot peltoseuranta-
+    sovelluksesta (`map_tila.gd`): Isoaho (5,0 ha, asuinalueen eteläpuolella), Altaanpelto ja Vainio pihan pohjoispuolella
+    sekä Kotiniitty ja Tienvarsiniitty talon ympärillä. Viljalohkot (rehuohra, herne, kevätvehnä) ovat pelissä ohraa ja
+    nurmet heinää kuten Kaisuassa. Piha on Altaantien koillispuolella (konevaja OSM-ulkorakennuksen paikalla, lato,
+    kuivuri, dieselsäiliö ja ALTAAN TILA -kyltti tien varressa), päärakennus tien toisella puolella OSM-talon paikalla.
+    Isoahoon ajetaan pihasta peltojen välistä polkua pohjoiseen (`map_data.gd ALTAAN_URA`, puut raivattu). Uusi isäntä
+    (punainen flanellipaita, parta) maksaa työt kuten Kaisuan isäntä; apumies on isännän poika Eetu (15 €), paalikauppaa
+    ei ole. Omat sadepäivät (Saloisten sade näkyy 700 m:n päähän pihasta), omat legendaariset hetket (Altaan
+    heinätalkoot, sato ja kylvöt) ja oma tallennusosio. Koneissa ja tilan toiminnoissa muut kylän toiminnot odottavat.
   - **Tikka ja mökkitikka:** tikanheittotaulun männyn vieressä toisessa männyssä on naulassa suomalainen
     mökkitikkataulu (`darts_game.gd make_mokki_board`, mode "mokki", esikuva fi.wikipedia "Tikanheitto"): renkaat 1–10
     vuorotellen valkoinen ja vihreä, kymppi vihreä keskellä, numerot pysty- ja vaakarivissä. Heittomatka 5 m (taulun

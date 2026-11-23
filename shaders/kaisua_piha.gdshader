@@ -3,7 +3,7 @@ render_mode cull_disabled;
 // Kaisuan pihan sora (kaisua.gd _build_gravel): harmaanruskea sora pikkukivineen, renkaanjäljet ja reunalla
 // nurmen ja soran sekoitus. Ympyröiden (x, z, säde) ulkopuoli karsitaan kohinan mukaan rikkonaiseksi reunaksi.
 
-uniform vec3 circles[4];
+uniform vec3 circles[8];  // enintään 8 ympyrää (kaisua.gd _build_gravel)
 uniform int circle_count = 0;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 

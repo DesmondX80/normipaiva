@@ -56,6 +56,9 @@ const ENDINGS := [
 	["kaisuan_heinatalkoot", "Kaisuan heinätalkoot", "Niitetty, karhottu, paalattu ja paalit latoon. Emännän lihakeitto ja isännän saunakaljat."],
 	["kaisuan_sato", "Kaisuan sato", "Ohra puitu vanhalla puimurilla ja kuivurissa. Isäntä haistoi jyviä ja nyökkäsi."],
 	["kaisuan_kylvot", "Kaisuan kylvöt", "Sänki äestetty ja ohra kylvetty suorin rivein. Isäntä sanoi, että ens kesänä nähdään."],
+	["altaan_heinatalkoot", "Altaan heinätalkoot", "Altaan tilan niityt niitetty, karhottu ja paalattu, paalit latossa. Emäntä kattoi pöydän pihalle."],
+	["altaan_sato", "Altaan sato", "Isoahon ohra puitu ja kuivurissa. Isäntä sanoi, että kodin naapurista sai kerrankin apua."],
+	["altaan_kylvot", "Altaan kylvöt", "Altaanpelto kynnetty, äestetty ja kylvetty. Eetu kävi katsomassa rivit ja myönsi, että suorat."],
 ]
 
 ## Oikeat onnelliset loput: päivä päättyy loppukohtaukseen (juhlat tallissa, viinibileet, laavu). Muut ovat

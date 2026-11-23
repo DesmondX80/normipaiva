@@ -67,6 +67,8 @@ var _work_snd: AudioStreamPlayer3D
 ## Apumies (Santtu, kaisua.gd _start_helper) ajaa valmiin reitin: [[Vector2 paikka (Kaisuan kehys), bool työssä], ...]
 ## 0,4 m välein. Kone liikkuu reittiä pitkin ilman törmäyksiä (pellon päiden käännökset voivat mennä pientareelle).
 var helper_path: Array = []
+## Maaston pinta tilan kehyksessä (maatila_paikka.gd height; kaisua.gd asettaa).
+var height_fn: Callable = Callable(Mokki, "mesh_h")
 var helper_s := 0.0  # matka reitillä (m)
 var helper_rate := 1.0  # aikakerroin (kaisua.gd kiirehtii, kun pelaaja on kaukana; testit kiirehtivät)
 var helper_done := false
@@ -335,7 +337,7 @@ func _ground_follow(delta: float) -> void:
 	var pts := []
 	for q in [Vector3(-0.8, 0, zf), Vector3(0.8, 0, zf), Vector3(-0.8, 0, zr), Vector3(0.8, 0, zr)]:
 		var l: Vector3 = to_local_fn.call(global_position + b * q)
-		pts.append(Mokki.mesh_h(l.x, l.z))
+		pts.append(float(height_fn.call(l.x, l.z)))
 	var front := (float(pts[0]) + float(pts[1])) / 2.0
 	var rear := (float(pts[2]) + float(pts[3])) / 2.0
 	var left := (float(pts[0]) + float(pts[2])) / 2.0
@@ -347,7 +349,7 @@ func _ground_follow(delta: float) -> void:
 	_roll = lerpf(_roll, roll, 1.0 - exp(-8.0 * delta))
 	_visual.rotation = Vector3(_pitch, 0, _roll)
 	var lp: Vector3 = to_local_fn.call(global_position)
-	var gy := Mokki.mesh_h(lp.x, lp.z)
+	var gy := float(height_fn.call(lp.x, lp.z))
 	_visual.position.y = lerpf(_visual.position.y, clampf(gy - lp.y, -0.4, 0.4), 1.0 - exp(-10.0 * delta))
 
 
@@ -507,7 +509,7 @@ func _helper_drive(delta: float) -> void:
 		helper_s = minf(helper_s + dist / steps, total)
 		var p := _helper_point(helper_s)
 		var f := _helper_dir(clampi(int(helper_s / HELPER_STEP), 0, n - 1))
-		position = Vector3(p.x, Mokki.mesh_h(p.x, p.y), p.y)
+		position = Vector3(p.x, float(height_fn.call(p.x, p.y)), p.y)
 		rotation.y = atan2(-f.x, -f.y)
 		_update_implement(delta * helper_rate / steps)  # nosto ja lasku samassa aikakertoimessa kuin ajo
 		if working:
@@ -573,7 +575,7 @@ func _ground_at(p: Vector3) -> Vector3:
 	if not to_local_fn.is_valid():
 		return p
 	var lp: Vector3 = to_local_fn.call(p)
-	return Vector3(p.x, p.y + Mokki.mesh_h(lp.x, lp.z) - lp.y, p.z)
+	return Vector3(p.x, p.y + float(height_fn.call(lp.x, lp.z)) - lp.y, p.z)
 
 
 func link_point() -> Vector3:

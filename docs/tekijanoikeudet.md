@@ -31,6 +31,9 @@
   Karaokeversion soittoraita (`assets/music/normipaiva_lyhyt.mp3`: lyhennetty ja ristiinhäivytetty
   `normipaiva_soitto.mp3`, laulu erotettu Demucsilla) ja ajoitetut sanat (`assets/music/normipaiva_sanat_lyhyt.json`,
   kohdistettu wav2vec2:lla) ovat samasta tunnarista.
+- Altaan tilan peltolohkot (`scripts/map_tila.gd`): rajat, pinta-alat ja kasvit peltoseuranta-sovelluksen aineistosta
+  (desmondx80.github.io/peltoseuranta, `fields.json`), muunnettu kylän karttakehykseen (`tools/kartta/peltoseuranta.py`).
+  Aineiston alkuperäinen lähde ja lisenssi ovat peltoseurannan.
 - Puheäänet (`assets/aanet/`): tehty avoimella puhemallilla Chatterbox Multilingual (Resemble AI, MIT,
   https://github.com/resemble-ai/chatterbox; malli upottaa ääniin kuulumattoman Perth-vesileiman) hahmojen
   malliäänten (`tools/aanet/malliaanet/`) pohjalta. Malliäänet ovat Googlen FLEURS-aineiston suomenkielisiä

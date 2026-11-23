@@ -4,6 +4,7 @@ extends Node3D
 
 const B := preload("res://scripts/build.gd")
 const M := preload("res://scripts/map_data.gd")
+const MapTila := preload("res://scripts/map_tila.gd")
 const Foliage := preload("res://scripts/foliage.gd")
 const T := preload("res://scripts/terrain.gd")
 const MeshBundle := preload("res://scripts/mesh_bundle.gd")
@@ -220,6 +221,10 @@ var _trees: Array = []  # [Vector2 pos, String kind, float scale, bool collide]
 var _water: Array[PackedVector2Array] = []
 var _forests: Array[PackedVector2Array] = []
 var _fields: Array[PackedVector2Array] = []
+## Altaan tilan pellot (map_tila.gd; kaisua.gd piirtää pinnan ja kasvuston): ei puita eikä ruohoa (ei viljaruohoa kuten
+## _fields), piha ja ajoura raivataan _tree_free-ympyröillä.
+var _farm_fields: Array[PackedVector2Array] = []
+var _farm_yard: PackedVector2Array = []  # Altaan pihan kupera verho (puuton; ruoho saa kasvaa sorakenttien välissä)
 var _bogs: Array[PackedVector2Array] = []
 var _agility := PackedVector2Array()
 var _clearings: Array[PackedVector2Array] = []
@@ -314,6 +319,24 @@ func build(step: Callable) -> void:
 		_forests.append(_poly(p))
 	for p in M.FIELDS:
 		_fields.append(_poly(p))
+	for f in MapTila.FIELDS:
+		_farm_fields.append(_poly(f.pts))
+	var yard_pts := PackedVector2Array()
+	for c in M.ALTAAN_PIHA:
+		_tree_free.append([M.w2(c[0]), float(c[1]) + 4.0])
+		var cw := M.w2(c[0])
+		_mask_clear.append([cw, float(c[1]) * 0.8, float(c[1]) * 0.8, 0.0])  # ruoho ei puske soran läpi
+		if cw.distance_to(M.w2(M.ALTAAN_PIHA[0][0])) < 60.0:  # pihan sorakentät (talon edusta erikseen)
+			for k in 16:
+				yard_pts.append(cw + Vector2.from_angle(TAU * k / 16.0) * (float(c[1]) + 4.0))
+	# Sorakenttien välit puuttomiksi: muuten puu kasvaa pihan keskellä kenttien välissä.
+	_farm_yard = Geometry2D.convex_hull(yard_pts)
+	for i in M.ALTAAN_URA.size() - 1:
+		var a := M.w2(M.ALTAAN_URA[i])
+		var b := M.w2(M.ALTAAN_URA[i + 1])
+		var n := ceili(a.distance_to(b) / 5.0)
+		for k in n + 1:
+			_tree_free.append([a.lerp(b, float(k) / n), 8.0])  # traktori ja työkone mahtuvat puiden välistä
 	for p in M.BOGS:
 		_bogs.append(_poly(p))
 	_agility = _poly(M.AGILITY)
@@ -379,7 +402,7 @@ func build(step: Callable) -> void:
 	_commit_batches()
 	await step.call("Istutetaan metsää", 0.75)
 	# Metsän sirottelu (tuhansia pistetestejä) välimuistista: sama satunnaistila, kartta ja talot = samat puut.
-	var tkey := "v1/%d/%d/%d/%d/%d/%d/%s" % [_rng.state, _trees.size(), hash(_houses), _fill_hash, hash(_tree_free), hash(M.FORESTS), _drape_key()]
+	var tkey := "v2/%d/%d/%d/%d/%d/%d/%s/%d" % [_rng.state, _trees.size(), hash(_houses), _fill_hash, hash(_tree_free), hash(M.FORESTS), _drape_key(), hash(MapTila.FIELDS)]
 	var tc := MeshBundle.load_dict("metsa", tkey)
 	if tc.has("trees"):
 		_trees = tc.trees
@@ -5142,6 +5165,8 @@ func _scatter_trees() -> void:
 func _try_tree(p: Vector2, kind: String, s: float, road_gap: float) -> void:
 	if not _in_bounds(p, 3.0) or _road_clearance(p) < road_gap or _in_any(p, _water) or _near_house(p, 9.0):
 		return
+	if _in_any(p, _farm_fields) or Geometry2D.is_point_in_polygon(p, _farm_yard):
+		return
 	if Geometry2D.is_point_in_polygon(p, _agility):
 		return
 	for tf in _tree_free:
@@ -5541,7 +5566,7 @@ func _build_clearcuts() -> void:
 ## Maskikuva: R = ruohon tiheys, G = viljapelto. Tiet, vesi ja talot nollataan.
 ## Ruohomaski välimuistista (pikseli kerrallaan maalaaminen vie GDScriptillä yli sekunnin).
 func _build_mask() -> ImageTexture:
-	var key := "v1/%d/%d/%d/%d/%d" % [hash(_houses), hash(_mask_clear), hash(M.ROADS), hash(M.FORESTS), hash(M.FIELDS)]
+	var key := "v1/%d/%d/%d/%d/%d/%d" % [hash(_houses), hash(_mask_clear), hash(M.ROADS), hash(M.FORESTS), hash(M.FIELDS), hash(MapTila.FIELDS)]
 	var c := MeshBundle.load_dict("ruohomaski", key)
 	if c.get("img") is Image:
 		return ImageTexture.create_from_image(c.img)
@@ -5572,6 +5597,7 @@ func _paint_mask() -> Image:
 	paint.call(_forests, Color(0.35, 0, 0, 1))
 	paint.call(_bogs, Color(0.55, 0, 0, 1))
 	paint.call(_fields, Color(1, 1, 0, 1))
+	paint.call(_farm_fields, Color(0, 0, 0, 1))  # Altaan tilan pellot: oma pinta ja kasvusto (kaisua_pelto.gd)
 	paint.call(_water, Color(0, 0, 0, 1))
 	var ag: Array[PackedVector2Array] = [_agility]
 	paint.call(ag, Color(0.12, 0, 0, 1))

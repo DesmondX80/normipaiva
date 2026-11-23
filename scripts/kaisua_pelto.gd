@@ -31,6 +31,11 @@ var center := Vector2.ZERO
 var laps := ""  # rakennusvaiheiden ajat (testit tulostavat)
 
 var _f: Dictionary  # tila.fields[id]
+## Paikka (maatila_paikka.gd): maaston korkeus ja kolmiointi (verkon kärkiväli, origo ja lävistäjä).
+var _hfn: Callable = Callable(Mokki, "mesh_h")
+var h_step := H_STEP
+var _grid_origin := Vector2.ZERO
+var _diag_main := true
 ## Ruutujen kuvat varjostimille: tila (R8, arvo = tila), määrä (RF) ja työsuunta (R8, 0–255 = 0–180°). Tehdään
 ## suoraan tallennuksen tavutaulukoista (ei pikselisilmukkaa), päivitetään muuttuneet ruudut.
 var _st_img: Image
@@ -50,17 +55,26 @@ static var _atlas_tex: ImageTexture
 static var _tuft_mesh: ArrayMesh
 
 
-## Rakentaa pellon: ruudukko karttadatasta (OSM-tunniste), ruutujen tila tallennuksesta, pinta ja kasvusto.
-func setup(t: Tila, i: int) -> bool:
+## Rakentaa pellon: monikulmio paikalta (tai mökin karttadatasta OSM-tunnisteella), ruutujen tila tallennuksesta,
+## pinta ja kasvusto. site = maatila_paikka.gd (null = Kaisua mökillä).
+func setup(t: Tila, i: int, site: RefCounted = null) -> bool:
 	tila = t
 	index = i
-	var data := Mokki.map_data()
-	var id: String = Tila.FIELDS[i].id
-	var k: int = (data.get("field_ids", []) as Array).find(id)
-	if k < 0:
-		push_warning("Kaisuan peltoa %s ei löydy karttadatasta" % id)
-		return false
-	poly = data.fields[k]
+	var id: String = tila.defs[i].id
+	if site != null:
+		_hfn = site.height
+		h_step = site.grid_step
+		_grid_origin = site.grid_origin
+		_diag_main = site.diag_main
+	if site != null and not (site.field_polys as Array).is_empty():
+		poly = site.field_polys[i]
+	else:
+		var data := Mokki.map_data()
+		var k: int = (data.get("field_ids", []) as Array).find(id)
+		if k < 0:
+			push_warning("Kaisuan peltoa %s ei löydy karttadatasta" % id)
+			return false
+		poly = data.fields[k]
 	var bb := Rect2(poly[0], Vector2.ZERO)
 	for p in poly:
 		bb = bb.expand(p)
@@ -92,7 +106,7 @@ func setup(t: Tila, i: int) -> bool:
 
 ## Pellon ruudut (aloitustila = ruudun keskipiste monikulmion sisällä, muuten NONE) riveittäin: rivin keskilinjan ja reunojen leikkaukset.
 func _scan_mask() -> PackedByteArray:
-	var st: int = Tila.FIELDS[index].start
+	var st: int = tila.defs[index].start
 	var mask := PackedByteArray()
 	mask.resize(nx * nz)
 	var c := Tila.CELL
@@ -115,11 +129,11 @@ func _scan_mask() -> PackedByteArray:
 
 
 func field_name() -> String:
-	return Tila.FIELDS[index].name
+	return tila.defs[index].name
 
 
 func kind() -> String:
-	return Tila.FIELDS[index].kind
+	return tila.defs[index].kind
 
 
 func cells_total() -> int:
@@ -171,7 +185,7 @@ func state_at(p: Vector2) -> int:
 
 ## Maastoverkon korkeus paikallisessa pisteessä (sama kuin pinta ja kasvusto).
 func ground_y(p: Vector2) -> float:
-	return Mokki.mesh_h(p.x, p.y)
+	return _hfn.call(p.x, p.y)
 
 
 # --- Työ -----------------------------------------------------------------------------------------------------------
@@ -308,17 +322,17 @@ func _process(delta: float) -> void:
 
 # --- Piirto --------------------------------------------------------------------------------------------------------
 
-## Korkeudet 2 m kärkipisteistä (mokki.gd mesh_h): varjostimet ja pinnan verkko interpoloivat kolmioittain samoin
-## kuin maastoverkko.
+## Korkeudet maastoverkon kärkipisteistä (paikan korkeusfunktio, esim. mokki.gd mesh_h tai terrain.gd h): varjostimet
+## ja pinnan verkko interpoloivat kolmioittain samoin kuin maastoverkko (sama kärkiväli, origo ja lävistäjä).
 func _build_heights() -> void:
-	_h_origin = (origin / H_STEP).floor() * H_STEP
-	var w := int(ceil((origin.x + nx * Tila.CELL - _h_origin.x) / H_STEP)) + 2
-	var h := int(ceil((origin.y + nz * Tila.CELL - _h_origin.y) / H_STEP)) + 2
+	_h_origin = _grid_origin + ((origin - _grid_origin) / h_step).floor() * h_step
+	var w := int(ceil((origin.x + nx * Tila.CELL - _h_origin.x) / h_step)) + 2
+	var h := int(ceil((origin.y + nz * Tila.CELL - _h_origin.y) / h_step)) + 2
 	_h_img = Image.create(w, h, false, Image.FORMAT_RF)
 	for j in h:
 		for i in w:
-			var p := _h_origin + Vector2(i, j) * H_STEP
-			_h_img.set_pixel(i, j, Color(Mokki.mesh_h(p.x, p.y), 0, 0))
+			var p := _h_origin + Vector2(i, j) * h_step
+			_h_img.set_pixel(i, j, Color(_hfn.call(p.x, p.y), 0, 0))
 
 
 func _vh(i: int, j: int) -> float:
@@ -349,7 +363,8 @@ func _common_params(m: ShaderMaterial) -> void:
 	m.set_shader_parameter("cell", Tila.CELL)
 	m.set_shader_parameter("height_tex", ImageTexture.create_from_image(_h_img))
 	m.set_shader_parameter("h_origin", _h_origin)
-	m.set_shader_parameter("h_step", H_STEP)
+	m.set_shader_parameter("h_step", h_step)
+	m.set_shader_parameter("diag_main", _diag_main)
 
 
 ## Pellon pinta: 2 m ruudut maastoverkon mukaan (kolmiot samoin kuin maastossa), jos ruudussa on peltoa.
@@ -359,11 +374,12 @@ func _build_ground() -> void:
 	st.set_normal(Vector3.UP)
 	var w := _h_img.get_width()
 	var h := _h_img.get_height()
-	# 2 m ruutu mukaan, jos sen keskipiste on 2 m levennetyn monikulmion sisällä (natiivi tarkistus, ei ruutusilmukkaa).
-	var wide := Geometry2D.offset_polygon(poly, 2.0)
+	# Verkon ruutu mukaan, jos sen keskipiste on levennetyn monikulmion sisällä (natiivi tarkistus, ei ruutusilmukkaa):
+	# levennys 3/4 ruudusta + 0,5 m (mökin 2 m ruuduilla 2 m), ettei reunaruutuja puutu.
+	var wide := Geometry2D.offset_polygon(poly, h_step * 0.75 + 0.5)
 	for j in h - 1:
 		for i in w - 1:
-			var cpt := _h_origin + (Vector2(i, j) + Vector2(0.5, 0.5)) * H_STEP
+			var cpt := _h_origin + (Vector2(i, j) + Vector2(0.5, 0.5)) * h_step
 			var any := false
 			for wp in wide:
 				if Geometry2D.is_point_in_polygon(cpt, wp):
@@ -371,9 +387,12 @@ func _build_ground() -> void:
 			if not any:
 				continue
 			var v := func(di: int, dj: int) -> Vector3:
-				var p := _h_origin + Vector2(i + di, j + dj) * H_STEP
+				var p := _h_origin + Vector2(i + di, j + dj) * h_step
 				return Vector3(p.x, _vh(i + di, j + dj) + LIFT, p.y)
-			for corner in [v.call(0, 0), v.call(1, 0), v.call(1, 1), v.call(0, 0), v.call(1, 1), v.call(0, 1)]:
+			# Kolmiointi kuten maastoverkossa: lävistäjä (0,0)-(1,1) tai (1,0)-(0,1).
+			var corners: Array = [v.call(0, 0), v.call(1, 0), v.call(1, 1), v.call(0, 0), v.call(1, 1), v.call(0, 1)] if _diag_main \
+				else [v.call(0, 0), v.call(1, 0), v.call(0, 1), v.call(1, 0), v.call(1, 1), v.call(0, 1)]
+			for corner in corners:
 				st.add_vertex(corner)
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
@@ -414,7 +433,7 @@ func _build_crops() -> void:
 			var p0 := origin + Vector2(ci, cj) * Tila.CELL
 			var size := CHUNK * Tila.CELL
 			for q in [p0, p0 + Vector2(size, 0), p0 + Vector2(0, size), p0 + Vector2(size, size), p0 + Vector2(size, size) * 0.5]:
-				var y := Mokki.mesh_h(q.x, q.y)
+				var y: float = _hfn.call(q.x, q.y)
 				lo = minf(lo, y)
 				hi = maxf(hi, y)
 			var mmi := MultiMeshInstance3D.new()

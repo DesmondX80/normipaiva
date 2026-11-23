@@ -27,7 +27,7 @@
 | A / D | ohjaa |
 | E | nouse laiturille (aja ensin laiturin viereen ja hidasta) |
 
-| Kaisuan traktorissa ja puimurissa | |
+| Kaisuan ja Altaan tilan traktorissa ja puimurissa | |
 |---|---|
 | F | nouse koneeseen (vasemmalta kyljeltä) / pois (pysäytä ensin) |
 | W / S | kaasu / jarru ja peruutus (traktori 25 km/h, töissä koneen työnopeus) |
@@ -36,7 +36,7 @@
 | E | laske työkone töihin / nosta; paali piikkiin, latoon tai maahan; täytä kylvökone säkeistä; kippaa kärry suppiloon tai kivet kivikasaan; puimurilla leikkuupöytä alas / ylös tai purku kärryyn tai suppiloon |
 | E (jalan pellolla) | nosta kivi / heitä kärryyn tai kivikasaan / laske maahan |
 | E (jalan dieselsäiliöllä tai koneen vieressä) | täytä kanisteri / kaada kanisteri koneen tankkiin |
-| Q (jalan traktorin vieressä) | pyydä Santtu ajamaan pellon työ (15 €) / keskeytä Santun ajo |
+| Q (jalan traktorin vieressä) | pyydä apumies (Kaisualla Santtu, Altaan tilalla Eetu) ajamaan pellon työ (15 €) / keskeytä |
 
 | Sahauksessa | |
 |---|---|
