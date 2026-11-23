@@ -96,7 +96,8 @@ Uusi peli alkaa kodin eteisen peilin edestä (päävalikon **Aloita peli**, tai 
 pelaaja valitsee tukan (sivujakaus, siili, pitkä, rasvaletti, kalju), hiusten värin, parran (pukinparta, täysparta,
 viikset, sileä), lasit, päähineen (lippis tai paljain päin), ihon, kehon (tavallinen, roteva, lihaksikas, hintelä, naisen
 keho), mahan koon ja tuulipuvun värin. Naisen keholla on samat muodot kuin Sinikalla ja kolmiomittauksen naisilla;
-kaljamaha on vain miehen keholla. Asut ovat naisen keholla samat kuin miehellä. Oletukset ovat sama
+kaljamaha on vain miehen keholla. Asut ovat naisen keholla samat kuin miehellä. Keho muuttaa myös jalkojen paksuutta
+(roteva ja lihaksikas paksummat, hintelä ohuemmat); kengät ja varret eivät kutistu ohuen jalan mukana, mutta levenevät paksun mukana. Oletukset ovat sama
 ulkonäkö kuin ennen editoria, joten vanhat tallennukset eivät muutu.
 
 | | |

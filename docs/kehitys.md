@@ -59,8 +59,10 @@ tarkistaa `Kuva.piirretaan()` ja tulostaa headlessissa "ei tarkistettu" (esim. `
 Testit jakavat ajokansion (`AJO_KANSIO`) tallennuksen, joten edellisten kohtausten tarinatila kertyy: esim. korkkikansion
 rikos tuo aamulla Päivin kysymyksen, ja avoin keskustelu estää oven (vessa-kohtaus jäi ovelle). Jos kohtaus toimii
 puhtaalla kansiolla mutta ei pitkän ajon jälkeen, aja se uudella `AJO_KANSIO`:lla ennen kuin epäilet koodia.
-Kun main tuo uusia ääniä tai malleja, aja `godot --headless --path . --import` ennen testejä: muuten tiedostot puuttuvat
-tuontivälimuistista (`.godot/imported`) ja testit kaatuvat (esim. `voice_length` null).
+Kun main tuo uusia ääniä tai malleja tai muuttaa `.import`-tiedostoja (esim. tekstuurien pakkaus), aja
+`godot --headless --path . --import` ennen testejä ja peliä: editori tuo tiedostot itse, mutta suoraan ajettu peli ei,
+joten ne puuttuvat tuontivälimuistista (`.godot/imported`). Silloin testit kaatuvat (esim. `voice_length` null) tai
+hahmot jäävät lataamatta (`Failed loading resource ... .s3tc.ctex`, `instantiate` null).
 `--scene=koulu_disko`: koulun disko (`koulu_disko_game.gd`): ovi torstaina ja perjantaina, pisteytys (`score_change`, `rating`) ilman ruutua, ensimmäinen biisi, toive kesken biisin, miksauspalkki, sujuva miksaus hitaaseen (parit), kesken katkaisu, opettajan polkkatoive ja polkka, hiljaisuus, loppu ja tulos, vaikutus peliin (maine, kerran illassa, sivutehtävä) ja tallennus; rivit `DI OK` tai `TESTI VIKA`, kuvat `_ovi`, `_alku`, `_kasetit_lahi`, `_soi`, `_lattia_lahi`, `_deki_lahi`, `_miksaus`, `_hidas`, `_opettaja`, `_polkka`, `_loppu`. Kamera rajataan projisoimalla (`_frame_cam`): kaikkien lattiapaikkojen lapset 12–88 % leveydelle ja 18–74 % korkeudelle, DJ:n pää vasempaan alakulmaan.
 `--scene=mokkikaisua`, `mokkikaisua_heina`, `mokkikaisua_vilja`, `mokkikaisua_kivet` (ryhmä `kaisua`; kivet = nopea
 lähikuva kivistä kynnetyllä kaistalla, kivikasa ja kivi kädessä): Kaisuan tila (`kaisua.gd`). Yleiskuvat pihasta, koneista, pelloista ja isännästä; heinäketju (traktori ja niittokone autopilotilla Kotipellon poikki, loput kaistat simuloiden `_sim_lane`, karhous, paalaus, paalit latoon piikillä, naapurin paalitilaus, diesel loppuu ja kanisteri, maksut, legendaarinen hetki ja talkooruoka, nurmen kasvu); viljaketju (puimuri Tienvarsipellolla, purku kärryyn, kippaus kuivuriin, äes sänkeen ei pure, kyntö auralla, kivet käteen, kärryyn ja kasaan, äestys ja kylvö Isopellolla, kasvu päivä kerrallaan). Pellon pinta ja kasvusto lasketaan maastoverkon kolmioista (`mokki.gd mesh_h`), joten kuvista tarkistetaan, ettei mikään leiju tai uppoa.
@@ -79,6 +81,7 @@ tyhjästä tilasta (`_fresh`: uusi `kaisua_tila.gd` ja `mokki.gd rebuild_kaisua`
 tallennuksessa voi olla edellisen kohtauksen Kaisua (F koneesta pois tallentaa pelin) ja sadepäivä. Vihjepalkin rivit
 mitataan rivittämällä vihjeen teksti suoraan (`hint_bar.gd _rebuild`), koska testiajo piilottaa HUDin joka ruutu.
 `--scene=pekanlaatikko`: Pekan vintin romut (`pekan_laatikko.gd`): laatikko vasta oman kirppispöydän jälkeen ja vain kerran, romut pöydälle, keräilijän, Anna-Liisan ja mummon repliikit, Pekan osuus (puolet romujen tuloista), saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt tilitys (kyyti kiinni, vihainen tervehdys) ja tallennus; rivit `PL OK` tai `TESTI VIKA`, kuvat `_pekka_laatikko`, `_keraaja`, `_poyta_lahi` (pöytä 2 × suurennettuna), `_annaliisa_taulu`, `_yhteenveto`, `_tilitys`, `_myohassa`.
+`--scene=honganpalo_maasto`: Honganpalon koulu ja kenttä maaston pinnalla (kentän rako maahan yhdeksästä pisteestä, `TESTI VIKA` yli 0,15 m; kuvat `_hongan_*` kentästä sivulta, päädystä ja ylhäältä, koulusta edestä ja takaa sekä pihasta). Kentän alla maasto on tasoitettu leivonnassa (`tools/bake_terrain.gd`, `_flatten_site`).
 `--scene=kainuulista`: Gasthausin ruokalista (valinnat, nälän nollaus, köyhänä pois käytöstä).
 `--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).
 `--scene=kalalampi`: retkirunko ja Teeriniemen kalalampi (taksivalikko, matka, lupa, onkiminen, paluu ja kello; kuvat `_alue`, `_tiski`, `_ranta`, `_koho`, `_kirjolohi`, `_taimen`; `--shot=`).
@@ -122,6 +125,13 @@ kameran rajaus projisoimalla (pää ja koko hahmo paneelin vasemmalle jäävän 
 (kuvat `_<rivi>_<vaihtoehto>`), käännetty hahmo (`_kaanto_<aste>`), valinnat muissa asuissa ja päähineissä (`_asu_*`), arvonta,
 peruminen, hyväksyntä (`--he-rivi=<id>` kuvaa vain yhden rivin ja sitä käyttävät asut; pelaajan mallit vaihtuvat, kuvat `_valmis` ja `_peli`), tallennus ja lataus; rivit `HE OK` tai `TESTI VIKA`.
 Uusi vaihtoehto lisätään `looks.gd`:n `HAHMO`-taulukkoon (rivin ensimmäinen on oletus) ja sen vaikutus `_apply_custom`iin.
+
+`tools/testit/aja.sh tscn tools/testit/hahmo_lahikuva.tscn keho=hintela asu=nahkaliivi`: pelaajan hahmon lähikuvat ilman pelin
+latausta (alle minuutti): yksi kohta (oletus vasen olkapää, `kohde=x,y,z`, `etaisyys=`) edestä, viistosta, sivulta, takaviistosta,
+takaa ja ylhäältä. `vari=1` näyttää vartalon yksivärisenä (kolot ja taitteet näkyvät varjoista), `l.<avain>=<luku>` asettaa
+ulkonäköarvon suoraan (esim. `l.muscle=0` = pohjamalli, `l.delt_keep=0` = hartia ilman kevennystä) ja `hahmo=<Looks-vakio>`
+(esim. `hahmo=PENTTI`) kuvaa muun hahmon kuin pelaajan. Muodon korjaus tehdään
+näistä kuvista, ei koko pelin ruudusta: hartian lovi näkyi vasta lähikuvassa.
 
 `tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin
 HUD-laatikoita (autovarkauden tähtilaatikko `rikos/tahdet_hud.gd` on piilossa, kun valikko on auki tai tähtiä ei ole).

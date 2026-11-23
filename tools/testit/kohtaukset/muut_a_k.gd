@@ -23,7 +23,7 @@ const RotkoGame := preload("res://scripts/rotko_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 
-const KOHTAUKSET := ["hahmoeditori", "asennot", "juntti", "fight", "fight_ohjeet", "field", "bog", "asut", "asema", "bikini", "hupihommat", "kainuulista", "hanhikivi", "kajaani", "kalajoki", "hiidenportti", "drakkar", "haalari", "bikini_video", "eramaa", "junttikierto", "jemmat", "honganpalo", "ideat", "hiirisisalla", "juhlat", "chocotest", "fightfx", "infoboard", "guardleave", "hedgeclose", "homeview", "homeview2", "garage", "grilli", "aloitusruutu", "found", "aidat", "hiirinapit", "hiiriohjaus", "humala_ohjaus", "heitto", "jemma_ovi"]
+const KOHTAUKSET := ["hahmoeditori", "asennot", "juntti", "fight", "fight_ohjeet", "field", "bog", "asut", "asema", "bikini", "hupihommat", "kainuulista", "hanhikivi", "kajaani", "kalajoki", "hiidenportti", "drakkar", "haalari", "bikini_video", "eramaa", "junttikierto", "jemmat", "honganpalo", "honganpalo_maasto", "ideat", "hiirisisalla", "juhlat", "chocotest", "fightfx", "infoboard", "guardleave", "hedgeclose", "homeview", "homeview2", "garage", "grilli", "aloitusruutu", "found", "aidat", "hiirinapit", "hiiriohjaus", "humala_ohjaus", "heitto", "jemma_ovi"]
 
 var main: Main
 
@@ -974,6 +974,52 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._journal.toggle()
 			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 			main.get_tree().quit()
+		"honganpalo_maasto":
+			# Honganpalon koulu ja kenttä maaston pinnalla: kenttä matalalta sivusta (rako maahan näkyy), päädystä ja
+			# ylhäältä, koulu edestä ja takaa (sokkeli rinteessä), piha (vahtimestari, iltaporukka). Lokiin kentän rako
+			# maahan yhdeksästä pisteestä (TESTI VIKA, jos yli 0,15 m). Kuvat _hongan_*.
+			var cam := Camera3D.new()
+			main.add_child(cam)
+			cam.fov = 55.0
+			var snap := func(name: String, eye: Vector3, at: Vector3) -> void:
+				cam.global_position = eye
+				cam.look_at(at, Vector3.UP)
+				cam.current = true
+				for i in 14:
+					await main.get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				main.get_viewport().get_texture().get_image().save_png(path.replace(".png", "_hongan_%s.png" % name))
+			main._hud.visible = false
+			main.clock_min = 19 * 60.0
+			var w: Node3D = main.world
+			var kc := M.w2(M.HONGAN_KENTTA)
+			var kp := Vector3(kc.x, Terrain.h(kc.x, kc.y), kc.y)
+			main.player.global_position = kp + Vector3(0, 0.3, 45)
+			for i in 20:
+				await main.get_tree().process_frame
+			var field: Node3D = w.hongan_kids[0].get_parent()  # pojat ovat kentän lapsia
+			var worst := 0.0
+			var rako := []
+			for dz in [-17.0, 0.0, 17.0]:
+				for dx in [-11.0, 0.0, 11.0]:
+					var q: Vector3 = field.to_global(Vector3(dx, 0, dz))
+					var g := q.y - Terrain.h(q.x, q.z)
+					worst = maxf(worst, absf(g))
+					rako.append("%.2f" % g)
+			print("HONGAN kentän pinta - maa: %s (pahin %.2f m)%s" % [rako, worst, "  TESTI VIKA" if worst > 0.15 else ""])
+			var hp: Vector3 = w.hongan_hoop.global_position
+			print("HONGAN kori - maa %.2f" % (hp.y - Terrain.h(hp.x, hp.z)))
+			await snap.call("kentta_sivu", kp + Vector3(24, 1.2, 4), kp + Vector3(0, 0.3, 0))
+			await snap.call("kentta_paaty", kp + Vector3(3, 1.6, 26), kp + Vector3(0, 0.5, 0))
+			await snap.call("kentta_ylha", kp + Vector3(0, 38, 8), kp)
+			var dp: Vector3 = w.hongan_door
+			var sc := M.w2(M.HONGAN_KOULU)
+			var sp := Vector3(sc.x, Terrain.h(sc.x, sc.y), sc.y)
+			var out := Vector3(dp.x - sp.x, 0, dp.z - sp.z).normalized()
+			await snap.call("koulu_edesta", dp + out * 18.0 + Vector3(0, 3.0, 0), dp + Vector3(0, 1.5, 0))
+			await snap.call("koulu_takaa", sp - out * 30.0 + Vector3(6, 4.0, 0), sp + Vector3(0, 1.0, 0))
+			await snap.call("piha", w.hongan_janitor_pos + Vector3(4, 2.0, 4), w.hongan_youth_pos + Vector3(0, 0.8, 0))
+			return 1
 		"honganpalo":
 			# Honganpalon koulu (#138) ja Lapinraunion aarnivalkea (#139): vahtimestarin keikka, luokkakuva, jäätelöauto,
 			# iltaporukan juoru, rankkaripiste; Hilkan legenda, Pannu-Sulo yöllä, Pirtin pöytäkirja, oikea liekki,

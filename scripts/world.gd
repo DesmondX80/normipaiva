@@ -2705,6 +2705,10 @@ func _build_honganpalo() -> void:
 	root.position = Vector3(c.x, 0, c.y)
 	root.rotation.y = f.yaw  # paikallinen -Z = julkisivu tielle
 	add_child(root)
+	# _lift_objects nostaa koulun keskipisteen maaston tasolle; siirtymä vie lattian pääoven edustan maanpinnan
+	# tasolle (portaat maahan), ja rinteen alapuolelle sokkeli jatkuu syvälle.
+	var door0: Vector3 = root.to_global(Vector3(0, 0, -d / 2.0 - 2.0))
+	root.position.y = T.h(door0.x, door0.z) - T.h(c.x, c.y)
 	blockers.append([c, Vector2(l / 2.0, d / 2.0), f.yaw])
 	_add_house(c)
 	for k in [-1.0, 1.0]:
@@ -2715,7 +2719,7 @@ func _build_honganpalo() -> void:
 	var brick := Color(0.62, 0.3, 0.22)
 	B.mesh(root, B.boxm(Vector3(l, h, d)), Vector3(0, h / 2.0, 0), brick)
 	B.mesh(root, B.boxm(Vector3(l + 0.5, 0.35, d + 0.5)), Vector3(0, h + 0.17, 0), Color(0.25, 0.25, 0.27))  # tasakatto
-	B.mesh(root, B.boxm(Vector3(l + 0.02, 0.5, d + 0.02)), Vector3(0, 0.25, 0), Color(0.45, 0.45, 0.45))  # sokkeli
+	B.mesh(root, B.boxm(Vector3(l + 0.02, 4.5, d + 0.02)), Vector3(0, -1.75, 0), Color(0.45, 0.45, 0.45))  # sokkeli
 	var win := Color(0.55, 0.7, 0.82)
 	for side in [-1.0, 1.0]:  # ikkunanauhat pitkille sivuille
 		var n := int(l / 3.2)
@@ -2828,7 +2832,7 @@ func _build_honganpalo() -> void:
 	# Kenttä: viivat, maalit ja pojat.
 	var kc := M.w2(M.HONGAN_KENTTA)
 	var field := Node3D.new()
-	field.position = Vector3(kc.x, 0, kc.y)
+	field.position = Vector3(kc.x, 0, kc.y)  # maasto tasoitettu kentän kohdalta (tools/bake_terrain.gd), _lift_objects nostaa
 	field.rotation.y = f.yaw
 	add_child(field)
 	_tree_free.append([kc, 26.0])
