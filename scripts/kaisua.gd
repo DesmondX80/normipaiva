@@ -561,8 +561,13 @@ func _start_helper(fi: int, info: Dictionary) -> void:
 	helper_field = fi
 	traktori.start_helper(path, Mokki.SANTTU_LOOK)
 	helper_changed.emit(true)
-	message.emit("Santtu polkaisi mökiltä (%d €): – Mää ajan %s, sää voit vaikka kerätä kiviä." % [roundi(HELPER_FEE),
-		pe.field_name()], 4.0)
+	# Dieselin tarve: reitin pituus työnopeudella ja kuormalla (moottori töissä noin 0,85).
+	var need := path.size() * HELPER_STEP / float(info.speed) * (Ajoneuvo.FUEL_IDLE + Ajoneuvo.FUEL_LOAD * 0.85)
+	var fuel_note := ""
+	if need > traktori.fuel:
+		fuel_note = " Diesel riittää noin %d %%:iin pellosta, tankkaa välillä." % roundi(traktori.fuel / need * 100.0)
+	message.emit("Santtu polkaisi mökiltä (%d €): – Mää ajan %s, sää voit vaikka kerätä kiviä.%s" % [roundi(HELPER_FEE),
+		pe.field_name(), fuel_note], 4.5)
 
 
 func _stop_helper(msg: String) -> void:
@@ -606,10 +611,19 @@ func helper_path(pe: Pelto, info: Dictionary, from: Vector3, from_yaw: float) ->
 	# kerätään), sisäosa kaistoina päisteen sisäreunaan asti.
 	var lap_sp := spacing
 	var laps := ceili(7.0 / spacing)
-	if op == "karhous" or op == "paalaus":
-		lap_sp = float(Koneet.IMPLEMENTS.karhotin.hw) * 2.0 * 0.92
+	var rake_sp: float = float(Koneet.IMPLEMENTS.karhotin.hw) * 2.0 * 0.92
+	if op == "karhous":
+		lap_sp = rake_sp
 		laps = 2
+	elif op == "paalaus":
+		# Noukin kiertää koko karhottimen päisteen (2 kierrosta) leveydeltä: reunakarhot ja päisteeseen ulottuvat
+		# karhojen päät kerätään, karhottiinpa pelto miten tahansa.
+		laps = ceili(2.0 * rake_sp / spacing)
 	var head := laps * lap_sp
+	var todo: Array = []  # tilat, joissa työtä on jäljellä (kesken jäänyt työ: tehdyt kaistat ja kierrokset ohitetaan)
+	for j in JOBS[pe.kind()]:
+		if j[0] == op:
+			todo = j[1]
 	var poly: PackedVector2Array = pe.poly
 	var inner: Array = Geometry2D.offset_polygon(poly, -head)
 	var dir: Vector2
@@ -635,7 +649,7 @@ func helper_path(pe: Pelto, info: Dictionary, from: Vector3, from_yaw: float) ->
 			if pe.has_point(q) and _in_any(q, inner):
 				lo = minf(lo, k * 0.5)
 				hi = maxf(hi, k * 0.5)
-		if hi - lo > 2.0:
+		if hi - lo > 2.0 and _has_todo(pe, c + right * off + dir * lo, c + right * off + dir * hi, float(info.hw), todo):
 			lanes.append([off, lo, hi])
 	var pts: Array = []  # [Vector2, työssä, peruutus]
 	var cur := Vector2(from.x, from.z)
@@ -646,6 +660,12 @@ func helper_path(pe: Pelto, info: Dictionary, from: Vector3, from_yaw: float) ->
 		for loop: PackedVector2Array in _round_offset(poly, d):
 			if loop.size() < 3:
 				continue
+			if not todo.is_empty():
+				var cnt := Vector2i.ZERO
+				for i in loop.size():
+					cnt += _todo_count(pe, loop[i], loop[(i + 1) % loop.size()], float(info.hw), todo)
+				if cnt.y == 0 or float(cnt.x) / cnt.y <= 0.03:
+					continue  # kierros jo ajettu (kulmissa voi jäädä yksittäisiä ruutuja)
 			var start := 0
 			var best := INF
 			for i in loop.size():
@@ -702,6 +722,35 @@ func helper_path(pe: Pelto, info: Dictionary, from: Vector3, from_yaw: float) ->
 		_line(pts, a, b, true)
 		fwd = not fwd
 	return _resample(pts)
+
+
+## Tekemättömät näytteet janalla a–b (työleveys ±hw): [tekemättä, peltoa]. Työleveyden reunaruudut jäävät usein osin
+## tekemättä, joten reunasta 40 cm jätetään pois.
+func _todo_count(pe: Pelto, a: Vector2, b: Vector2, hw: float, todo: Array) -> Vector2i:
+	var f := (b - a).normalized() if a.distance_to(b) > 0.01 else Vector2.RIGHT
+	var side := Vector2(-f.y, f.x)
+	var n := maxi(1, ceili(a.distance_to(b) / 0.8))
+	var lim := maxf(0.25, hw - 0.4)
+	var out := Vector2i.ZERO
+	for i in n + 1:
+		var q := a.lerp(b, float(i) / n)
+		var o := -lim
+		while o <= lim + 0.01:
+			var st := pe.state_at(q + side * o)
+			if st != Tila.NONE:
+				out.y += 1
+				if st in todo:
+					out.x += 1
+			o += 0.5
+	return out
+
+
+## Onko janalla (kaista) työtä jäljellä: yli 3 % näytteistä tekemättä (kesken jääneen työn jatko ohittaa tehdyt).
+func _has_todo(pe: Pelto, a: Vector2, b: Vector2, hw: float, todo: Array) -> bool:
+	if todo.is_empty():
+		return true
+	var cnt := _todo_count(pe, a, b, hw, todo)
+	return cnt.y > 0 and float(cnt.x) / cnt.y > 0.03
 
 
 func _in_any(q: Vector2, polys: Array) -> bool:

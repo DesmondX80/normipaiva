@@ -71,8 +71,9 @@ osumakorkeuksineen; puimurin kuskin maha hipaisee ratin lähireunaa alle 1,5 cm,
 `mokkikaisua_nappaimet` (oikeat painallukset `Input.action_press`: F, peruutus ja Q-kytkentä, E lasku ja nosto, kärry
 perään, puimurista purku E:llä, kärry peruuttaen suppilolle ja kippaus; vihjepalkin rivimäärä enintään 2),
 `mokkikaisua_pinnat` (päärakennus neljästä suunnasta, pellon reuna, niitetty heinä, karhot, seisovan raja ja kasvusto
-kaukana), `mokkikaisua_apumies` (Santtu Q:lla, niitto koko pellolle nopeutettuna `helper_rate_override`, paalaus
-karhoja pitkin, mökin Santtu piilossa ja takaisin) ja `mokkikaisua_sade` (sade ja pouta kuvina, paalaus estetty
+kaukana), `mokkikaisua_apumies` (Santtu Q:lla, keskeytys 40 %:ssa ja uudelleenpalkkaus lyhyemmällä reitillä, niitto koko
+pellolle nopeutettuna `helper_rate_override`, tankkaus, paalaus karhoja pitkin, mökin Santtu piilossa ja takaisin;
+reittikuvat `_reitti_*` ylhäältä: pelto harmaa, työssä vihreä, siirtymä sininen, peruutus punainen) ja `mokkikaisua_sade` (sade ja pouta kuvina, paalaus estetty
 sateella, isännän repliikki, sadepäivät 1–30). Rivit `KAISUA ...` ja viat `TESTI VIKA`. Jokainen kohtaus alkaa
 tyhjästä tilasta (`_fresh`: uusi `kaisua_tila.gd` ja `mokki.gd rebuild_kaisua`, sade pois), koska ajokansion
 tallennuksessa voi olla edellisen kohtauksen Kaisua (F koneesta pois tallentaa pelin) ja sadepäivä. Vihjepalkin rivit
@@ -591,6 +592,10 @@ lopetus ja kuvat).
 ## Latausaika (lataus-testi)
 
 `tools/testit/aja.sh --ei-kuvia --kiintea tscn tools/testit/lataus.tscn <kansio> --ajastus` mittaa Saloisten latauksen (`LATAUS Saloinen`), Vaalan latauksen (`LATAUS Vaala`, jaettuna rakennukseen, `_start_mopo`:on ja viiteen ensimmäiseen ruutuun) ja vaihekohtaiset ajat (`VAALA vaiheet`). Testi tallentaa yhden kuvan (`lataus.png`, Vaalan ensiruutu) tulostekansioon, joten `--ei-kuvia` ei ole pakollinen (se käy silti, jos kuvaa ei tarvita). Kylmä mittaus: poista ajon `HOME`:n `.local/share/godot/app_userdata/Normipäivä/cache`. Lisävalitsimet: `--avaintesti` (ajoalueen välimuistiavaimen kattavuus: syötteen muutos muuttaa maskin ja avaimen), `--tarkista-ajomaski` (välimuistista ladattu maski vs. laskettu), `--ei-valimuistia` (ohita ajomaskin levyvälimuisti `vaala_ajo`). Luvut ennen/jälkeen: työkansion `03-baseline.md`.
+
+Kaisuan kasvustolohkot (satoja MultiMeshInstanceja) eivät käytä varjostimen instanssimuuttujia: GLES3 sallii niitä
+koko pelissä 4096 paikkaa, ja tilan uudelleenrakennus (testien `_fresh`) ylitti rajan, jolloin lohkot piirsivät väärän
+kohdan. Lohkon alkuruutu on solmun siirto, jonka `pelto_kasvi.gdshader` lukee `MODEL_MATRIX`:sta (`from_world`).
 
 Kaisuan tila rakentuu mökin mukana noin 0,26 sekunnissa (`--scene=mokkikaisua` tulostaa vaiheet, `kaisua.gd build_laps`
 ja pelloittain `kaisua_pelto.gd laps`). Opit: uuden hahmon vaatetettu verkko (`character.gd _clothed_mesh`, välimuisti

@@ -1203,7 +1203,9 @@ func _helper_run(path: String, tag: String, rate: float) -> float:
 	await _shot(path, tag + "_ajo")
 	k.helper_rate_override = rate
 	var turn_shot := false
+	var last := 0.0
 	while t.helper_active() and Time.get_ticks_msec() - t0 < 400000:
+		last = t.helper_progress()
 		await main.get_tree().physics_frame
 		if not turn_shot and t.helper_progress() > 0.3 and not t.working:
 			turn_shot = true
@@ -1216,6 +1218,7 @@ func _helper_run(path: String, tag: String, rate: float) -> float:
 			await _shot(path, tag + "_kaanto")
 			k.helper_rate_override = rate
 	k.helper_rate_override = 0.0
+	print("KAISUA Santun %s: reitistä ajettu %d %%, diesel %d %%" % [tag, roundi(last * 100.0), roundi(t.fuel * 100.0)])
 	return (Time.get_ticks_msec() - t0) / 1000.0
 
 
@@ -1247,6 +1250,17 @@ func _apumies(path: String) -> void:
 	_check(absf(main.money - (money0 - Kaisua.HELPER_FEE)) < 0.01, "palkkio maksettu (%.2f -> %.2f)" % [money0, main.money])
 	print("KAISUA vihje Santun ajaessa: %s" % k._helper_logic(main.walker_out, false))
 	_path_png(path, "reitti_niitto", t.helper_path, pe)
+	# Keskeytys 40 %:ssa ja uudelleenpalkkaus: uusi reitti ohittaa tehdyt kaistat ja kierrokset.
+	var full := t.helper_path.size()
+	k.helper_rate_override = 60.0
+	var tw := Time.get_ticks_msec()
+	while t.helper_progress() < 0.4 and Time.get_ticks_msec() - tw < 200000:
+		await main.get_tree().physics_frame
+	k._stop_helper("")
+	k._start_helper(0, Koneet.IMPLEMENTS.niittokone)
+	print("KAISUA keskeytys 40 %%: uusi reitti %d pistettä (alkuperäinen %d)" % [t.helper_path.size(), full])
+	_check(t.helper_active() and t.helper_path.size() < full * 0.8, "uusi reitti ohittaa tehdyn osan")
+	_path_png(path, "reitti_niitto_jatko", t.helper_path, pe)
 	var secs := await _helper_run(path, "niitto", 40.0)
 	k._check_jobs()
 	var cut := int(pe.counts.get(Tila.H_NIITETTY, 0))
@@ -1273,6 +1287,7 @@ func _apumies(path: String) -> void:
 	main.walker_out.global_position = _gl(seat.x, seat.z, 0.4)
 	await _frames(5)
 	main.money = 100.0
+	t.fuel = 1.0  # pelaaja tankkasi välissä (niitto vei noin puolet tankista)
 	await _press("bell")
 	await _frames(3)
 	_check(t.helper_active(), "Q: Santtu paalaa")

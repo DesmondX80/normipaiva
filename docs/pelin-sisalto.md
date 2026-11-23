@@ -613,15 +613,17 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
       ("PAALIT TÄHÄN"); Raija maksaa 6 € paalilta ja kiittää. Myydyt paalit syötetään seuraavaan päivään mennessä.
     - **Apumies:** kun traktorin perässä on pellon seuraavaan työhön sopiva kone ja traktori on pellolla (tai enintään
       25 m päässä), jalan traktorin vieressä Q pyytää Santun ajamaan (15 €). Santtu polkaisee mökiltä (mökin pihalta
-      hän on sillä välin poissa), istuu rattiin ja ajaa pellon valmiiksi lasketulla reitillä: kaistat koneen
-      työleveyden välein pellon pituussuuntaan (sivuniittokoneen ja auran sivusiirtymä huomioiden), paalaimella
-      karhoja pitkin. Kaistat ajetaan reunasta reunaan edestakaisin; kun kaistaväli on alle kaksi kääntösädettä,
-      joka toinen kaista ensin puoliympyräkäännöksin ja paluu väliin jääneitä pitkin (vierekkäisen kaistan käännös
-      Ω:na). Päisteessä Santtu peruuttaa nostetuin konein käännöksen mitan verran sisään, kääntyy pellolla ja peruuttaa
-      seuraavan kaistan alkuun pellon reunaan, jossa kone laskeutuu: pientareelle tai puihin ei ajeta (perävaunu
-      oikenee peruutuksissa traktorin linjaan). Kun pelaaja on yli 120 m päässä, Santtu ajaa nelinkertaisella
-      vauhdilla. Q traktorin vieressä keskeyttää. Valmiista työstä isäntä maksaa pelaajalle tavalliseen tapaan;
-      diesel kuluu, ja tyhjällä tankilla Santtu jättää traktorin pellolle.
+      hän on sillä välin poissa), istuu rattiin ja ajaa pellon valmiiksi lasketulla reitillä kuten oikeasti: ensin
+      päisteet kiertäen pellon reunaa 2–7 kierrosta (sivuniittokone ja aura ulkoreunan puolella, kulmat pyöristettyinä
+      kääntösäteellä; paalain kiertää koko karhottimen päisteen leveydeltä, jotta reunakarhot ja karhojen päät
+      kerätään), sitten sisäosa kaistoina koneen työleveyden välein pellon pituussuuntaan (paalaimella karhoja pitkin).
+      Kun kaistaväli on alle kaksi kääntösädettä, joka toinen kaista ensin puoliympyräkäännöksin ja paluu väliin
+      jääneitä pitkin (vierekkäisen kaistan käännös Ω:na). Käännökset tehdään päisteellä peruuttaen (kone nostettuna,
+      perävaunu oikenee peruutuksessa), joten pientareelle tai puihin ei ajeta. Kun pelaaja on yli 120 m päässä, Santtu
+      ajaa nelinkertaisella vauhdilla. Q traktorin vieressä keskeyttää. Valmiista työstä isäntä maksaa pelaajalle
+      tavalliseen tapaan. Diesel kuluu (Kotipellon niitto vie noin 65 % tankista): jos tankki ei riitä koko reitille,
+      Santtu sanoo sen aloittaessaan, ja tyhjällä tankilla hän jättää traktorin pellolle. Kesken jäänyttä työtä
+      jatkettaessa reitti ohittaa kaistat ja kierrokset, joilla työ on jo tehty.
     - **Sää:** noin joka kolmas päivä (ei ensimmäisenä) mökin seudulla sataa 3–7 tuntia klo 8–14 alkaen
       (`kaisua_tila.gd rain_window`). Sateella taivas harmaantuu, aurinko himmenee, usva sakenee, kameran ympärillä
       sataa ja pellot tummuvat märiksi; sateen ääni soi. Märkää heinää ei paalata eikä märkää viljaa puida (viesti
