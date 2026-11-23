@@ -21,6 +21,7 @@ const SOLE := {
 	"male": {"": 0.054, "Jog": 0.029, "Sprint": 0.025, "Crouch": 0.013, "Sitting": 0.0, "Driving": 0.0, "Swim": 0.0},
 	"female": {"": 0.046, "Jog": 0.0096, "Sprint": 0.0086, "Crouch": 0.020, "Sitting": 0.0, "Driving": 0.0, "Swim": 0.0},
 }
+const DELT_KEEP := 0.7  # hartialihaksen pienennyksestä tekemättä jätettävä osuus kaikilla hahmoilla (_shape_offset delt_keep)
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
 const Elastic := preload("res://scripts/elastic.gd")
 const Shoes := preload("res://scripts/shoes.gd")
@@ -78,7 +79,7 @@ var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 ## beard (bool), stripes (bool), height (m), shine (0..1).
 ## Vartalo: belly (0..1 kaljamaha), bulk (-1..1 hoikka..tukeva), shoulders (-1..1 kapeat..leveät hartiat),
 ## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori),
-## delt_keep (0..1 hartialihaksen pienennyksestä tekemättä jätettävä osuus, pelaaja).
+## delt_keep (0..1 hartialihaksen pienennyksestä tekemättä jätettävä osuus; oletus DELT_KEEP).
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
@@ -110,9 +111,8 @@ func setup(look: Dictionary) -> void:
 	if look.has("legs"):
 		shape["legs"] = float(look.legs)  # vain kun asetettu: muiden hahmojen verkkojen välimuistiavaimet eivät muutu
 		profile_key += "_j%.2f" % float(look.legs)
-	if float(look.get("delt_keep", 0.0)) != 0.0:
-		shape["delt_keep"] = float(look.delt_keep)
-		profile_key += "_d%.2f" % float(look.delt_keep)
+	shape["delt_keep"] = float(look.get("delt_keep", DELT_KEEP))
+	profile_key += "_d%.2f" % float(shape.delt_keep)
 	body_shape = shape
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
@@ -1231,7 +1231,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	var key := "%s/%s/%s" % [kind, stripes, shape]
 	var shaped := false
 	for k in shape:
-		shaped = shaped or (k != "anat" and k != "anat_arch" and absf(shape[k]) > 0.001)
+		shaped = shaped or (not k in ["anat", "anat_arch", "delt_keep"] and absf(shape[k]) > 0.001)  # delt_keep vain muscle < 0:n kanssa
 	var live: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
 	if live != null:
 		return live
@@ -1753,7 +1753,7 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		var m := -mu
 		var torso_x := 1.0 - smoothstep(0.24, 0.32, ax)
 		# Olkapäät (hartialihas): käsivarren tyvi kohti käsivarren akselia ja sisemmäs.
-		# delt_keep (0..1, pelaaja, looks.gd PLAYER): hartialihaksen ja epäkäslihaksen pienennyksestä jätetään tämä osuus
+		# delt_keep (0..1, oletus DELT_KEEP kaikilla hahmoilla): hartialihaksen ja epäkäslihaksen pienennyksestä jätetään tämä osuus
 		# tekemättä. Täysi pienennys kutistaa olkapään 64 % ja siirtää sitä 4 cm sisään: paljaalla olkapäällä (nahkaliivi,
 		# verkkopaita) niskan ja olkapään väliin jää terävä lovi ("kuin kirveellä lyöty"), olkapään kärkeen piikki ja
 		# olkavarren tyveen kolo. Pohjamallin hartia on sileä (tools/testit/hahmo_lahikuva.tscn l.muscle=0).
