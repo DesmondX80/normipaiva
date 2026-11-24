@@ -12,7 +12,7 @@ const Kota := preload("res://scripts/kota.gd")
 const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
 
-const KOHTAUKSET := ["kartta_reuna", "overview", "route", "compass", "maptarget", "map", "signs", "signs2", "signclose", "kotaview", "kotain", "tower", "kotaopaste", "karttaveto", "karttamerkit", "karttanaapurit", "edgetest", "kotapath", "kotagrid", "kotaplay", "kosketus", "placecheck", "hilltest", "sprinttest", "overlap", "walk", "walkmap", "fpsmitta", "fpsosat", "minikartta", "fpsview", "orbit", "fpswalk"]
+const KOHTAUKSET := ["kartta_reuna", "overview", "route", "compass", "maptarget", "map", "signs", "signs2", "signclose", "kotaview", "kotain", "tower", "kotaopaste", "karttaveto", "karttamerkit", "karttanaapurit", "karttaaltaan", "edgetest", "kotapath", "kotagrid", "kotaplay", "kosketus", "placecheck", "hilltest", "sprinttest", "overlap", "walk", "walkmap", "fpsmitta", "fpsosat", "minikartta", "fpsview", "orbit", "fpswalk"]
 
 var main: Main
 
@@ -279,6 +279,23 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await qshot.call("kompassi")
 			if not saved_q.is_empty():
 				FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_q)
+		"karttaaltaan":
+			main._note.visible = false
+			main._msg.text = ""
+			var before: bool = main._paper._public_places().any(func(q: Array) -> bool: return q[0] == "Altaan tila")
+			main.quests.heard["m_altaantie"] = true
+			var after: bool = main._paper._public_places().any(func(q: Array) -> bool: return q[0] == "Altaan tila")
+			print("KARTTA Altaan tila ennen vinkkiä %s, vinkin jälkeen %s" % [before, after])
+			main._paper.toggle()
+			for i in 10:
+				await main.get_tree().process_frame
+			var mp: Vector2 = main._paper._w2(M.w2(Vector2(1290.0, 1565.0)))
+			var ev := InputEventMouseMotion.new()
+			ev.position = mp + main._paper._view.position
+			main._paper._gui_input(ev)
+			print("KARTTA hiiren alla: '%s' kohdassa %s" % [main._paper._hover_name, mp])
+			for i in 20:
+				await main.get_tree().process_frame
 		"karttanaapurit":
 			# Paperikartta: naapurien merkit kodin ympärillä.
 			main._note.visible = false
