@@ -1353,5 +1353,7 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
   Hyundailla perään. Testi `--scene=turvapaikat`. Lisäksi kotitöiden ajan: oman nurmikon leikkuu (40 m leikkurista)
   ja pensasaidan leikkuu (40 m aidan luota, Päivi vahtii itse narun vieressä; leikkuun jälkeen 15 s aikaa lähteä,
   testi `--scene=pensasaita`). Häviö tai uusi päivä kesken leikkuun lopettaa minipelin (`main.gd _abort_hedge`).
+  Trimmeri haukkaa latvasta enintään 22 cm kerrallaan: liian syvä veto pitkään kasvuun ei leikkaa, vaan kone pykii
+  ja nykii, ja ruudulle tulee vinkki leikata ylempää pala kerrallaan (`hedge_game.gd _deep_tick`).
 - Esc avaa valikon: asetukset (grafiikan laatu, koko näyttö, V-Sync, renderöintiskaala, FOV, FPS-näyttö,
   leijuvat opasteet eli paikkojen ja hahmojen nimet (oletuksena pois), äänenvoimakkuudet, hiiren herkkyys, käänteinen Y, kameran automaattikeskitys), ohjaimet ja tekijät.
