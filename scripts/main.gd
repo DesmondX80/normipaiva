@@ -978,7 +978,9 @@ const TALKERS := {
 	"kolmio_koti": ["Joni ja Esa", Color(0.75, 0.88, 1.0)],  # kesäheilan mittaus (luku 6, _kolmio_sal_site)
 	"pentti": ["Pentti", Color(1.0, 0.5, 0.35)],  # Pentin BangBus (#299, rikos/pentti.gd)
 	"paivi": ["Päivi", Color(1.0, 0.45, 0.55)],  # aamun puheeksiotto ilman hahmoa (#326, rikos/paivi_puhe.gd)
-	"kolmio_vaala": ["Hevari-Tero ja Sivikki-Timo", Color(1.0, 0.55, 0.45)]}
+	"kolmio_vaala": ["Hevari-Tero ja Sivikki-Timo", Color(1.0, 0.55, 0.45)],
+	"isanta_kaisua": ["Kaisuan isäntä", Color(0.85, 0.75, 0.45)],  # maatila (kaisua.gd talk_*), luku 7
+	"isanta_altaantie": ["Altaan isäntä", Color(0.85, 0.75, 0.45)]}
 const TALK_HELLO := {
 	"arto": ["No terve naapuri!", "Kas, päivää!", "Mitäs sinne?"],
 	"pekka": ["No perkele, naapuri!", "Terve terve, saatana.", "Kas, sieltähän se tulee."],
@@ -14192,6 +14194,9 @@ func _santtu_offers_lava() -> bool:
 
 
 func _talk_hello(who: String) -> String:
+	if who.begins_with("isanta_"):
+		var fk := _farm_by_talker(who)
+		return fk.talk_hello() if fk != null else ""
 	for r in rikos:
 		var rh: String = r.hello(who)
 		if rh != "":
@@ -14227,6 +14232,9 @@ func _talk_hello(who: String) -> String:
 
 
 func _talk_open_info(who: String) -> String:
+	if who.begins_with("isanta_"):
+		var fk := _farm_by_talker(who)
+		return fk.talk_info() if fk != null else ""
 	match who:
 		"santtu":
 			if hommat.active:
@@ -14320,6 +14328,13 @@ func _talk_options(who := "") -> Array:
 		return _kesaheila_options()  # luku 6: vain kolme valintaa, ei Lopeta-riviä
 	var o: Array = []
 	var chat := true
+	if who.begins_with("isanta_"):  # maatilan isäntä: valinnat tilalta (kaisua.gd talk_options)
+		var fk := _farm_by_talker(who)
+		if fk != null:
+			for t: Array in fk.talk_options():
+				o.append(_opt("isanta_" + str(t[0]), t[1], t[2], t[3], t[4]))
+		o.append(_opt("lopeta", "Lopeta"))
+		return o
 	match who:
 		"arto":
 			var sale := _goods_value("arto")
@@ -14794,6 +14809,12 @@ func _talk_choose(id: String) -> void:
 		return
 	if id.begins_with("paivi_kesa_"):
 		_kesaheila_choose(id)
+		return
+	if id.begins_with("isanta_"):
+		var fk := _farm_by_talker(_talk_who)
+		if fk != null:
+			var line: String = fk.talk_choose(id.substr(7))
+			_talk_box.reply(line, _talk_options(), fk.talk_info())
 		return
 	if _talk_who == "kaukalo_teinit" and id == "korkkilapsy":
 		_talk_box.close()
@@ -15659,6 +15680,9 @@ func _farm_logic(k: Node3D) -> bool:
 	var driving: bool = player == k.traktori or player == k.puimuri
 	if not driving and (player != walker_out or _hint.text != "" or player.is_stunned() or not walker_out.controls_enabled):
 		return false
+	if not driving and k.isanta_near(walker_out) and not _talk_box.is_open():
+		_talk_hint("isanta_" + str(k.site.section), k.isanta)  # yhteinen keskusteluikkuna kuten muillakin hahmoilla
+		return true
 	var e := Input.is_action_just_pressed("interact")
 	var f := Input.is_action_just_pressed("mount")
 	var q := Input.is_action_just_pressed("bell")
@@ -15670,6 +15694,14 @@ func _farm_logic(k: Node3D) -> bool:
 	if driving:
 		_mopo_label.text = k.status
 	return driving or hint != ""
+
+
+## Keskustelun isäntä -> sen tila (isanta_kaisua: mökin Kaisua, isanta_altaantie: Altaan tila).
+func _farm_by_talker(who: String) -> Node3D:
+	for k: Node3D in [mokki.kaisua if mokki != null else null, altaan]:
+		if k != null and k.built and "isanta_" + str(k.site.section) == who:
+			return k
+	return null
 
 
 var _kaisua_frame := -1  # ruutu, jolla noustiin Kaisuan koneeseen tai siitä pois (F ei mene pyörälle)
