@@ -1567,10 +1567,23 @@ func _altaan_ajo(path: String) -> void:
 	main.money = 50.0
 	var t: CharacterBody3D = k.traktori
 	# Luku 7: isännän ensimmäinen juttu avaa luvun (signaalit kytketään tilan ensimmäisellä vuorolla).
+	# Luku 7 alusta: aiempien ajojen tallennus voi sisältää tavatun isännän ja kuullut vinkit.
+	main.tilat.firsts = main.tilat.firsts.filter(func(f: String) -> bool: return not f.begins_with("maatila_"))
+	for sid in ["m_altaantie", "m_kaisua"]:
+		main.quests.heard.erase(sid)
+	var arto: String = main._story_hint("arto", true)
+	print("KAISUA Arto: '%s'" % arto)
+	_check(arto.contains("Altaan"), "Arto vinkkaa Altaan tilasta (luku 7)")
 	main._farm_logic(k)
 	k._talk()
 	await _frames(2)
-	_check(main.tilat.firsts.has("maatila_isanta"), "luku 7 aukeaa isännän jutusta")
+	_check(main.tilat.firsts.has("maatila_altaantie_isanta"), "Altaan isäntä tavattu (luku 7)")
+	_check(main._story_hint("arto", true) == "", "Arto ei enää vinkkaa, kun isäntä on tavattu")
+	main._farm_logic(k)
+	k._talk()  # toinen juttu: isäntä vinkkaa Kaisuasta, koska sen isäntää ei ole tavattu
+	await _frames(2)
+
+	_check(main.quests.heard.has("m_kaisua"), "Altaan isäntä vinkkaa Kaisuasta (luku 7)")
 	# F traktorin vieressä.
 	var seat := t.to_global(Vector3(-1.3, 0, 0.3))
 	main.walker_out.global_position = seat + Vector3(0, 0.5, 0)

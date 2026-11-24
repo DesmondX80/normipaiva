@@ -65,13 +65,19 @@ const CHAPTERS := [
 		{"id": "p_valinta", "text": "Kotiovella odottaa Päivi ja Sinikka: naura, tunnusta tai suutu.",
 			"done": "first:kesaheila_valinta", "k18": true, "hint": "auto"},
 	]},
-	# Luku 7: maatilan hommat (Kaisua mökin naapurissa, Altaan tila kodin itäpuolella). Rinnakkainen: aukeaa, kun jommankumman
-	# tilan isäntä on tavattu. Jokainen työ on pakollinen molemmilla tiloilla ja kuittautuu, kun pelaaja on tehnyt sen itse
+	# Luku 7: maatilan hommat (Kaisua mökin naapurissa, Altaan tila kodin itäpuolella). Rinnakkainen ja aina auki, mutta
+	# näkyy vasta, kun ensimmäinen rivi on kuultu tai tehty: Saloisissa naapurin Arto vinkkaa Altaan tilasta, mökillä Santtu
+	# Kaisuasta ja kumpikin isäntä toisesta tilasta (kaisua.gd texts.toinen). Tilojen vaiheet ovat "rinnakkain": kummankin
+	# vihje kuuluu, vaikka toinen olisi kesken. Jokainen työ on pakollinen molemmilla tiloilla ja kuittautuu, kun pelaaja on tehnyt sen itse
 	# (apumiehen ajama ei käy) kummallakin (kaisua.gd progress -> main.gd tilat.first("maatila_<tila>_<työ>")). Raijan
 	# paalikauppa on vain Kaisualla.
-	{"id": "luku7", "title": "7. Talkoissa", "parallel": true, "open": "first:maatila_isanta", "steps": [
-		{"id": "m_isanta", "text": "Kaksi isäntää tarvitsee apua pelloille: Kaisuassa mökin naapurissa ja Altaan tilalla kodin itäpuolella.",
-			"tilat": "isanta", "done": "first:maatila_kaisua_isanta&first:maatila_altaantie_isanta", "hint": "auto"},
+	{"id": "luku7", "title": "7. Talkoissa", "parallel": true, "open": "always", "steps": [
+		{"id": "m_altaantie", "text": "Altaan tilalla Altaantien varressa, kodin itäpuolella, tarvitaan renkiä. Käy isännän puheilla.",
+			"done": "first:maatila_altaantie_isanta", "rinnakkain": true,
+			"hint": "arto|Altaan isäntä kyseli kaupalla renkiä. Heinät ja ohrat pitäis saada korjuuseen, ja poika ei yksin ehdi. Altaantietä itään, kyltti tien varressa."},
+		{"id": "m_kaisua", "text": "Kaisuan tilalla Neittävällä, mökiltä vähän länteen, kaivataan talkooapua. Käy isännän puheilla.",
+			"done": "first:maatila_kaisua_isanta", "rinnakkain": true,
+			"hint": "santtu|Kaisuan isäntä tossa tien varressa kaipais talkooapua. Traktori ja puimuri, kyllä sää pärjäät. Mökiltä länteen, KAISUA-kyltti tien varressa."},
 		{"id": "m_niitto", "text": "Niitä nurmi traktorin sivuniittokoneella molemmilla tiloilla.", "tilat": "niitto", "done": "first:maatila_kaisua_niitto&first:maatila_altaantie_niitto", "hint": "auto"},
 		{"id": "m_karhous", "text": "Karhota niitetty heinä karhoille molemmilla tiloilla.", "tilat": "karhous", "done": "first:maatila_kaisua_karhous&first:maatila_altaantie_karhous", "hint": "auto"},
 		{"id": "m_paalaus", "text": "Paalaa karhot pyöröpaalaimella molemmilla tiloilla.", "tilat": "paalaus", "done": "first:maatila_kaisua_paalaus&first:maatila_altaantie_paalaus", "hint": "auto"},
@@ -399,7 +405,8 @@ func open_steps(firsts: Array, flag: Callable) -> Array:
 			if not step_visible(st, flag) or st.get("optional", false) or check(st.done, firsts, flag):
 				continue
 			out.append([ch, st])
-			break
+			if not st.get("rinnakkain", false):
+				break
 	return out
 
 
@@ -499,13 +506,16 @@ func build(firsts: Array, flag: Callable, story_rows: Array, progress: Callable,
 				# Luku 7: toisella tilalla tehty työ näkyy heti, ja kesken olevassa näkyy, kumpi tila on vielä tekemättä.
 				var farm_k: bool = st.has("tilat") and check("first:maatila_kaisua_" + st.tilat, firsts, flag)
 				var farm_a: bool = st.has("tilat") and check("first:maatila_altaantie_" + st.tilat, firsts, flag)
-				if d or farm_k or farm_a or ((open or by_flag) and heard.has(st.id)):
+				var rinn: bool = st.get("rinnakkain", false)  # luku 7: kummankin tilan vinkki näkyy kuultuna heti
+				if d or farm_k or farm_a or ((open or by_flag or rinn) and heard.has(st.id)):
 					var txt: String = st.text
 					if st.has("tilat") and not d:
 						txt += " (Kaisua %s, Altaan tila %s)" % ["tehty" if farm_k else "tekemättä", "tehty" if farm_a else "tekemättä"]
 					rows.append([txt, d, done_day.get(st.id, 0) if d else 0])
 				if not d and not st.get("optional", false):
 					open = false
+		if par and rows.is_empty():
+			continue  # aina auki oleva rinnakkainen luku (7) näkyy vasta, kun siitä on kuultu
 		var entry := {"title": ch.title, "rows": rows, "done": ch_done}
 		if ch.has("ilme"):
 			entry["ilme"] = int(progress.call(ch.ilme))
