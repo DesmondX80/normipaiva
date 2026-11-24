@@ -597,7 +597,11 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     - **Koneet:** vanha ohjaamoton traktori (pyöreä konepelti, pystypakoputki, pellinen istuin, etukuormain
       paalipiikillä) ja vanha leikkuupuimuri (kela, syöttöruuvi, viljasäiliö, kääntyvä purkuputki). Traktoriin
       kytketään peruuttamalla (Q) sivuniittokone, kaksiroottorinen karhotin, pyöröpaalain, kääntöaura, S-piikkiäes,
-      kylvökone tai viljakärry; nostimen koneet nousevat kuljetukseen ja laskeutuvat töihin (E). Koneisiin noustaan ja niistä
+      kylvökone tai viljakärry; nostimen koneet nousevat kuljetukseen ja laskeutuvat töihin (E). Kytkentää opastetaan
+      (`kaisua.gd _guide_update`): lähimmän koneen kytkentäkohdan päällä nuoli ja maassa rengas, suuntaviiva, josta
+      traktori peruutetaan, ja traktorin oma kytkentäkohta. Merkit ovat keltaisia, ja ne vihertyvät, kun Q kytkee
+      (alle 1,8 m, vinous enintään noin 45°; vihjerivi kertoo matkan tai pyytää suoristamaan). Isännän kanssa jutellaan
+      pelin yhteisessä keskusteluikkunassa (päivän hommat, toinen tila, Raijan paalit, koneiden kytkentä). Koneisiin noustaan ja niistä
       pois F:llä, ajo W/S ja ohjaus A/D (kääntyminen akselivälin mukaan, puimuri kääntää takapyörillä).
     - **Pellot:** ruudukko 0,5 m ruuduin, ja jokaisella ruudulla on oma vaiheensa ja työsuuntansa (`kaisua_pelto.gd`,
       `kaisua_tila.gd`). Kasvusto on korsikortteja (nurmi timotein tähkineen, ohra tähkineen ja vihneineen), ja pinta

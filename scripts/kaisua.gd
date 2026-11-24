@@ -97,6 +97,20 @@ var _kuivuri: Dictionary
 var _bubble: Label3D
 var _bubble_t := 0.0
 var _check_t := 0.0
+## Kytkennän opastus (traktorilla ilman konetta): lähimmän koneen kytkentäkohdan päällä nuoli ja rengas maassa,
+## maassa viiva siihen suuntaan, josta traktori peruutetaan, ja traktorin oma kytkentäkohta. Keltainen = vielä
+## matkaa tai vinossa, vihreä = Q kytkee.
+const GUIDE_R := 14.0
+const HITCH_D := 1.8  # kytkentäkohtien etäisyys, jolla kytkentä onnistuu
+const HITCH_YAW := 0.8  # nostimen kone: suunnan ero (rad); aisan kone sallii enemmän (HITCH_YAW_AISA)
+const HITCH_YAW_AISA := 1.3
+var _guide: Node3D
+var _g_mat: StandardMaterial3D
+var _g_ring_i: MeshInstance3D
+var _g_ring_t: MeshInstance3D
+var _g_arrow: MeshInstance3D
+var _g_line: MeshInstance3D
+var _g_t := 0.0
 var _tipping := 0.0  # kärryn kippaus: lavan kulma (0 = alhaalla)
 var _tip_on := false
 var _gate_t := 0.0  # paalaimen luukku auki (s)
@@ -310,6 +324,7 @@ func _build_machines() -> void:
 		var veh: Node3D = v
 		veh.work_fn = _apply_work
 		veh.to_local_fn = to_local
+		veh.height_fn = site.height  # tilan oma maasto (Altaan tilalla Saloisten terrain.gd, ei mökin verkko)
 		_restore(veh, veh.kind)
 	for id in Koneet.IMPLEMENTS:
 		var k := Koneet.implement(self, id)
@@ -1049,6 +1064,8 @@ func logic(player: Node3D, walker: Node3D, e: bool, f: bool, q: bool, delta: flo
 		_check_t = 0.5
 		_check_jobs()
 	_unload_tick(delta)
+	if player != traktori or traktori.implement != null:
+		_guide_hide()
 	if player == traktori:
 		return _tractor_logic(e, f, q)
 	if player == puimuri:
@@ -1058,10 +1075,7 @@ func logic(player: Node3D, walker: Node3D, e: bool, f: bool, q: bool, delta: flo
 	var p := to_local(walker.global_position)
 	var near := func(lp: Vector3, r: float) -> bool:
 		return Vector2(p.x - lp.x, p.z - lp.z).length() < r
-	if near.call(isanta.position, 2.6):
-		if e:
-			_talk()
-		return "%s Juttele isännän kanssa%s" % [Settings.cap("interact"), "  ·  talkooruoka odottaa pirtissä" if tila.food_due else ""]
+	# Isännän juttelu on pelin yhteinen keskusteluikkuna (main.gd _farm_logic -> _talk_hint, talk_hello/options/choose).
 	if tila.food_due and tila.food_day != day and near.call(house_door, 2.0):
 		if e:
 			_eat()
@@ -1196,10 +1210,14 @@ func _tractor_logic(e: bool, f: bool, q: bool) -> String:
 				_unhitch()
 	else:
 		var hid := _hitchable()
+		var gh := _guide_update(get_process_delta_time())
 		if hid != "":
 			lines.append("%s Kytke %s" % [Settings.cap("bell"), String(Koneet.IMPLEMENTS[hid].name).to_lower()])
 			if q:
 				_hitch_now(hid)
+				_guide_hide()
+		elif gh != "":
+			lines.append(gh)
 	var fl := _field_status(to_local(t.global_position))
 	if fl != "":
 		st.append(fl)
@@ -1364,9 +1382,116 @@ func _hitchable() -> String:
 		var target := lp if info.mount == "nostin" else hp
 		var d := Vector2(r.global_position.x - target.x, r.global_position.z - target.z).length()
 		var dy := absf(wrapf(r.global_rotation.y - ty, -PI, PI))
-		if d < 1.3 and (dy < 0.6 or info.mount == "aisa" and dy < 1.2):
+		if d < HITCH_D and dy < (HITCH_YAW_AISA if info.mount == "aisa" else HITCH_YAW):
 			return id
 	return ""
+
+
+## Lähin kytkemätön kone traktorin kytkentäkohdasta: [id, etäisyys, suunnan ero] tai [] (yli GUIDE_R).
+func _nearest_implement() -> Array:
+	var best: Array = []
+	var ty := traktori.global_rotation.y
+	for id in koneet:
+		if id == tila.hitched:
+			continue
+		var r: Node3D = koneet[id].root
+		var info: Dictionary = Koneet.IMPLEMENTS[id]
+		var target := traktori.link_point() if info.mount == "nostin" else traktori.hitch_point()
+		var d := Vector2(r.global_position.x - target.x, r.global_position.z - target.z).length()
+		if d < GUIDE_R and (best.is_empty() or d < float(best[1])):
+			best = [id, d, absf(wrapf(r.global_rotation.y - ty, -PI, PI))]
+	return best
+
+
+func _guide_build() -> void:
+	_guide = Node3D.new()
+	_guide.top_level = true
+	add_child(_guide)
+	_g_mat = StandardMaterial3D.new()
+	_g_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_g_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_g_mat.no_depth_test = true  # näkyy koneen ja heinän läpi
+	_g_mat.render_priority = 10
+	var ring := func(r: float) -> MeshInstance3D:
+		var tm := TorusMesh.new()
+		tm.inner_radius = r - 0.07
+		tm.outer_radius = r
+		tm.rings = 32
+		tm.ring_segments = 6
+		var mi := MeshInstance3D.new()
+		mi.mesh = tm
+		mi.material_override = _g_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_guide.add_child(mi)
+		return mi
+	_g_ring_i = ring.call(0.55)
+	_g_ring_t = ring.call(0.3)
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.28
+	cone.bottom_radius = 0.0
+	cone.height = 0.55
+	_g_arrow = MeshInstance3D.new()
+	_g_arrow.mesh = cone
+	_g_arrow.material_override = _g_mat
+	_g_arrow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_guide.add_child(_g_arrow)
+	var strip := BoxMesh.new()
+	strip.size = Vector3(0.12, 0.02, 1.0)
+	_g_line = MeshInstance3D.new()
+	_g_line.mesh = strip
+	_g_line.material_override = _g_mat
+	_g_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_guide.add_child(_g_line)
+
+
+func _guide_hide() -> void:
+	if _guide != null:
+		_guide.visible = false
+
+
+## Maailman piste maan pinnalle (+ up) tilan maastossa.
+func _ground_g(p: Vector3, up := 0.0) -> Vector3:
+	var lp := to_local(p)
+	return to_global(Vector3(lp.x, _gy(lp.x, lp.z) + up, lp.z))
+
+
+## Opastus lähimpään koneeseen; palauttaa vihjeen ("" kun kone on kytkettävissä tai mitään ei ole lähellä).
+func _guide_update(delta: float) -> String:
+	var nb := _nearest_implement()
+	if nb.is_empty():
+		_guide_hide()
+		return ""
+	if _guide == null:
+		_guide_build()
+	_guide.visible = true
+	_g_t += delta
+	var id: String = nb[0]
+	var d: float = nb[1]
+	var dy: float = nb[2]
+	var info: Dictionary = Koneet.IMPLEMENTS[id]
+	var ok := d < HITCH_D and dy < (HITCH_YAW_AISA if info.mount == "aisa" else HITCH_YAW)
+	var pulse := 0.75 + 0.25 * sin(_g_t * 6.0)
+	_g_mat.albedo_color = (Color(0.25, 0.95, 0.3) if ok else Color(1.0, 0.78, 0.1)) * Color(1, 1, 1, pulse)
+	var r: Node3D = koneet[id].root
+	var ap := _ground_g(r.global_position, 0.06)
+	_g_ring_i.global_position = ap
+	_g_arrow.global_position = ap + Vector3(0, 1.9 + 0.25 * sin(_g_t * 4.0), 0)
+	var tp := traktori.link_point() if info.mount == "nostin" else traktori.hitch_point()
+	_g_ring_t.global_position = _ground_g(tp, 0.06)
+	# Viiva: kytkentäkohdasta koneen etusuuntaan (-Z), josta traktori peruutetaan kohdalle.
+	var fwd := -r.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var mid := ap + fwd * 1.6
+	_g_line.global_position = _ground_g(mid, 0.05)
+	_g_line.global_rotation = Vector3(0, atan2(-fwd.x, -fwd.z), 0)
+	_g_line.scale = Vector3(1, 1, 3.2)
+	if ok:
+		return ""
+	var nm := String(info.name).to_lower()
+	if d >= HITCH_D:
+		return "Peruuta %s kohdalle: %s m (nuoli)" % [nm, String.num(d, 1).replace(".", ",")]
+	return "Suorista traktori %s linjaan (viiva maassa)" % nm
 
 
 func _hitch_now(id: String) -> void:
@@ -1912,25 +2037,72 @@ static func _eur(v: float) -> String:
 
 
 ## Isännän juttu: ensin esittely, sitten peltojen tilanne ja seuraava työ.
-func _talk() -> void:
+## Isäntä lähellä (main.gd avaa keskusteluikkunan kuten muillakin hahmoilla).
+func isanta_near(walker: Node3D) -> bool:
+	if not built or isanta == null:
+		return false
+	var p := to_local(walker.global_position)
+	return Vector2(p.x - isanta.position.x, p.z - isanta.position.z).length() < 2.6
+
+
+## Keskustelun avaus: ensitapaamisella esittäytyminen (ja ohjeviesti), muuten päivän tervehdys.
+func talk_hello() -> String:
+	say("")  # oma kupla pois: keskustelu on ikkunassa
 	if not tila.talked:
 		tila.talked = true
 		progress.emit("isanta")
-		say(site.texts.hello, 7.0)
 		message.emit(site.texts.intro % [Settings.cap("mount"), Settings.cap("bell")], 7.0)
-		return
-	if toinen_vinkki and _toinen_day != day and site.texts.has("toinen"):
-		# Luku 7: toinenkin tila tarvitsee renkiä (kerran päivässä, kunnes sen isäntä on tavattu).
-		_toinen_day = day
-		say(site.texts.toinen, 7.0)
-		progress.emit("vinkki")
-		return
-	if not (site.naapuri as Dictionary).is_empty() and tila.order_left <= 0 and tila.order_day != day and tila.bales_in_lato() >= 2:
-		tila.order_total = mini(4, tila.bales_in_lato())
-		tila.order_left = tila.order_total
-		tila.order_day = day
-		say("Naapurin Raija soitti: tarvitsee %d paalia lehmille. Vie piikillä ladosta, paalipaikka on tien toisella puolella vajan vieressä. Raija maksaa %d € paalilta." % [tila.order_total, roundi(BALE_PRICE)], 7.0)
-		return
+		return site.texts.hello
+	if raining():
+		return "Sataa. Paalaus ja puinti odottaa poutaa (%s), mutta kyntää ja äestää voi." % rain_end_text()
+	_talk_i += 1
+	return ["Päivää! Mitä asiaa?", "No, renki! Mites hommat?", "Kahvit on termarissa. Mitä kuuluu?"][_talk_i % 3]
+
+
+## Keskusteluikkunan tietorivi: talkooruoka ja Raijan tilaus.
+func talk_info() -> String:
+	var parts: Array[String] = []
+	if tila.food_due and tila.food_day != day:
+		parts.append("Talkooruoka odottaa pirtissä.")
+	if tila.order_left > 0:
+		parts.append("Raijalle vielä %d paalia." % tila.order_left)
+	return " ".join(parts)
+
+
+func _order_possible() -> bool:
+	return not (site.naapuri as Dictionary).is_empty() and tila.order_left <= 0 and tila.order_day != day and tila.bales_in_lato() >= 2
+
+
+## Isännän valinnat: [id, teksti, käytettävissä, syy harmaana, uusi asia].
+func talk_options() -> Array:
+	var o: Array = []
+	o.append(["hommat", "Mitä hommia tänään on?", true, "", false])
+	if toinen_vinkki and site.texts.has("toinen"):
+		o.append(["toinen", "Tarviiko muualla renkiä?", _toinen_day != day, "kysyit jo tänään", _toinen_day != day])
+	if not (site.naapuri as Dictionary).is_empty():
+		var why := "tilaus on jo kesken" if tila.order_left > 0 else ("Raija tilasi jo tänään" if tila.order_day == day else "ladossa alle 2 paalia")
+		o.append(["paalit", "Tarviiko naapuri paaleja?", _order_possible(), why, _order_possible()])
+	o.append(["koneet", "Miten koneet kytketään?", true, "", false])
+	return o
+
+
+## Valinta: isännän vastaus keskusteluikkunaan.
+func talk_choose(id: String) -> String:
+	match id:
+		"toinen":
+			# Luku 7: toinenkin tila tarvitsee renkiä (kerran päivässä, kunnes sen isäntä on tavattu).
+			_toinen_day = day
+			progress.emit("vinkki")
+			return site.texts.toinen
+		"paalit":
+			if not _order_possible():
+				return "Ei tänään. Kysy huomenna uudestaan."
+			tila.order_total = mini(4, tila.bales_in_lato())
+			tila.order_left = tila.order_total
+			tila.order_day = day
+			return "Naapurin Raija soitti: tarvitsee %d paalia lehmille. Vie piikillä ladosta, paalipaikka on tien toisella puolella vajan vieressä. Raija maksaa %d € paalilta." % [tila.order_total, roundi(BALE_PRICE)]
+		"koneet":
+			return "Aja traktorilla koneen eteen ja peruuta suoraan sen kohdalle: keltainen nuoli näyttää kytkentäkohdan ja viiva maassa suunnan. Kun merkit muuttuu vihreiksi, %s kytkee. Irti saat samalla napilla, kun traktori seisoo." % Settings.cap("bell")
 	var parts: Array[String] = []
 	if raining():
 		parts.append("sataa, paalaus ja puinti odottaa poutaa (%s), kyntää ja äestää voi" % rain_end_text())
@@ -1941,9 +2113,7 @@ func _talk() -> void:
 		var job := _next_job(pe)
 		if not job.is_empty():
 			parts.append("%s: %s" % [pe.field_name(), job.name])
-	_talk_i += 1
-	var lines := ["Hommia riittää: ", "Tänään vois: ", "Kattoppa: "]
-	say(lines[_talk_i % lines.size()] + (", ".join(parts) if not parts.is_empty() else "kaikki tehty, istu ja juo kahvia!"), 6.0)
+	return "Hommia riittää: " + (", ".join(parts) + "." if not parts.is_empty() else "kaikki tehty, istu ja juo kahvia!")
 
 
 func _eat() -> void:

@@ -20,6 +20,10 @@ extends Node
 ##   isäntä, pellot (Isoaho, Altaanpelto, Vainio, niityt), ajoura; ei puita pelloilla eikä uralla, rakennusaika.
 ## altaan_ajo: traktorilla F:llä pihasta ajouraa pitkin Isoahoon (autopilotti), puimurilla puinti Isoahossa (yksi kaista
 ##   ajaen, loput simuloiden), isäntä maksaa; Eetu niittää Kotiniityn Q:lla.
+## altaan_leiju: koneet maan pinnalla Altaan tilalla (alin näkyvä piste vs. maa säteellä) ja kärry jää maahan
+##   irrotettaessa (koneet käyttävät tilan maastoa, ei mökin).
+## altaan_kytkenta: kytkennän opastus (keltainen kaukana, vihreä kohdalla, Q kytkee ja opastus piiloon) ja isännän
+##   keskusteluikkuna (avaus, koneiden kytkentä, päivän hommat).
 ## mokkikaisua_vilja: puimuri Tienvarsipellolla (kuvat), purku kärryyn, kippaus kuivuriin, äestys ja kylvö Isopellolla,
 ##   kasvu päivä kerrallaan (oras, vihreä, kypsä).
 const Kuva := preload("res://tools/testit/kuva.gd")
@@ -36,7 +40,7 @@ const Asento := preload("res://tools/testit/asento.gd")
 
 const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja", "mokkikaisua_kivet", "mokkikaisua_tallennus", "mokkikaisua_hahmot",
 	"mokkikaisua_nappaimet", "mokkikaisua_kuski", "mokkikaisua_pinnat", "mokkikaisua_apumies", "mokkikaisua_sade",
-	"altaan", "altaan_ajo"]
+	"altaan", "altaan_ajo", "altaan_leiju", "altaan_kytkenta"]
 
 var main: Main
 var _cam: Camera3D
@@ -77,6 +81,10 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await _altaan(path)
 		"altaan_ajo":
 			await _altaan_ajo(path)
+		"altaan_leiju":
+			await _altaan_leiju(path)
+		"altaan_kytkenta":
+			await _altaan_kytkenta(path)
 		_:
 			return 0
 	return 1
@@ -447,8 +455,9 @@ func _heina(path: String) -> void:
 	await _shot(path, "lato_paalit")
 	# Naapurin paalitilaus: isäntä välittää, paalit ladosta piikillä paalipaikalle.
 	k.day = main.day
-	k._talk()
-	print("KAISUA tilaus %d paalia, isäntä: %s" % [k.tila.order_total, k._bubble.text])
+	k.tila.talked = true
+	var tilaus: String = k.talk_choose("paalit")
+	print("KAISUA tilaus %d paalia, isäntä: %s" % [k.tila.order_total, tilaus])
 	var dropv: Vector3 = _k().site.naapuri.drop
 	var drop2 := Vector2(dropv.x, dropv.z)
 	for d in k.tila.order_total:
@@ -1353,9 +1362,9 @@ func _sade(path: String) -> void:
 	_check(before > 0 and during == before, "sateella ei paalata (karhoja %d -> %d)" % [before, during])
 	k._talk_i = 0
 	k.tila.talked = true
-	k._talk()
-	print("KAISUA isäntä sateella: %s" % k._bubble.text)
-	_check(k._bubble.text.contains("sataa"), "isäntä mainitsee sateen")
+	var sade: String = k.talk_hello()
+	print("KAISUA isäntä sateella: %s" % sade)
+	_check(sade.to_lower().contains("sata"), "isäntä mainitsee sateen")
 	k.rain_force = 0.0
 	_sim_lane("paalaus", mid[0], mid[1], 0.95, 0.35)
 	pe.recount()
@@ -1556,8 +1565,8 @@ func _altaan(path: String) -> void:
 	main.walker_out.global_position = _kp(k, ip.x - 1.5, ip.z, 0.5)
 	main._set_avatar(main.walker_out)
 	await _frames(20)
-	print("KAISUA altaan vihje isännällä: ", main._hint.text)
-	_check(main._hint.text.contains("Juttele"), "isännän juttelu vihjeessä")
+	print("KAISUA altaan puhevihje isännällä: näkyy %s" % main._talk_prompt.visible)
+	_check(main._talk_prompt.visible, "isännän puhevihje (yhteinen keskusteluikkuna)")
 	print("KAISUA altaan: %s" % ("OK" if _viat == 0 else "%d vikaa" % _viat))
 
 
@@ -1575,12 +1584,13 @@ func _altaan_ajo(path: String) -> void:
 	print("KAISUA Arto: '%s'" % arto)
 	_check(arto.contains("Altaan"), "Arto vinkkaa Altaan tilasta (luku 7)")
 	main._farm_logic(k)
-	k._talk()
+	k.talk_hello()
 	await _frames(2)
 	_check(main.tilat.firsts.has("maatila_altaantie_isanta"), "Altaan isäntä tavattu (luku 7)")
 	_check(main._story_hint("arto", true) == "", "Arto ei enää vinkkaa, kun isäntä on tavattu")
 	main._farm_logic(k)
-	k._talk()  # toinen juttu: isäntä vinkkaa Kaisuasta, koska sen isäntää ei ole tavattu
+	_check(k.talk_options().any(func(o: Array) -> bool: return o[0] == "toinen"), "isännällä valinta toisesta tilasta")
+	k.talk_choose("toinen")  # isäntä vinkkaa Kaisuasta, koska sen isäntää ei ole tavattu
 	await _frames(2)
 
 	_check(main.quests.heard.has("m_kaisua"), "Altaan isäntä vinkkaa Kaisuasta (luku 7)")
@@ -1689,3 +1699,133 @@ func _altaan_ajo(path: String) -> void:
 	await _shot(path, "altaan_kotiniitty_niitetty")
 	_ksummary(k, "altaan loppu")
 	print("KAISUA altaan ajo: %s" % ("OK" if _viat == 0 else "%d vikaa" % _viat))
+
+
+## Koneet maan pinnalla: jokaisen koneen juuren korkeus vs. maa suoraan alla (säde ylhäältä, koneiden omat rungot pois).
+func _altaan_leiju(path: String) -> void:
+	var k: Node3D = main.altaan
+	main._hud.visible = false
+	await _frames(30)
+	var space := main.get_viewport().world_3d.direct_space_state
+	var excl: Array[RID] = []
+	for v in [k.traktori, k.puimuri]:
+		excl.append((v as CollisionObject3D).get_rid())
+	var all := {"traktori": k.traktori, "puimuri": k.puimuri}
+	for id in k.koneet:
+		all[id] = k.koneet[id].root
+	for id in all:
+		var n: Node3D = all[id]
+		var gp := n.global_position
+		var q := PhysicsRayQueryParameters3D.create(gp + Vector3(0, 30, 0), gp - Vector3(0, 30, 0))
+		q.exclude = excl
+		var hit := space.intersect_ray(q)
+		var lp: Vector3 = k.to_local(gp)
+		var hf: float = k.site.height.call(lp.x, lp.z)
+		print("LEIJU %s: juuri y %.2f, maa (säde) %s, height_fn %.2f, ero säteeseen %s, osui %s" % [id, gp.y,
+			"%.2f" % hit.position.y if hit else "-", k.to_global(Vector3(lp.x, hf, lp.z)).y,
+			"%.2f" % (gp.y - hit.position.y) if hit else "-", hit.collider.name if hit else "-"])
+		var lo := INF
+		for mi in n.find_children("*", "MeshInstance3D", true, false):
+			var mm := mi as MeshInstance3D
+			if not mm.is_visible_in_tree() or mm.mesh == null:
+				continue
+			var ab: AABB = mm.global_transform * mm.get_aabb()
+			lo = minf(lo, ab.position.y)
+		print("LEIJU %s: alin näkyvä piste %.2f, maa %.2f, rako %.2f, visual y %s" % [id, lo, hit.position.y if hit else 0.0, lo - (hit.position.y if hit else 0.0),
+			str(n._visual.position.y) if "_visual" in n else "-"])
+		_cam = _cam if _cam != null else Camera3D.new()
+		if _cam.get_parent() == null:
+			main.add_child(_cam)
+		_cam.current = true
+		_cam.global_position = gp + n.global_transform.basis.x * 4.0 + Vector3(0, 0.25, 0)
+		_cam.look_at(gp + Vector3(0, 0.2, 0))
+		await _frames(10)
+		await _shot(path, "leiju_" + id)
+	# Kärry perään, ajo pätkä ja irrotus: kärry jää maahan (ei pompi).
+	var t: Node3D = k.traktori
+	var kr: Node3D = k.koneet.perakarry.root
+	t.global_rotation = Vector3(0, kr.global_rotation.y, 0)
+	t.global_position += kr.global_position - t.hitch_point()
+	t.global_position.y = kr.global_position.y + 0.5
+	await main.get_tree().physics_frame
+	k._hitch_now("perakarry")
+	t.autopilot = Vector2(1.0, 0.3)
+	for i in 120:
+		await main.get_tree().physics_frame
+	t.autopilot = Vector2(0, 0)
+	for i in 90:
+		await main.get_tree().physics_frame
+	var before := kr.global_position.y
+	k._unhitch()
+	await _frames(5)
+	var gp2 := kr.global_position
+	var q2 := PhysicsRayQueryParameters3D.create(gp2 + Vector3(0, 30, 0), gp2 - Vector3(0, 30, 0))
+	q2.exclude = excl
+	var hit2 := space.intersect_ray(q2)
+	print("LEIJU kärry irrotus: ennen %.2f, jälkeen %.2f, maa %.2f" % [before, gp2.y, hit2.position.y if hit2 else INF])
+	if not hit2 or absf(gp2.y - hit2.position.y) > 0.15:
+		print("TESTI VIKA kärry ei jäänyt maahan irrotettaessa")
+	_cam.global_position = gp2 + kr.global_transform.basis.x * 5.0 + Vector3(0, 1.0, 0)
+	_cam.look_at(gp2 + Vector3(0, 0.5, 0))
+	await _frames(10)
+	await _shot(path, "leiju_karry_irti")
+
+
+## Kytkennän opastus ja isännän keskusteluikkuna (Altaan tila): traktori 5 m koneen edessä (keltainen nuoli, rengas
+## ja suuntaviiva), sitten kohdalla (vihreä, Q kytkee); isännän juttelu yhteisessä keskusteluikkunassa.
+func _altaan_kytkenta(path: String) -> void:
+	var k: Node3D = main.altaan
+	var t: Node3D = k.traktori
+	var kr: Node3D = k.koneet.niittokone.root
+	var fwd := -kr.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	k._mount(t)
+	await _frames(5)
+	for step in [["kaukana", 4.0, 0.35], ["vinossa", 1.0, 0.5], ["kohdalla", 0.2, 0.0]]:
+		t.global_rotation = Vector3(0, kr.global_rotation.y + float(step[2]), 0)
+		t.global_position += (kr.global_position + fwd * float(step[1])) - t.link_point()
+		t.global_position.y = kr.global_position.y + 0.3
+		for i in 40:
+			await main.get_tree().physics_frame
+		await _frames(5)
+		print("KYTKENTÄ %s: vihje '%s', opastus näkyy %s, kytkettävä '%s'" % [step[0], main._hint.text, k._guide != null and k._guide.visible, k._hitchable()])
+		await _shot(path, "kytkenta_" + step[0])
+	_check(k._hitchable() == "niittokone", "kohdalla niittokone kytkettävissä")
+	await _press("bell")
+	await _frames(3)
+	print("KYTKENTÄ Q: kytketty '%s', opastus näkyy %s" % [k.tila.hitched, k._guide.visible])
+	_check(k.tila.hitched == "niittokone" and not k._guide.visible, "Q kytki koneen ja opastus piiloon")
+	# Isäntä: keskusteluikkuna.
+	k._dismount(t)
+	await _frames(10)
+	var ip: Vector3 = k.isanta.global_position
+	var yd: Vector3 = k.to_global(k.site.yard) - ip
+	yd.y = 0.0
+	yd = yd.normalized()
+	main.walker_out.global_position = ip + yd * 1.8 + Vector3(0, 0.3, 0)
+	main.walker_out.rotation.y = B_yaw(ip - main.walker_out.global_position)
+	await _frames(20)
+	print("KYTKENTÄ isäntä: puhevihje näkyy %s" % main._talk_prompt.visible)
+	if _cam == null:
+		_cam = Camera3D.new()
+		main.add_child(_cam)
+	_cam.current = true
+	_cam.global_position = ip + yd * 4.2 + Vector3(0, 2.2, 0) + yd.cross(Vector3.UP) * 1.2
+	_cam.look_at(ip + Vector3(0, 1.4, 0))
+	await _frames(5)
+	await _shot(path, "isanta_vihje")
+	main._talk_open("isanta_altaantie", k.isanta)
+	await _frames(10)
+	await _shot(path, "isanta_ikkuna")
+	main._talk_choose("isanta_koneet")
+	await _frames(10)
+	await _shot(path, "isanta_koneet")
+	main._talk_choose("isanta_hommat")
+	await _frames(10)
+	await _shot(path, "isanta_hommat")
+	main._talk_box.close()
+
+
+func B_yaw(d: Vector3) -> float:
+	return atan2(-d.x, -d.z)
