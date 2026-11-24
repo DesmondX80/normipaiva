@@ -12,7 +12,7 @@ const Kota := preload("res://scripts/kota.gd")
 const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
 
-const KOHTAUKSET := ["kartta_reuna", "overview", "route", "compass", "maptarget", "map", "signs", "signs2", "signclose", "kotaview", "kotain", "tower", "kotaopaste", "karttaveto", "karttamerkit", "karttanaapurit", "karttaaltaan", "edgetest", "kotapath", "kotagrid", "kotaplay", "kosketus", "placecheck", "hilltest", "sprinttest", "overlap", "walk", "walkmap", "fpsmitta", "fpsosat", "minikartta", "fpsview", "orbit", "fpswalk"]
+const KOHTAUKSET := ["kartta_reuna", "overview", "route", "compass", "maptarget", "map", "signs", "signs2", "signclose", "kotaview", "kotain", "tower", "kotaopaste", "karttaveto", "karttamerkit", "karttanaapurit", "karttaaltaan", "karttaheilu", "edgetest", "kotapath", "kotagrid", "kotaplay", "kosketus", "placecheck", "hilltest", "sprinttest", "overlap", "walk", "walkmap", "fpsmitta", "fpsosat", "minikartta", "fpsview", "orbit", "fpswalk"]
 
 var main: Main
 
@@ -279,6 +279,45 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await qshot.call("kompassi")
 			if not saved_q.is_empty():
 				FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_q)
+		"karttaheilu":
+			# Vieritys ei saa muuttaa merkkien muotoa eikä suon viivoitusta: kaksi kuvaa, joiden välissä kartta on siirtynyt.
+			main._note.visible = false
+			main._msg.text = ""
+			main.quests.heard["m_altaantie"] = true
+			main._paper.toggle()
+			for i in 10:
+				await main.get_tree().process_frame
+			var pm: Node = main._paper
+			pm._vzoom = 0.5
+			pm._view.queue_redraw()
+			for i in 3:
+				await main.get_tree().process_frame
+			var prev: Image = null
+			var prev_o := Vector2.ZERO
+			var vp: Vector2 = pm._view.global_position
+			for k in 4:
+				var o0: Vector2 = pm._vpx(Vector2.ZERO)
+				await Kuva.piirto()
+				var im: Image = Kuva.ruutu(main.get_viewport())
+				im.save_png(path.replace(".png", "_%d.png" % k))
+				if prev != null:
+					# Sama kartan kohta kummassakin kuvassa: näkymän sisäosa siirrettynä kartan siirron verran.
+					var dd := Vector2i(o0 - prev_o)
+					var bad := 0
+					for y in range(int(vp.y) + 60, int(vp.y + pm._view.size.y) - 60, 2):
+						for x in range(int(vp.x) + 60, int(vp.x + pm._view.size.x) - 60, 2):
+							var a := prev.get_pixel(x, y)
+							var b := im.get_pixel(x + dd.x, y + dd.y)
+							if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.3:
+								bad += 1
+					print("HEILU kuva %d: siirto %s, poikkeavia pikseleitä %d" % [k, dd, bad])
+					if bad > 800:
+						print("TESTI VIKA kartan merkit tai viivat muuttuvat vieritettäessä")
+				prev = im
+				prev_o = o0
+				pm._vcenter += Vector2(13.37, 7.21) / pm._vzoom
+				pm._view.queue_redraw()
+				await main.get_tree().process_frame
 		"karttaaltaan":
 			main._note.visible = false
 			main._msg.text = ""
