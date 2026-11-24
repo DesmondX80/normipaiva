@@ -22,7 +22,7 @@ extends Node
 ##   ajaen, loput simuloiden), isäntä maksaa; Eetu niittää Kotiniityn Q:lla.
 ## altaan_leiju: koneet maan pinnalla Altaan tilalla (alin näkyvä piste vs. maa säteellä) ja kärry jää maahan
 ##   irrotettaessa (koneet käyttävät tilan maastoa, ei mökin).
-## altaan_kytkenta: kytkennän opastus (keltainen kaukana, vihreä kohdalla, Q kytkee ja opastus piiloon) ja isännän
+## altaan_kytkenta / mokkikaisua_kytkenta: kytkennän opastus (keltainen kaukana, vihreä kohdalla, Q kytkee ja opastus piiloon) ja isännän
 ##   keskusteluikkuna (avaus, koneiden kytkentä, päivän hommat).
 ## mokkikaisua_vilja: puimuri Tienvarsipellolla (kuvat), purku kärryyn, kippaus kuivuriin, äestys ja kylvö Isopellolla,
 ##   kasvu päivä kerrallaan (oras, vihreä, kypsä).
@@ -40,7 +40,7 @@ const Asento := preload("res://tools/testit/asento.gd")
 
 const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja", "mokkikaisua_kivet", "mokkikaisua_tallennus", "mokkikaisua_hahmot",
 	"mokkikaisua_nappaimet", "mokkikaisua_kuski", "mokkikaisua_pinnat", "mokkikaisua_apumies", "mokkikaisua_sade",
-	"altaan", "altaan_ajo", "altaan_leiju", "altaan_kytkenta"]
+	"altaan", "altaan_ajo", "altaan_leiju", "altaan_kytkenta", "mokkikaisua_kytkenta"]
 
 var main: Main
 var _cam: Camera3D
@@ -84,7 +84,9 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 		"altaan_leiju":
 			await _altaan_leiju(path)
 		"altaan_kytkenta":
-			await _altaan_kytkenta(path)
+			await _altaan_kytkenta(path, main.altaan)
+		"mokkikaisua_kytkenta":
+			await _altaan_kytkenta(path, _k())
 		_:
 			return 0
 	return 1
@@ -1773,13 +1775,13 @@ func _altaan_leiju(path: String) -> void:
 
 ## Kytkennän opastus ja isännän keskusteluikkuna (Altaan tila): traktori 5 m koneen edessä (keltainen nuoli, rengas
 ## ja suuntaviiva), sitten kohdalla (vihreä, Q kytkee); isännän juttelu yhteisessä keskusteluikkunassa.
-func _altaan_kytkenta(path: String) -> void:
-	var k: Node3D = main.altaan
+func _altaan_kytkenta(path: String, k: Node3D) -> void:
 	var t: Node3D = k.traktori
 	var kr: Node3D = k.koneet.niittokone.root
 	var fwd := -kr.global_transform.basis.z
 	fwd.y = 0.0
 	fwd = fwd.normalized()
+	main._farm_logic(k)  # signaalit (nousu koneeseen vaihtaa pelaajan)
 	k._mount(t)
 	await _frames(5)
 	for step in [["kaukana", 4.0, 0.35], ["vinossa", 1.0, 0.5], ["kohdalla", 0.2, 0.0]]:
@@ -1815,7 +1817,7 @@ func _altaan_kytkenta(path: String) -> void:
 	_cam.look_at(ip + Vector3(0, 1.4, 0))
 	await _frames(5)
 	await _shot(path, "isanta_vihje")
-	main._talk_open("isanta_altaantie", k.isanta)
+	main._talk_open("isanta_" + str(k.site.section), k.isanta)
 	await _frames(10)
 	await _shot(path, "isanta_ikkuna")
 	main._talk_choose("isanta_koneet")
