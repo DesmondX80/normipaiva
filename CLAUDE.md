@@ -11,6 +11,13 @@ päivän tilat `docs/tilat.md`, ohjaus `docs/ohjaus.md`, kehitys ja testikohtauk
 Ei `class_name`-luokkia: skriptit ladataan `preload`:lla (`const MeshBundle := preload("res://scripts/mesh_bundle.gd")`).
 `class_name` vaatii editorin luokkalistan (`.godot/`, ei gitissä), joten suoraan ajettuna (`godot ./`) peli ei käänny.
 
+## Testit eivät koske pelaajan tallennukseen
+
+Pelaajan tallennus (`user://normipaiva.cfg`, jatkuva autosave) ja tallennuspaikat (`user://tallennus_N.cfg`, `menu.gd`) eivät saa muuttua testailusta. Aja peli ja testikohtaukset
+aina `tools/testit/aja.sh`:lla (eristetty HOME), älä suoraan `godot`-komennolla, joka kirjoittaa pelaajan oikeaan
+user://-kansioon. Kohtaus, joka tallentaa tai muuttaa tilaa, ottaa tallennuksen talteen alussa ja palauttaa sen
+lopussa (`FileAccess.get_file_as_bytes(Main.SAVE_PATH)` ... `store_buffer`), vaikka ajo olisikin eristetty.
+
 ## Minipelien grafiikka
 
 Minipeleihin (CanvasLayer-piirretyt kuten `carb_game.gd`, `saunakorjaus_game.gd`, `ebike_game.gd`,
