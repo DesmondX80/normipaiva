@@ -44,7 +44,9 @@ var naapuri := {}
 ## Apumies: {"name", "look", "start", "stop", "done", "fuel_out", "none"}; tekstit muodossa "%s" = pellon nimi.
 ## "away" = mökin Santtu piiloon ajon ajaksi (kaisua.gd helper_changed).
 var helper := {}
-var texts := {}  # "hello" (ensimmäinen juttelu), "intro" (viesti), "raining" (isännän repliikki sateella)
+var texts := {}  # "hello" (ensimmäinen juttelu), "intro" (viesti), "raining" (isännän repliikki sateella), "toinen" (vinkki
+## toisesta tilasta, luku 7: isäntä kertoo sen, kunnes toisen tilan isäntä on tavattu)
+var toinen := ""  # toisen tilan tallennusosio (luku 7: onko sen isäntä jo tavattu, main.gd)
 var legends := {}  # työ -> legendaarinen hetki (endings.gd)
 var rain_offset := 0  # sadepäivien siemen: eri tiloilla eri päivät
 var rain_radius := 1500.0  # sade näkyy, kun kamera on näin lähellä pihaa
@@ -115,7 +117,9 @@ static func kaisua() -> RefCounted:
 	s.texts = {
 		"hello": "No terve! Santun mökiltä? Traktori on konevajan edessä ja koneet vajassa. Kotipelto on niittokunnossa ja Tienvarsipelto puintikypsä. Maksan joka hommasta, ja emäntä laittaa talkooruoat.",
 		"intro": "Kaisuan hommat: traktorilla (%s) niittokone, karhotin, paalain, äes, kylvökone ja viljakärry konevajan suulta (%s kytkee peruuttamalla). Puimuri on talon vieressä.",
+		"toinen": "Saloisissa on Altaan tila, Altaantien varressa. Isäntä on vanha tuttu, soitti ja kyseli renkiä: ohraa on viis hehtaaria ja poika ajaa yksin. Käy kattomassa, jos kotona oot.",
 	}
+	s.toinen = "altaantie"
 	s.legends = {"latoon": "kaisuan_heinatalkoot", "kuivuri": "kaisuan_sato", "kylvo": "kaisuan_kylvot"}
 	s.rain_offset = 0
 	s.rain_radius = 1500.0
@@ -213,7 +217,9 @@ static func altaantie() -> RefCounted:
 	s.texts = {
 		"hello": "Päivää! Altaan tilalle töihin? Traktori on pihalla ja koneet konevajan suulla. Isoaho ja Vainio on puintikypsiä, Kotiniitty niittokunnossa ja Altaanpellon sänki kynnettävä. Isoahon pelto on tuolla pohjoisessa metsän takana, sinne pääsee pellon välistä polkua. Maksan joka hommasta, ja emäntä laittaa ruuat.",
 		"intro": "Altaan tilan hommat: traktorilla (%s) niittokone, karhotin, paalain, aura, äes, kylvökone ja viljakärry konevajan suulta (%s kytkee peruuttamalla). Puimuri on pihalla. Isoahoon ajetaan peltojen välistä polkua pohjoiseen.",
+		"toinen": "Vaalan Neittävällä on Kaisuan tila, Kaisuantien varressa. Sikäläinen isäntä kaipais talkoomiestä heinille ja ohrille. Jos sinne päin meet, käy sanomassa päivää.",
 	}
+	s.toinen = "kaisua"
 	s.legends = {"latoon": "altaan_heinatalkoot", "kuivuri": "altaan_sato", "kylvo": "altaan_kylvot"}
 	s.rain_offset = 7
 	s.rain_radius = 700.0

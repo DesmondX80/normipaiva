@@ -80,6 +80,8 @@ var day := 0
 var house_door := Vector3.ZERO  # talkooruoalle: kuistin portaiden edusta (_build_house)
 var money := 0.0  # pelaajan rahat (main.gd asettaa): apumiehen palkkio
 var helper_field := -1  # pelto, jota Santtu ajaa
+var toinen_vinkki := false  # luku 7 (main.gd): toisen tilan isäntää ei ole tavattu, joten isäntä vinkkaa siitä
+var _toinen_day := -1  # päivä, jona isäntä viimeksi vinkkasi toisesta tilasta
 var _helper_checking := false  # apumiehen lopetus tarkistaa työt: valmistunut työ on apumiehen, ei pelaajan
 var helper_rate_override := 0.0  # testit: Santun aikakerroin (0 = pelaajan etäisyyden mukaan)
 var clock_min := 720.0  # kellonaika (main.gd asettaa): sade
@@ -1916,6 +1918,12 @@ func _talk() -> void:
 		progress.emit("isanta")
 		say(site.texts.hello, 7.0)
 		message.emit(site.texts.intro % [Settings.cap("mount"), Settings.cap("bell")], 7.0)
+		return
+	if toinen_vinkki and _toinen_day != day and site.texts.has("toinen"):
+		# Luku 7: toinenkin tila tarvitsee renkiä (kerran päivässä, kunnes sen isäntä on tavattu).
+		_toinen_day = day
+		say(site.texts.toinen, 7.0)
+		progress.emit("vinkki")
 		return
 	if not (site.naapuri as Dictionary).is_empty() and tila.order_left <= 0 and tila.order_day != day and tila.bales_in_lato() >= 2:
 		tila.order_total = mini(4, tila.bales_in_lato())

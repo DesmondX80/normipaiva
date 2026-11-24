@@ -140,14 +140,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   **K-18 pois:** vain korkkikansion ja Drakkarin jäljet, puheeksiotto ja hyvitykset toimivat; Päivi ei tutki, eikä
   huipennusta tule. Päiväkirjan Tarina-sivulla luku 6 näkyy vaiheineen ja Päivin piirretyllä ilmeellä (rauhallinen,
   kulmat koholla, kädet puuskassa, laukku pakattu). Vihjeitä: Pekka ("Päivi kyseli musta eilen..."), Sinikka ja Pentti.
-- **Luku 7: Talkoissa (`quests.gd luku7`):** rinnakkainen luku maatilan hommille. Aukeaa, kun Kaisuan tai Altaan tilan
-  isäntä on tavattu (vanhassa tallennuksessa jo tavattu isäntä avaa luvun heti). Kaikki työt ovat pakollisia vaiheita:
+- **Luku 7: Talkoissa (`quests.gd luku7`):** rinnakkainen luku maatilan hommille. Näkyy päiväkirjassa, kun tiloista on
+  kuultu tai isäntä tavattu: Saloisissa naapurin Arto kertoo, että Altaan isäntä kyseli renkiä, mökillä Santtu, että
+  Kaisuan isäntä kaipaa talkooapua, ja kumpikin isäntä vinkkaa toisesta tilasta (kerran päivässä, kunnes sen isäntä on
+  tavattu; `maatila_paikka.gd texts.toinen`). Vanhassa tallennuksessa jo tavattu isäntä kirjataan heti. Kaikki työt ovat pakollisia vaiheita:
   niitto, karhous, paalaus, paalit latoon, puinti, vilja kuivuriin, kyntö, kivien keruu, äestys, kylvö ja Raijan
   paalitilaus (vain Kaisualla). Jokainen työ pitää tehdä itse molemmilla tiloilla (myös isäntä tavataan kummallakin);
   päiväkirja näyttää kesken olevan työn kohdalla, kumpi tila on vielä tekemättä (`kaisua.gd progress` ->
   `tilat.first("maatila_<kaisua|altaantie>_<työ>")`). Apumiehen ajama työ ei kuittaa. Aikaa kuluu laskennallisesti
   noin 50 min / ha heinäketjuun ja 90 min / ha viljaketjuun, ja ohra kasvaa kylvöstä puintikypsäksi päivä kerrallaan.
-  Testi `--scene=altaan_ajo` (luku aukeaa, oma puinti kirjautuu Altaan tilalle ja odottaa Kaisuaa, Eetun niitto ei kuittaa).
+  Testi `--scene=altaan_ajo` (Arton vinkki, isännän vinkki Kaisuasta, oma puinti kirjautuu Altaan tilalle ja odottaa Kaisuaa, Eetun niitto ei kuittaa).
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
   kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
   tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,

@@ -15631,6 +15631,13 @@ func _farm_logic(k: Node3D) -> bool:
 		# Luku 7 (quests.gd): yleinen ensikerta avaa luvun, tilakohtainen (maatila_kaisua_*, maatila_altaantie_*) kuittaa
 		# vaiheen, kun työ on tehty molemmilla tiloilla.
 		k.progress.connect(func(id: String) -> void:
+			if id == "vinkki":  # isäntä kertoi toisesta tilasta: sen vaihe kuultu (luku 7)
+				var sid := "m_" + str(k.site.toinen)
+				if not quests.heard.has(sid):
+					quests.heard[sid] = true
+					_queue_message("Päiväkirjaan (%s) tuli uutta." % Settings.action_key("journal"), 2.5)
+					_save_game()
+				return
 			tilat.first("maatila_" + id, 0.2)
 			tilat.first("maatila_%s_%s" % [k.site.section, id], 0.0))
 		if k.tila.talked:  # vanha tallennus: isäntä tavattu ennen lukua 7
@@ -15646,6 +15653,7 @@ func _farm_logic(k: Node3D) -> bool:
 			if mokki != null:
 				mokki.santtu_away(on))
 	k.advance_day(day)
+	k.toinen_vinkki = k.site.toinen != "" and not tilat.firsts.has("maatila_%s_isanta" % k.site.toinen)
 	k.money = money
 	k.clock_min = clock_min
 	var driving: bool = player == k.traktori or player == k.puimuri
