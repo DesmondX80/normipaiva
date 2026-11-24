@@ -600,6 +600,14 @@ juhannuksena, voittokorkit, tallennus, kansiokuva, Korkki-Raimon vaihto ja kuva 
 motkotus ja jemma, maastolöytöjen paikat, korkkiläpsy Saloisten kaukalolla ja Vaalan lavan pihalla: panos, lyönti,
 lopetus ja kuvat).
 
+## Suorituskyvyn erittely (perfsaloinen)
+
+`tools/testit/aja.sh scene perfsaloinen` mittaa Saloisissa viidessä kohdassa (koti, kirkko, koulu, Altaan tila, pelto ja
+metsä) piirtokutsut, kolmiot ja kappaleet sekä kunkin osan osuuden piilottamalla sen hetkeksi: nurmi (`grass.gdshader`),
+muu kasvillisuus (MultiMeshit), hahmot ja varjot. Lopuksi muutaman hahmon verkot, pinnat ja kolmiot. Kolmioiden osuudet
+ovat luotettavia, piirtokutsujen erot heiluvat (liikenne ja hahmot liikkuvat mittausten välissä). Testikone käyttää
+yhteensopivuusmoottorin kevyitä asetuksia (laatu 1, näkymä 350 m).
+
 ## Latausaika (lataus-testi)
 
 `tools/testit/aja.sh --ei-kuvia --kiintea tscn tools/testit/lataus.tscn <kansio> --ajastus` mittaa Saloisten latauksen (`LATAUS Saloinen`), Vaalan latauksen (`LATAUS Vaala`, jaettuna rakennukseen, `_start_mopo`:on ja viiteen ensimmäiseen ruutuun) ja vaihekohtaiset ajat (`VAALA vaiheet`). Testi tallentaa yhden kuvan (`lataus.png`, Vaalan ensiruutu) tulostekansioon, joten `--ei-kuvia` ei ole pakollinen (se käy silti, jos kuvaa ei tarvita). Kylmä mittaus: poista ajon `HOME`:n `.local/share/godot/app_userdata/Normipäivä/cache`. Lisävalitsimet: `--avaintesti` (ajoalueen välimuistiavaimen kattavuus: syötteen muutos muuttaa maskin ja avaimen), `--tarkista-ajomaski` (välimuistista ladattu maski vs. laskettu), `--ei-valimuistia` (ohita ajomaskin levyvälimuisti `vaala_ajo`). Luvut ennen/jälkeen: työkansion `03-baseline.md`.

@@ -14,13 +14,18 @@ const Looks := preload("res://scripts/looks.gd")
 const Cutscene := preload("res://scripts/cutscene.gd")
 const WcGame := preload("res://scripts/wc_game.gd")
 
-const KOHTAUKSET := ["mokkisiitaritappelu", "mokkisiitari", "mokkivaalajalan", "mokkivaalalava", "mokkivaalakartta", "mokkivaalakesk", "mokkiperf", "mokkivaalaperf", "mokkitori", "mokkivaala", "mokkimopo_koko", "mokkireitti", "mokkiratasilta", "mokkisiitariovi", "mokkiratsia", "mokkinuoret", "mokkirakaleima", "mokkitynnyri", "mokkiuinti", "mokkisalminen", "mokkiuinti_mopo", "mokkiranta_vaala", "mokkimopo_jarviseutu", "mokkimopo_paluu", "mokkimopo_silta", "mokkimopo_kanni", "mokkiviina", "mokkivessa", "mokkivaalatiet", "mokkisanttulava", "mokkipohjoinen", "mokkimopo", "mokkiview", "mokkisauna", "mokkiyard", "mokkilake", "mokkipingis", "mokkitikka", "mokkisavustus", "mokkipesuovi", "mokkisisalla", "mokkipa", "mokkipuuhat", "mokkisavusauna"]
+const KOHTAUKSET := ["perfsaloinen", "mokkisiitaritappelu", "mokkisiitari", "mokkivaalajalan", "mokkivaalalava", "mokkivaalakartta", "mokkivaalakesk", "mokkiperf", "mokkivaalaperf", "mokkitori", "mokkivaala", "mokkimopo_koko", "mokkireitti", "mokkiratasilta", "mokkisiitariovi", "mokkiratsia", "mokkinuoret", "mokkirakaleima", "mokkitynnyri", "mokkiuinti", "mokkisalminen", "mokkiuinti_mopo", "mokkiranta_vaala", "mokkimopo_jarviseutu", "mokkimopo_paluu", "mokkimopo_silta", "mokkimopo_kanni", "mokkiviina", "mokkivessa", "mokkivaalatiet", "mokkisanttulava", "mokkipohjoinen", "mokkimopo", "mokkiview", "mokkisauna", "mokkiyard", "mokkilake", "mokkipingis", "mokkitikka", "mokkisavustus", "mokkipesuovi", "mokkisisalla", "mokkipa", "mokkipuuhat", "mokkisavusauna"]
 
 var main: Main
 
 
 func aja(scene: String, path: String, nohud: bool) -> int:
 	match scene:
+		"perfsaloinen":
+			# Suorituskyvyn erittely Saloisissa (Esan kysymykset: nurmi, polygonit, culling, hahmot): piirtokutsut, kolmiot ja
+			# kappaleet viidessä kohdassa, ja kunkin osan (nurmi, muu kasvillisuus, hahmot, varjot) osuus piilottamalla se.
+			await _perf_saloinen(path)
+			main.get_tree().quit()
 		"mokkisiitaritappelu":
 			# Lauantai Siitarissa: Raahen jätkät pajatsolla, riita, Street Fighter -tappelu pihalla ja voittajan kalja.
 			var _save_bak := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
@@ -2109,3 +2114,108 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 		_:
 			return 0
 	return 1
+
+
+# --- perfsaloinen ---------------------------------------------------------------------------------------------------
+
+func _perf_now() -> Array:
+	for f in 20:
+		await main.get_tree().process_frame
+	return [int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)),
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))]
+
+
+func _perf_collect(n: Node, out: Array, pred: Callable) -> void:
+	if pred.call(n):
+		out.append(n)
+		return
+	for c in n.get_children():
+		_perf_collect(c, out, pred)
+
+
+func _perf_tris(n: Node, acc: Array) -> void:
+	if n is MeshInstance3D and (n as MeshInstance3D).mesh != null and (n as MeshInstance3D).visible:
+		var m: Mesh = (n as MeshInstance3D).mesh
+		acc[0] += 1
+		for si in m.get_surface_count():
+			acc[1] += 1
+			var arr := m.surface_get_arrays(si)
+			var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+			acc[2] += idx.size() / 3 if idx.size() > 0 else (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
+	for c in n.get_children():
+		_perf_tris(c, acc)
+
+
+func _perf_saloinen(path: String) -> void:
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	main._msg.text = ""
+	main._hud.visible = false
+	if main.player != main.walker_out:
+		main._toggle_mount()
+	var w: Node3D = main.world
+	var char_script: Script = load("res://scripts/character.gd")
+	var spots := [["koti", main.home_zone + Vector3(0, 0, 4)], ["kirkko", w.kirkko_pos], ["koulu", w.koulu_ovi_pos]]
+	if main.altaan != null:
+		spots.append(["altaan_tila", main.altaan.isanta.global_position + Vector3(4, 0, 4)])
+	spots.append(["pelto_metsa", main.home_zone + Vector3(250, 0, -150)])
+	var grass_mmi: Node = null
+	for c in w.get_children():
+		if c is MultiMeshInstance3D and (c as MultiMeshInstance3D).multimesh == w._grass_mm:
+			grass_mmi = c
+	var suns: Array = []
+	_perf_collect(main, suns, func(n: Node) -> bool: return n is DirectionalLight3D)
+	print("PERF asetukset: laatu %d, näkymä %.0f m, ruohoa %d tupsua (%d kolmiota/tupsu)" % [Settings.get_v("quality"),
+		Settings.view_far(), w._grass_mm.visible_instance_count, w._grass_mm.mesh.get_faces().size() / 3])
+	for sp in spots:
+		var at: Vector3 = sp[1]
+		main.walker_out.global_position = Vector3(at.x, float(load("res://scripts/terrain.gd").h(at.x, at.z)) + 0.5, at.z)
+		main.walker_out.velocity = Vector3.ZERO
+		for f in 60:
+			await main.get_tree().process_frame
+		var base: Array = await _perf_now()
+		await Kuva.piirto()
+		Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_%s.png" % sp[0]))
+		# Nurmi pois.
+		var gcount: int = w._grass_mm.visible_instance_count
+		w._grass_mm.visible_instance_count = 0
+		var no_grass: Array = await _perf_now()
+		w._grass_mm.visible_instance_count = gcount
+		# Muu kasvillisuus (puut, pensaat, täyte: kaikki MultiMeshit paitsi nurmi) pois.
+		var mms: Array = []
+		_perf_collect(main, mms, func(n: Node) -> bool: return n is MultiMeshInstance3D and n != grass_mmi and (n as Node3D).visible)
+		for m in mms:
+			m.visible = false
+		var no_veg: Array = await _perf_now()
+		for m in mms:
+			m.visible = true
+		# Hahmot pois.
+		var chars: Array = []
+		_perf_collect(main, chars, func(n: Node) -> bool: return n.get_script() == char_script and (n as Node3D).is_visible_in_tree())
+		for c in chars:
+			c.visible = false
+		var no_chars: Array = await _perf_now()
+		for c in chars:
+			c.visible = true
+		# Varjot pois.
+		for l in suns:
+			l.shadow_enabled = not l.shadow_enabled
+		var no_shadow: Array = await _perf_now()
+		for l in suns:
+			l.shadow_enabled = not l.shadow_enabled
+		var d := func(a: Array) -> String: return "%d piirtoa, %dk kolmiota" % [base[0] - a[0], (base[1] - a[1]) / 1000]
+		print("PERF %s: yhteensä %d piirtoa, %dk kolmiota, %d kappaletta | nurmi %s | muu kasvillisuus (%d MultiMeshiä) %s | hahmot (%d) %s | varjot %s" % [
+			sp[0], base[0], base[1] / 1000, base[2], d.call(no_grass), mms.size(), d.call(no_veg), chars.size(), d.call(no_chars), d.call(no_shadow)])
+	# Yhden hahmon rakenne: verkot, pinnat (= piirtokutsut ilman varjoja) ja kolmiot.
+	var chars2: Array = []
+	_perf_collect(main, chars2, func(n: Node) -> bool: return n.get_script() == char_script)
+	var shown := 0
+	for c in chars2:
+		if shown >= 4:
+			break
+		var acc := [0, 0, 0]
+		_perf_tris(c, acc)
+		if acc[0] == 0:
+			continue
+		shown += 1
+		print("PERF hahmo %s: %d verkkoa, %d pintaa, %dk kolmiota" % [c.name, acc[0], acc[1], acc[2] / 1000])
