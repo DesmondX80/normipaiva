@@ -143,7 +143,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Luku 7: Talkoissa (`quests.gd luku7`):** rinnakkainen luku maatilan hommille. Näkyy päiväkirjassa, kun tiloista on
   kuultu tai isäntä tavattu: Saloisissa naapurin Arto kertoo, että Altaan isäntä kyseli renkiä, mökillä Santtu, että
   Kaisuan isäntä kaipaa talkooapua, ja kumpikin isäntä vinkkaa toisesta tilasta (kerran päivässä, kunnes sen isäntä on
-  tavattu; `maatila_paikka.gd texts.toinen`). Vanhassa tallennuksessa jo tavattu isäntä kirjataan heti. Kaikki työt ovat pakollisia vaiheita:
+  tavattu; `maatila_paikka.gd texts.toinen`). Arton vinkin jälkeen Altaan tila näkyy Saloisten kartalla kynäympyränä, ja nimi tulee hiiren alle (`paper_map.gd _public_places`, testi `--scene=karttaaltaan`). Vanhassa tallennuksessa jo tavattu isäntä kirjataan heti. Kaikki työt ovat pakollisia vaiheita:
   niitto, karhous, paalaus, paalit latoon, puinti, vilja kuivuriin, kyntö, kivien keruu, äestys, kylvö ja Raijan
   paalitilaus (vain Kaisualla). Jokainen työ pitää tehdä itse molemmilla tiloilla (myös isäntä tavataan kummallakin);
   päiväkirja näyttää kesken olevan työn kohdalla, kumpi tila on vielä tekemättä (`kaisua.gd progress` ->

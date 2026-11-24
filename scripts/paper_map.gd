@@ -1666,6 +1666,11 @@ func _public_places() -> Array:
 		out.append(["Sepon varasto", M.w2(M.SEPPO), "seppo" in firsts])
 	if "kuultu_rossirata" in firsts or "rossirata" in firsts:
 		out.append(["Rossirata", M.w2(M.ROSSI[0]), "rossirata" in firsts])
+	# Luku 7: Altaan tila kartalle, kun Arto on vinkannut siitä (quests.gd m_altaantie) tai isäntä on tavattu; pihan
+	# keskipiste kuten maatila_paikka.gd altaantie().
+	var heard_altaan: bool = game != null and game.quests != null and game.quests.heard.has("m_altaantie")
+	if heard_altaan or "maatila_altaantie_isanta" in firsts:
+		out.append(["Altaan tila", M.w2(Vector2(1290.0, 1565.0)), "maatila_altaantie_isanta" in firsts])
 	if world != null:
 		if world.station_pos != Vector3.ZERO:
 			out.append(["Asema", Vector2(world.station_pos.x, world.station_pos.z), "asema" in firsts])
