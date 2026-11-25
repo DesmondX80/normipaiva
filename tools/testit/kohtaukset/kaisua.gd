@@ -24,6 +24,10 @@ extends Node
 ##   irrotettaessa (koneet käyttävät tilan maastoa, ei mökin).
 ## altaan_kytkenta / mokkikaisua_kytkenta: kytkennän opastus (keltainen kaukana, vihreä kohdalla, Q kytkee ja opastus piiloon) ja isännän
 ##   keskusteluikkuna (avaus, koneiden kytkentä, päivän hommat).
+## altaan_suppilo / mokkikaisua_suppilo: kuivurin suppilon opastus puimurille (putken pää) ja viljakärrylle (perä):
+##   keltainen kaukana, vihreä kohdalla, E aloittaa purun/kippauksen ja opastus piiloon.
+## mokkikaisua_savu: traktorin ja puimurin pakokaasu nousee ja laajenee (ei jää pisteeksi putken päähän): kuvat
+##   tyhjäkäynnillä ja kaasulla.
 ## mokkikaisua_vilja: puimuri Tienvarsipellolla (kuvat), purku kärryyn, kippaus kuivuriin, äestys ja kylvö Isopellolla,
 ##   kasvu päivä kerrallaan (oras, vihreä, kypsä).
 const Kuva := preload("res://tools/testit/kuva.gd")
@@ -40,7 +44,8 @@ const Asento := preload("res://tools/testit/asento.gd")
 
 const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja", "mokkikaisua_kivet", "mokkikaisua_tallennus", "mokkikaisua_hahmot",
 	"mokkikaisua_nappaimet", "mokkikaisua_kuski", "mokkikaisua_pinnat", "mokkikaisua_apumies", "mokkikaisua_sade",
-	"altaan", "altaan_ajo", "altaan_leiju", "altaan_kytkenta", "mokkikaisua_kytkenta"]
+	"altaan", "altaan_ajo", "altaan_leiju", "altaan_kytkenta", "mokkikaisua_kytkenta",
+	"altaan_suppilo", "mokkikaisua_suppilo", "mokkikaisua_savu"]
 
 var main: Main
 var _cam: Camera3D
@@ -87,6 +92,12 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await _altaan_kytkenta(path, main.altaan)
 		"mokkikaisua_kytkenta":
 			await _altaan_kytkenta(path, _k())
+		"altaan_suppilo":
+			await _suppilo(path, main.altaan)
+		"mokkikaisua_suppilo":
+			await _suppilo(path, _k())
+		"mokkikaisua_savu":
+			await _savu(path, _k())
 		_:
 			return 0
 	return 1
@@ -1831,3 +1842,125 @@ func _altaan_kytkenta(path: String, k: Node3D) -> void:
 
 func B_yaw(d: Vector3) -> float:
 	return atan2(-d.x, -d.z)
+
+
+## Siirtää ajoneuvoa vaakatasossa, kunnes sen piste (src.call()) on kohdassa want (pari korjauskierrosta).
+func _nudge(v: CharacterBody3D, src: Callable, want: Vector3) -> void:
+	for n in 3:
+		var d: Vector3 = want - (src.call() as Vector3)
+		d.y = 0.0
+		v.global_position += d
+		v.velocity = Vector3.ZERO
+		v.speed = 0.0
+		for i in 30:
+			await main.get_tree().physics_frame
+	await _frames(5)
+
+
+func _pit_cam(k: Node3D, pit: Vector3, src: Vector3) -> void:
+	if _cam == null:
+		_cam = Camera3D.new()
+		_cam.far = 2500.0
+		main.add_child(_cam)
+	_cam.fov = 55.0
+	_cam.current = true
+	var mid := (pit + src) * 0.5
+	var away := (src - pit)
+	away.y = 0.0
+	var side := away.normalized().cross(Vector3.UP) if away.length() > 0.5 else Vector3.RIGHT
+	_cam.global_position = mid + side * 11.0 + Vector3(0, 9.0, 0)
+	_cam.look_at(mid)
+
+
+func _suppilo(path: String, k: Node3D) -> void:
+	main._farm_logic(k)
+	var pit: Vector3 = k._pit_g()
+	var c: CharacterBody3D = k.puimuri
+	c.tank = 1200.0
+	k._mount(c)
+	await _frames(15)
+	# Puimuri kuivurin viereen: putki osoittaa suppilolle, matka putken päästä 7 m ja sitten 0,4 m.
+	var c_away: Vector3 = c.global_position - pit
+	c_away.y = 0.0
+	for step in [["kaukana", 7.0], ["kohdalla", 0.4]]:
+		var dir: Vector3 = (c.global_position - pit)
+		dir.y = 0.0
+		dir = dir.normalized()
+		await _nudge(c, k._spout_out, pit + dir * float(step[1]))
+		for i in 60:  # vihje päivittyy pelin logiikassa; ensimmäisillä ruuduilla nousun jälkeen voi olla tyhjä
+			if main._hint.text != "":
+				break
+			await _frames(1)
+		var src: Vector3 = k._spout_out()
+		var d := Vector2(src.x - pit.x, src.z - pit.z).length()
+		print("SUPPILO puimuri %s (%.1f m): vihje '%s', opastus näkyy %s, väri %s" % [step[0], d, main._hint.text,
+			k._guide != null and k._guide.visible, k._g_mat.albedo_color if k._g_mat != null else "-"])
+		_check(k._guide != null and k._guide.visible, "puimuri %s: opastus näkyy" % step[0])
+		if step[0] == "kaukana":
+			_check(main._hint.text.contains("Aja purkuputken pää suppilon päälle"), "puimuri kaukana: matkavihje")
+			_check(k._g_mat.albedo_color.r > 0.9, "puimuri kaukana: keltainen")
+		else:
+			_check(main._hint.text.contains("Pura vilja kuivurin suppiloon"), "puimuri kohdalla: purkuvihje")
+			_check(k._g_mat.albedo_color.r < 0.5, "puimuri kohdalla: vihreä")
+		_pit_cam(k, pit, src)
+		await _shot(path, "puimuri_" + step[0])
+		c.activate_camera()
+	await _press("interact")
+	await _frames(5)
+	_check(c.unloading and not k._guide.visible, "E aloitti purun ja opastus piiloon")
+	c.unloading = false
+	c.tank = 0.0
+	k._dismount(c)
+	await _frames(10)
+	# Viljakärry traktorin perässä.
+	var t: CharacterBody3D = k.traktori
+	k._mount(t)
+	await _frames(5)
+	t.global_position = pit + Vector3(14, 0, 14)
+	for i in 20:
+		await main.get_tree().physics_frame
+	k._hitch_now("perakarry")
+	k.tila.trailer = 1500.0
+	await _frames(5)
+	for step in [["kaukana", 6.0], ["kohdalla", 0.5]]:
+		var dir: Vector3 = (k._trailer_tail() - pit)
+		dir.y = 0.0
+		dir = dir.normalized()
+		await _nudge(t, k._trailer_tail, pit + dir * float(step[1]))
+		var src: Vector3 = k._trailer_tail()
+		var d := Vector2(src.x - pit.x, src.z - pit.z).length()
+		print("SUPPILO kärry %s (%.1f m): vihje '%s', opastus näkyy %s" % [step[0], d, main._hint.text, k._guide.visible])
+		_check(k._guide.visible, "kärry %s: opastus näkyy" % step[0])
+		if step[0] == "kaukana":
+			_check(main._hint.text.contains("Peruuta kärryn perä suppilolle"), "kärry kaukana: matkavihje")
+		else:
+			_check(main._hint.text.contains("Kippaa vilja kuivurin suppiloon"), "kärry kohdalla: kippausvihje")
+			_check(k._g_mat.albedo_color.r < 0.5, "kärry kohdalla: vihreä")
+		_pit_cam(k, pit, src)
+		await _shot(path, "karry_" + step[0])
+		t.activate_camera()
+	await _press("interact")
+	await _frames(5)
+	_check(k._tip_on and not k._guide.visible, "E aloitti kippauksen ja opastus piiloon")
+
+
+func _savu(path: String, k: Node3D) -> void:
+	main._farm_logic(k)
+	for v in [k.traktori, k.puimuri]:
+		var veh: CharacterBody3D = v
+		k._mount(veh)
+		await _frames(20)
+		var sm: CPUParticles3D = veh._smoke
+		for st in [["tyhja", 0.0], ["kaasu", 1.0]]:
+			Input.action_press("forward", float(st[1])) if float(st[1]) > 0.0 else Input.action_release("forward")
+			for i in 90:
+				await main.get_tree().physics_frame
+			Input.action_release("forward")
+			await _frames(3)  # ajoneuvon oma kamera: putki ja savu näkyvät sen kuvassa
+			print("SAVU %s %s: emitting %s amount %d" % [veh.kind, st[0], sm.emitting, sm.amount])
+			_check(sm.emitting, "%s %s: savu päällä" % [veh.kind, st[0]])
+			await _shot(path, "%s_%s" % [veh.kind, st[0]])
+		veh.speed = 0.0
+		veh.velocity = Vector3.ZERO
+		k._dismount(veh)
+		await _frames(10)

@@ -111,6 +111,11 @@ var _g_ring_t: MeshInstance3D
 var _g_arrow: MeshInstance3D
 var _g_line: MeshInstance3D
 var _g_t := 0.0
+var _guide_on := false  # joku opastus näytti renkaat tässä ruudussa (muuten piilotetaan logic()-lopussa)
+## Suppilon opastus: puimurin purkuputki tai viljakärryn perä kuivurin suppilolle (rengas + nuoli suppilolla,
+## pienempi rengas lähteen kohdalla). Näkyy, kun kuormaa on ja suppilo on GUIDE_R:n sisällä.
+const PIT_D := 2.0  # puimurin putken pää suppilosta (_unload_target)
+const PIT_D_KARRY := 2.2  # kärryn perä suppilosta (_trailer_at_pit)
 var _tipping := 0.0  # kärryn kippaus: lavan kulma (0 = alhaalla)
 var _tip_on := false
 var _gate_t := 0.0  # paalaimen luukku auki (s)
@@ -1064,8 +1069,14 @@ func logic(player: Node3D, walker: Node3D, e: bool, f: bool, q: bool, delta: flo
 		_check_t = 0.5
 		_check_jobs()
 	_unload_tick(delta)
-	if player != traktori or traktori.implement != null:
+	_guide_on = false
+	var out := _logic_body(player, walker, e, f, q)
+	if not _guide_on:
 		_guide_hide()
+	return out
+
+
+func _logic_body(player: Node3D, walker: Node3D, e: bool, f: bool, q: bool) -> String:
 	if player == traktori:
 		return _tractor_logic(e, f, q)
 	if player == puimuri:
@@ -1191,6 +1202,10 @@ func _tractor_logic(e: bool, f: bool, q: bool) -> String:
 				if e:
 					_tip_on = true
 					e = false
+			if tila.trailer > 0.0 and ks == 0 and not _tip_on:
+				var kh := _pit_guide_trailer()
+				if kh != "":
+					lines.append(kh)
 			var kasa := _trailer_at_kasa()
 			if action == "" and ks > 0 and not _tip_on and kasa >= 0:
 				action = "%s Kippaa kivet kivikasaan" % Settings.cap("interact")
@@ -1255,10 +1270,16 @@ func _combine_logic(e: bool, f: bool) -> String:
 			c.unloading = false
 	elif target != "" and c.tank > 0.0:
 		lines.append("%s Pura vilja %s" % [Settings.cap("interact"), "kärryyn" if target == "karry" else "kuivurin suppiloon"])
+		if target == "suppilo":
+			_pit_guide_combine()
 		if e:
 			c.unloading = true
 			c.set_working(false)
 	else:
+		if c.tank > 0.0 and target == "":
+			var ph := _pit_guide_combine()
+			if ph != "":
+				lines.append(ph)
 		lines.append("%s %s" % [Settings.cap("interact"), "Nosta leikkuupöytä" if c.working else "Laske leikkuupöytä ja puimaan"])
 		if e:
 			c.set_working(not c.working)
@@ -1461,23 +1482,16 @@ func _guide_update(delta: float) -> String:
 	if nb.is_empty():
 		_guide_hide()
 		return ""
-	if _guide == null:
-		_guide_build()
-	_guide.visible = true
-	_g_t += delta
 	var id: String = nb[0]
 	var d: float = nb[1]
 	var dy: float = nb[2]
 	var info: Dictionary = Koneet.IMPLEMENTS[id]
 	var ok := d < HITCH_D and dy < (HITCH_YAW_AISA if info.mount == "aisa" else HITCH_YAW)
-	var pulse := 0.75 + 0.25 * sin(_g_t * 6.0)
-	_g_mat.albedo_color = (Color(0.25, 0.95, 0.3) if ok else Color(1.0, 0.78, 0.1)) * Color(1, 1, 1, pulse)
 	var r: Node3D = koneet[id].root
-	var ap := _ground_g(r.global_position, 0.06)
-	_g_ring_i.global_position = ap
-	_g_arrow.global_position = ap + Vector3(0, 1.9 + 0.25 * sin(_g_t * 4.0), 0)
 	var tp := traktori.link_point() if info.mount == "nostin" else traktori.hitch_point()
-	_g_ring_t.global_position = _ground_g(tp, 0.06)
+	_guide_pair(r.global_position, tp, ok, delta)
+	var ap := _ground_g(r.global_position, 0.06)
+	_g_line.visible = true
 	# Viiva: kytkentäkohdasta koneen etusuuntaan (-Z), josta traktori peruutetaan kohdalle.
 	var fwd := -r.global_transform.basis.z
 	fwd.y = 0.0
@@ -1492,6 +1506,65 @@ func _guide_update(delta: float) -> String:
 	if d >= HITCH_D:
 		return "Peruuta %s kohdalle: %s m (nuoli)" % [nm, String.num(d, 1).replace(".", ",")]
 	return "Suorista traktori %s linjaan (viiva maassa)" % nm
+
+
+## Opastuksen renkaat: iso rengas ja nuoli kohteen päällä, pieni rengas lähteen (oma kytkentäkohta, putken pää,
+## kärryn perä) kohdalla maassa. Vihreä = toiminto onnistuu, keltainen = vielä matkaa. Viiva piiloon (vain kytkentä).
+func _guide_pair(target: Vector3, src: Vector3, ok: bool, delta: float) -> void:
+	if _guide == null:
+		_guide_build()
+	_guide.visible = true
+	_guide_on = true
+	_g_t += delta
+	var pulse := 0.75 + 0.25 * sin(_g_t * 6.0)
+	_g_mat.albedo_color = (Color(0.25, 0.95, 0.3) if ok else Color(1.0, 0.78, 0.1)) * Color(1, 1, 1, pulse)
+	var ap := _ground_g(target, 0.06)
+	_g_ring_i.global_position = ap
+	_g_arrow.global_position = ap + Vector3(0, 1.9 + 0.25 * sin(_g_t * 4.0), 0)
+	_g_ring_t.global_position = _ground_g(src, 0.06)
+	_g_line.visible = false
+
+
+## Puimurin purkuputken pää (ulkoasennossa, purussa todellinen pää) maailmassa.
+func _spout_out() -> Vector3:
+	var c := puimuri
+	if c.unloading:
+		return c._model.spout_tip.global_position
+	return c.to_global(Vector3(-0.95, 3.85, 1.8) + Vector3(-3.2, 0, 0.2))
+
+
+func _pit_g() -> Vector3:
+	return _kuivuri.root.to_global(_kuivuri.pit)
+
+
+## Suppilon opastus puimurille; palauttaa vihjeen ("" = putki kohdalla tai suppilo kaukana).
+func _pit_guide_combine() -> String:
+	var src := _spout_out()
+	var pit := _pit_g()
+	var d := Vector2(src.x - pit.x, src.z - pit.z).length()
+	if d >= GUIDE_R:
+		return ""
+	_guide_pair(pit, src, d < PIT_D, get_process_delta_time())
+	if d < PIT_D:
+		return ""
+	return "Aja purkuputken pää suppilon päälle: %s m (nuoli)" % String.num(d, 1).replace(".", ",")
+
+
+## Suppilon opastus viljakärrylle; palauttaa vihjeen ("" = perä kohdalla tai suppilo kaukana).
+func _pit_guide_trailer() -> String:
+	var tail := _trailer_tail()
+	var pit := _pit_g()
+	var d := Vector2(tail.x - pit.x, tail.z - pit.z).length()
+	if d >= GUIDE_R:
+		return ""
+	_guide_pair(pit, tail, d < PIT_D_KARRY, get_process_delta_time())
+	if d < PIT_D_KARRY:
+		return ""
+	return "Peruuta kärryn perä suppilolle: %s m (nuoli)" % String.num(d, 1).replace(".", ",")
+
+
+func _trailer_tail() -> Vector3:
+	return (koneet.perakarry.root as Node3D).to_global(Vector3(0, 0, 6.2))
 
 
 func _hitch_now(id: String) -> void:
@@ -1519,27 +1592,22 @@ func _unhitch() -> void:
 
 ## Puimurin purkukohde: kärry (purkuputken pää lavan päällä) tai kuivurin suppilo putken alla.
 func _unload_target() -> String:
-	var c := puimuri
-	var tip: Vector3 = c._model.spout_tip.global_position
-	# Ulos käännetyn putken pää (kehyksessä): arvioidaan ulkoasennosta, ettei putkea tarvitse kääntää ensin.
-	var out := c.to_global(Vector3(-0.95, 3.85, 1.8) + Vector3(-3.2, 0, 0.2))
-	if c.unloading:
-		out = tip
+	# Ulos käännetyn putken pää: arvioidaan ulkoasennosta, ettei putkea tarvitse kääntää ensin.
+	var out := _spout_out()
 	var kr: Node3D = koneet.perakarry.root
 	var bed_c := kr.to_global(Vector3(0, 1.2, 3.8))
 	if Vector2(out.x - bed_c.x, out.z - bed_c.z).length() < 2.6:
 		return "karry"
-	var pit: Vector3 = _kuivuri.root.to_global(_kuivuri.pit)
-	if Vector2(out.x - pit.x, out.z - pit.z).length() < 2.0:
+	var pit := _pit_g()
+	if Vector2(out.x - pit.x, out.z - pit.z).length() < PIT_D:
 		return "suppilo"
 	return ""
 
 
 func _trailer_at_pit() -> bool:
-	var kr: Node3D = koneet.perakarry.root
-	var tail := kr.to_global(Vector3(0, 0, 6.2))
-	var pit: Vector3 = _kuivuri.root.to_global(_kuivuri.pit)
-	return Vector2(tail.x - pit.x, tail.z - pit.z).length() < 2.2
+	var tail := _trailer_tail()
+	var pit := _pit_g()
+	return Vector2(tail.x - pit.x, tail.z - pit.z).length() < PIT_D_KARRY
 
 
 ## Purku ja kippaus ruutu kerrallaan: puimurista kärryyn tai suppiloon, kärrystä suppiloon.
