@@ -38,6 +38,8 @@ var sign_sub := "Kaisuantie 38"
 var isanta: Array = []
 var isanta_name := "Kaisuan isäntä"
 var isanta_look := {}
+var emanta_name := "Emäntä"  # heinätalkoiden kohtaus (cutscene.gd maatila_talkoot)
+var emanta_look := {}
 var home := {}  # kone -> [Vector3, yaw]
 ## Paalikauppa: {"pos": [Vector3, yaw], "drop": Vector3, "look": {}, "name": "Raija"}; tyhjä = ei paalikauppaa.
 var naapuri := {}
@@ -92,6 +94,12 @@ static func kaisua() -> RefCounted:
 		"hair_color": Color(0.62, 0.6, 0.56), "beard": true, "height": 1.84, "skin": Color(0.95, 0.78, 0.68),
 		"belly": 0.8, "bulk": 0.35, "shoulders": 0.3,
 	}
+	s.emanta_name = "Kaisuan emäntä"
+	s.emanta_look = {
+		"model": "female", "shirt": Color(0.78, 0.72, 0.58), "pants": Color(0.25, 0.3, 0.42), "shoes": Color(0.1, 0.1, 0.09),
+		"shoe": "kumisaapas", "hair": "Hair_Buns", "hair_color": Color(0.7, 0.68, 0.66), "height": 1.63, "skin": Color(1.0, 0.86, 0.78),
+		"belly": 0.4, "bulk": 0.2,
+	}
 	s.home = {
 		"traktori": [Vector3(-207.0, 0, 125.0), PI / 2.0],
 		"puimuri": [Vector3(-226.0, 0, 108.0), PI * 0.15],
@@ -120,6 +128,35 @@ static func kaisua() -> RefCounted:
 		"toinen": "Saloisissa on Altaan tila, Altaantien varressa. Isäntä on vanha tuttu, soitti ja kyseli renkiä: ohraa on viis hehtaaria ja poika ajaa yksin. Käy kattomassa, jos kotona oot.",
 		# Legendaarinen hetki "sato" (cutscene.gd maatila_sato): kutsu, kohtauksen repliikit ja muistelut seuraavina päivinä.
 		"sato_kutsu": "Viimeiset jyvät kuivurissa! Tuu kuivurille, ku kerkiät. Katotaan, mitä siitä tuli.",
+		"sato_viesti": "Isäntä kutsuu kuivurille: juttele hänen kanssaan.",
+		"sato_valinta": "Mennään kattomaan jyviä!",
+		"sato_toisto": ["No, kuivaa on taas. Ei ihan niinku ensimmäinen, mutta menee.",
+			"Kolmas kuivurillinen sun käsistä. Emäntä alkaa epäillä, että sää asut täällä.",
+			"Myllyltä kyseltiin jo, kuka meillä on renkinä. Sanoin, että ei kuulu teille."],
+		# Heinätalkoot (cutscene.gd maatila_talkoot): pöytä pihalle, emäntä nostaa lihakeiton, isäntä nostaa kaljan.
+		"heina_kutsu": "Paalit latossa! Emäntä kattaa pöydän pihalle. Tuu syömään, ku kerkiät.",
+		"heina_viesti": "Emäntä kattaa talkoopöydän pihalle: juttele isännän kanssa.",
+		"heina_valinta": "Mennään syömään!",
+		"heina": ["Lihakeittoa, ruisleipää ja voita. Ottakaa, ku on lämmintä!",
+			"Talkoomiehelle! Ilman sua ois heinät vieläki pellolla.", "Kippis! Saunakaljat on ansaittu."],
+		"heina_muisto": ["Emäntä kysy, tuutko taas syömään. Sille kelpaa semmonen, joka syö kaks lautasellista.",
+			"Lato on täynnä ku joulupöytä. Lehmät kiittää talvella, vaikkei ne sitä tiedä.",
+			"Raija kävi kattomassa latoa ja sano, ettei oo nähny yhtä suoria paalipinoja."],
+		"heina_toisto": ["Lato täyttyy taas. Emäntä keittää keiton, istu pirtissä.",
+			"Taas heinät latossa. Näillä paaleilla ruokitaan puoli Neittävää.",
+			"Sää teet heinät nopeemmin ku minä nuorena. Älä kerro kellekään."],
+		# Kylvöt (cutscene.gd maatila_kylvot): pellon laidalla, isäntä murentaa multaa, rivit horisonttiin.
+		"kylvo_kutsu": "Kylvetty! Tuu pellon laidalle, ku kerkiät. Katotaan rivejä.",
+		"kylvo_viesti": "Isäntä haluaa katsoa rivejä pellon laidalta: juttele hänen kanssaan.",
+		"kylvo_valinta": "Mennään kattomaan rivejä!",
+		"kylvo": ["Multa on lämmintä. Kahen viikon päästä tässä on oras.",
+			"Suorat ku viivottimella. Isävainaa veti hevosella vinompaa.", "Ens kesänä nähdään. Saunakaljat on ansaittu."],
+		"kylvo_muisto": ["Kävin aamulla pellolla. Vielä ei näy mitään, mutta tuoksuu jo kasvulta.",
+			"Naapuri ajo ohi ja hidasti. Rivit näkyy tielle asti.",
+			"Ens kesänä, ku ohra on polvenkorkuista, muistellaan, kuka sen kylvi."],
+		"kylvo_toisto": ["Taas kylvetty. Rivit on vähän kaarevammat ku viimeksi, mutta ei se ohraa haittaa.",
+			"Kylvökone tuntee jo sun käden. Se pyörii itekseen.",
+			"Kevättyöt valmiina taas. Saisit omankin pellon, jos rupeaisit."],
 		"sato": ["Kuivaa ku korppu. Kuustoista prosenttia, ei tippaakaan yli.",
 			"Isävainaa ois sanonu, että nyt on ohraa.", "Saunakaljat on ansaittu. Emäntä keittää lihakeiton."],
 		"sato_muisto": ["Vieläki on sen ohran haju sieraimissa. Emäntä sanoo, että haisen leivältä.",
@@ -194,6 +231,12 @@ static func altaantie() -> RefCounted:
 		"hair_color": Color(0.35, 0.3, 0.26), "beard": true, "height": 1.8, "skin": Color(0.93, 0.76, 0.66),
 		"belly": 0.8, "bulk": 0.35, "shoulders": 0.3,
 	}
+	s.emanta_name = "Altaan emäntä"
+	s.emanta_look = {
+		"model": "female", "shirt": Color(0.45, 0.55, 0.7), "pants": Color(0.2, 0.22, 0.26), "shoes": Color(0.1, 0.1, 0.09),
+		"shoe": "kumisaapas", "hair": "Hair_Long", "hair_color": Color(0.42, 0.32, 0.24), "height": 1.66, "skin": Color(0.97, 0.82, 0.72),
+		"belly": 0.3,
+	}
 	# Koneet: ajoneuvot pihalla, työkoneet konevajan suulla perä vajaan päin (traktori peruuttaa kytkemään).
 	var kf: Vector3 = (y - kv)
 	kf.y = 0.0
@@ -225,7 +268,34 @@ static func altaantie() -> RefCounted:
 		"hello": "Päivää! Altaan tilalle töihin? Traktori on pihalla ja koneet konevajan suulla. Isoaho ja Vainio on puintikypsiä, Kotiniitty niittokunnossa ja Altaanpellon sänki kynnettävä. Isoahon pelto on tuolla pohjoisessa metsän takana, sinne pääsee pellon välistä polkua. Maksan joka hommasta, ja emäntä laittaa ruuat.",
 		"intro": "Altaan tilan hommat: traktorilla (%s) niittokone, karhotin, paalain, aura, äes, kylvökone ja viljakärry konevajan suulta (%s kytkee peruuttamalla). Puimuri on pihalla. Isoahoon ajetaan peltojen välistä polkua pohjoiseen.",
 		"toinen": "Vaalan Neittävällä on Kaisuan tila, Kaisuantien varressa. Sikäläinen isäntä kaipais talkoomiestä heinille ja ohrille. Jos sinne päin meet, käy sanomassa päivää.",
-		"sato_kutsu": "Isoahon ohra on kuivurissa! Tuu kuivurille, ku kerkiät. Katotaan, mitä siitä tuli.",
+		"sato_kutsu": "Ohra on kuivurissa! Tuu kuivurille, ku kerkiät. Katotaan, mitä siitä tuli.",
+		"sato_viesti": "Isäntä kutsuu kuivurille: juttele hänen kanssaan.",
+		"sato_valinta": "Mennään kattomaan jyviä!",
+		"sato_toisto": ["Taas kuivurillinen. Eetu sano, että ens vuonna hän ajaa ite. Saas nähdä.",
+			"Kolmas kerta, ja kuivuri ei ees yskähdä. Sää oot sille hyväksi.",
+			"Kylällä puhutaan jo Altaan rengistä. Älä anna sen nousta päähän."],
+		"heina_kutsu": "Paalit latossa! Emäntä kattaa pöydän pihalle. Tuu syömään.",
+		"heina_viesti": "Emäntä kattaa talkoopöydän pihalle: juttele isännän kanssa.",
+		"heina_valinta": "Mennään syömään!",
+		"heina": ["Tässä on keittoa ja leipää. Syökää nyt, ettei jäähdy!",
+			"Kodin naapurille! Eetu, ota oppia.", "Kippis! Saunakaljat on ansaittu."],
+		"heina_muisto": ["Emäntä leipo eilen pullaa ja kysy, joko se kodin naapuri tulee.",
+			"Eetu laski paalit kahteen kertaan. Täsmäs.",
+			"Ladossa tuoksuu kesä. Talvella sitä muistelee."],
+		"heina_toisto": ["Lato täyttyy taas. Emäntä laittaa ruuat pirttiin.",
+			"Taas heinät latossa, eikä satanu kertaakaan päälle. Tuuria vai taitoa?",
+			"Eetu sano, että sää paalaat paremmin ku hän. Se on iso myönnytys."],
+		"kylvo_kutsu": "Kylvetty! Tuu pellon laidalle, ku kerkiät. Eetu tulee kans.",
+		"kylvo_viesti": "Isäntä ja Eetu haluavat katsoa rivejä pellon laidalta: juttele isännän kanssa.",
+		"kylvo_valinta": "Mennään kattomaan rivejä!",
+		"kylvo": ["Hyvä multa. Kun tähän tulee sade, ohra lähtee ku raketti.",
+			"Eetu, kato noita rivejä. Suoremmat ku sulla.", "Saunakaljat on ansaittu. Eetu, sää maksat."],
+		"kylvo_muisto": ["Eetu kävi aamulla mittaamassa rivejä. Myönsi, että suorat.",
+			"Kylällä kysellään, kuka Altaanpellon kylvi. Sanon, että kodin naapuri.",
+			"Odotan oraita ku joululahjaa."],
+		"kylvo_toisto": ["Taas kylvetty. Eetu ei enää ees kato rivejä, luottaa suhun.",
+			"Kevättyöt valmiina taas. Sää oot ku vuodenaika itte.",
+			"Rivit suorat taas. Ei tarvi enää todistella."],
 		"sato": ["No niin. Tuoksuu leivältä, eikä yhtään ummehtunutta.",
 			"Kodin naapurista sai kerrankin apua.", "Tätä Eetu ei usko, ennen ku näkee. Saunakaljat on ansaittu."],
 		"sato_muisto": ["Eetu kävi kuivurilla haistelemassa. Myönsi, että parempaa ku viime vuonna.",

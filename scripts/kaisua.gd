@@ -30,8 +30,9 @@ var site: RefCounted  # maatila_paikka.gd: pellot, piha, isäntä, tekstit (null
 signal message(text: String, secs: float)
 signal paid(amount: float, why: String)
 signal legend(id: String)
-## Legendaarinen hetki lavastettuna (main.gd _farm_legend): kind "sato" = kohtaus kuivurilla (cutscene.gd maatila_sato).
-signal legend_scene(kind: String)
+## Ketjun viimeinen työ -> legendaarisen hetken laji: heinä = talkoopöytä pihalla (cutscene.gd maatila_talkoot),
+## sato = isäntä haistaa ohraa kuivurilla (maatila_sato), kylvö = rivit pellon laidalta (maatila_kylvot).
+const LEGEND_KIND := {"latoon": "heina", "kuivuri": "sato", "kylvo": "kylvo"}
 signal food_eaten
 signal beers_given(n: int)
 signal mount(vehicle: Node3D)
@@ -113,6 +114,7 @@ var _g_ring_t: MeshInstance3D
 var _g_arrow: MeshInstance3D
 var _g_line: MeshInstance3D
 var _g_t := 0.0
+var legend_field := {}  # odottava hetki -> pellon indeksi (kylvöjen kohtaus; latauksen jälkeen ensimmäinen viljapelto)
 var isanta_guide: Node3D  # isännän nimikyltti (piiloon kohtauksen ajaksi)
 var _recalled_day := -1  # isäntä muisteli legendaarista hetkeä tänä päivänä (kerran päivässä)
 var _guide_on := false  # joku opastus näytti renkaat tässä ruudussa (muuten piilotetaan logic()-lopussa)
@@ -2085,19 +2087,25 @@ func _job_done(pe: Pelto, id: String, bk: Dictionary) -> void:
 	var msg := "%s %s!" % [pe.field_name(), JOB_NAMES[id]]
 	if amount > 0.0:
 		msg += " Isäntä maksoi %s €." % _eur(amount)
-	if id == "kuivuri" and _sato_first():
-		# Ensimmäinen sato: ei ilmoitusta kesken ajon. Isäntä kutsuu kuivurille, ja hetki koetaan siellä yhdessä
-		# (talk_options "sato" -> legend_scene -> cutscene.gd maatila_sato -> legend_told).
-		tila.legend_wait = site.legends[id]
+	if LEGEND_KIND.has(id) and _legend_first(id):
+		# Ensimmäinen kerta: ei ilmoitusta kesken ajon. Isäntä kutsuu, ja hetki koetaan yhdessä kohtauksena
+		# (talk_options -> main.gd _farm_legend -> cutscene.gd maatila_* -> legend_told).
+		var kind: String = LEGEND_KIND[id]
+		tila.legend_wait.append(site.legends[id])
+		legend_field[site.legends[id]] = pe.index  # kylvöjen kohtaus pellon laidalla
 		tila.beer_due += 3
-		say(site.texts.sato_kutsu, 6.0)
-		message.emit(msg + " Isäntä kutsuu kuivurille: juttele hänen kanssaan.", 5.0)
+		if kind == "heina":
+			tila.food_due = false  # talkooruoka syödään kohtauksessa pihan pöydässä
+		say(site.texts[kind + "_kutsu"], 6.0)
+		message.emit(msg + " " + site.texts[kind + "_viesti"], 5.0)
 		return
-	if id == "latoon" or id == "kuivuri" or id == "kylvo":
+	if LEGEND_KIND.has(id):
+		# Toisto: kerrat lasketaan (päiväkirja), isäntä kommentoi seuraavalla juttelulla, ei kohtausta.
 		var lid: String = site.legends[id]
 		tila.legends[lid] = int(tila.legends.get(lid, 0)) + 1
 		tila.beer_due += 3
-		msg += " Koko ketju tehty: isäntä lupasi saunakaljat ja talkooruoan."
+		tila.legend_react = lid
+		msg += " Koko ketju tehty taas: isäntä lupasi saunakaljat ja talkooruoan."
 		legend.emit(lid)
 		say(["Siinä se! Ei tullu ees sadetta.", "No nyt on talvirehut kunnossa!", "Kyllä sää oot ihan pellon mies."][randi() % 3], 4.0)
 	else:
@@ -2105,30 +2113,92 @@ func _job_done(pe: Pelto, id: String, bk: Dictionary) -> void:
 	message.emit(msg, 4.5)
 
 
-## Sadon legendaarinen hetki on vielä kokematta (lavastettu kohtaus vain ensimmäisellä kerralla).
-func _sato_first() -> bool:
-	return site.texts.has("sato") and int(tila.legends.get(site.legends.kuivuri, 0)) == 0
+## Ketjun legendaarinen hetki on vielä kokematta (lavastettu kohtaus vain ensimmäisellä kerralla).
+func _legend_first(job: String) -> bool:
+	var lid: String = site.legends[job]
+	return site.texts.has(LEGEND_KIND[job]) and int(tila.legends.get(lid, 0)) == 0 and not lid in tila.legend_wait
 
 
-## Kohtaus nähty: hetki kirjataan (legend -> main.gd _ending) ja isäntä muistelee sitä seuraavina päivinä.
+## Kylvöjen kohtauksen paikka: pellon reunan piste lähinnä pihaa ja suunta pellon keskelle (maailmassa).
+func field_view(lid: String) -> Array:
+	var idx: int = legend_field.get(lid, -1)
+	var pe: Pelto = null
+	for p in pellot:
+		var q: Pelto = p
+		if q.index == idx or (idx < 0 and pe == null and q.kind() == "vilja"):
+			pe = q
+	var y2 := Vector2(site.yard.x, site.yard.z)  # paikallinen
+	var best := pe.poly[0]
+	var bd := INF
+	var n := pe.poly.size()
+	for i in n:
+		var a: Vector2 = pe.poly[i]
+		var b: Vector2 = pe.poly[(i + 1) % n]
+		var c := Geometry2D.get_closest_point_to_segment(y2, a, b)
+		if c.distance_to(y2) < bd:
+			bd = c.distance_to(y2)
+			best = c
+	var into := (pe.center - best).normalized()
+	best += into * 1.5  # hieman pellon puolelle: rivit kameran edessä
+	return [to_global(Vector3(best.x, _gy(best.x, best.y), best.y)), basis * Vector3(into.x, 0, into.y)]
+
+
+## Hetken laji (heina, sato, kylvo) sen tunnisteesta (site.legends).
+func legend_kind(lid: String) -> String:
+	for job in site.legends:
+		if site.legends[job] == lid:
+			return LEGEND_KIND[job]
+	return ""
+
+
+## Odottava hetki lajin mukaan ("" = ei odota).
+func legend_waiting(kind: String) -> String:
+	for lid in tila.legend_wait:
+		if legend_kind(lid) == kind:
+			return lid
+	return ""
+
+
+## Kohtaus nähty: hetki kirjataan (legend -> main.gd _ending) ja isäntä muistelee sitä seuraavina päivinä. Heinätalkoissa
+## talkooruoka syötiin ja saunakaljat annettiin kohtauksessa (ei erillistä käyntiä pirtissä).
 func legend_told(lid: String) -> void:
-	tila.legend_wait = ""
+	tila.legend_wait.erase(lid)
 	tila.legends[lid] = int(tila.legends.get(lid, 0)) + 1
 	tila.legend_day[lid] = day
-	tila.food_due = true
+	if legend_kind(lid) == "heina":
+		tila.food_day = day
+		tila.food_due = false
+		food_eaten.emit()
+		if tila.beer_due > 0:
+			beers_given.emit(tila.beer_due)
+			tila.beer_due = 0
+	else:
+		tila.food_due = true
 	legend.emit(lid)
 
 
-## Isännän muistelu koetusta hetkestä 1–4 päivää jälkeenpäin ("" = ei muisteltavaa).
+## Isännän muistelu tuoreimmasta koetusta hetkestä 1–3 päivää jälkeenpäin ("" = ei muisteltavaa).
 func _recollection() -> String:
-	var lid: String = site.legends.get("kuivuri", "")
-	if not tila.legend_day.has(lid) or not site.texts.has("sato_muisto"):
+	var best := ""
+	var best_ago := 99
+	for lid in tila.legend_day:
+		var ago := day - int(tila.legend_day[lid])
+		var key: String = legend_kind(lid) + "_muisto"
+		if ago >= 1 and ago < best_ago and site.texts.has(key) and ago <= (site.texts[key] as Array).size():
+			best = site.texts[key][ago - 1]
+			best_ago = ago
+	return best
+
+
+## Toistetun ketjun kommentti (kerran): kerta 2, 3, ... valitsee repliikin.
+func _repeat_line() -> String:
+	var lid := tila.legend_react
+	tila.legend_react = ""
+	var key: String = legend_kind(lid) + "_toisto"
+	if not site.texts.has(key):
 		return ""
-	var ago := day - int(tila.legend_day[lid])
-	var lines: Array = site.texts.sato_muisto
-	if ago < 1 or ago > lines.size():
-		return ""
-	return lines[ago - 1]
+	var lines: Array = site.texts[key]
+	return lines[(int(tila.legends.get(lid, 2)) - 2) % lines.size()]
 
 
 func _pay(amount: float, why: String) -> void:
@@ -2161,8 +2231,12 @@ func talk_hello() -> String:
 		return site.texts.hello
 	if raining():
 		return "Sataa. Paalaus ja puinti odottaa poutaa (%s), mutta kyntää ja äestää voi." % rain_end_text()
-	if tila.legend_wait != "":
-		return site.texts.sato_kutsu
+	if not tila.legend_wait.is_empty():
+		return site.texts[legend_kind(tila.legend_wait[0]) + "_kutsu"]
+	if tila.legend_react != "":
+		var rl := _repeat_line()
+		if rl != "":
+			return rl
 	var rc := _recollection()
 	if rc != "" and _recalled_day != day:
 		_recalled_day = day
@@ -2188,8 +2262,9 @@ func _order_possible() -> bool:
 ## Isännän valinnat: [id, teksti, käytettävissä, syy harmaana, uusi asia].
 func talk_options() -> Array:
 	var o: Array = []
-	if tila.legend_wait != "" and tila.legend_wait == site.legends.get("kuivuri", ""):
-		o.append(["sato", "Mennään kattomaan jyviä!", true, "", true])
+	for lid in tila.legend_wait:
+		var kind := legend_kind(lid)
+		o.append([kind, site.texts[kind + "_valinta"], true, "", true])
 	o.append(["hommat", "Mitä hommia tänään on?", true, "", false])
 	if toinen_vinkki and site.texts.has("toinen"):
 		o.append(["toinen", "Tarviiko muualla renkiä?", _toinen_day != day, "kysyit jo tänään", _toinen_day != day])

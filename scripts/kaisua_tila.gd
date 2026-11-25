@@ -68,8 +68,9 @@ var food_day := -1  # päivä, jona talkooruoka on syöty
 var food_due := false  # isäntä kutsuu pirttiin (työ tehty tänään, ruoka syömättä)
 var beer_due := 0  # isännän saunakaljoja odottamassa (koko ketju tehty)
 var legends := {}  # ketju -> kerrat (heinatalkoot, sato, kylvot)
-var legend_wait := ""  # legendaarinen hetki odottaa isännän kohtausta (esim. "kaisuan_sato": isäntä kutsui kuivurille)
+var legend_wait: Array = []  # legendaariset hetket odottamassa kohtausta (esim. "kaisuan_sato": isäntä kutsui kuivurille)
 var legend_day := {}  # legendaarinen hetki -> päivä, jona se koettiin (isännän muistelut seuraavina päivinä)
+var legend_react := ""  # toistettu ketju: isäntä kommentoi sitä seuraavalla juttelulla (kaisua.gd talk_hello)
 var talked := false  # isäntä on esitellyt hommat
 var order_total := 0  # naapurin paalitilaus: paaleja yhteensä
 var order_left := 0  # toimittamatta
@@ -218,6 +219,7 @@ func save_to(cfg: ConfigFile) -> void:
 	cfg.set_value(section, "legendat", legends)
 	cfg.set_value(section, "legenda_odottaa", legend_wait)
 	cfg.set_value(section, "legenda_paiva", legend_day)
+	cfg.set_value(section, "legenda_toisto", legend_react)
 	cfg.set_value(section, "esitelty", talked)
 	cfg.set_value(section, "tilaus", [order_total, order_left, order_day])
 	cfg.set_value(section, "paiva", last_day)
@@ -253,8 +255,10 @@ func load_from(cfg: ConfigFile) -> void:
 	food_due = cfg.get_value(section, "ruoka", false)
 	beer_due = cfg.get_value(section, "kaljat", 0)
 	legends = cfg.get_value(section, "legendat", {})
-	legend_wait = cfg.get_value(section, "legenda_odottaa", "")
+	var lw: Variant = cfg.get_value(section, "legenda_odottaa", [])
+	legend_wait = lw if lw is Array else ([lw] if str(lw) != "" else [])
 	legend_day = cfg.get_value(section, "legenda_paiva", {})
+	legend_react = cfg.get_value(section, "legenda_toisto", "")
 	talked = cfg.get_value(section, "esitelty", false)
 	var o: Array = cfg.get_value(section, "tilaus", [0, 0, -1])
 	order_total = o[0]

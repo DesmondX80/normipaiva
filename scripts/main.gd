@@ -14816,11 +14816,11 @@ func _talk_choose(id: String) -> void:
 	if id.begins_with("paivi_kesa_"):
 		_kesaheila_choose(id)
 		return
-	if id == "isanta_sato":
+	if id in ["isanta_sato", "isanta_heina", "isanta_kylvo"]:
 		var sk := _farm_by_talker(_talk_who)
 		_talk_box.close()
 		if sk != null:
-			_farm_legend(sk, "sato")
+			_farm_legend(sk, id.substr(7))
 		return
 	if id.begins_with("isanta_"):
 		var fk := _farm_by_talker(_talk_who)
@@ -15708,22 +15708,36 @@ func _farm_logic(k: Node3D) -> bool:
 	return driving or hint != ""
 
 
-## Maatilan legendaarinen hetki lavastettuna (kaisua.gd legend_wait): "sato" = isäntä haistaa ohraa kuivurilla
-## (cutscene.gd maatila_sato). Lopuksi kaisua.gd legend_told kirjaa hetken (legend -> _ending: päiväkirjarivi).
+## Maatilan legendaarinen hetki lavastettuna (kaisua.gd legend_wait): "heina" = talkoopöytä pihalla, "sato" = isäntä
+## haistaa ohraa kuivurilla, "kylvo" = rivit pellon laidalta (cutscene.gd maatila_*). Lopuksi kaisua.gd legend_told
+## kirjaa hetken (legend -> _ending: päiväkirjarivi).
 func _farm_legend(k: Node3D, kind: String) -> void:
-	var lid: String = k.tila.legend_wait
-	if lid == "" or kind != "sato":
+	var lid: String = k.legend_waiting(kind)
+	if lid == "":
 		return
 	_act_begin()
 	var hide: Array = [k.isanta, k._bubble, k.isanta_guide]
 	cutscene.hide_nodes.append_array(hide)
-	var lines: Array = k.site.texts.sato
-	cutscene.maatila_sato(k._kuivuri.root, func(p: Vector3) -> Vector3: return k._ground_g(p), k.site.isanta_look, k.site.isanta_name, lines,
-		Endings.name_of(lid).to_upper(), Endings.desc_of(lid), func() -> void:
-			for n in hide:
-				cutscene.hide_nodes.erase(n)
-			_act_end()
-			k.legend_told(lid))
+	var ground := func(p: Vector3) -> Vector3: return k._ground_g(p)
+	var lines: Array = k.site.texts[kind]
+	var title := Endings.name_of(lid).to_upper()
+	var sub := Endings.desc_of(lid)
+	var helper: Dictionary = k.site.helper
+	var cast := {"isanta_look": k.site.isanta_look, "isanta_name": k.site.isanta_name, "emanta_look": k.site.emanta_look,
+		"emanta_name": k.site.emanta_name, "helper_look": helper.get("look", {}) if kind == "heina" or not bool(helper.get("away", false)) else {}}
+	var done := func() -> void:
+		for n in hide:
+			cutscene.hide_nodes.erase(n)
+		_act_end()
+		k.legend_told(lid)
+	match kind:
+		"sato":
+			cutscene.maatila_sato(k._kuivuri.root, ground, k.site.isanta_look, k.site.isanta_name, lines, title, sub, done)
+		"heina":
+			cutscene.maatila_talkoot(k.to_global(k.site.house_door), k.to_global(k.site.yard), ground, cast, lines, title, sub, done)
+		"kylvo":
+			var fv: Array = k.field_view(lid)
+			cutscene.maatila_kylvot(fv[0], fv[1], ground, cast, lines, title, sub, done)
 
 
 ## Keskustelun isäntä -> sen tila (isanta_kaisua: mökin Kaisua, isanta_altaantie: Altaan tila).
