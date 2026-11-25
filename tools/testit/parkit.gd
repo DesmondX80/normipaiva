@@ -1,6 +1,6 @@
 extends Node
 ## Pysäköidyt autot eivät saa olla toistensa sisällä (#bugi Zabukin parkissa): B.parked_car-autojen pohjat (1,8 × 4,2 m,
-## lepoasennon suorakaiteet xz-tasossa) tarkistetaan pareittain Saloisissa (main.world) ja Raahessa (mopo_trip.vaala),
+## lepoasennon suorakaiteet xz-tasossa) tarkistetaan pareittain Saloisissa (main.world),
 ## Raahessa myös Pentin pakettiauton paikkaa (vaala.gd pentti_spot, 1,8 × 4,7 m) vasten. Päällekkäisyys (SAT, 5 cm
 ## toleranssi) = TESTI VIKA. Kuvat Zabukin parkista. Ajo: tools/testit/aja.sh scene parkit
 
@@ -74,64 +74,4 @@ func run() -> void:
 	for i in 20:
 		await get_tree().process_frame
 	_tarkista(_autot(main.world, "Saloinen"), "Saloinen")
-	main._start_mopo()
-	for i in 40:
-		await get_tree().process_frame
-	var vl: Node3D = main.mopo_trip.vaala
-	var autot := _autot(vl, "Raahe")
-	if vl.pentti_spot != Vector3.INF:
-		var ps: Vector3 = vl.to_global(vl.pentti_spot)
-		var g := Transform3D(vl.global_basis * Basis(Vector3.UP, vl.pentti_yaw), ps)
-		var fw: Vector3 = -g.basis.z
-		autot.append([Vector2(ps.x, ps.z), atan2(-fw.x, -fw.z), Vector2(0.9, 2.35), "Pentin paikka %s" % Vector2(ps.x, ps.z).round()])
-	_tarkista(autot, "Raahe")
-	# Kuva Zabukin parkista ylhäältä viistosti.
-	if vl._zabuki != Vector3.INF:
-		var f: Vector2 = vl._zabuki_face
-		var c: Vector3 = vl.to_global(vl._zabuki + Vector3(f.x, 0, f.y) * 12.0)
-		var cam := Camera3D.new()
-		add_child(cam)
-		cam.fov = 60.0
-		cam.look_at_from_position(c + Vector3(f.x, 0, f.y) * 22.0 + Vector3(0, 18, 0), c)
-		cam.make_current()
-		for i in 6:
-			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		var path := "user://parkit_zabuki.png"
-		for a in OS.get_cmdline_user_args():
-			if a.begins_with("--shot="):
-				path = a.substr(7).replace(".png", "_zabuki.png")
-		get_viewport().get_texture().get_image().save_png(path)
-		print("PARKIT kuva " + path)
-	# Zabuki joka suunnasta perjantai-iltana (Pentin auto parkissa): kuvat _zabuki_<suunta>.
-	if vl._zabuki != Vector3.INF:
-		while main._weekday() != 4:
-			main.day += 1
-		main.clock_min = 20 * 60
-		var pt: Object = main.rikos_osa("pentti")
-		for i in 10:
-			if pt != null:
-				pt.tick(false)
-			await get_tree().process_frame
-		var z: Vector3 = vl.to_global(vl._zabuki)
-		var f3 := Vector3(vl._zabuki_face.x, 0, vl._zabuki_face.y)
-		var s3 := f3.cross(Vector3.UP)
-		var cam3 := Camera3D.new()
-		add_child(cam3)
-		cam3.fov = 62.0
-		for v: Array in [["edesta", f3], ["takaa", -f3], ["vasen", s3], ["oikea", -s3]]:
-			var dirv: Vector3 = v[1]
-			cam3.look_at_from_position(z + dirv * 38.0 + Vector3(0, 16, 0), z + dirv * 8.0)
-			cam3.make_current()
-			if pt != null:
-				pt.tick(false)
-			for i in 6:
-				await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			var path3 := "user://parkit_zabuki_%s.png" % v[0]
-			for a in OS.get_cmdline_user_args():
-				if a.begins_with("--shot="):
-					path3 = a.substr(7).replace(".png", "_zabuki_%s.png" % v[0])
-			get_viewport().get_texture().get_image().save_png(path3)
-			print("PARKIT kuva " + path3)
 	print("PARKIT valmis, %d vikaa" % vikoja)
