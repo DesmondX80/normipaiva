@@ -11,7 +11,7 @@ const ENDINGS := [
 	["laavu", "Laavulla kaljoilla", "Laavu vallattu, kalja auki Antinsuonkankaalla."],
 	["legendaarinen", "Legendaarinen normipäivä", "Nuotio, makkara ja kalja laavulla auringonlaskussa."],
 	["mokkibileet", "Mökkibileet", "Paapelin kotiviini, Santtu, Sinikka ja Korpi-Kalle. Herätys jostain krapulassa."],
-	["paapeli", "Paapeliin Pekan kyydillä", "Naapurin hommat tehty, avaimet löytyi, ja Volvo kaahaa mökille."],
+	["paapeli", "Raaheen Pekan kyydillä", "Naapurin hommat tehty, avaimet löytyi, ja Volvo kaahaa Raaheen."],
 	["savusauna", "Savusaunan löylyt", "Korjattu savusauna, pehmeät löylyt ja järvi perään."],
 	["lavatanssit", "Lavatanssit Oulujärvellä", "Humppaveikot soitti, ja jalka nousi kuin nuorena."],
 	["karaoke", "Karaokekuningas", "Yleisö taputti, ja baarimikko tarjosi."],

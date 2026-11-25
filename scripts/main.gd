@@ -21,7 +21,6 @@ const Fight := preload("res://scripts/fight.gd")
 const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
-const HumppaBand := preload("res://scripts/humppa_band.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
 ## Rasvanappi aseman takana makasiinissa Saloisissa ja Vaalassa (vain aikuisille): salasana luukulle ja peli pimeässä.
 const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
@@ -691,6 +690,7 @@ var wound_big := false  # karhun raatelema
 const Mummot := preload("res://scripts/mummot.gd")
 var mummot: Node3D
 const PEKKA_CARE := 3.0
+const PEKKA_RIDE_PRICE := 10.0  # tai kalja: Pekan kyyti Raaheen (bensarahat)
 ## Sähköpyörän osat naapureilta: Pekan Makitan akut litrasta sieniä, Arton johdot kaljasta.
 const EBIKE_AKKU_SIENET := 1
 const WOUND_PAIVI := ["Taas sää oot ollu vieraitten koirien kans!", "Istu siihen. Ja älä vingu.",
@@ -893,8 +893,6 @@ var oma_mopo: RefCounted  # oma mopo (oma_mopo.gd, #155): Sepon luottamus, osat,
 var sinikka_lawn: Node3D  # Sinikan takapihan nurmikko (tarinatehtävä)
 var _keys_node: Node3D  # Pekan autonavaimet kodalla
 var _mow_lawn: Node3D
-## Kädessä kannettava (huussin sanko, halkosyli, kahvikuppi) ja sen läikkymisvaara (0–1).
-var _carry := ""
 var _watch_t := 0.0
 ## Raaka saalis (laiturin kalat, metsästyslavan riista) odottaa savustusta kesäkeittiössä:
 ## [{"type": "kala" | "riista", "nom": "hauki"}, ...]. Häviää yöllä kuten eväät.
@@ -10920,9 +10918,6 @@ const KOLMIO_DOOR_R := 2.2
 var _kolmio_joni: CharacterBody3D
 var _kolmio_esa: CharacterBody3D
 var _kolmio_doors := {}  # kohde -> [[ovi (x/z), indeksi (-1 = nainen, muuten väärä ovi)], ...]
-## Sivikki-ajo Timon mittauspisteeseen ja takaisin: path (vaalan paikalliset pisteet), d (ajettu matka), dir (1 meno,
-## -1 paluu), v (vauhti), vtec (kytkeytyi tällä osuudella), cam (ajokamera). Tyhjä = ei ajossa.
-var _kolmio_drive := {}
 var _kolmio_ui: CanvasLayer  # Sytkäri tai kohtaus auki
 var _kolmio_anchor: Node3D  # Rasvanapin halli tämän yläpuolelle
 
@@ -11936,10 +11931,32 @@ func _cheat_rahaa() -> void:
 
 
 
-var _raahe_fare := 0.0  # Raahen reissun taksimaksu (meno-paluu); -1 = rekkakyyti
+var _raahe_fare := 0.0  # Raahen reissun taksimaksu (meno-paluu); -1 = rekkakyyti, -2 = Pekan kyyti
 
 
 var _raahe_hop := HOP_RAAHE
+
+
+## Pekan kyyti Raaheen (avautuu, kun story.ride_unlocked()): kalja tai bensarahat, Pekka ajaa Kapteenin Kulmalle.
+func _pekka_ride() -> void:
+	var paid := "kalja"
+	if beers > 0:
+		beers -= 1
+		player.set_carrying(beers > 0)
+	else:
+		money -= PEKKA_RIDE_PRICE
+		paid = _eur(PEKKA_RIDE_PRICE) + " €"
+	tilat.first("pekan_kyyti", 0.4)
+	_raahe_hop = HOP_RAAHE
+	_raahe_fare = -2.0  # Pekan kyyti (ei taksia)
+	if story.step == "valmis":
+		_ending("paapeli")
+	state = "cutscene"
+	player.controls_enabled = false
+	player.speed = 0.0
+	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	_hud.visible = false
+	cutscene.pekka_ride("Pekka ajaa Raaheen Kapteenin Kulmalle.\nBensarahat: %s" % paid, _enter_raahe)
 
 
 func _taxi_trip(escape := false) -> void:
@@ -12213,7 +12230,7 @@ func _on_raahe_exited() -> void:
 		parts.append("Päivi tuli etsimään, mutta livahdit taksiin.")
 	if parts.is_empty():
 		parts.append("Ilta Kapteenin Kulmassa.")
-	var fare := "Rekkakyyti ilmaiseksi." if _raahe_fare < 0.0 else "Taksi %s €." % _eur(_raahe_fare)
+	var fare := "Pekan Volvo vei kotiin." if _raahe_fare < -1.5 else "Rekkakyyti ilmaiseksi." if _raahe_fare < 0.0 else "Taksi %s €." % _eur(_raahe_fare)
 	var stats := "%s %s\nMielihyvä %d · Maine %d" % [" ".join(parts), fare, roundi(mielihyva), roundi(maine)]
 	_day_end = "raahe"
 	cutscene.taxi_home(home_zone, stats, func() -> void:
@@ -12614,6 +12631,13 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("tarina", "Missä ne autonavaimet olikaan?"))
 				"avaimet_mukana":
 					o.append(_opt("tarina", "Anna autonavaimet", true, "", true))
+			if story.ride_unlocked():  # avaimet Pekalle ja naapurin hommat tehty: Pekan kyyti Raaheen
+				var why := "" if beers > 0 or money >= PEKKA_RIDE_PRICE else "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
+				var shut_r := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))
+				if why == "" and shut_r != "":
+					why = shut_r
+				o.append(_opt("kyyti", "Kyyti Raaheen (%s, meno-paluu Pekan Volvolla)%s" % ["kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €", _late_note(HOP_RAAHE)],
+					why == "", why))
 			if ebike.started and not ebike.parts.has("akku"):
 				var shrooms: int = bucket.get("kantarelli", 0) + bucket.get("herkkutatti", 0)
 				o.append(_opt("akku", "Ne sun vanhat porakoneen akut? (%d l sieniä)" % EBIKE_AKKU_SIENET,
@@ -13076,7 +13100,7 @@ func _talk_neighbor(id: String) -> void:
 			var was_done: bool = story.done.puolukat
 			var note := _story_sold(_talk_who, sold)
 			if _talk_who == "arto" and story.done.puolukat and not was_done:
-				line = "Nyt riittää hilloon! Pekka on kyllä koko kesän puhunu siitä Paapelista."
+				line = "Nyt riittää hilloon! Pekka on kyllä koko kesän puhunu siitä Raahen reissusta."
 			_talk_box.reply(line, _talk_options(), "+%s €%s" % [_eur(sale), "   ·   " + note if note != "" else ""])
 		"akku":
 			var need := EBIKE_AKKU_SIENET
@@ -13138,7 +13162,7 @@ func _talk_neighbor(id: String) -> void:
 		"kyyti":
 			_talk_box.close()
 			pekka.say("Hyppää kyytiin perkele, lähetään!")
-			pass
+			_pekka_ride()
 		"tarina":
 			match story.step:
 				"pekka_kutsuu":
@@ -13603,7 +13627,6 @@ func _ensure_raahe() -> void:
 	raahe_int.paivi_caught.connect(_on_raahe_paivi_caught)
 
 
-const SALOINEN_STATES := ["ulkona", "in_home", "in_shop", "in_garage", "in_kirppis", "in_varasto", "in_raahe"]
 
 
 
@@ -13729,17 +13752,6 @@ func _sauna_cutscene(indoor := false) -> void:
 
 
 
-## Kalastus soutuveneellä (fish_game.gd): soutu Likasella, heitto, tärppi ja väsytys. Saalis savustimeen.
-func _start_fishing(north := false) -> void:
-	_minigame_prev = state
-	state = "minigame"
-	player.controls_enabled = false
-	player.speed = 0.0
-	player.visible = false
-	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-	_hud.visible = false
-	if north:
-		pass
 
 
 func _after_fishing(got: Array) -> void:
@@ -13837,16 +13849,6 @@ func _act_end() -> void:
 
 
 
-func _start_hunt() -> void:
-	if false:
-		pass
-	_minigame_prev = state
-	state = "minigame"
-	player.controls_enabled = false
-	player.speed = 0.0
-	player.visible = false
-	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-	_hud.visible = false
 
 
 
@@ -13855,17 +13857,6 @@ func _start_hunt() -> void:
 
 
 
-## Pihapingis Santtua vastaan (pingis_game.gd): Street Fighter -näyttämö kaukana kartan ulkopuolella.
-func _start_pingis() -> void:
-	state = "cutscene"
-	player.controls_enabled = false
-	player.speed = 0.0
-	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-	_hud.visible = false
-	Sfx.play("pickup", -6.0, 1.3)
-	var game := PingisGame.new()
-	game.position = PINGIS_POS
-	add_child(game)
 
 
 
@@ -14462,7 +14453,6 @@ func _klaffi_found() -> void:
 ## lavalta lähtiessä välikuva, jossa Päivi katsoo Kesäillan valssia kotona ja tunnistaa miehensä (cutscene.paivi_tv).
 const JUHANNUS_WD := 4
 const TV_SCORE := 0.5
-const KOKKO_AIKA := Vector2(21 * 60, 3 * 60)
 var _tv_day := -1
 var _tv_gossip := false
 var _kokko_day := -1
@@ -17604,14 +17594,6 @@ func _play_wrestle_loop() -> void:
 		_play_wrestle_loop.call_deferred())
 
 
-## Testien hiiren nappi (painallus tai vapautus) kohdassa pos.
-static func _mb(pos: Vector2, pressed: bool, button := MOUSE_BUTTON_LEFT) -> InputEventMouseButton:
-	var ev := InputEventMouseButton.new()
-	ev.position = pos
-	ev.global_position = pos
-	ev.button_index = button
-	ev.pressed = pressed
-	return ev
 
 
 func _maybe_screenshot() -> void:

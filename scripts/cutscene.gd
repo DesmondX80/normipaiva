@@ -718,72 +718,8 @@ func makkara(pit: Vector3, lake: Vector3, done: Callable) -> void:
 
 # --- Savusaunan löyly ---------------------------------------------------------------
 
-const SAUNA_LINES := ["Löyly puree korvia. Ei kiirettä mihinkään.", "Savun ja tervan tuoksu. Ihan puhdas olo.",
-	"Ei tätä kaupungissa saa.", "Hartiat rentoutuu vihdoinkin.", "Hiki virtaa selässä. Hiljaista."]
-## Rungon kehyksessä (mokki.gd _build_savusauna): ylälaude takaseinällä, kiuas oven vieressä, kiulu alalauteella.
-## Istujan juuri on jalkojen kohdalla ja lantio 0,33 m sen takana (SIT_PELVIS), polvet n. 0,12 m edessä. Ylälauteen
-## etureuna on z = -0,375: juuri z = -0,42 vie polvet reunan yli (sääret eivät mene lauteen läpi) ja jalat alalauteen päälle.
-const SAUNA_SIT_Z := -0.42
-const SAUNA_HERO := Vector3(0.5, 0.6, SAUNA_SIT_Z)
-const SAUNA_STONES := Vector3(0.9, 1.02, 0.5)
-const SAUNA_KIULU_W := Vector3(1.15, 0.76, -0.15)
-const LADLE_LEN := 0.78
-## Saunan asettelu rungon kehyksessä (oletus savusauna). hero = istumapaikka, face = katseen suunta, stones = kivet,
-## over = kauhan kaatokohta, kiulu = vesi, rest_cup = kauhan lepopaikka, ember / window = valot, coals = hiillos
-## pesässä (null = ei näkyvää pesää), kiulu_prop = kiulu tuodaan mukana, shell = välianimaation seinät ja katto
-## (Rect2 x/z, korkeus; null = saunalla omat), shots = kamerakuvat [alku, loppu, katse alku, katse loppu, s] (yleis,
-## kiuas, lähi, vetäytyvä). Santtu tuo kaljat: door = ovelta sisään (reitti), stand = ojentaa kaljan, seat = viereen
-## lauteelle, santtu_shot = kuva ovelle.
-const SAUNA_SAVU := {
-	"title": "SAVUSAUNA", "intro": "Hämärä, noen ja tervan tuoksu. Kiuas hehkuu.",
-	"hero": SAUNA_HERO, "face": Vector3(0, 0, 1), "stones": SAUNA_STONES, "over": SAUNA_STONES + Vector3(-0.05, 0.28, -0.05),
-	"kiulu": SAUNA_KIULU_W, "rest_cup": Vector3(0.82, 0.62, -0.3), "kiulu_prop": false,
-	"ember": SAUNA_STONES + Vector3(-0.55, -0.55, 0.0), "ember_shadow": true, "window": Vector3(-1.4, 1.25, -0.3),
-	"coals": Vector3(0.82, 0.08, 0.32), "haze": Vector3(0, 1.75, 0), "haze_ext": Vector3(1.4, 0.15, 1.2), "shell": null,
-	"shots": [[Vector3(-1.3, 1.25, 1.2), Vector3(-1.15, 1.3, 0.95), Vector3(0.4, 1.0, -0.5), Vector3(0.5, 1.15, -0.55), 4.0],
-		[Vector3(-0.75, 1.35, 0.55), Vector3(-0.7, 1.3, 0.5), Vector3(0.85, 0.95, 0.15), Vector3(0.85, 1.0, 0.2), 4.0],
-		[Vector3(0.05, 1.5, 0.15), Vector3(0.15, 1.55, -0.05), Vector3(0.5, 1.55, -0.75), Vector3(0.5, 1.6, -0.75), 4.5],
-		[Vector3(-1.0, 1.4, 0.9), Vector3(-1.3, 1.45, 1.2), Vector3(0.6, 1.0, -0.2), Vector3(0.5, 1.1, -0.4), 7.0]],
-	"door": [Vector3(-0.8, 0.12, 2.1), Vector3(-0.8, 0.09, 0.95)], "stand": Vector3(-0.2, 0.09, 0.42),
-	"seat": Vector3(-0.45, 0.6, SAUNA_SIT_Z),
-	"santtu_shot": [Vector3(1.3, 1.55, -0.62), Vector3(1.2, 1.5, -0.52), Vector3(-0.7, 1.0, 1.2), Vector3(-0.2, 1.0, 0.3), 6.0],
-}
-## Tynnyrisauna (mokki.gd _build_keskimmainen): rungon kehys perävaunun keskellä maan tasossa, +Z ovelle. Tynnyrin
-## keskiviiva y 1,55, säde 1,05, päädyt z ±1,6; barrel = [säde, keskiviiva, puolipituus] rakentaa sisustan
-## (_barrel_room): vaalea paneeli kaarelle, matala lattia, laude takapäädyssä ja kiuas keskellä vasemmalla (hahmon
-## vasemmalla kädellä). Santtu istuu hahmon oikealle puolelle; kamera tulee hänen kuvaansa takanurkasta.
-const SAUNA_TYNNYRI := {
-	"title": "TYNNYRISAUNA", "intro": "Kaarevat paneelit, pieni kiuas ja ovenraosta kajastaa Keskimmäinen.",
-	"hero": Vector3(0.15, 0.68, -1.15), "face": Vector3(0, 0, 1), "stones": Vector3(0.35, 1.3, 0.0),
-	"over": Vector3(0.32, 1.58, -0.05), "kiulu": Vector3(0.38, 0.92, -0.7), "rest_cup": Vector3(0.45, 0.98, -0.62),
-	"kiulu_prop": true, "ember": Vector3(0.35, 0.95, -0.4), "ember_shadow": false, "window": Vector3(0.0, 1.75, -1.25),
-	"coals": null, "haze": Vector3(0.0, 2.1, -0.4), "haze_ext": Vector3(0.55, 0.1, 1.0), "shell": null,
-	"barrel": [1.05, 1.55, 1.6],
-	"shots": [[Vector3(-0.35, 1.75, 1.3), Vector3(-0.3, 1.78, 1.15), Vector3(0.1, 1.35, -1.1), Vector3(0.1, 1.4, -1.1), 4.0],
-		[Vector3(-0.45, 1.7, 0.6), Vector3(-0.4, 1.68, 0.55), Vector3(0.35, 1.25, 0.0), Vector3(0.35, 1.3, 0.0), 4.0],
-		[Vector3(0.05, 1.85, -0.35), Vector3(0.05, 1.88, -0.5), Vector3(0.15, 1.88, -1.15), Vector3(0.15, 1.9, -1.15), 4.5],
-		[Vector3(-0.2, 1.8, 0.9), Vector3(-0.25, 1.85, 1.35), Vector3(0.0, 1.35, -0.9), Vector3(0.0, 1.4, -1.0), 7.0]],
-	"door": [Vector3(-0.12, 0.7, 1.45), Vector3(-0.12, 0.7, 0.6)], "stand": Vector3(-0.25, 0.7, -0.35),
-	"seat": Vector3(-0.45, 0.68, -1.15),
-	"santtu_shot": [Vector3(0.72, 1.75, -1.05), Vector3(0.7, 1.78, -0.95), Vector3(-0.12, 1.6, 1.4), Vector3(-0.3, 1.6, -0.5), 6.0],
-}
-## Jos Vaalaan ajettiin junan erikoiskohtauksella (kossut naisille), Uiton saunalle tulee Santun sijaan Helena bikineissä
-## (main.gd helena_vaalassa -> sauna_guest = "helena").
-const SAUNA_HELENA_IN := ["Täällä on kuuma... ja kylmät kaljat. Mahdutaanko?", "Tiesin, että löydän sut täältä. Otin kylmät mukaan."]
-const SAUNA_HELENA_SIT := ["Kippis, komistus. Tää on parempaa kuin ravintolavaunu.", "Aaah. Lämmintä on, mutta sun vieressä lämpimämpää."]
-var sauna_guest := ""  # "" = Santtu, "helena" = Helena bikineissä
-const SAUNA_SANTTU_IN := ["Mahtuuko tänne? Otin kylmät mukaan.", "Löylyä ilman kaljaa? Ei meidän mökillä.",
-	"Kuulin ku kiuas sihahti. Tässä, kylmää."]
-const SAUNA_SANTTU_SIT := ["Kippis! Tää on mökin paras hetki.", "Aaah. Tätä varten tää mökki on olemassa.",
-	"Heitä vielä yks, ei se meitä tapa."]
 
 
-## Santun ulkonäkö (sauna_relax santtu = true).
-const SANTTU_LOOK := {
-	"shirt": Color(0.75, 0.55, 0.12), "pants": Color(0.25, 0.24, 0.26), "shoes": Color(0.13, 0.3, 0.14), "shoe": "kumisaapas",
-	"hair": "Hair_SimpleParted", "hair_color": Color(0.4, 0.3, 0.18), "beard": true, "height": 1.78,
-	"belly": 0.35, "bulk": -0.1,
-}
 
 ## Saunavaatteet: paljas, löylystä punertava iho ja valkoinen pyyhe lanteilla.
 static func sauna_look(base: Dictionary) -> Dictionary:
@@ -796,429 +732,12 @@ static func sauna_look(base: Dictionary) -> Dictionary:
 	return look
 
 
-## Löylyssä käynti: hämärä savusauna sisältä, kiuas hehkuu. Hahmo istuu ylälauteella, heittää pitkävartisella
-## kauhalla löylyä kiukaalle ja nauttii rauhassa; kalja mukana, niin hörppy löylyn päälle. frame = saunan
-## rungon kehys (Mokki.sauna_frame). Lyhyt tunnelmapala, ei päivän lopetus (ks. main.gd _sauna_cutscene).
-## lay = saunan asettelu (SAUNA_SAVU:n avaimet korvaavat, esim. mökin sisäsauna), santtu = Santtu tulee löylyihin ja
-## tuo kaljat, hide = välianimaation ajaksi piilotettavat solmut (esim. sisätilan kävelijä).
-func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable, lay: Dictionary = {}, santtu := false,
-		hide: Array = []) -> void:
-	var L: Dictionary = SAUNA_SAVU.merged(lay, true)
-	_begin()
-	await _fade_to(1.0, 0.4)
-	_cam.current = true
-	_cam.fov = 58.0
-	for n in hide_nodes:
-		if is_instance_valid(n):
-			n.visible = false
-	var hidden: Array = []
-	for n in hide:
-		if is_instance_valid(n) and n.visible:
-			n.visible = false
-			hidden.append(n)
-	var at := func(p: Vector3) -> Vector3: return frame * p
-	# Hahmon oma kehys: paikat (kalja, pyyhe) annetaan kuin istuisi kasvot +Z:aan, kääntö katseen suuntaan.
-	var hero_rot := Basis(Vector3.UP, B.yaw_to(L.face) - PI)
-	var hl := func(v: Vector3) -> Vector3: return frame * (L.hero + hero_rot * v)
-	if L.shell != null:
-		_sauna_shell(frame, L.shell)
-	if L.get("barrel") != null:
-		_barrel_room(frame, L.barrel)
-	# Hämärä: aurinko ja taivaan valo pois, valo tulee hiillokselta ja pienestä ikkunasta.
-	var saved := [sun.light_energy, env.ambient_light_energy, env.glow_intensity, env.glow_bloom, env.reflected_light_source]
-	sun.light_energy = 0.12
-	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED  # ei sinistä taivasheijastusta tervatuista hirsistä
-	env.ambient_light_energy = 0.14
-	env.glow_intensity = 0.8
-	env.glow_bloom = 0.12
-	var ember := OmniLight3D.new()
-	ember.light_color = Color(1.0, 0.45, 0.16)
-	ember.light_energy = 1.6
-	ember.omni_range = 3.6
-	ember.omni_attenuation = 1.4
-	ember.shadow_enabled = L.ember_shadow
-	_props.add_child(ember)
-	ember.global_position = at.call(L.ember)
-	var window := OmniLight3D.new()
-	window.light_color = Color(0.62, 0.74, 1.0)
-	window.light_energy = 0.9
-	window.omni_range = 3.4
-	_props.add_child(window)
-	window.global_position = at.call(L.window)
-	if L.coals != null:
-		for k in 7:  # hiillos pesässä
-			B.mesh(_props, B.sphere(0.035 + (k % 3) * 0.012, 6), at.call(L.coals + Vector3((k % 3) * 0.1, 0, k * 0.05)),
-				Color.WHITE).material_override = B.unshaded(Color(1.6, 0.45 + (k % 2) * 0.2, 0.08))
-	if L.kiulu_prop:
-		var ki: Vector3 = L.kiulu - Vector3(0, 0.12, 0)
-		B.mesh(_props, B.cyl(0.13, 0.1, 0.24, 10), at.call(ki), Color(0.55, 0.4, 0.25))
-		B.mesh(_props, B.cyl(0.12, 0.12, 0.01, 10), at.call(ki + Vector3(0, 0.1, 0)), Color(0.3, 0.38, 0.42))
-	# Ylälauteella, kasvot oveen ja kiukaaseen päin (savusaunassa +Z). Kiuas jää vasemmalle kädelle.
-	var hero := Looks.make(_props, sauna_look(Looks.player()))
-	hero.global_position = at.call(L.hero)
-	hero.global_rotation.y = frame.basis.get_euler().y + B.yaw_to(L.face)
-	hero.play("Sitting_Idle", 0.0)
-	var ladle := Node3D.new()
-	B.tube(ladle, Vector3.ZERO, Vector3(0, 0, -LADLE_LEN), 0.014, Color(0.55, 0.42, 0.26))
-	B.mesh(ladle, B.cyl(0.06, 0.045, 0.06, 10), Vector3(0, 0.0, -LADLE_LEN), Color(0.5, 0.36, 0.22))
-	_props.add_child(ladle)
-	var can_rest: Vector3 = hl.call(Vector3(-0.42, 0.5, -0.05))  # oikean reiden vieressä lauteella
-	var can: Node3D
-	if has_beer and not santtu:
-		can = B.mesh(_props, B.cyl(0.033, 0.033, 0.12, 12), can_rest, Color(0.8, 0.75, 0.2))
-	# Kädet IK:lla: vasen ohjaa kauhan kuppia (cup), oikea tuo kaljan suulle (sip 0..1).
-	var st := {"cup": Vector3.ZERO, "pour": 0.0, "lean": 0.0, "back": 0.0, "sip": 0.0, "t": 0.0, "shot": 0, "can": can}
-	var rest_cup: Vector3 = at.call(L.rest_cup)  # kauha kiulun vieressä nojallaan
-	st.cup = rest_cup
-	var upd := func() -> void:
-		if not is_instance_valid(hero):
-			return
-		st.t += get_process_delta_time()
-		ember.light_energy = 1.5 + 0.18 * sin(st.t * 7.0) + 0.1 * sin(st.t * 17.3)
-		hero.set_override("spine_01", Vector3.RIGHT, st.lean * 0.35 - st.back * 0.12)
-		hero.set_override("neck_01", Vector3.RIGHT, st.back * 0.4 + st.sip * 0.3)
-		var sh: Vector3 = hero.to_global(hero.bone_position("upperarm_l"))
-		var cup: Vector3 = st.cup
-		var hand := cup - (cup - sh).normalized() * LADLE_LEN
-		var side: Vector3 = hero.global_basis.x * -0.45
-		var cn: Node3D = st.get("can")  # oma tai Santun tuoma kalja
-		hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", hero.to_local(hand), hero.to_local(sh + side + Vector3(0, -0.4, 0)))
-		var grip: Vector3 = hero.to_global(hero.bone_position("hand_l"))
-		ladle.global_position = grip
-		if grip.distance_to(cup) > 0.05:
-			ladle.look_at(cup, Vector3.UP)
-			ladle.rotate_object_local(Vector3.FORWARD, st.pour)
-		if cn != null and st.sip > 0.0:
-			var head: Vector3 = hero.to_global(hero.bone_position("Head"))
-			var mouth := head + hero.global_basis.z * -0.12 + Vector3(0, -0.06, 0)
-			var shr: Vector3 = hero.to_global(hero.bone_position("upperarm_r"))
-			var goal := can_rest.lerp(mouth, st.sip)
-			hero.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", hero.to_local(goal),
-				hero.to_local(shr + hero.global_basis.x * 0.4 + Vector3(0, -0.4, 0)))
-			cn.global_position = hero.to_global(hero.bone_position("hand_r")) + Vector3(0, 0.02, 0)
-			cn.global_rotation = Vector3(0, 0, 0)
-			cn.rotate_object_local(Vector3.RIGHT, -1.6 * st.sip)
-	get_tree().process_frame.connect(upd)
-	var glide := func(key: String, to: Variant, sec: float) -> Tween:
-		var t := _tween()
-		t.tween_method(func(v: Variant) -> void: st[key] = v, st[key], to, sec).set_trans(Tween.TRANS_SINE)
-		return t
-	# Löylyhöyry: kiukaalta purkautuva pilvi ja hiljalleen leijuva usva katon rajassa.
-	# Pehmeät höyrytupsut: kameraan kääntyvä taso, jossa säteittäin häipyvä valkoinen.
-	var puff_tex := GradientTexture2D.new()
-	puff_tex.fill = GradientTexture2D.FILL_RADIAL
-	puff_tex.fill_from = Vector2(0.5, 0.5)
-	puff_tex.fill_to = Vector2(1.0, 0.5)
-	var pg := Gradient.new()
-	pg.set_color(0, Color(1, 1, 1, 0.55))
-	pg.set_color(1, Color(1, 1, 1, 0.0))
-	pg.add_point(0.45, Color(1, 1, 1, 0.25))
-	puff_tex.gradient = pg
-	var steam_mat := StandardMaterial3D.new()
-	steam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	steam_mat.vertex_color_use_as_albedo = true
-	steam_mat.albedo_texture = puff_tex
-	steam_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	steam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED  # varjostettuna hiilloksen vastavalo tummentaa
-	steam_mat.albedo_color = Color(0.62, 0.55, 0.5)
-	steam_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-	var make_steam := func(amount: int, life: float, vel: float, sz: float, burst: bool) -> CPUParticles3D:
-		var p := CPUParticles3D.new()
-		p.one_shot = burst
-		p.emitting = not burst
-		p.visible = not burst
-		p.amount = amount
-		p.lifetime = life
-		p.direction = Vector3.UP
-		p.spread = 40.0
-		p.initial_velocity_min = vel * 0.5
-		p.initial_velocity_max = vel
-		p.gravity = Vector3(0, 0.15, 0)
-		p.damping_min = vel * 0.4
-		p.damping_max = vel * 0.7
-		p.scale_amount_min = sz * 0.6
-		p.scale_amount_max = sz
-		var curve := Curve.new()
-		curve.add_point(Vector2(0, 0.3))
-		curve.add_point(Vector2(1, 1.6))
-		p.scale_amount_curve = curve
-		var ramp := Gradient.new()
-		ramp.set_color(0, Color(1, 1, 1, 0.0))
-		ramp.set_color(1, Color(1, 1, 1, 0.0))
-		ramp.add_point(0.15, Color(1, 1, 1, 0.8))
-		p.color_ramp = ramp
-		var qm := QuadMesh.new()
-		qm.size = Vector2(0.5, 0.5)
-		qm.material = steam_mat
-		p.mesh = qm
-		_props.add_child(p)
-		return p
-	var haze: CPUParticles3D = make_steam.call(24, 6.0, 0.08, 1.6, false)
-	haze.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	haze.emission_box_extents = L.haze_ext
-	haze.global_position = at.call(L.haze)
-	haze.preprocess = 6.0  # kaikki tupsut elossa heti: syntymättömät piirtyisivät mustina
-	var puff: CPUParticles3D = make_steam.call(70, 3.4, 1.3, 1.8, true)
-	puff.explosiveness = 1.0
-	puff.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	puff.emission_sphere_radius = 0.2
-	puff.global_position = at.call(L.stones)
-	var drops := CPUParticles3D.new()
-	drops.amount = 18
-	drops.lifetime = 0.45
-	drops.one_shot = true
-	drops.emitting = false
-	drops.explosiveness = 0.6
-	drops.direction = Vector3.DOWN
-	drops.spread = 15.0
-	drops.initial_velocity_min = 0.3
-	drops.initial_velocity_max = 0.8
-	drops.gravity = Vector3(0, -9.0, 0)
-	var dm := SphereMesh.new()
-	dm.radius = 0.012
-	dm.height = 0.024
-	dm.material = B.unshaded(Color(0.75, 0.85, 1.0, 0.8))
-	drops.mesh = dm
-	_props.add_child(drops)
-	var throw := func(lines: Array) -> void:
-		glide.call("lean", 1.0, 0.8)
-		await (glide.call("cup", at.call(L.kiulu), 0.8) as Tween).finished
-		Sfx.play("water", -10.0, 1.4, 0.4)
-		await _wait(0.25)
-		var over: Vector3 = at.call(L.over)
-		await (glide.call("cup", over, 0.8) as Tween).finished
-		glide.call("pour", 2.2, 0.3)
-		drops.global_position = over
-		drops.restart()
-		await _wait(0.22)
-		puff.visible = true
-		puff.restart()
-		get_tree().create_timer(puff.lifetime - 0.05, true, false, true).timeout.connect(func() -> void:
-			if is_instance_valid(puff):
-				puff.visible = false)
-		Sfx.play("water", -4.0, 2.4, 0.9)
-		Sfx.play("whoosh", -6.0, 0.45)
-		_sub.text = lines[0]
-		var flare := _tween()
-		flare.tween_property(env, "glow_intensity", 1.3, 0.15)
-		flare.tween_property(env, "glow_intensity", 0.8, 1.2)
-		await _wait(0.5)
-		glide.call("pour", 0.0, 0.4)
-		glide.call("lean", 0.0, 0.9)
-		await (glide.call("cup", rest_cup, 0.9) as Tween).finished
-	# Kameraliike sec sekunnissa; uusi kuva (shot-laskuri) katkaisee edellisen liikkeen.
-	var cam_move := func(from: Vector3, to: Vector3, look_from: Vector3, look_to: Vector3, sec: float) -> void:
-		st.shot += 1
-		var my: int = st.shot
-		var t0 := _now_ms()
-		while my == st.shot:
-			var u := clampf((_now_ms() - t0) / (sec * 1000.0), 0.0, 1.0)
-			var e := u * u * (3.0 - 2.0 * u)
-			_cam.global_position = at.call(from.lerp(to, e))
-			_cam.look_at(at.call(look_from.lerp(look_to, e)), Vector3.UP)
-			if u >= 1.0 or not busy:
-				break
-			await get_tree().process_frame
-	var shot := func(k: int) -> void:
-		var sh: Array = L.shots[k] if k >= 0 else L.santtu_shot
-		cam_move.call(sh[0], sh[1], sh[2], sh[3], sh[4])
-	_title.add_theme_color_override("font_color", Color(1.0, 0.72, 0.42))
-	_title.add_theme_font_size_override("font_size", 70)
-	# 1. Yleiskuva oven pielestä: hämärä, hiillos hehkuu, hahmo ylälauteella.
-	shot.call(0)
-	await _fade_to(0.0, 0.8)
-	_title.text = L.title
-	_sub.text = L.intro
-	await _wait(2.6)
-	_title.text = ""
-	# 2. Kauhallinen kiukaalle: kuva sivusta kivien ja kauhan tasolta.
-	shot.call(1)
-	_sub.text = "Kauhallinen vettä kiukaalle..."
-	await throw.call(["Tsssshhhh!"])
-	# 3. Lähikuva: nojaa taaksepäin, silmät kiinni, löyly laskeutuu hartioille.
-	shot.call(2)
-	glide.call("back", 1.0, 1.4)
-	_sub.text = "Löyly laskeutuu hartioille. Aaahh."
-	await _wait(2.4)
-	_sub.text = SAUNA_LINES.pick_random()
-	await _wait(2.2)
-	if santtu:
-		# 3b. Santtu tulee ovesta pyyhe lanteilla, ojentaa kylmän kaljan ja istuu viereen.
-		glide.call("back", 0.0, 0.6)
-		shot.call(-1)
-		await _sauna_santtu(frame, L, hero, st)
-		has_beer = true
-	# 4. Toinen kauhallinen ja hörppy kaljaa, kamera vetäytyy hitaasti.
-	glide.call("back", 0.0, 0.6)
-	shot.call(3)
-	await throw.call(["Toinen kauhallinen. Lämpö nousee korviin."])
-	if has_beer:
-		_sub.text = "Hörppy kylmää kaljaa löylyn päälle."
-		await (glide.call("sip", 1.0, 0.7) as Tween).finished
-		Sfx.play("pickup", -4.0, 0.9)
-		await _wait(0.6)
-		await (glide.call("sip", 0.0, 0.7) as Tween).finished
-		await _wait(0.4)
-	else:
-		glide.call("back", 0.8, 1.2)
-		_sub.text = SAUNA_LINES.pick_random()
-		await _wait(2.0)
-	_sub.text = ""
-	await _end(func() -> void:
-		get_tree().process_frame.disconnect(upd)
-		for n in hidden:
-			if is_instance_valid(n):
-				n.visible = true
-		sun.light_energy = saved[0]
-		env.ambient_light_energy = saved[1]
-		env.glow_intensity = saved[2]
-		env.glow_bloom = saved[3]
-		env.reflected_light_source = saved[4]
-		_cam.fov = 50.0
-		done.call())
-	_title.add_theme_font_size_override("font_size", 150)
 
 
-## Santtu löylyihin: ovelta sisään (L.door), ojentaa kaljan hahmolle (st.can, IK:n kalja) ja istuu viereen (L.seat)
-## oma kalja kädessä.
-func _sauna_santtu(frame: Transform3D, L: Dictionary, hero: Node3D, st: Dictionary) -> void:
-	var at := func(p: Vector3) -> Vector3: return frame * p
-	var helena := sauna_guest == "helena"
-	var who := "Helena" if helena else "Santtu"
-	var s: Node3D = Looks.make(_props, helena_bikini() if helena else sauna_look(SANTTU_LOOK))
-	if helena:
-		_hoops(s)
-		s.body_mat.set_shader_parameter("topless", true)  # saunassa ilman bikinien yläosaa
-	var path: Array = L.door + [L.stand]
-	s.global_position = at.call(path[0])
-	s.play("Walk", 0.0)
-	var own := Node3D.new()
-	B.mesh(own, B.cyl(0.033, 0.033, 0.12, 12), Vector3.ZERO, Color(0.8, 0.75, 0.2))
-	s.attach("hand_r", own, Vector3(0, -0.02, 0.05))
-	var gift := Node3D.new()
-	B.mesh(gift, B.cyl(0.033, 0.033, 0.12, 12), Vector3.ZERO, Color(0.8, 0.75, 0.2))
-	var gift_bone: Node3D = s.attach("hand_l", gift, Vector3(0, -0.02, 0.05))
-	Sfx.play("door", -6.0, 0.9)
-	_sub.text = "Ovi narahtaa..."
-	for i in range(1, path.size()):
-		var a: Vector3 = at.call(path[i - 1])
-		var b: Vector3 = at.call(path[i])
-		s.global_rotation.y = B.yaw_to(b - a)
-		var tw := _tween()
-		tw.tween_property(s, "global_position", b, a.distance_to(b) / 1.3)
-		await tw.finished
-	var hp := hero.global_position
-	s.global_rotation.y = B.yaw_to(Vector3(hp.x, 0, hp.z) - Vector3(s.global_position.x, 0, s.global_position.z))
-	s.play("Interact", 0.25)
-	_sub.text = "%s: \"%s\"" % [who, (SAUNA_HELENA_IN if helena else SAUNA_SANTTU_IN).pick_random()]
-	await _wait(0.9)
-	# Kalja Santun kädestä hahmon viereen lauteelle; IK nostaa sen myöhemmin suulle.
-	var from: Vector3 = gift.global_position
-	gift_bone.queue_free()
-	var can := B.mesh(_props, B.cyl(0.033, 0.033, 0.12, 12), from, Color(0.8, 0.75, 0.2))
-	var rest: Vector3 = frame * (L.hero + Basis(Vector3.UP, B.yaw_to(L.face) - PI) * Vector3(-0.42, 0.5, -0.05))
-	var tw2 := _tween()
-	tw2.tween_property(can, "global_position", rest, 0.7).set_trans(Tween.TRANS_SINE)
-	Sfx.play("pickup", -6.0, 1.1)
-	await tw2.finished
-	st.can = can
-	await _wait(1.0)
-	# Viereen lauteelle.
-	s.play("Walk", 0.2)
-	var seat: Vector3 = at.call(L.seat)
-	s.global_rotation.y = B.yaw_to(seat - s.global_position)
-	var tw3 := _tween()
-	tw3.tween_property(s, "global_position", seat, 0.9).set_trans(Tween.TRANS_SINE)
-	await tw3.finished
-	s.global_rotation.y = frame.basis.get_euler().y + B.yaw_to(L.face)
-	s.play("Sitting_Idle", 0.3)
-	Sfx.play("pickup", -4.0, 0.8)
-	_sub.text = "%s: \"%s\"" % [who, (SAUNA_HELENA_SIT if helena else SAUNA_SANTTU_SIT).pick_random()]
-	await _wait(2.4)
 
 
-## Välianimaation saunahuone (sisätiloissa ilman kattoa ja matalin seinin): tummat paneeliseinät, oviaukko ja katto.
-## shell = [Rect2(x, z, leveys, syvyys), korkeus, oviaukko Vector2(x alku, x loppu) seinässä z = rect.position.y].
-func _sauna_shell(frame: Transform3D, shell: Array) -> void:
-	var r: Rect2 = shell[0]
-	var h: float = shell[1]
-	var door: Vector2 = shell[2]
-	var col := Color(0.24, 0.17, 0.11)
-	var t := 0.06
-	var x0 := r.position.x - t / 2.0
-	var x1 := r.end.x + t / 2.0
-	var z0 := r.position.y - t / 2.0
-	var z1 := r.end.y + t / 2.0
-	var part := func(size: Vector3, c: Vector3) -> void:
-		var m := B.mesh(_props, B.boxm(size), frame * c, col)
-		m.global_basis = frame.basis
-	part.call(Vector3(x1 - x0, h, t), Vector3((x0 + x1) / 2.0, h / 2.0, z1))
-	part.call(Vector3(t, h, z1 - z0), Vector3(x0, h / 2.0, (z0 + z1) / 2.0))
-	part.call(Vector3(t, h, z1 - z0), Vector3(x1, h / 2.0, (z0 + z1) / 2.0))
-	part.call(Vector3(door.x - x0, h, t), Vector3((x0 + door.x) / 2.0, h / 2.0, z0))
-	part.call(Vector3(x1 - door.y, h, t), Vector3((door.y + x1) / 2.0, h / 2.0, z0))
-	part.call(Vector3(door.y - door.x, h - 2.0, t), Vector3((door.x + door.y) / 2.0, (h + 2.0) / 2.0, z0))
-	part.call(Vector3(x1 - x0, t, z1 - z0), Vector3((x0 + x1) / 2.0, h, (z0 + z1) / 2.0))
 
 
-## Tynnyrisaunan sisusta välianimaatioon (tynnyrin ulkokuori on jo mökin mallissa): vaalea haapapaneeli kaarelle
-## ja päätyihin, lautalattia, laude takapäädyssä, kiuas kivineen ja hehkuvine luukkuineen, piippu
-## kattoon, takapäädyn ikkuna ja ovesta päivänvalo. barrel = [säde, keskiviiva y, puolipituus].
-func _barrel_room(frame: Transform3D, barrel: Array) -> void:
-	var r: float = barrel[0] - 0.07
-	var cy: float = barrel[1]
-	var hl: float = barrel[2] - 0.06
-	var floor_y := cy - 0.87  # matala lattia: istuvan pää ei osu kattoon (Sitting_Idle: juuri jaloissa, pakarat ~0,45 m ylempänä)
-	var room := Node3D.new()
-	_props.add_child(room)
-	room.global_transform = frame
-	var pine := Color(0.8, 0.62, 0.4)
-	var n := 34
-	for k in n:
-		var a := k * TAU / n
-		if sin(a) < -0.86:
-			continue  # lattian alla
-		B.mesh(room, B.boxm(Vector3(r * TAU / n + 0.01, 0.03, hl * 2.0)), Vector3(cos(a) * r, cy + sin(a) * r, 0),
-			pine.darkened(0.05 * (k % 3)), Vector3(0, 0, rad_to_deg(a + PI / 2.0)))
-	B.mesh(room, B.boxm(Vector3(2.0 * sqrt(r * r - 0.87 * 0.87) + 0.12, 0.05, hl * 2.0)), Vector3(0, floor_y - 0.025, 0), Color(0.55, 0.42, 0.28))
-	# Päädyt pystylaudoista: edessä oviaukko (päivänvalo), takana ikkuna.
-	var door := Vector2(-0.4, 0.2)
-	for e: float in [-1.0, 1.0]:
-		var x := -r
-		while x < r:
-			var xc := x + 0.06
-			var top := cy + sqrt(maxf(r * r - xc * xc, 0.0))
-			var bot := maxf(floor_y, cy - sqrt(maxf(r * r - xc * xc, 0.0)))
-			if e > 0.0 and xc > door.x and xc < door.y:
-				bot = floor_y + 1.55
-			if top > bot:
-				B.mesh(room, B.boxm(Vector3(0.115, top - bot, 0.03)), Vector3(xc, (top + bot) / 2.0, e * hl), pine.darkened(0.04 * (absi(int(x * 10.0)) % 3)))
-			x += 0.12
-	var day := B.mesh(room, B.boxm(Vector3(door.y - door.x, 1.55, 0.01)), Vector3((door.x + door.y) / 2.0, floor_y + 0.775, hl + 0.03), Color.WHITE)
-	day.material_override = B.unshaded(Color(1.0, 0.96, 0.86))
-	var glass := B.mesh(room, B.boxm(Vector3(0.42, 0.3, 0.01)), Vector3(0, 1.85, -hl + 0.03), Color.WHITE)
-	glass.material_override = B.unshaded(Color(0.62, 0.78, 0.9))
-	B.mesh(room, B.boxm(Vector3(0.5, 0.04, 0.04)), Vector3(0, 1.85, -hl + 0.05), pine.darkened(0.3))
-	B.mesh(room, B.boxm(Vector3(0.04, 0.38, 0.04)), Vector3(0, 1.85, -hl + 0.05), pine.darkened(0.3))
-	# Laude takapäädyssä tukijalkoineen (jalat lattialle).
-	var bench := Color(0.86, 0.7, 0.48)
-	var top := 1.13
-	B.mesh(room, B.boxm(Vector3(1.8, 0.05, hl - 0.92)), Vector3(0, top - 0.025, -(hl + 0.92) / 2.0), bench)
-	B.mesh(room, B.boxm(Vector3(1.6, 0.18, 0.03)), Vector3(0, top - 0.14, -0.93), bench.darkened(0.12))
-	for x: float in [-0.55, 0.55]:
-		B.mesh(room, B.boxm(Vector3(0.05, top - floor_y, 0.05)), Vector3(x, (top + floor_y) / 2.0, -0.97), bench.darkened(0.25))
-	# Kiuas: musta pesä, kivikori ja hehkuva luukku hahmoon päin, piippu kattoon.
-	var iron := Color(0.12, 0.12, 0.13)
-	var sx := 0.35
-	B.mesh(room, B.boxm(Vector3(0.4, 0.55, 0.42)), Vector3(sx, floor_y + 0.275, 0.0), iron)
-	for k in 9:
-		var ang := k * TAU / 9.0
-		B.mesh(room, B.sphere(0.07 + (k % 3) * 0.012, 8), Vector3(sx + cos(ang) * 0.12, floor_y + 0.6 + (k % 2) * 0.04, sin(ang) * 0.12),
-			Color(0.42, 0.4, 0.38).darkened(0.08 * (k % 3)))
-	B.mesh(room, B.sphere(0.08, 8), Vector3(sx, floor_y + 0.66, 0.0), Color(0.4, 0.38, 0.36))
-	var hatch := B.mesh(room, B.boxm(Vector3(0.18, 0.1, 0.01)), Vector3(sx, floor_y + 0.18, -0.215), Color.WHITE)
-	hatch.material_override = B.unshaded(Color(1.6, 0.55, 0.12))
-	B.mesh(room, B.cyl(0.06, 0.06, 1.3, 10), Vector3(sx, floor_y + 1.3, 0.17), Color(0.7, 0.7, 0.72))
 
 
 # --- Salmisen uinti ja sukeltelu ----------------------------------------------------
@@ -1842,186 +1361,12 @@ func pentti_tour(stats: String, done: Callable) -> void:
 
 # --- Pekan kyyti mökille ----------------------------------------------------------
 
-const RIDE_ROAD := Vector3(-6000, 0, -3000)
-const RIDE_LEN := 420.0
-const PEKKA_RIDE_LINES := ["Hyppää kyytiin perkele, mää oon menossa Neittävälle kyyhkyjahtiin!",
-	"Turvavyö? Ei tässä autossa oo saatanan turvavöitä.", "Kato, hirvi! ...Ei ollu. Kanto se oli, perkele.",
-	"Neittävän pelloilla on kyyhkyä ku vittu taivaan täydeltä!", "Sanoinko jo että ammuin neljätoista kyyhkyä?",
-	"Tästä Kaisuantielle. Terveisiä Santulle, perkele!"]
-const PEKKA_HOME_LINES := ["Yheksän kyyhkyä tuli, perkele. Kymmenes karkas metsään.",
-	"No, tuliko Santun hommat tehtyä vai motkottiko se taas, saatana?", "Päivi soitti mulle. Mää en sanonu mitään, perkele.",
-	"Ens kerralla lähetään yhessä jahtiin, vittu.", "Sanoinko jo että ammuin neljätoista kyyhkyä?",
-	"Kotipihaan asti, saatana. Tervemenoa Päivin luo."]
-const PEKKA_EVICT_LINES := ["Santtu soitti. Kuulemma hommat jäi tekemättä, perkele.", "Yhen tähen arvostelu? Voi vittu.",
-	"No, mää en kerro Päiville. Tai no, se kuulee kuitenkin.", "Kyyhkyjahti jäi kesken sun takia, saatana.",
-	"Sanoinko jo että ammuin neljätoista kyyhkyä?", "Kotipihaan asti. Mee nyt vaan sisälle, perkele."]
 
 
-## Pekan vanha vihreä Volvo 245 -farmari (vehicles.gd volvo, läpinäkyvät lasit: kuski ja kyytiläinen näkyvät):
-## kattoteline kattokiskojen päällä, haulikkolaukku ja punkka. Palauttaa {"car", "pekka", "hero", "wheels"}.
-func _pekka_car(parent: Node3D) -> Dictionary:
-	var car := Node3D.new()
-	parent.add_child(car)
-	var wheels := Vehicles.volvo(car, Color(0.22, 0.3, 0.18), "PEK-14", true)
-	var rack := Color(0.12, 0.12, 0.12)
-	for z in [-0.02, 0.85]:  # poikittaistangot kattokiskojen päällä (kiskot z -0,1…2,0, yläpinta 1,50)
-		B.box(car, Vector3(1.5, 0.05, 0.06), Vector3(0, 1.53, z), rack, false)
-	B.box(car, Vector3(0.28, 0.12, 1.6), Vector3(0.35, 1.62, 0.25), Color(0.3, 0.24, 0.12), false)  # haulikkolaukku
-	B.box(car, Vector3(0.55, 0.32, 0.9), Vector3(-0.35, 1.72, 0.25), Color(0.75, 0.3, 0.08), false)  # punkka kattotelineellä
-	# Istujat lasketaan istuimesta (Vehicles.istuta): lantio istuimelle, jalat jalkatilan lattialle korin sisään,
-	# pää katon alle (tools/testit/autossa_kuvat.tscn mittaa).
-	var pekka := Looks.make(car, Looks.PEKKA)
-	pekka.play("Driving", 0.0)
-	Vehicles.istuta(pekka, "volvo", "kuski")
-	var hero := Looks.make(car, Looks.player())
-	Looks.add_cap(hero)
-	hero.play("Sitting_Idle", 0.0)
-	Vehicles.istuta(hero, "volvo", "etu")
-	var can := Node3D.new()
-	B.mesh(can, B.cyl(0.033, 0.033, 0.12, 12), Vector3(0, -0.02, 0), Color(0.8, 0.75, 0.2))
-	hero.attach("hand_r", can, Vector3(0, -0.02, 0.03))
-	return {"car": car, "pekka": pekka, "hero": hero, "wheels": wheels}
 
 
-## Kyyti naapurin Pekan kanssa Saloisista Vaalaan: kesäinen maantie peltojen, säilörehupaalien ja männikön
-## halki, Pekka puhuu kyyhkyistä. Kolme kuvaa: perästä, edestä tuulilasin läpi (Pekka ratissa, sankari
-## kalja kädessä) ja tienvarresta, kun auto kaartaa Neittävän kyltin ohi. done kutsutaan pimeällä.
-## kind: "meno" (Vaalaan), "koti" (kotiin Saloisiin) tai "haato" (Santtu soitti Pekan hakemaan).
-func pekka_ride(sub: String, done: Callable, kind := "meno") -> void:
-	var home := kind != "meno"
-	var lines: Array = PEKKA_RIDE_LINES if not home else (PEKKA_EVICT_LINES if kind == "haato" else PEKKA_HOME_LINES)
-	_begin()
-	Sfx.play("door_close", -3.0)
-	Sfx.music_play(0.8)
-	await _fade_to(1.0, 0.4)
-	var road := _build_ride_road("Raahe 108\nSaloinen 106" if home else "Vaala 12\nNeittävä 4", "SALOINEN" if home else "NEITTÄVÄ")
-	var rig := _pekka_car(road)
-	var car: Node3D = rig.car
-	var wheels: Array = rig.wheels
-	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
-	bubble.no_depth_test = true
-	_cam.current = true
-	_title.add_theme_color_override("font_color", Color(0.75, 0.95, 0.45))
-	_title.add_theme_font_size_override("font_size", 80)
-	const SEC := 12.0
-	const SPEED := 22.0
-	var t0 := _now_ms()
-	var faded := false
-	var honked := false
-	while _now_ms() - t0 < SEC * 1000.0:
-		var t := (_now_ms() - t0) / 1000.0
-		# Kevyt hölskyntä soratiellä ja pyörät pyörivät.
-		car.position = Vector3(sin(t * 0.7) * 0.25, absf(sin(t * 9.0)) * 0.02, -t * SPEED)
-		car.rotation.z = sin(t * 5.3) * 0.012
-		for w: Node3D in wheels:
-			w.rotation.x = -t * SPEED / 0.34
-		var tp := car.global_position
-		if t < 4.2:
-			# 1) Perästä viistosti: tie ja pellot aukeavat eteen.
-			var u := t / 4.2
-			_cam.global_position = tp + Vector3(lerpf(4.5, 2.6, u), lerpf(2.6, 1.9, u), lerpf(8.5, 6.8, u))
-			_cam.look_at(tp + Vector3(0, 0.9, -4.0), Vector3.UP)
-		elif t < 8.6:
-			# 2) Edestä tuulilasin läpi: Pekka ratissa, sankari kalja kädessä.
-			var u := (t - 4.2) / 4.4
-			_cam.global_position = car.to_global(Vector3(lerpf(1.6, 0.5, u), 1.45, -5.4 + u * 0.8))
-			_cam.look_at(car.to_global(Vector3(0.0, 1.2, 0.2)), Vector3.UP)
-		else:
-			# 3) Tienvarresta Neittävän kyltin vierestä: auto ohittaa ja töräyttää.
-			var post := RIDE_ROAD + Vector3(5.8, 1.1, -SPEED * 10.3)
-			_cam.global_position = post
-			_cam.look_at(tp + Vector3(0, 0.8, 0), Vector3.UP)
-			if not honked:
-				honked = true
-				Sfx.play("horn", -6.0)
-		bubble.global_position = tp + Vector3(-0.4, 2.4 if t < 4.2 or t >= 8.6 else 1.85, 0)
-		bubble.text = "Pekka: " + lines[mini(int(t / 2.0), lines.size() - 1)]
-		if not faded:
-			faded = true
-			_fade_to(0.0, 0.6)
-			_title.text = {"meno": "PEKAN KYYDILLÄ VAALAAN", "koti": "PEKAN KYYDILLÄ KOTIIN", "haato": "HÄÄTÖ MÖKILTÄ"}[kind]
-			_sub.text = sub
-		if t > 3.6 and t < 8.6:
-			_title.text = ""  # tuulilasikuvassa kasvot näkyviin
-			_band.visible = false
-		elif t >= 8.6:
-			_title.text = "SALOINEN" if home else "NEITTÄVÄ"
-		await get_tree().process_frame
-	await _end(done)
-	_title.add_theme_font_size_override("font_size", 150)
 
 
-## Kesäinen maantie Vaalaan: kapea asfaltti sorapientareineen, pellot ja säilörehupaalit, ladot, männikkö,
-## sähkölinja, Oulujärven sininen kaistale ja lopussa kylän nimikyltti (Neittävä tai kotimatkalla Saloinen).
-func _build_ride_road(guide: String, village: String) -> Node3D:
-	var r := Node3D.new()
-	r.position = RIDE_ROAD
-	_props.add_child(r)
-	var mid := -RIDE_LEN * 0.5 + 40.0
-	B.box(r, Vector3(600, 0.1, RIDE_LEN + 200), Vector3(0, -0.06, mid), Color(0.32, 0.46, 0.2), false)  # pellot
-	B.box(r, Vector3(9, 0.03, RIDE_LEN + 200), Vector3(0, -0.005, mid), Color(0.55, 0.5, 0.4), false)  # piennar
-	B.box(r, Vector3(6, 0.02, RIDE_LEN + 200), Vector3(0, 0.01, mid), Color(0.26, 0.26, 0.27), false)
-	for i in int((RIDE_LEN + 200) / 9.0):
-		B.box(r, Vector3(0.12, 0.01, 3.0), Vector3(0, 0.025, 60.0 - i * 9.0), Color(0.92, 0.88, 0.6), false)
-	for sx in [-2.85, 2.85]:
-		B.box(r, Vector3(0.1, 0.01, RIDE_LEN + 200), Vector3(sx, 0.025, mid), Color(0.9, 0.9, 0.86), false)
-	# Ojat ja viljapelto (kultaista) vasemmalla, nurmipelto paaleineen oikealla.
-	for sx in [-5.5, 5.5]:
-		B.box(r, Vector3(1.2, 0.02, RIDE_LEN + 200), Vector3(sx, -0.02, mid), Color(0.2, 0.3, 0.15), false)
-	B.box(r, Vector3(120, 0.04, RIDE_LEN * 0.6), Vector3(-67, 0.0, -90), Color(0.78, 0.68, 0.3), false)
-	var white := Color(0.93, 0.94, 0.92)
-	for i in 26:
-		var p := Vector3(randf_range(14, 70), 0.6, randf_range(-RIDE_LEN + 60, 40))
-		var bale := B.mesh(r, B.cyl(0.65, 0.65, 1.2, 16), p, white, Vector3(0, 0, PI / 2.0))
-		bale.rotation.y = randf() * TAU
-	# Punainen lato ja keltainen omakotitalo peltojen laidalla.
-	for spec in [[Vector3(-34, 0, -40), Color(0.6, 0.12, 0.08)], [Vector3(30, 0, -210), Color(0.62, 0.14, 0.1)],
-			[Vector3(-26, 0, -300), Color(0.9, 0.78, 0.35)]]:
-		var bp: Vector3 = spec[0]
-		B.box(r, Vector3(9, 4, 6), bp + Vector3(0, 2, 0), spec[1], false)
-		B.mesh(r, B.cyl(0.0, 5.6, 2.4, 4), bp + Vector3(0, 5.2, 0), Color(0.18, 0.18, 0.2), Vector3(0, PI / 4.0, 0))
-		for wx in [-2.5, 2.5]:
-			B.box(r, Vector3(1.0, 1.0, 0.05), bp + Vector3(wx, 2.4, 3.03), white, false)
-	# Männikkö ja kuusikko peltojen takana, välillä tien vieressä.
-	for i in 140:
-		var side := -1.0 if i % 2 == 0 else 1.0
-		var near := i % 7 == 0
-		var x := side * (randf_range(9, 16) if near else randf_range(75, 160))
-		var z := randf_range(-RIDE_LEN - 40, 60)
-		var hgt := randf_range(9, 16)
-		if randf() < 0.5:
-			B.mesh(r, B.cyl(0.0, hgt * 0.22, hgt * 0.8, 7), Vector3(x, hgt * 0.5, z), Color(0.1, 0.24, 0.12))  # kuusi
-		else:
-			B.mesh(r, B.cyl(0.18, 0.25, hgt * 0.75, 6), Vector3(x, hgt * 0.37, z), Color(0.55, 0.32, 0.18))  # männyn runko
-			B.mesh(r, B.sphere(hgt * 0.2, 7), Vector3(x, hgt * 0.8, z), Color(0.16, 0.32, 0.14))
-	# Sähkölinja: puupylväät ja langat oikealla puolella.
-	var prev := Vector3.ZERO
-	for i in 12:
-		var p := Vector3(10.5, 0, 50.0 - i * 45.0)
-		B.box(r, Vector3(0.25, 9, 0.25), p + Vector3(0, 4.5, 0), Color(0.35, 0.25, 0.16), false)
-		B.box(r, Vector3(2.2, 0.15, 0.15), p + Vector3(0, 8.6, 0), Color(0.35, 0.25, 0.16), false)
-		if i > 0:
-			for wx in [-0.9, 0.9]:
-				B.tube(r, prev + Vector3(wx, 8.7, 0), p + Vector3(wx, 8.7, 0), 0.015, Color(0.1, 0.1, 0.1))
-		prev = p
-	# Oulujärven sininen selkä horisontissa ja Kaihuanvaaran siluetti.
-	B.box(r, Vector3(700, 0.05, 60), Vector3(0, 0.03, -RIDE_LEN - 70), Color(0.25, 0.42, 0.62), false)
-	for i in 6:
-		B.mesh(r, B.sphere(40.0 + i * 6.0, 10), Vector3(-260 + i * 100, -18, -RIDE_LEN - 190), Color(0.18, 0.3, 0.2))
-	# Tienviitat: VAALA 12 alussa ja Neittävän kylännimikyltti lopussa (kolmannen kuvan kamera sen vieressä).
-	var s1 := B.sign_pole(r, Vector3(4.6, 0, -30), 2.6)
-	var p1 := B.sign_plate(s1, guide, Color(0.1, 0.32, 0.65), Color.WHITE, 0.6, 44, Color.WHITE, "Helvetica Neue")
-	p1.position.y = 2.2
-	var s2 := B.sign_pole(r, Vector3(4.6, 0, -22.0 * 10.3 + 7.0), 2.6)  # kameran ja tulevan auton välissä
-	var p2 := B.sign_plate(s2, village, Color(0.1, 0.32, 0.65), Color.WHITE, 0.32, 44, Color.WHITE, "Helvetica Neue")
-	p2.position.y = 2.2
-	var sun_l := OmniLight3D.new()
-	sun_l.position = Vector3(0, 30, -150)
-	sun_l.light_color = Color(1.0, 0.95, 0.8)
-	sun_l.light_energy = 0.6
-	sun_l.omni_range = 400.0
-	r.add_child(sun_l)
-	return r
 
 
 # --- Junamatka ravintolavaunussa ----------------------------------------------------
@@ -2068,48 +1413,23 @@ static func helena_bikini() -> Dictionary:
 ## TRAIN_NO_TREAT:iin, jos rahat eivät riitä tarjoamiseen (naiset ostavat paukkunsa itse); "hand" = paukun
 ## jälkeen vieressä istuva Helena laskee kätensä vaivihkaa pelaajan polven päälle (IK) ja sivelee reittä
 ## hitaasti edestakaisin loppumatkan. Pelaaja tarttuu tuoppiinsa, ja ohimolta valuu silloin tällöin hikipisara.
-const TRAIN_TALK_VAALA := [
+const TRAIN_TALK := [
 	["marja", "Onko tässä vapaata? Ravintolavaunusta näkee parhaiten."], ["minä", "Istukaa toki! Tuoppi on just kaadettu."],
 	["minä", "Kolme Koskenkorvaa naisille, minun piikkiin!", "treat"], ["helena", "No voi kiitos! Kippis!"],
 	["helena", "Sinä olet kyllä mukava mies.", "hand"], ["minä", "Tuota... Juna on kyllä mukava kulkuväline."],
-	["marja", "Hyvää matkaa, ja terveisiä Siitarin karaokeen!"],
-]
-const TRAIN_TALK_SALOINEN := [
-	["helena", "Hei! Saanko istua? Tässä on niin kiva valo."], ["minä", "Tottahan toki. Mulla on tuoppi, otatteko jotain?"],
-	["minä", "Kolme Koskenkorvaa naisille, minä tarjoan!", "treat"],
-	["marja", "Kippis! Menetkö kotiin Saloisiin?"], ["minä", "Kotiin. Kuusi kaljaa ja nurmikko odottaa."], ["helena", "Älä vielä mene. Matkaa on jäljellä.", "hand"],
-	["liisa", "Sinulla on hauska tapa kertoa asioista."], ["minä", "Ja teidän kanssanne matka meni hetkessä."],
-	["helena", "Hyvää kotimatkaa! Oli ilo jutella."],
+	["marja", "Hyvää matkaa, ja terveisiä Kapteenin Kulman karaokeen!"],
 ]
 ## Junan puhujien äänet (Sfx.speak-ryhmä = assets/aanet/<ryhmä>/, tehdään tools/aanet/puheaani.py:llä).
 const TRAIN_VOICES := {"minä": "pelaaja", "marja": "marja", "liisa": "liisa", "helena": "helena"}
 const TRAIN_OUTSIDE_SHORT := 4.5  # Saloisista Vaalaan: ulkokuvien kesto (s)
 const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa vaikka kahvit itse."
-## Verkkopaidassa (Looks.outfit "farkut") Helena ei peittele: repliikit vaihtuvat näihin (puhuja ja vanha repliikki
-## -> uusi), ja kosketuksen jälkeen hän liukuu pelaajaa vasten ja painaa päänsä tämän olalle.
-const TRAIN_NET_LINES := {
-	"Sinä olet kyllä mukava mies.": "Tuo verkkopaita... Saanko istua vähän lähempänä?",
-	"Tuota... Juna on kyllä mukava kulkuväline.": "Istu vaan. Juna on mukava, mutta seura vielä mukavampi.",
-	"Älä vielä mene. Matkaa on jäljellä.": "Älä vielä mene. Tässä on niin lämmin olla.",
-	"Hei! Saanko istua? Tässä on niin kiva valo.": "Hei komistus! Saanko istua viereen? Verkkopaita on rohkea valinta.",
-	"No voi kiitos! Kippis!": "Kiitos, kulta! Kippis meille kahdelle.",
-	"Hyvää kotimatkaa! Oli ilo jutella.": "Soita joskus. Ja tule samassa paidassa.",
-}
-## Verkkopaidassa lisärepliikit kosketusta seuraavan repliikin jälkeen: Helena ihailee asua, rohkeampi pelaaja
-## vihjailee ("flirt" = lähikuva: pää Helenaan, kulmakarvat nousevat kahdesti ja suukko ohimolle) ja tarjoutuu oppaaksi määränpäähän (%s = Vaalassa tai Saloisissa).
-const TRAIN_NET_EXTRA := [
-	["helena", "Ja nuo henkselit ja repeytynyt paita... Ihan kuin suoraan pellolta."],
-	["minä", "Mmm...", "flirt"],
-	["minä", "Mä voin olla sun opas %s. Tiedän kaikki parhaat maisemat."],
-	["helena", "Oma opas! Sopii, komistus."],
-]
 
 
 ## Junamatka Saloisten ja Vaalan asemien välillä kolmessa osassa: lähtö (Saloisista Raahen terästehtaan ohi,
 ## Vaalasta Oulujoen ristikkosillan yli), ravintolavaunussa jutellaan mukavia naismatkustajien kanssa (kahvia ja
 ## pullaa, maisema vilistää ikkunoissa) ja saapuminen (Vaalaan sillan yli, Saloisiin terästehtaan ohi).
 ## Taustalla soi rauhallinen junabiisi (Sfx.SONG_JUNA). done kutsutaan pimeällä.
-func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
+func train_ride(done: Callable, treat := true) -> void:
 	_begin()
 	Sfx.play("door_close", -4.0)
 	Sfx.music_play(0.8, 0.0, Sfx.SONG_JUNA)
@@ -2125,9 +1445,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	_title.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
 	_title.add_theme_font_size_override("font_size", 80)
 	# 1) Lähtö.
-	await _train_outside("steel" if to_vaala else "bridge", "JUNALLA VAALAAN" if to_vaala else "JUNALLA SALOISIIN",
-		"Raahen terästehdas savuaa radan varressa." if to_vaala else "Oulujoen rautatiesilta. Vaala jää taakse.",
-		TRAIN_OUTSIDE_SHORT if to_vaala else 6.5)
+	await _train_outside("steel", "JUNALLA RAAHEEN", "Raahen terästehdas savuaa radan varressa.", TRAIN_OUTSIDE_SHORT)
 	# 2) Ravintolavaunu sisältä.
 	var car := Node3D.new()
 	car.position = TRAIN_POS + Vector3(0, 40, 0)
@@ -2136,10 +1454,10 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	train_cast = cast
 	var scenery: Node3D = cast.scenery
 	var faded := false  # häivytys vasta, kun kamera on vaunussa (muuten näkyi hetken tyhjä tehdaskohtauksen paikka)
-	var lines: Array = TRAIN_TALK_VAALA if to_vaala else TRAIN_TALK_SALOINEN
+	var lines: Array = TRAIN_TALK
 	# Erikoiskohtaus (riisuminen, flirtti, vihje Uiton saunalle) vain verkkopaidassa ja tarjotuilla paukuilla Saloisista
 	# Vaalaan. Muuten paukkujen tarjoaminen tuo vain käden reidelle; ilman paukkuja ei kättäkään.
-	var special := treat and to_vaala and Looks.outfit == "farkut"
+	var special := false
 	const LINE := 2.3
 	const SPEED := 24.0
 	var hand_from := lines.size()
@@ -2149,7 +1467,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			hand_from = i
 		if lines[i].size() > 2 and lines[i][2] == "treat":
 			treat_k = i
-	var net := special  # erikoiskohtaus on aina verkkopaitaversio
+	var net := false
 	var flirt := {}
 	var strip_k := -1
 	var helena0: Node3D = cast.helena
@@ -2162,41 +1480,6 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				c[1] = "Ei se mitään. Tässä on mukava istua."  # naisille ei tarjottu mitään: ei kippistelyä
 			c[1] = (c[1] as String).trim_prefix("Kippis! ")
 			return c)
-	elif special:
-		# Erikoiskohtaus: kun Helena on saanut kossuryypyn, hänellä on kuuma ja hän riisuu tuubimekon hitaasti; sitten kosketus.
-		# Riisunta kestää STRIP_LEN s (neljä repliikkiä): katse ja hiuksen siirto, "auta vetoketjussa", mekko liukuu nauttien alas ja pysähtyy.
-		var strip_lines: Array = [["helena", "Täällähän on kuuma...", "strip"],
-			["helena", "Auttaisitko vetoketjun kanssa?"],
-			["helena", "Mmm... noin. Paljon parempi."],
-			["minä", "Kyllä täällä kuuma on... ja kuumenee." if net else "Tuota... niin. Kuuma. Joo."]]
-		lines = lines.slice(0, hand_from) + strip_lines + lines.slice(hand_from)
-		strip_k = hand_from
-		hand_from += strip_lines.size()
-		# Alusvaatteet mekon alla: mustat pitsiliivit ja -stringit (shader lace), vuoratut kupit. Mekon yläreuna liukuu shaderissa
-		# alas (undress 0 -> 1), ks. shaders/character.gdshader. Mekon väri pysyy (shirt/pants), pitsin väri on lace_col.
-		helena0.body_mat.set_shader_parameter("string_bikini", true)
-		helena0.body_mat.set_shader_parameter("lace", true)
-		helena0.body_mat.set_shader_parameter("lace_col", HELENA_LACE)
-		helena0.body_mat.set_shader_parameter("nipple_cloth", 0.4)  # vuoratut kupit: kohouma ei näy pitsin läpi
-		helena0.body_mat.set_shader_parameter("undress", 0.0)
-	if net:
-		lines = lines.map(func(l: Array) -> Array:
-			var c := l.duplicate()
-			c[1] = TRAIN_NET_LINES.get(l[1], l[1])
-			return c)
-		var extra := mini(hand_from + 2, lines.size())
-		var town := "Vaalassa" if to_vaala else "Saloisissa"
-		lines = lines.slice(0, extra) + TRAIN_NET_EXTRA.map(func(l: Array) -> Array:
-			var c := l.duplicate()
-			c[1] = (c[1] as String).replace("%s", town)
-			return c) + lines.slice(extra)
-		flirt = _flirt_setup(cast["minä"])
-	if special:
-		# Selkeä vihje: Helena kertoo, minne hän menee (main.gd helena_vaalassa: Helena odottaa Uiton saunalla).
-		var at_k := (hand_from + 2 + (TRAIN_NET_EXTRA.size() if net else 0))
-		at_k = mini(at_k, lines.size())
-		lines = lines.slice(0, at_k) + [["helena", "Mä jään Vaalassa Uiton saunalle, Sahanrannan Uitontielle. Tule perässä, niin jatketaan siellä..."],
-			["minä", "Uiton sauna. Löydän kyllä."]] + lines.slice(at_k)
 	# Verkkopaidassa Helena liukuu penkillä viereen vasta repliikistä "Tule lähemmäs" (-1 = vanha ajoitus käden mukana).
 	var closer_k := -1
 	for i in lines.size():
@@ -2321,19 +1604,11 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 				if not hand.has("h0"):
 					hand.h0 = hl.position
 				var lean := smoothstep(0.0, 1.0, minf(1.0, hand.w * 0.6 + hand.slide * 0.6))
-				if to_vaala:
-					lean = 0.0  # Saloisista Vaalaan Helena istuu paikallaan: ei liu'u viereen eikä nojaa olalle
-				elif closer_k >= 0:
-					lean = smoothstep(0.0, 1.0, clampf((t - starts[closer_k]) / 1.8, 0.0, 1.0))
+				lean = 0.0  # Saloisista Vaalaan Helena istuu paikallaan: ei liu'u viereen eikä nojaa olalle
 				var toward: Vector3 = hero.position - (hand.h0 as Vector3)
 				toward.y = 0.0
 				hl.position = (hand.h0 as Vector3) + toward.normalized() * float(hand.near) * lean
 				hand.lean = lean
-				if special:
-					hl.set_override("spine_01", Vector3(0, 0, 1), -0.14 * lean)  # yläkroppa nojaa lähelle (kylki kylkeen)
-					hl.set_override("spine_02", Vector3(0, 0, 1), -0.5 * lean)
-					hl.set_override("neck_01", Vector3(0, 0, 1), -0.4 * lean)
-					hl.set_override("Head", Vector3(0, 0, 1), -0.12 * lean)  # pää nojaa pelaajan olalle (mallikuva)
 			if hand.w == 0.0:
 				hand.rest = hl.to_global(hl.bone_position("hand_r"))
 			hand.w = minf(1.0, hand.w + hdt * 1.4)
@@ -2379,32 +1654,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			# Kämmen alas reittä vasten ja kämmenselkä ylös: käden asento suoraan (sormet kyynärvarren jatkeena vaakatasossa).
 			var flat := Vector3(fore.x, 0.0, fore.z).normalized()
 			hl.set_ik_orient("arm_r", Pose.palm_down(flat, false), smoothstep(0.0, 1.0, hand.w))
-			if net:
-				# Verkkopaidassa pelaaja ei hermoile: kun Helena painautuu kiinni, vasen käsi nousee hänen ympärilleen
-				# kaulan takaa toiselle olalle (kämmen olan päällä, kyynärpää selän takana ylhäällä).
-				if not hand.has("own0"):
-					hand.own0 = hero.bone_position("hand_l")
-				# Käsi hivuttautuu hitaasti Helenan ympäri (mallikuva: käsi selän yli, kämmen rennosti kaukaisen olan päällä):
-				# ensin alaselän taakse, sitten selkää pitkin lapaluille ja lopuksi olan yli. Kyynärpää jää alas selän taakse.
-				# Pelaaja ja Helena katsovat -Z:aan: pelaajan vasen on -X (Helenan puolella), "takana" on +Z.
-				if float(hand.get("lean", 0.0)) > 0.4:
-					hand["creep"] = minf(1.0, float(hand.get("creep", 0.0)) + hdt * 0.2)
-				var cr: float = hand.get("creep", 0.0)
-				var back_l: Vector3 = hero.to_local(hl.to_global(hl.bone_position("spine_01")))
-				var w1: Vector3 = back_l + Vector3(0.0, -0.02, 0.14)  # alaselän takana
-				var w2: Vector3 = hero.to_local(hl.to_global(hl.bone_position("spine_03"))) + Vector3(-0.02, 0.0, 0.14)  # lapaluiden takana
-				var shoulder_far: Vector3 = hero.to_local(hl.to_global(hl.bone_position("upperarm_l")))
-				var w3: Vector3 = shoulder_far + Vector3(-0.01, 0.045, 0.0)  # olan päällä
-				var own0: Vector3 = hand.own0
-				var goal_l: Vector3 = own0.lerp(w1, smoothstep(0.0, 0.3, cr))
-				goal_l = goal_l.lerp(w2, smoothstep(0.3, 0.65, cr))
-				goal_l = goal_l.lerp(w3, smoothstep(0.65, 1.0, cr))
-				var hw := smoothstep(0.75, 1.0, cr)
-				var hsh: Vector3 = hero.bone_position("upperarm_l")
-				hero.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", goal_l, hsh + Vector3(-0.1, -0.35, 0.35))  # kyynärpää alas ja taakse
-				# Kämmen olan päällä, sormet eteen ja ulos (rento ranne); vasen käsi peilikuva.
-				hero.set_ik_orient("arm_l", Pose.palm_down(Vector3(-0.3, -0.3, -1.0), true), hw)
-		if k >= hand_from and not net:
+		if k >= hand_from:
 			# Pelaaja nostaa oman kätensä reideltä ja tarttuu hermostuneena tuoppiinsa.
 			var hero: Node3D = cast["minä"]
 			var mug: Vector3 = hero.to_local(car.to_global(Vector3(-0.67, 0.86, 0.22)))
@@ -2432,10 +1682,6 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 			# Helena istuu (-1,1; 0; 0,85), joten rinta on y ≈ 0,95 ja vyötärö 0,7: kamera nousee pöydän yli ja katsoo alas.
 			_cam.global_position = car.to_global(Vector3(lerpf(-1.05, -1.0, kt), lerpf(1.3, 1.5, kt), lerpf(-0.55, -0.4, kt)))  # suoraan Helenan edestä, pöydän yli
 			_cam.look_at(hc.global_position + Vector3(0, lerpf(0.98, 0.88, smoothstep(0.35, 0.9, st)), 0), Vector3.UP)
-		elif net and (k == hand_from + 1 or k == hand_from + 2):
-			# Hivutus: pelaajan käsi Helenan selän taakse ja olalle, kuvattuna pöydän yli edestä.
-			_cam.global_position = car.to_global(Vector3(lerpf(-0.45, -0.7, u), 1.4, -0.4))
-			_cam.look_at(car.to_global(Vector3(-0.85, 1.12, 0.85)), Vector3.UP)
 		elif k == hand_from or k == hand_from + 1:
 			# Käsi reidellä: kurkistus pöydän alta vastapäätä (pöytälevy peittää sylin ylhäältä).
 			_cam.global_position = car.to_global(Vector3(lerpf(-0.3, -0.38, u), 0.58, lerpf(-0.42, -0.5, u)))
@@ -2457,8 +1703,7 @@ func train_ride(to_vaala: bool, done: Callable, treat := true) -> void:
 	_sub.text = ""
 	car.queue_free()
 	# 3) Saapuminen.
-	await _train_outside("bridge" if to_vaala else "steel", "", "Oulujoen silta. Kohta Vaalan asemalla." if to_vaala
-		else "Raahen terästehtaan ohi. Kohta Saloisten asemalla.", TRAIN_OUTSIDE_SHORT if to_vaala else 6.5)
+	await _train_outside("steel", "", "Raahen terästehtaan ohi. Kohta Raahen asemalla.", TRAIN_OUTSIDE_SHORT)
 	rumble.stop()
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
@@ -2822,18 +2067,6 @@ func _train_sweat(hero: Node3D, car: Node3D, sweat: Dictionary, w: float) -> voi
 			sweat.drops.erase(dr)
 
 
-## Kultaiset rengaskorvakorut.
-## Vihjailun valmistelu: kulmakarvaverkolle oma Skin, jonka sidosasentoja siirtämällä kulmat nousevat pään mukana.
-static func _flirt_setup(c: Node3D) -> Dictionary:
-	var st := {"brows": null, "binds": [], "on": false}
-	for mi in c.skeleton.get_children():
-		if mi is MeshInstance3D and mi.name == "Eyebrows" and (mi as MeshInstance3D).skin != null:
-			var sk: Skin = (mi as MeshInstance3D).skin.duplicate()
-			(mi as MeshInstance3D).skin = sk
-			st.brows = sk
-			for i in sk.get_bind_count():
-				st.binds.append(sk.get_bind_pose(i))
-	return st
 
 
 ## Vihjaileva ilme repliikin aikana (u = 0..1, < 0 = lepo): pää kääntyy olalla nojaavaa Helenaa kohti, kulmakarvat
