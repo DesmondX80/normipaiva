@@ -383,13 +383,14 @@ static func car(parent: Node3D, color: Color, malli := "") -> void:
 
 
 ## Pysäköity auto törmäyksellä.
-static func parked_car(parent: Node3D, pos: Vector3, rot_y: float, color: Color, malli := "") -> void:
+static func parked_car(parent: Node3D, pos: Vector3, rot_y: float, color: Color, malli := "") -> Node3D:
 	var body := StaticBody3D.new()
 	body.position = pos
 	body.rotation_degrees.y = rot_y
 	parent.add_child(body)
 	body.add_child(box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.8, 0)))
 	car(body, color, malli)
+	return body
 
 
 ## Kyltin levy: pohjaväri, reunus ja teksti molemmin puolin. Paikallinen X = levyn leveys, levy katsoo ±Z.

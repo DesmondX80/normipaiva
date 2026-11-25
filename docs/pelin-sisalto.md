@@ -1340,6 +1340,20 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
   karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
   Drakkar Noir ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".
+- **Lavastetut hetket** (`endings.gd STAGED`) koetaan kohtauksina, ja niihin päädytään tarinan kautta. Niistä ei tule
+  ilmoitusta, vaan kohtauksen jälkeen rivi "Päiväkirjaan uusi tarina". Kohtaus nähdään vain ensimmäisellä kerralla.
+  Toistot lasketaan päiväkirjaan, ja hahmo muistelee ensimmäistä kertaa. Hetket ovat maatilan kuusi hetkeä (ks.
+  Kaisuan tila) sekä seuraavat:
+  - **Paapeliin Pekan kyydillä** (`cutscene.gd paapeli_saapuu`): ensimmäinen kyyti tarinan 1. luvun jälkeen päättyy
+    Neittävän kyltin jälkeen mökin pihaan. Volvo kaahaa pihatietä soraa pöllyttäen, töräyttää ja liukuu
+    pysäköintipaikalle. Pekka huikkaa ikkunasta, ja Santtu tulee vastaan kalja ylhäällä ("No vihdoin! Paapeli
+    odottaa!"). Pelaaja nousee autosta, ja kamera nousee mökin ja Likasen ylle. Myöhemmissä kyydeissä Pekka
+    muistelee ensimmäistä kertaa (`main.gd PEKKA_MUISTO`).
+  - **Savusaunan löylyt** (`sauna_relax first`, `savusauna_jarvi`): korjatun savusaunan ensimmäiset löylyt ovat
+    oma kohtauksensa. Siinä on otsikko "Ensimmäiset löylyt", täysi kauhallinen ja iso löyly, ja Santtu sanoo "Me
+    korjattiin tää!". Perään pelaaja ja Santtu juoksevat höyryten laiturin päähän ja hyppäävät Likaseen, päät
+    nousevat pintaan, ja kamera nousee järven ylle. Myöhemmillä löylyillä Santtu muistelee lauteilla
+    (`SAUNA_MUISTO`). Testit `--scene=mokki_paapeli` ja `--scene=mokki_savusauna_eka`.
 - Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 10, kerrat yhteensä; matalat kortit tiiviinä riveinä) ja legendaariset hetket oikealla
   (X / 16, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
 

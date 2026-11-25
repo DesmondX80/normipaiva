@@ -219,6 +219,7 @@ var huussi_flies: CPUParticles3D
 var komposti_soil: MeshInstance3D
 var wasp_nest: Node3D
 var dock_body: Node3D
+var parked_volvo: Array = []  # Pekan Volvo pihatien päässä ja kattoboksi (piiloon Paapelin saapumiskohtauksen ajaksi)
 var dock_patch: Node3D
 var ladder: Node3D
 var _forests: Array = []  # metsä ja pihan männyt (Santun reitinhaun esteet)
@@ -549,6 +550,22 @@ func barrel_frame() -> Transform3D:
 ## Salmisen uimarannan kehys maailmassa: vesirajassa, +Z järvelle. Uintivälianimaatio rakentuu tähän.
 func beach_frame() -> Transform3D:
 	return global_transform * Transform3D(Basis(Vector3.UP, atan2(_beach_dir.x, _beach_dir.y)), beach_pos)
+
+
+## Laiturin kannen pinta rantapäässä ja järven päässä (maailmassa): savusaunan legendaarinen hetki (cutscene.gd
+## savusauna_jarvi). Kansi on laiturin kehyksessä y 0,28 (lankkujen yläpinta), kehys rannasta +Z järvelle.
+func dock_start() -> Vector3:
+	return dock_body.global_transform * Vector3(0, 0.28, 0.3)
+
+
+func dock_end() -> Vector3:
+	return dock_body.global_transform * Vector3(0, 0.28, DOCK_LOCAL.z - dock_body.position.z)
+
+
+## Likasen pinta laiturin päässä maailmassa (y).
+func dock_water_y() -> float:
+	var wi := water_at(DOCK_LOCAL.x, DOCK_LOCAL.z)
+	return (global_transform * Vector3(DOCK_LOCAL.x, water_level(wi) if wi >= 0 else water_y(), DOCK_LOCAL.z)).y
 
 
 ## Salmisen vedenpinta maailmassa (y).
@@ -1991,9 +2008,9 @@ func _build_yard_extras() -> void:
 		var a := TAU * k / 8.0
 		B.mesh(self, B.sphere(0.12, 6), TUB_LOCAL + Vector3(0.2 + cos(a) * 0.45, 0.06, -3.8 + sin(a) * 0.45), Color(0.45, 0.44, 0.42))
 	# Pekan vihreä Volvo pihatien päässä: Pekka on kyyhkyjahdissa ja vie kotiin (main.gd _mokki_ride_logic).
-	B.parked_car(self, RIDE_LOCAL + Vector3(-2.6, 0, 1.0), 12.0, Color(0.22, 0.3, 0.18), "volvo_farmari")
-	B.mesh(self, B.boxm(Vector3(0.55, 0.32, 0.9)), RIDE_LOCAL + Vector3(-2.6, 1.66, 1.0), Color(0.75, 0.3, 0.08),
-		Vector3(0, 12.0, 0))  # kattoboksi farmarin kattokiskojen päällä (yläpinta 1,50)
+	parked_volvo = [B.parked_car(self, RIDE_LOCAL + Vector3(-2.6, 0, 1.0), 12.0, Color(0.22, 0.3, 0.18), "volvo_farmari"),
+		B.mesh(self, B.boxm(Vector3(0.55, 0.32, 0.9)), RIDE_LOCAL + Vector3(-2.6, 1.66, 1.0), Color(0.75, 0.3, 0.08),
+		Vector3(0, 12.0, 0))]  # kattoboksi farmarin kattokiskojen päällä (yläpinta 1,50)
 	# Droonin alusta: sama drooni kulkee mukana Pekan kyydissä kotoa.
 	DroneGame.make_pad(self, DRONE_LOCAL, 0.0)
 	# Pihatie Pekan autolta pihaan (sora).
