@@ -188,5 +188,3 @@ func run() -> void:
 	cs.test_hold = false
 
 
-func Cutscene_SAUNA_TYNNYRI() -> Dictionary:
-	return load("res://scripts/cutscene.gd").SAUNA_TYNNYRI

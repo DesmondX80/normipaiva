@@ -213,17 +213,6 @@ func _gui_input(event: InputEvent) -> void:
 		_view.queue_redraw()
 
 
-## Lähimmän nimetyn tien nimi, jos hiiri on alle 7 px päässä siitä (karttanäkymän px).
-func _road_at(local: Vector2) -> String:
-	if not Rect2(Vector2.ZERO, _view.size).has_point(local):
-		return ""
-	var best := 7.0
-	for r in M.ROADS:
-		if r.name == "":
-			continue
-	return name
-
-
 func clear_target() -> void:
 	has_target = false
 	_view.queue_redraw()
@@ -297,13 +286,6 @@ func _pts(arr: Array) -> PackedVector2Array:
 ## Mopomatkan kehyksen (x itään, z etelään, origo mökin osoitepisteessä) piste näkymän pikseleiksi.
 func _vpx(p: Vector2) -> Vector2:
 	return (p - _vcenter) * _vzoom + _view.size / 2.0
-
-
-func _ellipse_on(ci: CanvasItem, local_center: Vector2, rx: float, rz: float, col: Color) -> void:
-	var pts := PackedVector2Array()
-	for i in 32:
-		var a := TAU * i / 32
-	ci.draw_colored_polygon(pts, col)
 
 
 # --- Paperi ja kehys ---------------------------------------------------------
@@ -624,12 +606,6 @@ func _mask_outside(v: Control) -> void:
 # --- Näkymä --------------------------------------------------------------------------------------
 
 
-## Koko alue näkyviin.
-func _vfit() -> void:
-	_vzoom = minf(_view.size.x / _vrect.size.x, _view.size.y / _vrect.size.y)
-	_vcenter = _vrect.get_center()
-
-
 func _vzoom_by(f: float, at: Vector2) -> void:
 	var fit := _fit_zoom()
 	var before := (at - _view.size / 2.0) / _vzoom + _vcenter
@@ -637,46 +613,6 @@ func _vzoom_by(f: float, at: Vector2) -> void:
 	_vcenter = _clamped(_vcenter)
 	_view.queue_redraw()
 	queue_redraw()  # mittakaava
-
-
-## Tien täyttöleveys pikseleinä: metrit zoomilla, vähintään luettava leveys (asfaltti 3,5 px, katu 2,2 px).
-func _vroad_fill_px(it: Array) -> float:
-	var kind: int = it[2]
-	return maxf(3.5 if kind == 0 else 2.2, float(it[1]) * 2.0 * _vzoom)
-
-
-## Pyöristetyt liitokset ja päät leveille viivoille, jotta mutkat ja tien päät eivät jää kulmikkaiksi.
-func _vroad_joints(v: Control, pts: PackedVector2Array, w: float, col: Color, view_r: Rect2) -> void:
-	if w < 5.0:
-		return
-	for p in pts:
-		if view_r.has_point(p):
-			v.draw_circle(p, w / 2.0, col)
-
-
-## Suorakulmio rakennuslistaan: keskipiste, julkisivun suunta (face), pituus julkisivun suuntaisesti (len) ja syvyys.
-func _vbld_rect(c: Vector2, face: Vector2, len: float, depth: float, col: Color) -> void:
-	var f := face.normalized()
-	var ax := Vector2(-f.y, f.x)
-	var base := _vbld_pts.size()
-	_vbld_pts.append_array(PackedVector2Array([c - ax * len / 2.0 - f * depth / 2.0, c + ax * len / 2.0 - f * depth / 2.0,
-		c + ax * len / 2.0 + f * depth / 2.0, c - ax * len / 2.0 + f * depth / 2.0]))
-	_vbld_idx.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
-	for k in 4:
-		_vbld_cols.append(col)
-
-
-## Teksti tien suuntaisesti (luettavaan suuntaan), keskellä pisteiden a ja b välissä, siirrettynä sivulle.
-func _road_label(v: CanvasItem, a: Vector2, b: Vector2, text: String, col: Color, fs: int, side: float) -> void:
-	var font := ThemeDB.fallback_font
-	var ang := (b - a).angle()
-	if ang > PI / 2.0 or ang < -PI / 2.0:
-		ang += PI
-	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	v.draw_set_transform((a + b) / 2.0 + Vector2(0, side).rotated(ang), ang)
-	v.draw_string_outline(font, Vector2(-tw / 2.0, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(PAPER, 0.8))
-	v.draw_string(font, Vector2(-tw / 2.0, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
-	v.draw_set_transform(Vector2.ZERO)
 
 
 func _place(v: CanvasItem, text: String, p: Vector2, fs: int, col := INK) -> void:
@@ -796,17 +732,9 @@ func _rail_on(ci: CanvasItem, pts: PackedVector2Array, w: float) -> void:
 		ci.draw_dashed_line(pts[i], pts[i + 1], Color(0.95, 0.93, 0.85), w - 1.5, 6.0)
 
 
-func _house_icon(p: Vector2, col: Color) -> void:
-	_house_icon_on(self, p, col)
-
-
 func _house_icon_on(ci: CanvasItem, p: Vector2, col: Color) -> void:
 	ci.draw_rect(Rect2(p + Vector2(-6, -2), Vector2(12, 9)), col)
 	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-8, -2), p + Vector2(0, -10), p + Vector2(8, -2)]), col.darkened(0.2))
-
-
-func _laavu_icon(p: Vector2) -> void:
-	_laavu_icon_on(self, p)
 
 
 func _laavu_icon_on(ci: CanvasItem, p: Vector2) -> void:
@@ -966,10 +894,6 @@ func _target_icon_on(ci: CanvasItem, p: Vector2) -> void:
 	ci.draw_arc(p, 9.0, 0, TAU, 24, col, 2.5)
 	ci.draw_line(p - Vector2(5, 5), p + Vector2(5, 5), col, 2.0)
 	ci.draw_line(p + Vector2(-5, 5), p + Vector2(5, -5), col, 2.0)
-
-
-func _you_icon(p: Vector2, ang: float) -> void:
-	_you_icon_on(self, p, ang)
 
 
 const YOU_R := 12.0  # oman merkin säde (kehä 11 px)
