@@ -15601,6 +15601,13 @@ func _show_pending_list() -> void:
 	_day_note("Tervetuloa kotiin! Tässä tämän päivän lista.", "")
 
 
+## Paapelin saapumiskohtauksen repliikit (Pekka ikkunasta, Santtu nurkalta) ja Pekan muistelut myöhemmissä kyydeissä.
+const PAAPELI_LINES := ["Perkele, perillä! Ja ennätysajassa!", "No vihdoin! Paapeli odottaa, kaljat on kylmässä!"]
+const PEKKA_MUISTO := ["Muistatko ku ekan kerran kaahattiin pihaan? Santtu meinas pudota tuolilta.",
+	"Ei tällä kertaa liukuna pihaan. Volvon renkaat on vieläki kipeet.",
+	"Tie on tuttu ku oma tasku. Ekalla kerralla se oli seikkailu, perkele."]
+
+
 ## Naapurin Pekka lähtee Neittävälle kyyhkyjahtiin ja ottaa kyytiin mökille bensakaljalla tai kympillä.
 ## Ainoa tie mökille; paluu Pekan autolla mökin pihatien päästä (_mokki_ride_logic).
 func _pekka_ride() -> void:
@@ -15617,13 +15624,30 @@ func _pekka_ride() -> void:
 		money -= PEKKA_RIDE_PRICE
 		paid = _eur(PEKKA_RIDE_PRICE) + " €"
 	tilat.first("mokki", 0.4)
-	if story.step == "valmis":
+	# Paapeli (legendaarinen hetki): ensimmäinen kyyti tarinan jälkeen päättyy saapumiseen mökin pihaan
+	# (cutscene.gd paapeli_saapuu), toistot lasketaan hiljaa ja Pekka muistelee ensimmäistä kertaa kyydissä.
+	var first: bool = story.step == "valmis" and not endings.counts.has("paapeli")
+	var memory := ""
+	if story.step == "valmis" and not first:
+		memory = PEKKA_MUISTO[(int(endings.counts.get("paapeli", 1)) - 1) % PEKKA_MUISTO.size()]
 		_ending("paapeli")
 	_hud.visible = false
 	walker_out.controls_enabled = false
 	walker_out.speed = 0.0
-	cutscene.pekka_ride("Naapurin Pekka on menossa Neittävälle kyyhkyjahtiin.\nBensarahat: %s" % paid,
-		_arrive_by_car.bind(mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2))))
+	var dest: Vector3 = mokki.gpos(Mokki.RIDE_LOCAL + Vector3(0, 0.3, 2.2))
+	var arrive := _arrive_by_car.bind(dest)
+	if first:
+		arrive = func() -> void:
+			mokki.ensure_built()
+			var hide: Array = mokki.santtu_nodes() + mokki.parked_volvo
+			cutscene.hide_nodes.append_array(hide)
+			cutscene.paapeli_saapuu(mokki, Mokki.SANTTU_LOOK, PAAPELI_LINES, Endings.name_of("paapeli").to_upper(),
+				Endings.desc_of("paapeli"), func() -> void:
+					for n in hide:
+						cutscene.hide_nodes.erase(n)
+					_arrive_by_car(mokki.gpos(Vector3(-1.6, 0.3, -9.5)))
+					_ending("paapeli"))
+	cutscene.pekka_ride("Naapurin Pekka on menossa Neittävälle kyyhkyjahtiin.\nBensarahat: %s" % paid, arrive, "meno", memory)
 
 
 ## Mökillä: jutut Santun kanssa, Santun hommat, savusauna, palju, tikanheitto, laituri ja metsästyslava.
@@ -17834,6 +17858,13 @@ func _mopo_end() -> void:
 	_save_game()
 
 
+## Savusaunan legendaarinen hetki: Santun repliikki ensimmäisillä löylyillä, järvellä ja muistelut myöhemmin.
+const SAUNA_FIRST_LINE := "Voi pyhä jysäys... Pehmeempi ku ennen. Me korjattiin tää, sää ja minä!"
+const SAUNA_JARVI_LINES := ["Uuuh! Tää on parempi ku ennen!", "Isävainaa ois itkeny. Ja sitte heittäny lisää löylyä."]
+const SAUNA_MUISTO := ["Muistatko ekat löylyt? Mää näin tähtiä vielä laiturilla.",
+	"Hyvät löylyt, mutta ekoja ei voita mikään.", "Kiuas on asettunu. Ekalla kerralla se vähän räiskyi."]
+
+
 ## Löylyssä käynti: lyhyt tunnelmapala terassilla, höyryä ja tilaisuuden tullen hörppy kaljaa.
 ## Löylyt savusaunassa tai mökin sisäsaunassa (indoor): välianimaatio, jossa Santtu tulee kylmien kaljojen kanssa
 ## (omia kaljoja ei kulu).
@@ -17849,13 +17880,20 @@ func _sauna_cutscene(indoor := false) -> void:
 		player.controls_enabled = false
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 		hide = mokki.santtu_nodes()  # pihan Santtu tulee löylyihin
-		if mokki.sauna_fixed:  # korjatun savusaunan löylyt: tarinan vaihe ja onnellinen loppu
+		if mokki.sauna_fixed:  # korjatun savusaunan löylyt: tarinan vaihe
 			tilat.first("savusauna_loylyt", 0.3)
+	# Savusauna (legendaarinen hetki): korjatun saunan ensimmäiset löylyt omana versionaan ja perään laiturilta
+	# Likaseen (cutscene.gd savusauna_jarvi); toistot lasketaan hiljaa ja Santtu muistelee lauteilla.
+	var first_loyly: bool = not indoor and mokki.sauna_fixed and not endings.counts.has("savusauna")
+	if not indoor and mokki.sauna_fixed:
+		cutscene.santtu_sit_line = SAUNA_FIRST_LINE if first_loyly else \
+			SAUNA_MUISTO[(int(endings.counts.get("savusauna", 1)) - 1) % SAUNA_MUISTO.size()]
+		if not first_loyly:
 			_ending("savusauna")
 	_hud.visible = false
 	var frame: Transform3D = mokki_int.global_transform if indoor else mokki.sauna_frame()
 	var lay: Dictionary = mokki_int.sauna_layout() if indoor else {}
-	cutscene.sauna_relax(frame, false, func() -> void:
+	var after := func() -> void:
 		walker_out.stamina = 100.0
 		walker_out.exhausted = false
 		tilat.first("sisasauna" if indoor else "savusauna", 0.4 if not indoor else 0.2)
@@ -17879,8 +17917,23 @@ func _sauna_cutscene(indoor := false) -> void:
 			player.activate_camera()
 			_hazards.process_mode = Node.PROCESS_MODE_INHERIT
 		_hud.visible = true
-		_show_message("%s Kunto palautui." % ("Sisäsaunan löylyt ja Santun kaljat!" if indoor else "Löyly virkistää!"), 2.5),
-		lay, true, hide)
+		if first_loyly:
+			_ending("savusauna")
+		else:
+			_show_message("%s Kunto palautui." % ("Sisäsaunan löylyt ja Santun kaljat!" if indoor else "Löyly virkistää!"), 2.5)
+	var done := after
+	if first_loyly:
+		done = func() -> void:
+			var d0: Vector3 = mokki.dock_start()
+			var d1: Vector3 = mokki.dock_end()
+			var hide2: Array = mokki.santtu_nodes()
+			cutscene.hide_nodes.append_array(hide2)
+			cutscene.savusauna_jarvi(d0, d1, mokki.dock_water_y(), Mokki.SANTTU_LOOK, SAUNA_JARVI_LINES,
+				Endings.name_of("savusauna").to_upper(), Endings.desc_of("savusauna"), func() -> void:
+					for n in hide2:
+						cutscene.hide_nodes.erase(n)
+					after.call())
+	cutscene.sauna_relax(frame, false, done, lay, true, hide, first_loyly)
 
 
 ## Mökin sisälle: oma tasku ja kävelijä kuten kaupassa; vaarat pysähtyvät sisällä oloajaksi.
@@ -23812,7 +23865,7 @@ static func _mb(pos: Vector2, pressed: bool, button := MOUSE_BUTTON_LEFT) -> Inp
 
 
 ## Testikohtausten ryhmät (tools/testit/kohtaukset/), järjestyksessä: sama nimi kahdesti -> ensimmäinen voittaa.
-const KOHTAUSRYHMAT := ["muut_a_k", "muut_k_o", "muut_s_u", "muut_p_s", "kolmio_vaala", "kartta_kota", "kauppa", "muut_k_k", "muut_u_y", "ajoneuvot", "muut_o_p", "mokki_2", "mokki_1", "kaisua"]
+const KOHTAUSRYHMAT := ["muut_a_k", "muut_k_o", "muut_s_u", "muut_p_s", "kolmio_vaala", "kartta_kota", "kauppa", "muut_k_k", "muut_u_y", "ajoneuvot", "muut_o_p", "mokki_2", "mokki_1", "kaisua", "legendat"]
 
 
 func _maybe_screenshot() -> void:

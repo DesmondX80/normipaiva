@@ -41,6 +41,7 @@ const CHOCO_FAIL_LINE := "Ja luuletko että mut ostetaan suklaalla?"
 var env: Environment
 var sun: DirectionalLight3D
 var busy := false
+var phase := ""  # käynnissä olevan kohtauksen vaihe (testit ottavat kuvat vaiheen mukaan, esim. "juoksu", "uijat")
 var test_hold := false  # testikoukku (asennot_b): _end odottaa, kunnes testi on kuvannut ja mitannut (_props ei vapaudu kesken)
 
 var _cam: Camera3D
@@ -185,12 +186,15 @@ func _end(done: Callable) -> void:
 	_layer.visible = false
 	busy = false
 	done.call()
+	if busy:
+		return  # done aloitti seuraavan välianimaation (esim. Paapelin saapuminen kyydin perään): se omistaa tason
 	var tw2 := _tween()
 	_layer.visible = true
 	tw2.tween_property(_fade, "color:a", 0.0, 0.8)
 	tw2.parallel().tween_method(_layout_bars, 1.0, 0.0, 0.8)
 	await tw2.finished
-	_layer.visible = false
+	if not busy:
+		_layer.visible = false
 
 
 func _fade_to(a: float, t: float) -> void:
@@ -772,6 +776,7 @@ const SAUNA_TYNNYRI := {
 const SAUNA_HELENA_IN := ["Täällä on kuuma... ja kylmät kaljat. Mahdutaanko?", "Tiesin, että löydän sut täältä. Otin kylmät mukaan."]
 const SAUNA_HELENA_SIT := ["Kippis, komistus. Tää on parempaa kuin ravintolavaunu.", "Aaah. Lämmintä on, mutta sun vieressä lämpimämpää."]
 var sauna_guest := ""  # "" = Santtu, "helena" = Helena bikineissä
+var santtu_sit_line := ""  # seuraavan saunakohtauksen Santun repliikki istuessa ("" = arvottu SAUNA_SANTTU_SIT)
 const SAUNA_SANTTU_IN := ["Mahtuuko tänne? Otin kylmät mukaan.", "Löylyä ilman kaljaa? Ei meidän mökillä.",
 	"Kuulin ku kiuas sihahti. Tässä, kylmää."]
 const SAUNA_SANTTU_SIT := ["Kippis! Tää on mökin paras hetki.", "Aaah. Tätä varten tää mökki on olemassa.",
@@ -794,8 +799,10 @@ static func sauna_look(base: Dictionary) -> Dictionary:
 ## rungon kehys (Mokki.sauna_frame). Lyhyt tunnelmapala, ei päivän lopetus (ks. main.gd _sauna_cutscene).
 ## lay = saunan asettelu (SAUNA_SAVU:n avaimet korvaavat, esim. mökin sisäsauna), santtu = Santtu tulee löylyihin ja
 ## tuo kaljat, hide = välianimaation ajaksi piilotettavat solmut (esim. sisätilan kävelijä).
+## first = korjatun savusaunan ensimmäiset löylyt (legendaarinen hetki): oma otsikko, iso ensimmäinen löyly ja
+## santtu_sit_line Santun repliikkinä (main.gd _sauna_cutscene; perään savusauna_jarvi).
 func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable, lay: Dictionary = {}, santtu := false,
-		hide: Array = []) -> void:
+		hide: Array = [], first := false) -> void:
 	var L: Dictionary = SAUNA_SAVU.merged(lay, true)
 	_begin()
 	await _fade_to(1.0, 0.4)
@@ -1020,14 +1027,18 @@ func sauna_relax(frame: Transform3D, has_beer: bool, done: Callable, lay: Dictio
 	# 1. Yleiskuva oven pielestä: hämärä, hiillos hehkuu, hahmo ylälauteella.
 	shot.call(0)
 	await _fade_to(0.0, 0.8)
-	_title.text = L.title
-	_sub.text = L.intro
-	await _wait(2.6)
+	_title.text = "ENSIMMÄISET LÖYLYT" if first else L.title
+	_sub.text = "Korjattu savusauna lämpiää ensimmäistä kertaa. Noki on pesty, ja kiuas on ladottu uudestaan." if first else L.intro
+	await _wait(3.4 if first else 2.6)
 	_title.text = ""
 	# 2. Kauhallinen kiukaalle: kuva sivusta kivien ja kauhan tasolta.
 	shot.call(1)
-	_sub.text = "Kauhallinen vettä kiukaalle..."
-	await throw.call(["Tsssshhhh!"])
+	_sub.text = "Kauhallinen vettä kiukaalle..." if not first else "Ensimmäinen kauhallinen. Täysi kauha, ei säästellä..."
+	if first:
+		puff.amount = 140
+		puff.scale_amount_max *= 1.6
+		puff.initial_velocity_max *= 1.4
+	await throw.call(["TSSSSHHHHH! Löyly lyö kattoon ja valuu seiniä pitkin." if first else "Tsssshhhh!"])
 	# 3. Lähikuva: nojaa taaksepäin, silmät kiinni, löyly laskeutuu hartioille.
 	shot.call(2)
 	glide.call("back", 1.0, 1.4)
@@ -1126,7 +1137,10 @@ func _sauna_santtu(frame: Transform3D, L: Dictionary, hero: Node3D, st: Dictiona
 	s.global_rotation.y = frame.basis.get_euler().y + B.yaw_to(L.face)
 	s.play("Sitting_Idle", 0.3)
 	Sfx.play("pickup", -4.0, 0.8)
-	_sub.text = "%s: \"%s\"" % [who, (SAUNA_HELENA_SIT if helena else SAUNA_SANTTU_SIT).pick_random()]
+	var sit_line: String = santtu_sit_line if santtu_sit_line != "" and not helena else \
+		(SAUNA_HELENA_SIT if helena else SAUNA_SANTTU_SIT).pick_random()
+	santtu_sit_line = ""
+	_sub.text = "%s: \"%s\"" % [who, sit_line]
 	await _wait(2.4)
 
 
@@ -1880,9 +1894,12 @@ func _pekka_car(parent: Node3D) -> Dictionary:
 ## halki, Pekka puhuu kyyhkyistä. Kolme kuvaa: perästä, edestä tuulilasin läpi (Pekka ratissa, sankari
 ## kalja kädessä) ja tienvarresta, kun auto kaartaa Neittävän kyltin ohi. done kutsutaan pimeällä.
 ## kind: "meno" (Vaalaan), "koti" (kotiin Saloisiin) tai "haato" (Santtu soitti Pekan hakemaan).
-func pekka_ride(sub: String, done: Callable, kind := "meno") -> void:
+## memory = Pekan muistelu ensimmäisestä kerrasta (Paapelin toistokyydit): ensimmäiseksi repliikiksi.
+func pekka_ride(sub: String, done: Callable, kind := "meno", memory := "") -> void:
 	var home := kind != "meno"
 	var lines: Array = PEKKA_RIDE_LINES if not home else (PEKKA_EVICT_LINES if kind == "haato" else PEKKA_HOME_LINES)
+	if memory != "":
+		lines = [memory] + lines
 	_begin()
 	Sfx.play("door_close", -3.0)
 	Sfx.music_play(0.8)
@@ -4183,5 +4200,297 @@ func maatila_kylvot(edge: Vector3, into: Vector3, ground: Callable, cast: Dictio
 				_farm_title(title, sub))
 	_title.text = ""
 	_sub.text = ""
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+# --- Legendaariset hetket: Paapeli ja savusauna --------------------------------------------------------------------
+
+## Paapeliin Pekan kyydillä (main.gd _pekka_ride, ensimmäinen kyyti tarinan jälkeen): Volvo kaahaa mökin pihatietä
+## soraa pöllyttäen, töräyttää ja liukuu sivuttain pysäköintipaikalle. Santtu tulee mökin nurkalta kalja ylhäällä,
+## Pekka huikkaa ikkunasta, pelaaja nousee autosta ja kamera nousee mökin ja Likasen ylle. mk = mokki.gd (gpos:
+## paikallinen piste maan pinnalle), pihatie RIDE_LOCAL -> mökin takaseinä (mokki.gd: sama kuin sorapihatie).
+func paapeli_saapuu(mk: Node3D, santtu_look: Dictionary, lines: Array, title: String, sub: String, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.4)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var ride: Vector3 = mk.RIDE_LOCAL
+	var a := Vector2(ride.x, ride.z)
+	var b := Vector2(1.0, -4.5)
+	var dir := (b - a).normalized()
+	var gp := func(v: Vector2, up := 0.0) -> Vector3: return mk.gpos(Vector3(v.x, up, v.y))
+	var p0: Vector2 = a - dir * 4.0
+	var stop: Vector2 = b - dir * 10.5  # mopon ja droonialustan (mökin takana) ohi
+	# Kameran puoli: pihatien itäpuoli, poispäin mökin takana olevista mopo- ja droonipaikoista.
+	var side2 := Vector2(dir.y, -dir.x)
+	var side := Vector3(side2.x, 0, side2.y)
+	var rig := _pekka_car(_props)
+	var car: Node3D = rig.car
+	var wheels: Array = rig.wheels
+	var in_hero: Node3D = rig.hero
+	var yaw0 := atan2(-dir.x, -dir.y)  # auto katsoo -Z:aan
+	var santtu: Node3D = Looks.make(_props, santtu_look)
+	var s_home: Vector2 = b + Vector2(-1.6, -1.2)
+	santtu.global_position = gp.call(b + Vector2(1.8, 0.6))
+	santtu.play("Idle", 0.0)
+	var beer := Node3D.new()
+	B.mesh(beer, B.cyl(0.033, 0.033, 0.12, 12), Vector3.ZERO, Color(0.8, 0.75, 0.2))
+	santtu.attach("hand_r", beer, Vector3(0, -0.02, 0.04))
+	var dust := _soft_particles(Color(0.72, 0.64, 0.5, 0.7), 1.2)
+	dust.amount = 90
+	dust.lifetime = 2.6
+	dust.direction = Vector3(0, 0.6, 1)
+	dust.spread = 50.0
+	dust.initial_velocity_min = 0.8
+	dust.initial_velocity_max = 2.2
+	dust.gravity = Vector3(0, 0.15, 0)
+	dust.scale_amount_min = 0.8
+	dust.scale_amount_max = 2.0
+	dust.emitting = false
+	car.add_child(dust)
+	dust.position = Vector3(0, 0.25, 1.8)
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
+	bubble.no_depth_test = true
+	_cam.current = true
+	_cam.fov = 52.0
+	Sfx.play("car_engine", -4.0, 1.25)
+	_fade_to(0.0, 0.5)
+	# 1. Pihatien suulta: Volvo tulee kovaa, sora pöllyää, töräytys; viimeisillä metreillä perä liukuu sivuun.
+	var sec := 4.6
+	var t0 := _now_ms()
+	var honk := false
+	dust.emitting = true
+	# Pihatiellä mökin puolella (puiden välissä vain tie on avoin): auto tulee kohti.
+	var cam_at: Vector3 = gp.call(stop + dir * 7.0 + side2 * 0.8, 1.8)
+	while true:
+		var t := (_now_ms() - t0) / 1000.0
+		var u := clampf(t / sec, 0.0, 1.0)
+		var e := 1.0 - pow(1.0 - u, 2.2)  # jarrutus loppua kohti
+		var p := p0.lerp(stop, e)
+		car.global_position = gp.call(p)
+		var slide := smoothstep(0.62, 1.0, u) * 0.75  # liuku: perä kääntyy sivuun
+		car.global_rotation = Vector3(0, yaw0 + slide, sin(t * 11.0) * 0.01 * (1.0 - u))
+		for w: Node3D in wheels:
+			w.rotation.x = -t * 18.0 * (1.0 - u) / 0.34
+		if not honk and t > 1.4:
+			honk = true
+			Sfx.play("horn", -4.0)
+		if u > 0.62 and u < 0.98 and int(t * 20.0) % 3 == 0:
+			Sfx.play("rattle_hard_0", -12.0, 0.6)
+		_cam.global_position = cam_at
+		_cam.look_at(car.global_position + Vector3(0, 0.9, 0), Vector3.UP)
+		if u >= 1.0:
+			break
+		await get_tree().process_frame
+	dust.emitting = false
+	# 2. Pölypilvessä: Pekka huikkaa ikkunasta, Santtu tulee nurkalta kalja ylhäällä.
+	santtu.play("Walk", 0.2)
+	var s_from: Vector3 = santtu.global_position
+	# Matkustajan puolelle (auton +X = -side2): pelaaja nousee siitä, Santtu tulee vastaan auton etukulmalle.
+	var s_to: Vector3 = gp.call(stop + dir * 2.8 - side2 * 2.6)
+	santtu.global_rotation.y = B.yaw_to(s_to - s_from)
+	bubble.global_position = car.to_global(Vector3(-0.4, 2.1, 0.3))
+	bubble.text = "Pekka: " + lines[0]
+	var t1 := _now_ms()
+	while _now_ms() - t1 < 3600:
+		var s := (_now_ms() - t1) / 1000.0
+		var w := clampf(s / 2.2, 0.0, 1.0)
+		santtu.global_position = s_from.lerp(s_to, w)
+		if w >= 1.0 and santtu.current() == "Walk":
+			santtu.play("Idle_Talking", 0.25)
+			santtu.global_rotation.y = B.yaw_to(car.global_position - santtu.global_position)
+		var mid := (car.global_position + santtu.global_position) * 0.5
+		_cam.global_position = gp.call(stop + dir * 6.5 + side2 * 1.2, 1.7)
+		_cam.look_at(mid + Vector3(0, 1.0, 0), Vector3.UP)
+		await get_tree().process_frame
+	# 3. Santun huuto, pelaaja nousee autosta, Santtu nostaa kaljan.
+	bubble.global_position = santtu.global_position + Vector3(0, 2.05, 0)
+	bubble.text = "Santtu: " + lines[1]
+	Sfx.play("door_open", -4.0)
+	in_hero.visible = false
+	var hero: Node3D = Looks.make(_props, Looks.player())
+	Looks.add_cap(hero)
+	var hl: Vector3 = mk.to_local(car.to_global(Vector3(1.45, 0, 0.4)))
+	hero.global_position = gp.call(Vector2(hl.x, hl.z))  # gp ottaa mökin paikallisen pisteen
+	hero.global_rotation.y = B.yaw_to(santtu.global_position - hero.global_position)
+	hero.play("Idle", 0.0)
+	var t2 := _now_ms()
+	while _now_ms() - t2 < 4200:
+		var s := (_now_ms() - t2) / 1000.0
+		var sh: Vector3 = santtu.bone_position("upperarm_r")
+		var up := clampf((s - 0.4) / 0.6, 0.0, 1.0)
+		santtu.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", sh + Vector3(0.12, lerpf(-0.3, 0.32, up), -0.25),
+			sh + Vector3(0.5, -0.3, 0.1))
+		var mid := (hero.global_position + santtu.global_position) * 0.5
+		_cam.global_position = gp.call(stop + dir * 5.2 + side2 * 0.6, 1.6)
+		_cam.look_at(mid + Vector3(0, 1.45, 0), Vector3.UP)
+		await get_tree().process_frame
+	bubble.text = ""
+	Sfx.music_play(1.2, Sfx.MUSIC_CHORUS)
+	# 4. Kamera nousee mökin ja järven ylle.
+	var c0 := _cam.global_position
+	var lake: Vector3 = mk.gpos(mk.DOCK_LOCAL)
+	var named := false
+	var t3 := _now_ms()
+	while _now_ms() - t3 < 7500:
+		var u := (_now_ms() - t3) / 7500.0
+		u = u * u * (3.0 - 2.0 * u)
+		var above := car.global_position + Vector3(0, 22.0, 0) + (car.global_position - lake).normalized() * 18.0
+		_cam.global_position = c0.lerp(above, u)
+		_cam.look_at(car.global_position.lerp(lake, u * 0.6) + Vector3(0, 1.0, 0), Vector3.UP)
+		if not named and _now_ms() - t3 > 2400:
+			named = true
+			_farm_title(title, sub)
+		await get_tree().process_frame
+	_title.text = ""
+	_sub.text = ""
+	santtu.clear_ik()
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Savusaunan ensimmäiset löylyt korjauksen jälkeen: saunakohtauksen (sauna_relax, first = true) perään pihalle ja
+## laiturilta Likaseen. Pelaaja ja Santtu juoksevat höyryten laiturin päähän ja hyppäävät, vesi roiskuu, päät nousevat
+## pintaan ja Santtu huutaa. Kamera nousee savuavan saunan ja järven ylle. dock_start / dock_end maailmassa (kannen
+## pinta), wl = vedenpinta.
+func savusauna_jarvi(dock_start: Vector3, dock_end: Vector3, wl: float, santtu_look: Dictionary, lines: Array, title: String,
+		sub: String, done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.4)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var fwd := Vector3(dock_end.x - dock_start.x, 0, dock_end.z - dock_start.z).normalized()
+	var side := fwd.cross(Vector3.UP).normalized()
+	var hero: Node3D = Looks.make(_props, sauna_look(Looks.player()))
+	var san: Node3D = Looks.make(_props, sauna_look(santtu_look))
+	var run_from := dock_start + fwd * 1.5
+	var run_to := dock_end - fwd * 0.6
+	var lanes := [[hero, side * -0.35, 0.0], [san, side * 0.35, 0.35]]  # [hahmo, sivusiirto, viive]
+	for l in lanes:
+		var ch: Node3D = l[0]
+		ch.global_position = run_from + l[1] - fwd * float(l[2]) * 2.0
+		ch.global_rotation.y = B.yaw_to(fwd)
+		ch.play("Sprint", 0.0)
+		var steam := _soft_particles(Color(1, 1, 1, 0.35), 0.5)
+		steam.amount = 16
+		steam.lifetime = 1.6
+		steam.direction = Vector3.UP
+		steam.spread = 30.0
+		steam.initial_velocity_min = 0.2
+		steam.initial_velocity_max = 0.5
+		steam.gravity = Vector3(0, 0.3, 0)
+		steam.position = Vector3(0, 1.2, 0)
+		ch.add_child(steam)
+	var splash := func(at: Vector3) -> void:
+		var sp := CPUParticles3D.new()
+		sp.one_shot = true
+		sp.explosiveness = 0.9
+		sp.amount = 60
+		sp.lifetime = 1.1
+		sp.direction = Vector3.UP
+		sp.spread = 35.0
+		sp.initial_velocity_min = 2.0
+		sp.initial_velocity_max = 4.5
+		sp.gravity = Vector3(0, -9.0, 0)
+		var dm := SphereMesh.new()
+		dm.radius = 0.03
+		dm.height = 0.06
+		dm.material = B.unshaded(Color(0.85, 0.92, 1.0, 0.85))
+		sp.mesh = dm
+		_props.add_child(sp)
+		sp.global_position = Vector3(at.x, wl, at.z)
+		sp.emitting = true
+		Sfx.play("water", -2.0, 0.7)
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
+	bubble.no_depth_test = true
+	_cam.current = true
+	_cam.fov = 52.0
+	_fade_to(0.0, 0.5)
+	# 1. Rannalta laiturin suuntaan: höyryävät selät juoksevat laiturin päähän.
+	phase = "juoksu"
+	var run_sec := run_from.distance_to(run_to) / 5.5
+	var t0 := _now_ms()
+	var states := [0, 0]  # 0 juoksee, 1 hyppää, 2 vedessä
+	var jump_t := [0.0, 0.0]
+	var jump_from: Array = [Vector3.ZERO, Vector3.ZERO]
+	while true:
+		var t := (_now_ms() - t0) / 1000.0
+		for i in 2:
+			var ch: Node3D = lanes[i][0]
+			var delay: float = lanes[i][2]
+			var rt := clampf((t - delay) / run_sec, 0.0, 1.0)
+			if states[i] == 0:
+				ch.global_position = (run_from - fwd * delay * 2.0).lerp(run_to, rt) + lanes[i][1]
+				if rt >= 1.0:
+					states[i] = 1
+					jump_t[i] = t
+					jump_from[i] = ch.global_position
+					ch.play("Jump", 0.1)
+			elif states[i] == 1:
+				var jt := (t - float(jump_t[i])) / 0.75
+				var p: Vector3 = (jump_from[i] as Vector3) + fwd * 2.4 * jt
+				p.y = (jump_from[i] as Vector3).y + 1.1 * sin(jt * PI * 0.75) - maxf(0.0, jt - 0.6) * 2.6
+				ch.global_position = p
+				if p.y <= wl - 0.2 or jt >= 1.0:
+					states[i] = 2
+					splash.call(p)
+					ch.global_position = Vector3(p.x, wl + TREAD_Y, p.z)  # Swim_Idle: pää ja hartiat pinnalla
+					ch.play("Swim_Idle", 0.2)
+					ch.get_child(ch.get_child_count() - 1).set("emitting", false)
+		var lead: Node3D = lanes[0][0]
+		if t < run_sec * 0.75:
+			_cam.global_position = run_from - fwd * 4.0 + Vector3(0, 1.9, 0) + side * 1.2
+			_cam.look_at(lead.global_position + Vector3(0, 1.2, 0), Vector3.UP)
+		else:
+			# Laiturin pään sivulta: hyppy ja roiske.
+			phase = "hyppy"
+			_cam.global_position = dock_end + side * 6.5 - fwd * 1.5 + Vector3(0, 1.6, 0)
+			_cam.look_at(dock_end + fwd * 1.6 + Vector3(0, 0.6, 0), Vector3.UP)
+		if states[0] == 2 and states[1] == 2 and t > float(jump_t[1]) + 1.6:
+			break
+		await get_tree().process_frame
+	# 2. Päät pinnalla: Santun huuto.
+	phase = "uijat"
+	var water_c: Vector3 = (hero.global_position + san.global_position) * 0.5
+	san.global_rotation.y = B.yaw_to(hero.global_position - san.global_position)
+	hero.global_rotation.y = B.yaw_to(san.global_position - hero.global_position)
+	bubble.global_position = Vector3(san.global_position.x, wl + 0.9, san.global_position.z)
+	bubble.text = "Santtu: " + lines[0]
+	var t1 := _now_ms()
+	var second := false
+	while _now_ms() - t1 < 5200:
+		var s := (_now_ms() - t1) / 1000.0
+		for ch: Node3D in [hero, san]:
+			ch.global_position.y = wl + TREAD_Y + sin(s * 2.0 + ch.get_instance_id() % 7) * 0.04
+		if s > 2.6 and not second and lines.size() > 1:
+			second = true
+			bubble.text = "Santtu: " + lines[1]
+		# Järveltä rantaa kohti: uijat edessä, laituri ja ranta taustalla.
+		_cam.global_position = water_c + fwd * 3.4 + side * 1.0
+		_cam.global_position.y = wl + 0.6
+		_cam.look_at(Vector3(water_c.x, wl + 0.2, water_c.z), Vector3.UP)
+		await get_tree().process_frame
+	bubble.text = ""
+	Sfx.music_play(1.2, Sfx.MUSIC_CHORUS)
+	# 3. Kamera nousee: uijat, laituri ja saunan savu rannalla.
+	phase = "nousu"
+	var c0 := _cam.global_position
+	var named := false
+	var t2 := _now_ms()
+	while _now_ms() - t2 < 7500:
+		var u := (_now_ms() - t2) / 7500.0
+		u = u * u * (3.0 - 2.0 * u)
+		_cam.global_position = c0.lerp(water_c + fwd * 14.0 + Vector3(0, 16.0, 0) + side * 4.0, u)
+		_cam.look_at(Vector3(water_c.x, wl, water_c.z).lerp(dock_start, u * 0.7), Vector3.UP)
+		if not named and _now_ms() - t2 > 2400:
+			named = true
+			_farm_title(title, sub)
+		await get_tree().process_frame
+	_title.text = ""
+	_sub.text = ""
+	phase = ""
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
