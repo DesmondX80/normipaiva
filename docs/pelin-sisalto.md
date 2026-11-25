@@ -60,7 +60,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (Saloisissa urheilukentän maalista, Oravajärven rannalta tai aseman laiturilta, Vaalassa Gasthausin pihalta):
   moraali nousee, mutta vireys, kipu ja stressi kärsivät, ja lompakosta puuttuu 5–20 € ("Bensarahat. T: Pentti").
   Jos joku kylän hahmo on lähellä (25 m), hän näkee kyytiin nousun 60 %:n todennäköisyydellä: maine −3 ja Päivi
-  kuulee asiasta aamulla. Päiväkirjaan sivutehtävä "Pentin kyydissä" ja ensimmäisestä kyydistä legendaarinen hetki.
+  kuulee asiasta aamulla. Päiväkirjaan sivutehtävä "Pentin kyydissä".
+  Ensimmäinen kyyti on legendaarinen hetki (`cutscene.gd _pentti_legend`): keinunta ja humppa loppuvat, liukuovi
+  aukeaa punaisen hehkun keskeltä, ja pelaaja astuu ulos. Kaupasta tuleva mummo pudottaa ostoskassinsa ("Tää
+  kerrotaan koko kylälle!"), maitopurkki vierii pois, ja Pentti huikkaa keulan vierestä. Lopuksi kamera nousee
+  parkkipaikan ylle ja hetken nimi tulee näkyviin. Aamulla tulee rivi "Päiväkirjaan uusi tarina". Myöhemmät kyydit
+  lasketaan hiljaa, ja Pentti muistelee ensimmäistä kertaa tervehtiessään (`rikos/pentti.gd HELLO_MUISTO`). Testi
+  `--scene=pentti_eka`.
   Toisella kerralla Pentti suunnittelee kiertuetta, ja joka kolmas kyyti on **Pentin kiertue** (onnellinen loppu):
   loppukohtauksessa BangBus ajaa yön maantietä Kajaanin, Kuhmon ja Suomussalmen kautta, Pentti ratissa ja pelaaja
   etupenkillä. Herätys kotipihalta (Vaalassa Gasthausin pihalta) klo 11, kiertuekulut 20–40 €.

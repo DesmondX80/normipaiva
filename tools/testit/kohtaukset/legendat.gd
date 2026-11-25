@@ -6,13 +6,15 @@ extends Node
 ## mokki_paapeli: Pekan kyyti tarinan jälkeen (story valmis) -> saapuminen mökin pihaan (cutscene.gd paapeli_saapuu):
 ##   kuvat kyydistä, kaahauksesta, Santusta, autosta noususta ja noususta mökin ylle; hetki kirjataan vasta perillä
 ##   (päiväkirjarivi, ei vanhaa ilmoitusta) ja toinen kyyti ei toista saapumista, vaan Pekka muistelee.
+## pentti_eka: Pentin ensimmäinen kyyti (rikos/pentti.gd _kyyti): keinunta, liukuovi aukeaa, mummo pudottaa kassin,
+##   Pentti ovelta ja nousu parkkipaikan ylle; hetki kirjataan aamulla (päiväkirjarivi), toinen kyyti ilman huipennusta.
 ## mokki_savusauna_eka: korjatun savusaunan ensimmäiset löylyt (sauna_relax first) ja laiturilta Likaseen
 ##   (savusauna_jarvi): kuvat löylystä, juoksusta, hypystä, uijista ja noususta; toiset löylyt eivät toista kohtausta.
 
 const Main := preload("res://scripts/main.gd")
 const Kuva := preload("res://tools/testit/kuva.gd")
 
-const KOHTAUKSET := ["mokki_paapeli", "mokki_savusauna_eka"]
+const KOHTAUKSET := ["mokki_paapeli", "mokki_savusauna_eka", "pentti_eka"]
 
 var main: Main
 var _viat := 0
@@ -27,6 +29,8 @@ func aja(scene: String, path: String, _nohud: bool) -> int:
 			await _paapeli(path)
 		"mokki_savusauna_eka":
 			await _savusauna(path)
+		"pentti_eka":
+			await _pentti(path)
 	FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 	return 1
 
@@ -128,3 +132,40 @@ func _savusauna(path: String) -> void:
 	_check(int(main.endings.counts.get("savusauna", 0)) == 2, "Savusauna: toiset löylyt laskettiin")
 	await _shots_until_done(path, [["toiset", 2.0]], 120.0)
 	_check(not main._msg.text.contains("LEGENDAARINEN"), "Savusauna: toisilla löylyillä ei ilmoitusta")
+
+
+
+func _pentti(path: String) -> void:
+	if main.player != main.walker_out:
+		main._toggle_mount()
+	main._note.visible = false
+	main.endings.counts.erase("pentin_kyyti")
+	var pt: RefCounted = main.rikos_osa("pentti")
+	pt.kyydit = 0
+	pt.todistaja_pakko = 0
+	var day0: int = main.day
+	pt._kyyti()
+	await _frames(2)
+	_check(not main.endings.counts.has("pentin_kyyti"), "Pentti: ei kirjattu kyydin alussa")
+	await _shots_until_done(path, [["keinunta", 4.0], ["hiljaisuus", "hiljaisuus", 1.2], ["ovi", "ovi", 1.0], ["kassi", "ovi", 2.8],
+		["pentti", "pentti", 1.6], ["nousu", "nousu", 4.0]], 120.0)
+	for i in 200:
+		if main.day != day0:
+			break
+		await _frames(1)
+	await _frames(4)
+	print("LEGENDA Pentti aamu: päivä %d -> %d, kerrat %d, viesti '%s'" % [day0, main.day, int(main.endings.counts.get("pentin_kyyti", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("pentin_kyyti", 0)) == 1, "Pentti: hetki kirjattiin")
+	_check(not main._msg.text.contains("LEGENDAARINEN"), "Pentti: ei vanhaa ilmoitusta")
+	await _shot(path, "aamu")
+	# Toinen kyyti: ei huipennusta.
+	pt._kyyti()
+	await _frames(2)
+	var seen_phase := false
+	while main.cutscene.busy:
+		if main.cutscene.phase != "":
+			seen_phase = true
+		await _frames(1)
+	_check(not seen_phase, "Pentti: toisella kyydillä ei huipennusta")
+	await _frames(60)
+	_check(int(main.endings.counts.get("pentin_kyyti", 0)) == 2, "Pentti: toinen kyyti laskettiin hiljaa")
