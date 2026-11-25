@@ -7,6 +7,8 @@ signal escaped
 
 const TIP_TIME := 4.0  # sekuntia lähellä, jotka poliisi vielä tietää pelaajan paikan (naapuri soitti)
 const LEAVE_TIME := 15.0
+const COP := {"shirt": Color(0.12, 0.16, 0.3), "pants": Color(0.1, 0.12, 0.22), "shoes": Color(0.05, 0.05, 0.05),
+	"shoe": "nauhakenka", "hair": "Hair_Buzzed", "hair_color": Color(0.3, 0.22, 0.15), "height": 1.84, "belly": 0.3}
 
 var _tip := TIP_TIME
 var _leaving := -1.0
@@ -20,7 +22,7 @@ func _ready() -> void:
 	add_child(B.box_shape(Vector3(1.8, 1.4, 4.2), Vector3(0, 0.85, 0)))
 	Vehicles.saab(self, Color.WHITE, "", true)  # poliisi-Saab: väritys, tekstit ja vilkkupalkki
 	_lights = Vehicles.police_lights(self)
-	Vehicles.kuski(self, "saab", load("res://scripts/ratsia.gd").COP)  # poliisi ratissa
+	Vehicles.kuski(self, "saab", COP)  # poliisi ratissa
 	B.guide(self, "POLIISI", Vector3(0, 2.4, 0), 56, Color(0.7, 0.8, 1.0), true)
 	_engine = Sfx.loop_on(self, "engine", -4.0)
 

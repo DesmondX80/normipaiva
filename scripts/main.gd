@@ -23,9 +23,6 @@ const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
-## Santun hommat mökillä (santun_hommat.gd) ja niiden minipelit.
-const AmpiaisGame := preload("res://scripts/ampiais_game.gd")
-const TiskiGame := preload("res://scripts/tiski_game.gd")
 ## Rasvanappi aseman takana makasiinissa Saloisissa ja Vaalassa (vain aikuisille): salasana luukulle ja peli pimeässä.
 const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
 ## Kolmiomittaus (#255): Sytkäri-mätsin osoite kavereiden kanssa Saloisissa ja Vaalassa (kolmiomittaus.gd).
@@ -95,16 +92,6 @@ const APTEEKKI_INT_POS := Vector3(18000, 0, 0)
 ## keskiverron pelaajan hyvän suorituksen, "kelpo" erottaa rennon pelaajan mokaajasta.
 const KARAOKE_RAIKUU := 0.85
 const KARAOKE_KELPO := 0.55
-## Sinikka Siitarissa (flirttailevaa kuten kotikadulla) ja Päivin puhelu, kun joku on nähnyt.
-const SINIKKA_BAR_LINES := [
-	"No mutta, naapuri! Täällähän sää iltasi vietät.", "Mää tuun tänne aina torstaisin. Musiikki vie mennessään.",
-	"Tanssitaanko? Mää vien, jos sää et osaa.", "Päivi ei varmaan tiedä, että sää oot täällä?",
-	"Mulla on ruusut kotona ihan yksin tänä iltana.", "Karaokessa sää olisit varmaan ihan Kari Tapio."]
-const PAIVI_SINIKKA_CALLS := [
-	"\"Pirjo soitti just, että sää TANSSIT Siitarissa Sinikan kanssa! Kotiin, NYT!\"",
-	"\"Mitä sää siellä Vaalassa Sinikan kanssa peuhaat?! Koko kylä puhuu jo!\"",
-	"\"Taas se Sinikka! Luuletko, ettei tänne kuulu mitään? Vaalan Facebook-ryhmässä on kuva!\"",
-	"\"Sää tarjoot Sinikalle drinkkejä, ja meillä on nurmikko leikkaamatta!\""]
 const PAIVI_SINIKKA_SEURA_CALLS := [
 	"\"Anna-Liisa soitti just, että sää TANSSIT seuraintalolla Sinikan kanssa! Kotiin, NYT!\"",
 	"\"Mitä sää siellä seuraintalolla Sinikan kanssa pyörit?! Koko kylä puhuu jo!\"",
@@ -117,20 +104,6 @@ const Atm := preload("res://scripts/atm.gd")
 const TRAFFIC := 14  # autoja kylän tieverkossa (pidetään pelaajan ympärillä, ks. _traffic_tick)
 const TRAFFIC_FAR := 450.0  # tätä kauempana oleva auto siirretään pelaajan lähelle
 const TRAFFIC_RESPAWN := Vector2(180.0, 380.0)  # uusi paikka tältä etäisyydeltä (mieluiten näkökentän ulkopuolelta)
-## Lama Vaalassa (#58 idea 4): työvoimatoimiston jono Siitarin lähellä (vaala.gd TYOKKARI_ID, ovi "tyokkari"),
-## lopettaneiden liikkeiden laput ja pankkiautomaatin oikut (_atm_use: hylätty kortti, laskettu nostoraja).
-const TYOKKARI_LINES := ["Sahalta lähti viiskymmentä miestä kerralla. Mää olin yks niistä.",
-	"Kolmas kuukausi jonossa. Virkailija tuntee jo mun nimen.", "Vaimo sanoo, että hae etelästä. Mistä etelästä? Siellä on sama.",
-	"Pankki vei talon, mutta mopo jäi. Sillä tänne tullaan.", "Kurssi on kuulemma hyvä. Atk-kurssi. Mää en oo ikinä nähny tietokonetta.",
-	"Kyläkauppa lopetti, koulu lopettaa, ja nyt mää jonotan tässä.", "EU tuo kuulemma töitä. Kattotaan.",
-	"Mun veli lähti Ruotsiin Volvon tehtaalle. Ei soita."]
-const TYOKKARI_VIRKAILIJA := [
-	["\"Ei ole tällä hetkellä avoimia paikkoja. Täyttäkää tämä lomake ja tulkaa ensi kuussa.\"", "Lomake kolmena kappaleena. Moraali −."],
-	["\"Kurssipaikkoja olis: atk-alkeet Kajaanissa. Bussilippu omasta pussista.\"", "Kurssiesite taskuun. Moraali −."],
-	["\"Leimataanpa kortti. Seuraava!\"", "Puoli tuntia jonoa yhteen leimaan."],
-	["\"Olette väärässä jonossa. Tämä on työttömyysturva. Työnhaku on tuolla.\" Toinen jono on pidempi.", "Moraali −."],
-	["\"Kesäksi haetaan marjanpoimijoita. Palkka kilon mukaan.\" Marjat poimit jo ilmaiseksikin.", "Moraali −."]]
-var _tyokkari_day := -1
 const ATM_LAMA := ["KORTTI HYLÄTTY. Ottakaa yhteys pankkiinne.", "PALVELU EI OLE KÄYTETTÄVISSÄ. Yrittäkää myöhemmin uudelleen.",
 	"Tilillä ei ole katetta... ai, ei vaan. Kone sylkäisi kortin takaisin. Kokeile uudestaan."]
 const ATM_LIMIT_LAMA := 10.0  # pankki laski nostorajaa
@@ -164,7 +137,6 @@ var klaffipoyta := false  # taitettava klaffipöytä löydetty (Reipparin seinä
 var craft_known := {}  # opitut jatkoreseptit: reseptin id -> true (klaffipöydän reseptikirja)
 var perv_mult := PERV_MULT  # käytössä olevan pervitiiniannoksen kerroin (jatkettu on heikompi)
 var perv_until := -1.0  # pervitiinin vaikutus päättyy (day * 1440 + clock_min)
-const DartsGame := preload("res://scripts/darts_game.gd")
 const Muskelivene := preload("res://scripts/muskelivene.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
@@ -251,9 +223,6 @@ const HomeInterior := preload("res://scripts/home_interior.gd")
 ## (carb_game.gd), työpöytä (pyörän huolto), radio, pakastearkku, työkalukaappi (jemma) ja pyörän paikka.
 const GarageInterior := preload("res://scripts/garage_interior.gd")
 const CarbGame := preload("res://scripts/carb_game.gd")
-## Savusaunan korjaus (Santun homma "saunakorjaus", saunakorjaus_game.gd): kivet rannalta, kiuas ja lauteet sisällä,
-## tervaus takaseinällä, savuluukku ja ovi terassilla. Korjattu sauna lämpiää normaalisti (mokki.sauna_fixed).
-const RonttonenGame := preload("res://scripts/ronttonen_game.gd")
 const EBike := preload("res://scripts/ebike.gd")
 const EBikeGame := preload("res://scripts/ebike_game.gd")
 const OmaMopo := preload("res://scripts/oma_mopo.gd")
@@ -320,18 +289,6 @@ const INDOOR_STASHES := ["koti", "autotalli"]
 const WINE_BERRIES := 3
 const WINE_LOCK_DAYS := 3
 const WINE_DAYS := {"hiiva": 21, "turbo": 7, "korpi": 5}
-## Paapelin kotiviini mökin pöntön takana olevassa saavissa: samat ainekset (marjat mökin metsästä, hiiva Santun jääkaapista,
-## sokeri Santun keittiön kaapista – Santun hermot kiristyvät – tai kaikki Vaalan kaupasta), lisäksi Korpi-Kallen
-## korpihiiva (5 pv). Kotona annettu lupaus ei estä: Santtu muistuttaa, mutta haluaa itsekin viiniä. Valmis viini =
-## mökkibileet (onnellinen loppu) Santun, Sinikan ja Korpi-Kallen kanssa, herätys laiturilta, savusaunasta tai
-## metsästyslavalta ja oma lupaus (lukko, unohtuu kuten kotona WINE_LOCK_DAYS päivässä).
-const KORPIHIIVA_PRICE := 3.0
-const SUGAR_HERMO := 6.0
-const MWINE_WAKE := {
-	"laituri": ["Heräsit laiturilta märkänä, makuupussi puoliksi järvessä. Joutsenet katsoo paheksuen.", Vector3(8.9, 0, 52.0)],
-	"savusauna": ["Heräsit savusaunan lauteilta noen peitossa. Kiuas on vielä lämmin.", Vector3(5.6, 0, 19.4)],
-	"lava": ["Heräsit metsästyslavalta. Miten sää tänne kiipesit?!", Vector3(-30.0, 0, 7.0)],
-}
 const WINE_WAKE := {
 	"pekka": "Heräsit Pekan saunan lauteilta pyyhe päässä. Pekka kuorsaa kuistilla kyyhkynsulka hiuksissa.",
 	"arto": "Heräsit Arton Hyundain takapenkiltä. Arto keittää kahvia eikä katso silmiin.",
@@ -583,9 +540,7 @@ var has_matches := false
 ## Suklaalevy taskussa: saattaa lepyttää Päivin (salainen mekaniikka, ei vinkkejä pelissä).
 var has_chocolate := false
 var has_flowers := false  # kukkakimppu Päiville (säästöpiha, #141)
-var ronttoset := 0  # mökillä leivotut rönttöset (ronttonen_game.gd, #15): vie kotiin Päiville
 var _kahvipoyta_day := -1  # päivä, jona Päivi sai rönttöset: kahvipöytä katettuna kotona
-const RONTTONEN_MAX := 6
 var has_onki := false  # bambuonki (Sepon varasto tai kirppis): onkiminen rannalta
 var has_virveli := false  # virveli ja lusikkauistin (kirppiksen Tauno)
 var madot := 0  # onkimadot (kauppa-auton matopurkki; ongen mukana puolikas purkki)
@@ -716,17 +671,7 @@ const HEDGE_NAG_PAIVI := ["Se pensasaita rehottaa jo kadulle. Trimmeri on aidan 
 ## Pannu-Sulon pontikkakanisteri metsästä: vastaa kotijemmassa 24 kaljaa. Yksi kanisteri päivässä.
 const KANISTER_BEERS := 24
 const KANISTER_PRICE := 20.0
-## Korpi-Kalle (korpikeittaja.gd): Neittävän korpikeittäjä mökin metsässä myy pontikkaa (PONTIKKA_DAY pulloa
-## päivässä). Pontikka: Santun lahjonta (hoitaa homman), huikka ennen lavaa (rohkeus: lavalla isompi tahti-ikkuna,
-## mutta kompastelee) ja myynti Siitarin tai Oulujärven lavan pihalla. Nimismies (nimismies.gd) voi yllättää
-## pannulla (juokse karkuun) tai kaupanteossa: sakko ja pullot takavarikkoon.
-const Korpikeittaja := preload("res://scripts/korpikeittaja.gd")
 const Nimismies := preload("res://scripts/nimismies.gd")
-const PONTIKKA_PRICE := 12.0
-const PONTIKKA_SELL := 25.0
-const PONTIKKA_DAY := 2
-const RAID_BUY := 0.15  # nimismies tulee pannulle oston jälkeen
-const RAID_SELL := 0.25  # nimismies näkee kaupanteon
 const SAKKO := 40.0
 var pontikka := 0  # pulloja repussa
 var _nimismies: Node3D = null
@@ -961,28 +906,13 @@ var _keys_node: Node3D  # Pekan autonavaimet kodalla
 var _mow_lawn: Node3D
 ## Kädessä kannettava (huussin sanko, halkosyli, kahvikuppi) ja sen läikkymisvaara (0–1).
 var _carry := ""
-var _carry_slosh := 0.0
-var _ranni_state: Array = []
-## Santtu katsomassa hommaa: homman id, kommenttien ajastin ja poissaolo ilman hommaa.
-var _watch_task := ""
 var _watch_t := 0.0
-var _watch_idle := 0.0
-var _watch_arrived := false
-var _watch_retarget := 0.0
 ## Raaka saalis (laiturin kalat, metsästyslavan riista) odottaa savustusta kesäkeittiössä:
 ## [{"type": "kala" | "riista", "nom": "hauki"}, ...]. Häviää yöllä kuten eväät.
 var saalis: Array = []
-## Offset-savustin (Mokki.KITCHEN_LOCAL): halot tulipesään (E), lämpö seuraa polttoainetta viiveellä.
-## Savustus etenee 80–120 °C:ssa täysillä, viileämmässä hitaasti; yli 135 °C saalis karrelle.
-const SMOKER_LOAD_MAX := 4
-const SMOKER_TIME := 35.0  # s sopivassa lämmössä
-const SMOKER_LOG := 0.22  # halon lisäys polttoaineeseen
-const SMOKER_BURN := 0.045  # polttoaineen kulutus /s
 var smoker_load: Array = []  # savustimessa olevat saaliit (kuten saalis)
 var smoker_temp := 18.0
 var smoker_fuel := 0.0
-var smoker_progress := 0.0  # 0..1
-var smoker_burnt := 0.0  # 1 = karrella
 
 
 func _ready() -> void:
@@ -1897,27 +1827,12 @@ func _use_yeast(kind: String) -> void:
 
 
 
-func _mwine_ready() -> bool:
-	return mwine_start >= 0 and day - mwine_start >= mwine_days
-
-
-func _mwine_stage() -> String:
-	if mwine_start < 0:
-		return ""
-	return "valmis" if _mwine_ready() else "kay"
 
 
 
 
-func _mwine_act() -> void:
-	if mwine_locked:
-		return
-	if _mwine_ready():
-		pass
-		return
-	if mwine_start >= 0:
-		return
-	_vat_menu("paapeli")
+
+
 
 
 
@@ -5171,9 +5086,6 @@ func _paivi_bday(d: int) -> bool:
 	return d % 14 == 7
 
 
-## Eilen oli Päivin syntymäpäivä, eikä kukkia tuotu (aamu kotona).
-func _bday_forgotten() -> bool:
-	return _paivi_bday(day - 1) and _flowers_day != day - 1
 
 
 func _paivi_bday_near() -> bool:
@@ -6535,25 +6447,12 @@ func _start_hiidenportti() -> void:
 
 
 
-func _vvaala_paiva() -> bool:
-	return (day - 1) % 28 >= 25
 
 
 
 
-func _vvaala_kiinni_teksti() -> String:
-	if _vvaala_paiva():
-		return "Veturitalli: esitykset klo 13-17. Tule silloin."
-	return "Veturitalli on kiinni. Valentin Vaala -elokuvapäivät ovat kunnan kesäkuun lopussa (joka 28. päivän lopussa)."
 
 
-## Esitys: mykkäelokuva ja 78-levy; katsoja saa mielihyvää ja rauhoittuu. Kello kuluu 40 min.
-func _start_vvaala() -> void:
-	_act_begin("minigame")
-	CamCtl.free_mouse = true
-	var songs := Iskelmat.available()
-	if not songs.is_empty():
-		pass
 
 
 func _manamansalo_tasks() -> Array:
@@ -8290,7 +8189,7 @@ func _enter_home(door: String) -> void:
 		_save_game()
 		_queue_message("Kukat maljakkoon keittiön pöydälle. Päivi näkee ne illalla.", 3.0)
 	home_int.set_kahvipoyta(_kahvipoyta_day == day)
-	if ronttoset > 0:
+	if false:
 		pass
 	if wanharaahe.ovikuva:
 		_give_ovikuva()
@@ -9487,12 +9386,6 @@ func _give_items() -> Array:
 	return items
 
 
-## T: syömävalikko mukana olevista eväistä.
-## Vaalan matkalla valikon E ei saa avata ovia: auki ollessa estetty, ja sulkeutumisruudulla myös.
-func _mopo_menu(open: bool) -> void:
-	return
-	if not open:
-		pass
 
 
 ## Ohjattava hahmo: sisätiloissa sisätilan oma kävelijä, muuten pelaaja (ulkona odottava kävelijä ei liiku).
@@ -9561,7 +9454,6 @@ func _open_eat_menu() -> void:
 	w.controls_enabled = false
 	if "speed" in w:
 		w.speed = 0.0
-	_mopo_menu(true)
 	_interior_busy(true)
 	_msg.text = ""
 	_msg_time = 0.0
@@ -9644,7 +9536,6 @@ func _interior_busy(on: bool) -> void:
 func _on_eat(id: String) -> void:
 	_interior_busy(false)
 	_active_walker().controls_enabled = true
-	_mopo_menu(false)
 	if id == "saappaat":
 		_bag_boots()
 		return
@@ -10589,8 +10480,6 @@ func _vaino_escape(quiet := false) -> void:
 
 
 
-func _on_kauppa_auto_arrived() -> void:
-	pass
 
 
 
@@ -10616,34 +10505,6 @@ func _nimismies_raid() -> void:
 			n.queue_free())
 
 
-## Vaalan kaupan varkaus: nimismies tulee jalan perään (nimismies.gd); kiinni = sakko ja kaljat takavarikkoon.
-func _nimismies_shop_raid() -> void:
-	if _nimismies != null and is_instance_valid(_nimismies):
-		return
-	var n := Nimismies.new()
-	n.target = player
-	add_child(n)
-	var back := -player.global_transform.basis.z
-	n.global_position = player.global_position - Vector3(back.x, 0, back.z).normalized() * 25.0 + Vector3(0, 1.0, 0)
-	_nimismies = n
-	_minimap.nimismies = n
-	Sfx.play("alert", 0.0, 0.8)
-	_show_message("Kauppias soitti nimismiehen! KARKUUN!", 3.5)
-	n.caught.connect(func() -> void:
-		var fine := minf(SAKKO, money)
-		money -= fine
-		beers = 0
-		player.set_carrying(false)
-		tilat.add("stressi", -0.2)
-		maine = clampf(maine - 8.0, 0.0, 100.0)
-		Sfx.play("lose", -4.0)
-		_show_message("Nimismies pidätti myymälävarkaan. Sakko %s € ja kaljat takavarikkoon." % _eur(fine), 4.0))
-	n.gave_up.connect(func() -> void:
-		tilat.first("nimismiespako", 0.4)
-		_show_message("Pääsit nimismieheltä karkuun!", 3.0))
-	get_tree().create_timer(30.0).timeout.connect(func() -> void:
-		if is_instance_valid(n):
-			n.queue_free())
 
 
 ## Kiinni pontikan kanssa: sakko ja kaikki pullot takavarikkoon.
@@ -10660,25 +10521,6 @@ func _pontikka_busted(why: String) -> void:
 	_show_message("%s %s, ja %d pulloa pontikkaa takavarikkoon." % [why, fine_txt, lost], 4.0)
 
 
-## Pontikan myynti Siitarin tai Oulujärven lavan pihalla jalan (Q). Nimismies voi nähdä kaupat (RAID_SELL).
-func _pontikka_sell_logic() -> void:
-	return
-	var p: Vector3 = walker_out.global_position
-	var near := ""
-	if near == "":
-		return
-	_hint.text = (_hint.text + "   " if _hint.text != "" else "") + "[Q] Myy pontikkapullo %s pihalla (%s €)" % [near, _eur(PONTIKKA_SELL)]
-	if not Input.is_action_just_pressed("bell"):
-		return
-	if randf() < RAID_SELL:
-		_pontikka_busted("Nimismies seisoi %s nurkalla ja näki kaupat!" % near)
-		return
-	pontikka -= 1
-	money += PONTIKKA_SELL
-	Sfx.play("coin", -4.0)
-	tilat.first("pontikka_myynti", 0.3)
-	_show_message(["\"Korpi-Kallen tavaraa? Annappa tänne.\" +%s €", "Pullo vaihtoi omistajaa %s pihalla. +%s €" % [near, "%s"],
-		"\"Älä kerro kenellekään.\" +%s €"].pick_random() % _eur(PONTIKKA_SELL), 2.5)
 
 
 ## Pannu-Sulo myy metsässä pontikkakanisterin (vastaa 24 kaljaa). Kanisterin kanssa suunta on kotiin.
@@ -11353,11 +11195,6 @@ func _kolmio_measure_logic() -> void:
 
 
 
-## Vaalan ovet piiloon, kun niille ei ole asiaa: talojen ovet vain mittauksen aikana.
-func _kolmio_door_hidden(id: String) -> bool:
-	if id == "kolmio_kaverit":
-		return false
-	return kolmio.stage("vaala") != "mittaus"
 
 
 
@@ -11461,7 +11298,6 @@ func _kolmio_hold(on: bool) -> void:
 	walker_out.controls_enabled = not on
 	walker_out.speed = 0.0
 	_hud.visible = not on
-	_mopo_menu(on)  # mopomatkan ovet eivät ota puhelimen sulkevaa E:tä
 
 
 func _kolmio_briefing(site: String) -> void:
@@ -12667,7 +12503,6 @@ func _talk_state_kind() -> String:
 ## Avaa keskustelun: ohjattava hahmo pysähtyy, sisätilan toimintopisteet ja hahmon omat repliikit tauolle.
 func _talk_open(who: String, node: Node3D, hello := "") -> void:
 	_talk_who = who
-	_mopo_menu(true)  # Vaalan ovikeskustelu: valinnan E ei saa avata ovea (ja keskustelua) uudelleen
 	if who in ["pekka", "arto", "sinikka"]:
 		tilat.first(who, 0.0)  # naapuri tavattu: kartan laskuri ja tehtävien ehdot (first:sinikka)
 	elif who == "santtu":
@@ -12767,7 +12602,6 @@ func _talk_end() -> void:
 	if _talk_who == "apteekki_hoitaja":
 		_hs_hatch(false)
 		Sfx.play("door_close", -4.0)
-	_mopo_menu(false)
 	CamCtl.free_mouse = false
 	if is_instance_valid(_talk_node) and "quiet" in _talk_node:
 		_talk_node.quiet = false
@@ -13992,8 +13826,6 @@ func _after_fishing(got: Array) -> void:
 	_show_message("Saalis: %s. %s" % [", ".join(names), "Kalat kassissa."], 3.5)
 
 
-## Mökin pohjoispuoli: Salmisen uimaranta, Ranta-Rosvo, Keskimmäisen laavu, tynnyrisauna ja laituri (mokki.gd).
-const ROSVO_TEXT := "RANTA-ROSVO. Kerrotaan, että Salmisten rannoilla liikkui aikanaan rosvo, joka vei uimareiden eväät ja jätti tilalle kiitoskirjeen. Laatassa lukee: \"Älä jätä eväitä rannalle.\""
 
 
 
@@ -14065,55 +13897,14 @@ func _act_end() -> void:
 
 
 
-## Laavun nuotio: makkara mukana -> makkaranpaisto välianimaationa, muuten istahdus lepuuttaa.
-func _laavu_rest() -> void:
-	walker_out.stamina = 100.0
-	walker_out.exhausted = false
-	tilat.first("laavu", 0.3)
-	if has_sausage:
-		has_sausage = false
-		_act_begin()
-		var pit: Vector3
-		var lake: Vector3
-		if false:
-			pass
-		else:
-			pass
-		cutscene.makkara(pit, lake, func() -> void:
-			_eat(0.5)
-			tilat.first("makkaranpaisto", 0.3)
-			tilat.add("moraali", 0.1)
-			if _once_today("laavu"):
-				tilat.add("stressi", 0.15)
-			_act_end()
-			_show_message("Makkara paistettu laavun nuotiolla. Ei parempaa eväsretkeä!", 3.5))
-		return
-	if _once_today("laavu"):
-		tilat.add("stressi", 0.15)
-	_show_message("Istahdit laavulle. Nuotio rätisee, ja Keskimmäisen pinta kimaltaa. Makkaraa ei ole mukana (K-Marketista saa).", 3.5)
 
 
 
 
 
 
-## Viinakätkön avaus (Mokki.VIINA[i]): pullo reppuun ja nimi lokikirjaan.
-func _open_viina(i: int) -> void:
-	if false:
-		return
-	tilat.first("viinakatko", 0.3)
-	if false:
-		tilat.add("moraali", 0.2)
-		Sfx.play("win_small")
-	else:
-		Sfx.play("pickup", -4.0, 0.8)
-	_save_game()
 
 
-## Metsästyslava riistapolulla: E nousee lavalle, ja metsästys on FPS-minipeli (hunt_game.gd).
-func _hunt_logic(e: bool) -> void:
-	if e:
-		_start_hunt()
 
 
 func _start_hunt() -> void:
@@ -14128,65 +13919,10 @@ func _start_hunt() -> void:
 	_hud.visible = false
 
 
-func _after_hunt(bag: Array, moose: bool) -> void:
-	tilat.first("metsastys", 0.3)
-	if moose:
-		tilat.add("moraali", -0.3)
-		tilat.add("stressi", -0.3)
-		if false:
-			pass
-	elif not bag.is_empty():
-		pass
-	var names: Array = []
-	for k in bag:
-		pass
-	if not bag.is_empty():
-		tilat.add("moraali", minf(0.05 * bag.size(), 0.2))
-		tilat.add("stressi", 0.1)
-		_show_message("Saalis: %s. Vie kesäkeittiön savustimeen." % ", ".join(names), 3.5)
-	elif not moose:
-		_show_message("Ei saalista tällä kertaa. Metsä oli hiljainen.", 2.5)
 
 
-## Tikanheitto mökin pihalla (darts_game.gd): 3 x 3 tikkaa, verrataan Santun tulokseen. Humala heiluttaa kättä.
-func _start_darts(mode := "darts") -> void:
-	_minigame_prev = state
-	state = "minigame"
-	player.controls_enabled = false
-	player.speed = 0.0
-	player.visible = false
-	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-	_hud.visible = false
-	var game := DartsGame.new()
-	game.mode = mode
-	pass
-	game.drunk = _hand_shake()
-	game.finished.connect(func(total: int, santtu: int) -> void:
-		state = _minigame_prev
-		player.visible = true
-		player.activate_camera()
-		player.controls_enabled = true
-		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
-		_hud.visible = true
-		_after_darts(total, santtu, mode))
 
 
-func _after_darts(total: int, santtu: int, mode := "darts") -> void:
-	if total < 0:
-		return
-	tilat.first("tikka" if mode == "darts" else "mokkitikka")
-	if false:
-		if mode == "darts":
-			tikka_ennatys = total
-		else:
-			pass
-	if total > santtu:
-		tilat.first("tikka_voitto" if mode == "darts" else "mokkitikka_voitto", 0.2)  # päiväkirjan Tikkamestari
-		tilat.add("moraali", 0.15)
-		tilat.add("keskittyminen", 0.1)
-	else:
-		pass
-	_save_game()
 
 
 ## Pihapingis Santtua vastaan (pingis_game.gd): Street Fighter -näyttämö kaukana kartan ulkopuolella.
@@ -14202,88 +13938,8 @@ func _start_pingis() -> void:
 	add_child(game)
 
 
-## Offset-savustin: raaka saalis sisään, halkoja tulipesään ja lämpö kohdalleen, lopuksi savustetut
-## eväiksi (syödään T:llä). Makkaran paisto hoituu kerralla kuten ennenkin.
-func _smoker_logic(e: bool) -> void:
-	if smoker_load.is_empty():
-		if has_sausage and not sausage_done:
-			_hint.text = "[E] Paista makkara kesäkeittiön savustimessa"
-			if e:
-				sausage_done = true
-				_eat(0.5)
-				tilat.first("savustin", 0.3)
-				tilat.add("stressi", 0.1)
-				Sfx.play("whoosh", -6.0, 0.4)
-				_show_message("Savustettu makkara! Nam.", 2.5)
-		elif not saalis.is_empty():
-			var n := mini(saalis.size(), SMOKER_LOAD_MAX)
-			_hint.text = "[E] Laita savustimeen: %s" % ", ".join(saalis.slice(0, n).map(func(c): return c.nom))
-			if e:
-				smoker_load = saalis.slice(0, n)
-				saalis = saalis.slice(n)
-				smoker_progress = 0.0
-				smoker_burnt = 0.0
-				Sfx.play("door_close", -6.0, 1.3)
-				_show_message("Saalis ritilällä. Lisää halkoja tulipesään (E) ja pidä lämpö 80–120 °C:ssa.", 3.5)
-		else:
-			_hint.text = "Kesäkeittiö ja offset-savustin. Makkaran saa K-Marketista, kalaa laiturilta ja riistaa metsästyslavalta."
-		return
-	if smoker_progress >= 1.0:
-		_hint.text = "[E] Ota savustetut pois (%d kpl)" % smoker_load.size()
-		if e:
-			var key := ""
-			for c in smoker_load:
-				key = "karrella" if smoker_burnt >= 1.0 else ("savukala" if c.type == "kala" else "savuriista")
-				food[key] = food.get(key, 0) + 1
-			tilat.first("savustus", 0.3)
-			tilat.add("stressi", 0.1)
-			if smoker_burnt >= 1.0:
-				if false:
-					pass
-			else:
-				tilat.first("savustus_onnistui", 0.0)  # Eräjorma
-				pass
-			Sfx.play("win_small", -6.0)
-			_show_message("Karrelle meni, mutta syötävää se on. T syö." if smoker_burnt >= 1.0 else
-				"Kullankeltaista savukalaa ja riistaa! Syö T:llä, kun nälkä yllättää.", 3.5)
-			smoker_load.clear()
-		return
-	var status := "liian kylmä"
-	if smoker_temp > 135.0:
-		status = "LIIAN KUUMA!"
-	elif smoker_temp > 120.0:
-		status = "kuuma"
-	elif smoker_temp >= 80.0:
-		status = "sopiva"
-	elif smoker_temp >= 60.0:
-		status = "viileä"
-	_hint.text = "Savustin %d °C (%s) · savustus %d %%%s · [E] lisää halko" % [roundi(smoker_temp), status,
-		floori(smoker_progress * 100.0), " · karrelle %d %%" % floori(smoker_burnt * 100.0) if smoker_burnt > 0.0 else ""]
-	if e:
-		if smoker_fuel <= 0.01 and smoker_temp < 40.0:
-			_show_message("Tuli syttyy tulipesään.", 1.5)
-		smoker_fuel = minf(smoker_fuel + SMOKER_LOG, 1.2)
-		Sfx.play("whoosh", -6.0, 0.5)
 
 
-## Savustimen lämpö seuraa polttoainetta viiveellä (offset-tulipesä), ja savustus etenee lämmön mukaan.
-func _smoker_tick(delta: float) -> void:
-	smoker_fuel = maxf(0.0, smoker_fuel - SMOKER_BURN * delta)
-	var target := 18.0 + 200.0 * smoker_fuel
-	smoker_temp += (target - smoker_temp) * (1.0 - exp(-delta / 4.0))
-	if smoker_load.is_empty() or smoker_progress >= 1.0:
-		return
-	var rate := 0.0
-	if smoker_temp > 135.0:
-		rate = 0.6
-		smoker_burnt += delta * 0.15
-	elif smoker_temp >= 80.0 and smoker_temp <= 120.0:
-		rate = 1.0
-	elif smoker_temp >= 60.0:
-		rate = 0.5
-	smoker_progress = minf(1.0, smoker_progress + rate * delta / SMOKER_TIME)
-	if smoker_progress >= 1.0:
-		Sfx.play("alert", -6.0, 1.2)
 
 
 ## Kota: sahaa tukki pölkyiksi, pilko pölkyt haloiksi, sytytä tuli ja kuuntele tarinoita. Lintutornista lintuja.
@@ -14894,8 +14550,6 @@ func _klaffi_found() -> void:
 const JUHANNUS_WD := 4
 const TV_SCORE := 0.5
 const KOKKO_AIKA := Vector2(21 * 60, 3 * 60)
-var _tv_shot: Texture2D = null
-var _tv_pending: Texture2D = null
 var _tv_day := -1
 var _tv_gossip := false
 var _kokko_day := -1
@@ -14905,25 +14559,8 @@ func _juhannus() -> bool:
 	return _weekday() == JUHANNUS_WD
 
 
-func _kokko_lit() -> bool:
-	return _juhannus() and _between(clock_min, KOKKO_AIKA)
 
 
-## Kokolla: E katsoo juhannuskokkoa (kerran illassa moraali ja mielihyvä).
-func _kokko_visit() -> void:
-	if not _kokko_lit():
-		_show_message("Rannalla on juhannuskokon pino valmiina. Se sytytetään klo 21." if _juhannus() else "Rannalla on vanhan kokon hiiltynyt pohja.", 3.0)
-		return
-	if _kokko_day == day:
-		_show_message("Kokko roihuaa. Kipinät nousee kesäyön taivaalle ja joku laulaa juhannusvirttä väärillä sanoilla.", 3.0)
-		return
-	_kokko_day = day
-	tilat.add("moraali", 0.15)
-	tilat.add("stressi", 0.1)
-	mielihyva += 4.0
-	tilat.first("juhannuskokko", 0.4)
-	Sfx.play("win_small", -6.0)
-	_show_message("Juhannuskokko roihuaa Oulujärven rannalla! Lavalta kuuluu juhannustanssit, ja järvi on peilityyni. Hyvää juhannusta!", 4.5)
 
 
 
@@ -14999,14 +14636,6 @@ func _renew_shop_interior() -> void:
 	old.queue_free()
 
 
-## Kaupan kori tyhjäksi seuraavaa käyntiä varten (sama sisätila kuin kylän K-Marketissa).
-func _reset_shop_visit() -> void:
-	interior.has_beer = false
-	interior.has_paid = false
-	interior.stolen = false
-	interior.cart.clear()
-	interior.bag.clear()
-	interior.walker.set_carrying(false)
 
 
 func _on_shop_exited(bought: bool) -> void:
@@ -15183,48 +14812,12 @@ func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
 	fight.start(beers, foe_key, hp, dmg)
 
 
-## Lauantain pajatsoriita Siitarissa: Raahen jätkät eivät anna pelivuoroa. Valikosta pihalle tai antaa olla.
-func _raahe_quarrel() -> void:
-	_quarrel_foe = "raahelainen"
-	_quarrel_cause = "pajatso"
-	_quarrel_menu([["tappele", "\"Pihalle siitä, ni katotaan kenen pajatso on!\""],
-		["anna", "Anna pojille pelivuoro"]], "Raahen jätkät pajatsolla haastaa riitaa")
 
 
-## Riita Siitarissa: kuka haastaa (fight.gd vastustaja) ja mistä (pajatso tai jukeboksin biisi).
-var _quarrel_foe := "raahelainen"
-var _quarrel_cause := "pajatso"
 
 
-func _quarrel_menu(items: Array, title: String) -> void:
-	_interior_busy(true)
-	_active_walker().controls_enabled = false
-	_menu_mode = "raahe"
-	_item_menu.open(items, title)
 
 
-func _on_raahe_choice(id: String) -> void:
-	_menu_mode = "give"
-	var raahe := _quarrel_foe == "raahelainen"
-	if id == "tappele":
-		if raahe:
-			pass
-		else:
-			pass
-		pass
-		return
-	_interior_busy(false)
-	_active_walker().controls_enabled = true
-	if _quarrel_cause == "pajatso":
-		_show_message("Annoit jätkien pelata. Pajatso kilkattaa, ja ne nauraa makealla.", 3.0)
-		return
-	# Jukeboksiriita: periksi antaessa biisi loppuu.
-	pass
-	if raahe:
-		pass
-	else:
-		pass
-	_show_message("Jukeboksi hiljeni. Rauha palasi Siitariin, ja 50 senttiä meni hukkaan.", 3.0)
 
 
 
@@ -16093,7 +15686,6 @@ func _load_game() -> void:
 			_saved_today[k] = cfg.get_value("tanaan", k)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	has_flowers = cfg.get_value("peli", "kukat", false)
-	ronttoset = cfg.get_value("peli", "ronttoset", 0)
 	_kahvipoyta_day = cfg.get_value("peli", "kahvipoyta_paiva", -1)
 	has_onki = cfg.get_value("peli", "onki", false)
 	kalalupa = cfg.get_value("peli", "kalalupa", false)
@@ -16369,7 +15961,6 @@ func _save_game() -> void:
 	# Mökillä tai Vaalassa tallennettu peli jatkuu mökin pihasta (_resume_at_mokki), Santun hommat samana päivänä.
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
-	cfg.set_value("peli", "ronttoset", ronttoset)
 	cfg.set_value("peli", "kahvipoyta_paiva", _kahvipoyta_day)
 	cfg.set_value("peli", "onki", has_onki)
 	cfg.set_value("peli", "kalalupa", kalalupa)
@@ -17429,18 +17020,6 @@ func _build_hud() -> void:
 	_talk_box.closed.connect(_talk_end)
 	_item_menu = ItemMenu.new()
 	layer.add_child(_item_menu)
-	_item_menu.cancelled.connect(func() -> void:
-		if _menu_mode == "wc":
-			_menu_mode = "give"
-			_wc_release()
-		else:
-			_mopo_menu(false)
-			if _menu_mode in ["eat", "viini", "asema", "asu", "raahe", "jukeboksi"]:
-				_menu_mode = "give"
-				_interior_busy(false)
-				_active_walker().controls_enabled = true
-			else:
-				player.controls_enabled = true)
 
 	_hp_label = _label(layer, 18)
 	_hp_label.anchor_top = 1.0
@@ -17615,8 +17194,8 @@ func inventory_items() -> Array:
 		add.call("valokuva", "Vanha valokuva", 1, "Raunioiden uunista. Talo, perhe portailla ja koira. Saloisten Pirtti haluaisi nähdä.")
 	if wanharaahe.ovikuva:
 		add.call("ovikuva", "Valokuva vanhoista ovista", 1, "Raahen Wanhasta kaupungista. Vie kotiin Päiville.")
-	if ronttoset > 0:
-		add.call("ronttonen", "Rönttönen", ronttoset, "Itse leivottu, puolukkaa ja muusia. Vie kotiin Päiville kahvipöytään.")
+	if false:
+		pass
 	if has_flowers:
 		add.call("kukat", "Kukkakimppu Päiville", 1, "Vie kotiin sisälle illaksi. Lytistyy, jos jäät kiinni.")
 	if _has_taimet:
@@ -21400,95 +20979,6 @@ func _maybe_screenshot() -> void:
 			_on_retki_exited()
 			await get_tree().create_timer(14.0).timeout
 			print("KLP takaisin: state %s, retki_int %s, etäisyys lähtöpaikasta %.2f m (lähtö %s), kello +%.0f min lähdöstä" % [state, retki_int, player.global_position.distance_to(_retki_from), _retki_from, fposmod(clock_min - kl_t0, 1440.0)])
-			get_tree().quit()
-		"ronttonen":
-			# Rönttösten leivonta (#15): kolme vaihetta (kuva kustakin), erä talteen, vienti Päiville ja kahvipöytä (kuva).
-			_note.visible = false
-			var ro_shot := func(name: String) -> void:
-				for i in 3:
-					await get_tree().process_frame
-				await RenderingServer.frame_post_draw
-				get_viewport().get_texture().get_image().save_png(path.replace(".png", "_%s.png" % name))
-			var ro_ev := func(g: Node, pos: Vector2, rel := Vector2.ZERO, pressed := true, motion := false) -> void:
-				var ev: InputEvent
-				if motion:
-					var m := InputEventMouseMotion.new()
-					m.position = pos
-					m.relative = rel
-					m.button_mask = MOUSE_BUTTON_MASK_LEFT
-					ev = m
-				else:
-					var b := InputEventMouseButton.new()
-					b.position = pos
-					b.button_index = MOUSE_BUTTON_LEFT
-					b.pressed = pressed
-					b.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
-					ev = b
-				g._gui(ev)
-				g._mouse = pos
-				await get_tree().process_frame
-			var g := RonttonenGame.new()
-			var ro_ok := [false]
-			g.finished.connect(func(ok: bool) -> void: ro_ok[0] = ok)
-			add_child(g)
-			for i in 4:
-				await get_tree().process_frame
-			var ro_c: Vector2 = g._center
-			await ro_ev.call(g, ro_c, Vector2.ZERO, true)
-			for i in 90:
-				await ro_ev.call(g, ro_c + Vector2(sin(i * 0.7) * 60.0, cos(i * 0.5) * 30.0), Vector2(14, 0) if i % 2 == 0 else Vector2(0, 14), true, true)
-				if i == 30:
-					await ro_shot.call("1_kaulinta")
-				if g.mode != "kaulinta":
-					break
-			print("RO kaulinta: vaihe %s px %.2f py %.2f" % [g.mode, g._px, g._py])
-			await ro_ev.call(g, ro_c, Vector2.ZERO, false)
-			await ro_shot.call("2_kaulittu")
-			await ro_ev.call(g, g._bowl(1), Vector2.ZERO)
-			print("RO puolukka ennen muusia: kädessä '%s'" % g._held)
-			for i in 4:
-				await ro_ev.call(g, g._bowl(0))
-				await ro_ev.call(g, ro_c + Vector2(-100 + i * 66, (i % 2) * 20 - 10))
-				if i == 1:
-					await ro_ev.call(g, g._bowl(0))
-					await ro_ev.call(g, ro_c + Vector2(0, 150))
-					print("RO ohi: muusia %d" % g._muusi.size())
-			await ro_shot.call("3_muusi")
-			for i in 3:
-				await ro_ev.call(g, g._bowl(1))
-				await ro_ev.call(g, ro_c + Vector2(-70 + i * 70, (i % 2) * 24 - 12))
-			await ro_ev.call(g, g._bowl(0))
-			await ro_shot.call("4_puolukka")
-			print("RO täyte: vaihe %s muusi %d marjoja %d" % [g.mode, g._muusi.size(), g._berries.size()])
-			for i in 9:
-				await ro_ev.call(g, g._pleat_pos(i))
-			await ro_shot.call("5_nyppy_kesken")
-			for i in range(9, 18):
-				await ro_ev.call(g, g._pleat_pos(i))
-			print("RO nyppy: vaihe %s" % g.mode)
-			await get_tree().create_timer(1.0).timeout
-			await ro_shot.call("6_valmis")
-			for i in 160:
-				await get_tree().process_frame
-				if ro_ok[0]:
-					break
-			print("RO valmis: ok %s" % ro_ok[0])
-			# Erä talteen ja vienti Päiville.
-			ronttoset = 3
-			var rm0 := mielihyva
-			day = 5
-			_kahvipoyta_day = -1
-			print("RO annettu: rönttösiä %d, kahvipöytä %s, mielihyvä %.0f -> %.0f" % [ronttoset, _kahvipoyta_day == day, rm0, mielihyva])
-			print("RO toinen kerta samana päivänä: rönttösiä %d" % ronttoset)
-			var cam := Camera3D.new()
-			home_int.add_child(cam)
-			cam.position = Vector3(3.6, 1.7, 0.3)
-			cam.look_at(home_int.to_global(Vector3(3.6, 0.8, -0.8)))
-			cam.current = true
-			await ro_shot.call("7_kahvipoyta")
-			cam.position = Vector3(3.6, 1.1, -0.1)
-			cam.look_at(home_int.to_global(Vector3(3.6, 0.8, -0.85)))
-			await ro_shot.call("8_kahvipoyta_lahelta")
 			get_tree().quit()
 		"kuninkaantapuli":
 			# Kuninkaan tapuli (#126): suntio kertoo, yökello, teinit ja avain, Pirtin G. R., droonikohde, lyijykotelo, museo ja
@@ -26770,25 +26260,14 @@ func _maybe_screenshot() -> void:
 				await shot.call("%s_%s" % [cfg[0], "vesi" if cfg[1] else "huussi"])
 				g._done = true
 				g.queue_free()
-			var tg := TiskiGame.new()
-			tg.dishes_left = 1  # mummon kukkalautanen esille
-			add_child(tg)
-			tg.washed = 3
-			tg._rack_list = TiskiGame.DISHES.slice(0, 3)
-			tg._rebuild_rack()
 			for i in 10:
 				await get_tree().process_frame
-			tg._dirt = 0.45
-			tg._wobble = 0.6
-			tg._last_dir = 1
 			for i in 5:
 				await get_tree().process_frame
 			await shot.call("tiski")
-			tg._look_up = 1.0  # kuivauskaappi
 			for i in 5:
 				await get_tree().process_frame
 			await shot.call("tiski_kaappi")
-			tg._finish()
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
 			var many := ["Laitoin 12,00 € kauppaa varten.", "Eilen ei tullu kaupasta mitään, vaikka oli lista!",

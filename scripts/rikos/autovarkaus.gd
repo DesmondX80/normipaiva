@@ -2,16 +2,16 @@ extends "res://scripts/rikos/osa.gd"
 ## F: ohiajavan auton kaappaus ja GTA-tyylinen tähtijahti (käyttäjän toive). Pelimekaniikkaa: pelkkä valinta, ei keinoja.
 ## Liikenneauto pysähtyy jalankulkijan eteen (traffic_car.gd LOOK/BRAKE). Kun se seisoo ja pelaaja on jalan kuljettajan
 ## oven vieressä (vasen kylki, -X; -Z = keula), E kaappaa auton: kuski hyppää ulos huutaen ja soittaa, ja tähtiä tulee 1.
-## Pelaajan pyöräsolmu (Saloinen, player_bike.gd set_car) tai mopo (Vaala, mopo.gd set_car) muuttuu autoksi, joten
+## Pelaajan pyöräsolmu (player_bike.gd set_car) muuttuu autoksi, joten
 ## kaikki "player == bike" -vahdit (keskustelu, ovet, tanssi) toimivat sellaisinaan. Autosta noustaan F:llä (main.gd
 ## _toggle_mount / _mopo_mount_logic kutsuu nouse()): auto jää hylätyksi propiksi päivän loppuun, ja oma pyörä tai mopo
 ## palaa paikkaan, josta se kaapattaessa oli.
 ## Kaappaus alkaa heti viidellä tähdellä (superäkäinen jahtaaja); tähdet putoavat pakomatkalla. Lisäksi: +1 joka TAHTI_AJO s ajoa ja +1 kovasta törmäyksestä (seinä, puu tai toinen auto). Jahtaaja: Saloisissa
 ## Päivi (wife_car.gd heat_mult 1,0–1,5, ei parkissa, ignore_safe ≥ 4 tähdellä) ja 4–5 tähdellä myös poliisiauto
-## (police_car.gd start_chase); Vaalassa konstaapeli Roivainen (roivainen_auto.gd). Pako: jahtaaja ei näe pelaajaa
+## (police_car.gd start_chase). Pako: jahtaaja ei näe pelaajaa
 ## tähdet × PIILO_PER_TAHTI s, minkä jälkeen tähti putoaa PUDOTUS s välein. Kuminauha ≥ 4 tähdellä: yli KUMI_R m
 ## päässä oleva jahtaaja siirtyy näkymättömiin pelaajan lähelle. Kiinni: Päivi -> _lose (motkotus),
-## Roivainen tai poliisi -> _rikos_loppu("pidatys"). Ei tallenneta: lataus ja uusi päivä nollaavat jahdin.
+## Päivi tai poliisi -> _rikos_loppu("pidatys"). Ei tallenneta: lataus ja uusi päivä nollaavat jahdin.
 
 const B := preload("res://scripts/build.gd")
 const T := preload("res://scripts/terrain.gd")
@@ -20,7 +20,6 @@ const Vehicles := preload("res://scripts/vehicles.gd")
 const TrafficCar := preload("res://scripts/traffic_car.gd")
 const WifeCar := preload("res://scripts/wife_car.gd")
 const PoliceCar := preload("res://scripts/police_car.gd")
-const RoivainenAuto := preload("res://scripts/rikos/roivainen_auto.gd")
 const TahdetHud := preload("res://scripts/rikos/tahdet_hud.gd")
 
 const OVI := Vector3(-1.25, 0.0, -0.1)  # kuljettajan ovi auton kehyksessä (vasen kylki, etuovi; Vehicles.car kahva z -0,1)
@@ -48,12 +47,12 @@ const KUSKI_LOOK := {"shirt": Color(0.35, 0.45, 0.6), "pants": Color(0.2, 0.2, 0
 
 var tahdet := 0
 var autossa := false
-var paikka := ""  # "saloinen" tai "vaala"
+var paikka := ""  # "saloinen"
 var kaappaukset := 0  # tänään (Riskit-sivu)
 var pakoja := 0  # tänään onnistuneet pakomatkat
 
 var _auto: CharacterBody3D  # pelaajan pyörä tai mopo autotilassa
-var _koti := Transform3D()  # mopon paikka ennen kaappausta (Vaalan kehys); pyörällä bike.car_home
+var _koti := Transform3D()  # mopon paikka ennen kaappausta; pyörällä bike.car_home
 var _tallissa := false
 var _vari := Color.WHITE
 var _van := false
@@ -69,7 +68,6 @@ var _kuski_kupla: Label3D
 var _kuski_t := 0.0
 var _kuski_dir := Vector3.ZERO
 var _pidetty: Node3D  # liikenneauto, joka odottaa pelaajaa (ei lähde ovelta)
-var _roivainen: CharacterBody3D
 var _poliisi: CharacterBody3D
 var _hud: CanvasLayer
 var _paivi_kytketty: CharacterBody3D  # Päivin auto, jonka caught-signaali ohjataan tähän osaan jahdin ajaksi
@@ -85,19 +83,11 @@ func setup() -> void:
 
 # --- Kaappaus --------------------------------------------------------------------------------------------------
 
-func _vaala() -> bool:
-	return game._in_vaala and game.mopo_trip != null and game.mopo_trip.active
-
-
 func _jalan() -> bool:
-	if _vaala():
-		return game.mopo_trip.on_foot != null
 	return game.player == game.walker_out
 
 
 func _liikenne() -> Array:
-	if _vaala():
-		return game.mopo_trip._cars.filter(func(c: Node) -> bool: return c.visible)
 	if game._hazards == null:
 		return []
 	return game._hazards.get_children().filter(func(c: Node) -> bool: return c is TrafficCar)
@@ -111,7 +101,7 @@ func _ovi(c: Node3D) -> Vector3:
 func kaapattava() -> Node3D:
 	if autossa or not _jalan() or game.state != "ulkona" or game.cutscene.busy:
 		return null
-	if not _vaala() and not game._thief.is_empty():
+	if not game._thief.is_empty():
 		return null  # teini ajaa pyörällä: pyöräsolmu on varkaalla
 	var p: Vector3 = game.player.global_position
 	var best: Node3D = null
@@ -158,7 +148,7 @@ func tick(e: bool) -> void:
 		_jahti(delta)
 	_hud.tahdet = tahdet
 	_hud.nakyy = nakyy
-	_hud.otsikko = ("ROIVAINEN" if paikka == "vaala" else "PÄIVI") if tahdet > 0 else ""
+	_hud.otsikko = "PÄIVI" if tahdet > 0 else ""
 
 
 ## Pysähtynyt auto odottaa, kun pelaaja on lähellä kuljettajan ovea (muuten se lähtisi heti, kun pelaaja ei ole
@@ -194,40 +184,25 @@ func kaappaa(c: Node3D) -> void:
 	_kuski_ulos(tr)
 	kaappaukset += 1
 	_pidetty = null
-	if _vaala():
-		paikka = "vaala"
-		var mt: Node3D = game.mopo_trip
-		var mp: CharacterBody3D = mt.mopo
-		_koti = mp.transform
-		var lt: Transform3D = mt.global_transform.affine_inverse() * tr
-		mt._respawn_car(c)  # liikenneauto siirtyy muualle tielle (sama solmu jatkaa liikenteenä)
-		mp.transform = Transform3D(lt.basis, lt.origin + Vector3(0, 0.1, 0))
-		mp.velocity = Vector3.ZERO
-		mp.set_car(true, _vari, _van, _malli)
-		if not mp.car_crashed.is_connected(_on_kolari):
-			mp.car_crashed.connect(_on_kolari)
-		game._mopo_remount()
-		_auto = mp
-	else:
-		paikka = "saloinen"
-		var bike: CharacterBody3D = game.bike
-		_tallissa = game.bike_in_garage
-		if _tallissa:
-			game._store_bike(false)
-		bike.car_home = bike.global_transform
-		_siirra_pois(c)
-		bike.global_transform = Transform3D(tr.basis, tr.origin + Vector3(0, 0.1, 0))
-		bike.velocity = Vector3.ZERO
-		bike.set_car(true, _vari, _van, _malli)
-		if not bike.crashed.is_connected(_on_kolari):
-			bike.crashed.connect(_on_kolari)
-		var w: CharacterBody3D = game.walker_out
-		w.visible = false
-		w.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
-		bike.set_rider_visible(true)
-		bike.controls_enabled = true
-		game._set_avatar(bike)
-		_auto = bike
+	paikka = "saloinen"
+	var bike: CharacterBody3D = game.bike
+	_tallissa = game.bike_in_garage
+	if _tallissa:
+		game._store_bike(false)
+	bike.car_home = bike.global_transform
+	_siirra_pois(c)
+	bike.global_transform = Transform3D(tr.basis, tr.origin + Vector3(0, 0.1, 0))
+	bike.velocity = Vector3.ZERO
+	bike.set_car(true, _vari, _van, _malli)
+	if not bike.crashed.is_connected(_on_kolari):
+		bike.crashed.connect(_on_kolari)
+	var w: CharacterBody3D = game.walker_out
+	w.visible = false
+	w.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
+	bike.set_rider_visible(true)
+	bike.controls_enabled = true
+	game._set_avatar(bike)
+	_auto = bike
 	autossa = true
 	_ajo_t = 0.0
 	Sfx.play("horn", 0.0, 0.9)
@@ -260,48 +235,23 @@ func nouse(pakko := false, jalkaan := true) -> void:
 	autossa = false
 	var tr: Transform3D = _auto.global_transform
 	var ulos: Vector3 = tr * Vector3(-1.7, 0.3, -0.1)
-	if paikka == "vaala":
-		var mt: Node3D = game.mopo_trip
-		var lt: Transform3D = mt.global_transform.affine_inverse() * tr
-		_hylkaa(mt, lt, Callable(mt.vaala, "h"))
-		_auto.set_car(false)
-		_auto.transform = _koti
-		_auto.velocity = Vector3.ZERO
-		if jalkaan:
-			_jalkaan_vaala(ulos, tr.basis.get_euler().y)
+	_hylkaa(game, tr, func(x: float, z: float) -> float: return T.h(x, z))
+	var bike: CharacterBody3D = game.bike
+	bike.set_car(false)
+	bike.global_transform = bike.car_home
+	bike.velocity = Vector3.ZERO
+	if jalkaan:
+		game._place_on_foot(ulos)
+		game.walker_out.rotation.y = tr.basis.get_euler().y  # auton suuntaan: kamera ei jää auton sisään
 	else:
-		_hylkaa(game, tr, func(x: float, z: float) -> float: return T.h(x, z))
-		var bike: CharacterBody3D = game.bike
-		bike.set_car(false)
-		bike.global_transform = bike.car_home
-		bike.velocity = Vector3.ZERO
-		if jalkaan:
-			game._place_on_foot(ulos)
-			game.walker_out.rotation.y = tr.basis.get_euler().y  # auton suuntaan: kamera ei jää auton sisään
-		else:
-			bike.controls_enabled = false
-			bike.set_rider_visible(false)
-		if _tallissa:
-			game._store_bike(true)
-		_tallissa = false
+		bike.controls_enabled = false
+		bike.set_rider_visible(false)
+	if _tallissa:
+		game._store_bike(true)
+	_tallissa = false
 	_auto = null
 	if tahdet > 0 and not pakko:
-		game._show_message("Jalan karkuun! %s on yhä perässä." % ("Roivainen" if paikka == "vaala" else "Päivi"), 2.5)
-
-
-func _jalkaan_vaala(at: Vector3, yaw: float) -> void:
-	var w: CharacterBody3D = game.walker_out
-	w.global_position = at
-	w.global_rotation.y = yaw
-	w.velocity = Vector3.ZERO
-	w.speed = 0.0
-	w.visible = true
-	w.process_mode = Node.PROCESS_MODE_INHERIT
-	w.controls_enabled = true
-	w.set_carrying(game.beers > 0)
-	game.mopo_trip.set_on_foot(w)
-	game._mopo_follow(w)
-	game._mopo_dry = w.global_position
+		game._show_message("Jalan karkuun! %s on yhä perässä." % ("Päivi"), 2.5)
 
 
 ## Hylätty auto: staattinen kappale samalla värillä ja muodolla, maassa kiinni.
@@ -329,8 +279,7 @@ var _ovi_kuski := OVI
 
 func _kuski_ulos(tr: Transform3D) -> void:
 	_poista_kuski()
-	var parent: Node3D = game.mopo_trip if _vaala() else game
-	_kuski = Looks.make(parent, KUSKI_LOOK)
+	_kuski = Looks.make(game, KUSKI_LOOK)
 	var door: Vector3 = tr * (_ovi_kuski + Vector3(-0.15, 0, 0))
 	_kuski_dir = (tr.basis * Vector3(-1, 0, 0.6)).normalized()
 	_kuski_dir.y = 0.0
@@ -361,11 +310,7 @@ func _kuski_tick(delta: float) -> void:
 
 
 func _maahan(n: Node3D) -> void:
-	if _vaala():
-		var l: Vector3 = n.position
-		n.position.y = game.mopo_trip.vaala.h(l.x, l.z)
-	else:
-		n.global_position.y = T.h(n.global_position.x, n.global_position.z)
+	n.global_position.y = T.h(n.global_position.x, n.global_position.z)
 
 
 func _poista_kuski() -> void:
@@ -390,16 +335,12 @@ func _lisaa(n: int, syy: String) -> void:
 
 
 func _aloita_jahti() -> void:
-	var kuka := "Roivainen" if paikka == "vaala" else "Päivi"
-	tahdet = MAX_TAHDET  # superäkäinen jahtaaja: viisi tähteä heti (Päivi 1,5 × nopeudella, poliisi mukaan; Roivainen 1,5 ×)
+	var kuka := "Päivi"
+	tahdet = MAX_TAHDET  # superäkäinen jahtaaja: viisi tähteä heti (Päivi 1,5 × nopeudella, poliisi mukaan)
 	_piilo_t = 0.0
 	_pudotus_t = 0.0
 	_kumi_t = 0.0
-	if paikka == "vaala":
-		_luo_roivainen()
-		game._show_message("AUTO KAAPATTU! Kuski soitti poliisille.\nRoivainen on SUPERÄKÄINEN ja lähti perään viidellä tähdellä. Pakoon!", 3.5)
-	else:
-		game._show_message("AUTO KAAPATTU! Kuski soitti, ja koko kylä soitti Päiville.\n%s on SUPERÄKÄINEN ja lähti perään viidellä tähdellä. Pakoon!" % kuka, 3.5)
+	game._show_message("AUTO KAAPATTU! Kuski soitti, ja koko kylä soitti Päiville.\n%s on SUPERÄKÄINEN ja lähti perään viidellä tähdellä. Pakoon!" % kuka, 3.5)
 	_paivita_jahtaaja()
 
 
@@ -437,7 +378,7 @@ func _kolarit(delta: float) -> void:
 			_auto.speed = clampf(_auto.speed, -2.0, 2.0)  # puskee toista autoa: ei ajeta läpi
 
 
-## Jahtaajat (Päivi tai Roivainen, 4–5 tähdellä myös poliisi) seuraavat tähtiä: vauhti, näkyvyys, kuminauha ja pako.
+## Jahtaajat (Päivi, 4–5 tähdellä myös poliisi) seuraavat tähtiä: vauhti, näkyvyys, kuminauha ja pako.
 func _jahti(delta: float) -> void:
 	var ajajat := _jahtaajat()
 	nakyy = false
@@ -468,14 +409,10 @@ func _jahti(delta: float) -> void:
 
 func _jahtaajat() -> Array:
 	var out: Array = []
-	if paikka == "vaala":
-		if _roivainen != null and is_instance_valid(_roivainen):
-			out.append(_roivainen)
-	else:
-		if game.wife != null and is_instance_valid(game.wife):
-			out.append(game.wife)
-		if _poliisi != null and is_instance_valid(_poliisi):
-			out.append(_poliisi)
+	if game.wife != null and is_instance_valid(game.wife):
+		out.append(game.wife)
+	if _poliisi != null and is_instance_valid(_poliisi):
+		out.append(_poliisi)
 	return out
 
 
@@ -494,12 +431,6 @@ func _kuuma() -> bool:
 
 func _paivita_jahtaaja() -> void:
 	var heat: float = HEAT[clampi(tahdet, 0, MAX_TAHDET)]
-	if paikka == "vaala":
-		if _roivainen != null and is_instance_valid(_roivainen):
-			_roivainen.heat_mult = heat
-			_roivainen.active = _kuuma() or nakyy
-			_roivainen.target = game.player
-		return
 	var w: CharacterBody3D = game.wife
 	if w == null or not is_instance_valid(w):
 		return
@@ -571,7 +502,7 @@ func _on_kiinni_poliisi() -> void:
 		return
 	_lopeta_jahti(false)
 	nouse(true)
-	game._rikos_loppu("pidatys", "Autovarkaus: %s pysäytti varastetun auton." % ("Roivainen" if paikka == "vaala" else "poliisi"))
+	game._rikos_loppu("pidatys", "Autovarkaus: %s pysäytti varastetun auton." % ("poliisi"))
 
 
 func _luo_poliisi() -> void:
@@ -587,40 +518,8 @@ func _luo_poliisi() -> void:
 	game._show_message("POLIISI MUKANA JAHDISSA!", 2.5)
 
 
-func _luo_roivainen() -> void:
-	_poista_roivainen()
-	var mt: Node3D = game.mopo_trip
-	_roivainen = RoivainenAuto.new()
-	_roivainen.vaala = mt.vaala
-	_roivainen.line = mt._line
-	_roivainen.target = game.player
-	mt.add_child(_roivainen)
-	_roivainen.caught.connect(_on_kiinni_poliisi)
-	var lp: Vector3 = mt.to_local(game.player.global_position)
-	var ni: Array = mt.vaala.nearest(lp)
-	var i: int = ni[0] if ni[0] >= 0 else mt._sample
-	# 70 näytettä (140 m) taaksepäin tai eteenpäin, kumpi mahtuu tielle.
-	var back := i - 70 if i - 70 > 2 else i + 70
-	_roivainen.place_at(float(back), 1 if back < i else -1)
-
-
-func _poista_roivainen() -> void:
-	if _roivainen != null and is_instance_valid(_roivainen):
-		_roivainen.queue_free()
-	_roivainen = null
-
-
 ## Kuminauha: kaukana oleva jahtaaja näkymättömiin pelaajan lähelle (tieverkon solmu, mieluiten kameran takana).
 func _kumilla(a: Node3D) -> void:
-	if a == _roivainen:
-		var mt: Node3D = game.mopo_trip
-		var ni: Array = mt.vaala.nearest(mt.to_local(game.player.global_position))
-		if ni[0] < 0:
-			return
-		var i: int = ni[0]
-		var back := i - 40 if i - 40 > 2 else i + 40
-		_roivainen.place_at(float(back), 1 if back < i else -1)
-		return
 	var p: Vector3 = game.player.global_position
 	var i := _solmu_lahella(p, KUMI_ETAISYYS)
 	if game.world.graph_nodes[i].distance_to(p) >= a.global_position.distance_to(p) - 20.0:
@@ -666,7 +565,6 @@ func _lopeta_jahti(pako: bool) -> void:
 	_piilo_t = 0.0
 	_pudotus_t = 0.0
 	_irrota_paivi()
-	_poista_roivainen()
 	if _poliisi != null and is_instance_valid(_poliisi):
 		_poliisi.queue_free()
 	_poliisi = null
@@ -709,13 +607,13 @@ func riskit() -> Dictionary:
 		return {}
 	var rivit: Array = []
 	if tahdet > 0:
-		rivit.append("Jahti päällä: %d/5 tähteä, perässä %s." % [tahdet, "Roivainen" if paikka == "vaala" else "Päivi"])
+		rivit.append("Jahti päällä: %d/5 tähteä, perässä %s." % [tahdet, "Päivi"])
 	rivit.append("Kaapattuja autoja tänään: %d. Karkuun päästy: %d." % [kaappaukset, pakoja])
 	rivit.append("Tähti tulee 25 s ajosta ja kolarista. Piiloon (ei näköyhteyttä), niin tähdet sammuvat.")
 	return {"otsikko": "Takaa-ajo", "rivit": rivit}
 
 
-# --- Testi: aja.sh scene riskit --riski=autovarkaus --arg=saloinen|vaala ----------------------------------------
+# --- Testi: aja.sh scene riskit --riski=autovarkaus --arg=saloinen ----------------------------------------
 
 var _vikoja := 0
 var _aika := 0.0  # pelin aika testissä (s)
@@ -787,18 +685,14 @@ func _paina(action: String) -> void:
 
 func _tila(t: String) -> void:
 	var w: CharacterBody3D = game.wife
-	print("AUTOVARKAUS %s: autossa %s tähdet %d näkyy %s piilo %.1f, pelaaja %s, Päivi heat %.3f alerted %s mode %s parked %s safe %s, poliisi %s, roivainen %s" % [
-		t, autossa, tahdet, nakyy, _piilo_t, "pyörä/auto" if game.player == game.bike else ("mopo/auto" if _vaala() and game.player == game.mopo_trip.mopo else "jalan"),
-		w.heat_mult, w.alerted, w.mode, w.parked, w.ignore_safe, _poliisi != null and is_instance_valid(_poliisi),
-		_roivainen != null and is_instance_valid(_roivainen)])
+	print("AUTOVARKAUS %s: autossa %s tähdet %d näkyy %s piilo %.1f, pelaaja %s, Päivi heat %.3f alerted %s mode %s parked %s safe %s, poliisi %s" % [
+		t, autossa, tahdet, nakyy, _piilo_t, "pyörä/auto" if game.player == game.bike else "jalan",
+		w.heat_mult, w.alerted, w.mode, w.parked, w.ignore_safe, _poliisi != null and is_instance_valid(_poliisi)])
 
 
 func testi(arg: String) -> void:
 	_vikoja = 0
-	if arg == "vaala":
-		await _testi_vaala()
-	else:
-		await _testi_saloinen()
+	await _testi_saloinen()
 	print("AUTOVARKAUS testi valmis, %d vikaa" % _vikoja)
 
 
@@ -1189,83 +1083,3 @@ func _testi_saloinen() -> void:
 		_vika("aamu ei nollannut")
 	var rs := riskit()
 	print("AUTOVARKAUS riskit aamulla %s" % [rs])
-
-
-func _testi_vaala() -> void:
-	if game.player != game.walker_out:
-		game._toggle_mount()
-	game._start_mopo()
-	var mt: Node3D = game.mopo_trip
-	await _tf(20)
-	var vl: Node3D = mt.vaala
-	var mp: CharacterBody3D = mt.mopo
-	# Mopo tielle mökiltä (näyte 60), jalan viereen.
-	var i0 := 60
-	var rd: Vector3 = vl.road_dir(i0)
-	mp.position = vl.road_pos(i0) + rd.cross(Vector3.UP) * 1.6 + Vector3(0, 0.6, 0)
-	mp.rotation.y = atan2(-rd.x, -rd.z)
-	await _tf(5)
-	game._mopo_dismount()
-	await _tf(5)
-	var koti: Transform3D = mp.transform
-	var c: Node3D = mt._cars[0]
-	for o in mt._cars:
-		if o != c:
-			o.set_line_t(float(mt._line.size() - 10), 1)
-	c.set_line_t(float(i0 + 12), -1)
-	c._speed = 0.0
-	c._place_on_line(0.0)
-	await _tf(3)
-	var door: Vector3 = c.global_transform * _ovi(c)
-	var lw: Vector3 = mt.to_local(door)
-	game.walker_out.global_position = mt.to_global(Vector3(lw.x, vl.h(lw.x, lw.z) + 0.3, lw.z))
-	await _odota(1.0)
-	print("AUTOVARKAUS Vaala ovella: vihje '%s', auto %.2f m/s" % [game._hint.text, c._speed])
-	if game._hint.text != "[E] Kaappaa auto":
-		_vika("Vaala: vihje '%s'" % game._hint.text)
-	await _kuva("_vaala_ovella")
-	await _paina("interact")
-	await _tf(3)
-	_tila("Vaala kaappaus")
-	if not autossa or not mp.car or game.player != mp or _roivainen == null:
-		_vika("Vaala: kaappaus")
-	await _kuva("_vaala_kaappaus")
-	# Roivaisen lähestyminen ja nopeus: enintään 6 s tai kunnes 20 m päässä. Pelaaja seisoo paikallaan, joten 5 tähden
-	# Roivainen (n. 74 m:stä) ehtisi muuten pidättää hänet jo n. 4 s:ssa, jolloin jahti päättyy ja _roivainen on null.
-	var d0: float = _roivainen.global_position.distance_to(mp.global_position)
-	var d1 := d0
-	var rmax := 0.0
-	var t0 := _aika
-	while _aika - t0 < 6.0 and d1 > 20.0:
-		await _tf(1)
-		if _roivainen == null or not is_instance_valid(_roivainen):
-			break
-		rmax = maxf(rmax, _roivainen._speed)
-		d1 = _roivainen.global_position.distance_to(mp.global_position)
-	if _roivainen == null or not is_instance_valid(_roivainen):
-		_vika("Vaala: Roivainen pidätti ennen kuin lähestyminen mitattiin")
-		return
-	print("AUTOVARKAUS Roivainen %.0f m -> %.0f m (%.1f s), nopeus %.1f m/s (%.1f × %.3f)" % [d0, d1, _aika - t0, rmax,
-		RoivainenAuto.SPEED, _roivainen.heat_mult])
-	if d1 >= d0:
-		_vika("Roivainen ei lähesty")
-	var fwd: Vector3 = -mp.global_basis.z
-	_roivainen.process_mode = Node.PROCESS_MODE_DISABLED  # paikallaan kuvan ajan
-	var ci: int = vl.nearest(mp.position)[0]
-	var cdir: int = 1 if vl.road_dir(ci).dot(-mp.global_basis.z) > 0.0 else -1
-	_roivainen.place_at(float(ci - cdir * 12), cdir)  # 24 m takana tiellä, kaistalla ja maaston kallistuksella
-	await _tf(6)
-	await _kuva("_vaala_roivainen_peli")
-	# Kamera kaapatun auton edessä katsoo taaksepäin: auto ja perässä tuleva Roivainen samassa kuvassa.
-	await _lahikuva("_vaala_roivainen", mp.global_position - fwd * 11.0 + Vector3.UP, fwd * 1.0 + mp.global_basis.x * 0.3 + Vector3.UP * 0.3, 20.0)
-	var rp: Vector3 = _roivainen.global_position + Vector3(0, 0.8, 0)
-	await _lahikuva("_roivainen_sivulta", rp, _roivainen.global_basis * Vector3(1, 0.25, -0.5), 7.0)
-	_roivainen.process_mode = Node.PROCESS_MODE_INHERIT
-	# Kiinni: pidätys, mopo takaisin paikalleen.
-	_roivainen.position = mt.to_local(mp.global_position + fwd * 2.0)
-	await _odota(3.0, func() -> bool: return game.state == "cutscene")
-	print("AUTOVARKAUS Vaala kiinni: tila %s, mopo kotona %.2f m, car %s" % [game.state, mp.transform.origin.distance_to(koti.origin), mp.car])
-	if game.state != "cutscene" or mp.car or mp.transform.origin.distance_to(koti.origin) > 0.3:
-		_vika("Vaala: Roivaisen kiinniotto")
-	await _odota(2.0)
-	await _kuva("_vaala_kiinni")
