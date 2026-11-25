@@ -7,7 +7,6 @@ const BarGame := preload("res://scripts/bar_game.gd")
 const BingoGame := preload("res://scripts/bingo_game.gd")
 const AuctionGame := preload("res://scripts/auction_game.gd")
 const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
-const FishGame := preload("res://scripts/fish_game.gd")
 const KeinuGame := preload("res://scripts/keinu_game.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 
@@ -87,10 +86,6 @@ func run() -> void:
 	await _game("huutokauppa", auc, Vector3.ZERO, main.kirppis_int)
 	var pk := PiirakkaGame.new()
 	await _game("piirakka", pk, far + Vector3(300, 0, 0))
-	var fish := FishGame.new()
-	fish.dock = main.mokki.north_dock
-	fish.dock_dir = main.mokki.north_dock_dir
-	await _game("kalastus", fish, Vector3.ZERO)
 	await _game("keinu", KeinuGame.new(), far + Vector3(600, 0, 0))
 	var band := HumppaBand.new()
 	band.speaker = false

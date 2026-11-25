@@ -1061,12 +1061,6 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			main.state = "cutscene"
 			main.cutscene.taxi_to_raahe(func() -> void: pass)
 			return {"warm": 10}
-		"s_mokkibileet":
-			var mk: Node3D = _mokki(main)
-			_time(main, 22, 30)
-			main.state = "cutscene"
-			main.cutscene.mokki_party(mk.porch_pos(6.0), mk.global_rotation.y, "Santtu, Sinikka ja Korpi-Kalle", func() -> void: pass)
-			return {"warm": 10}
 		"s_viinibileet":
 			_time(main, 22, 0)
 			main.state = "cutscene"

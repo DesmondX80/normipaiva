@@ -143,8 +143,7 @@ func _viikko() -> int:
 
 
 func paikalla() -> bool:
-	return game.day % 7 == VIIKKOPAIVA and viikko_ohi != _viikko() and game._between(game.clock_min, AUKI) \
-		and not game._in_vaala
+	return game.day % 7 == VIIKKOPAIVA and viikko_ohi != _viikko() and game._between(game.clock_min, AUKI)
 
 
 func _seisoo() -> Vector3:

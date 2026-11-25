@@ -18,7 +18,7 @@ func setup() -> void:
 	pass
 
 
-## Joka ruutu ulkona: Saloisissa _huume_saloinen_logic, Vaalassa _vaala_logic (game._in_vaala kertoo kumpi). e = E painettu.
+## Joka ruutu ulkona: _huume_saloinen_logic. e = E painettu.
 func tick(_e: bool) -> void:
 	pass
 
@@ -38,7 +38,7 @@ func choose(_id: String) -> bool:
 	return false
 
 
-## Tapahtuma game._rikos_event(ev, data): "luukkuosto" {}, "myynti" {key, paikka: "vaala"|"saloinen"},
+## Tapahtuma game._rikos_event(ev, data): "luukkuosto" {}, "myynti" {key, paikka: "saloinen"},
 ## "otto" {key, pot} sekä osien omat ("hylkasi", "epaluulo" {n}).
 func on_event(_ev: String, _data: Dictionary) -> void:
 	pass

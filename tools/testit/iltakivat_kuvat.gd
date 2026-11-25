@@ -12,7 +12,6 @@ const Asento := preload("res://tools/testit/asento.gd")
 const KIVAT := {
 	"lettu": ["res://scripts/lettu_game.gd", Kolmio.LETTU_LINES],
 	"loyly": ["res://scripts/loyly_game.gd", Kolmio.LOYLY_LINES],
-	"disko": ["res://scripts/disko_game.gd", Kolmio.DISKO_LINES],
 	"karaoke": ["res://scripts/ilta_karaoke.gd", Kolmio.KARAOKE_LINES],
 }
 

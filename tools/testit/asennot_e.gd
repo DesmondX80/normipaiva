@@ -4,8 +4,6 @@ extends Node
 
 const Asento := preload("res://tools/testit/asento.gd")
 const Looks := preload("res://scripts/looks.gd")
-const Mopo := preload("res://scripts/mopo.gd")
-const MopoRace := preload("res://scripts/mopo_race.gd")
 const Muskelivene := preload("res://scripts/muskelivene.gd")
 
 var main: Node3D
@@ -76,25 +74,6 @@ func run() -> void:
 	await _wait()
 	await _node_again(bike, "pyora_varas")
 	bike.set_thief({})
-	# Vaalan mopo (kuski ja matkustaja).
-	var mp := Mopo.new()
-	mp.position = far
-	main.add_child(mp)
-	mp.set_physics_process(false)
-	mp.set_passenger(Looks.RAAHEN_JATKAT[1])
-	await _wait()
-	await _node_again(mp, "mopo")
-	mp.queue_free()
-	# Mopokisa: pelaajan ja vastustajan mopo.
-	var race := MopoRace.new()
-	var tr: Array[Vector3] = [Vector3.ZERO, Vector3(0, 0, -200)]
-	race.track = tr
-	race.position = far + Vector3(300, 0, 0)
-	main.add_child(race)
-	await _wait()
-	_cam.current = true
-	await _node_again(race, "mopokisa")
-	race.queue_free()
 	# Muskelivene.
 	var boat := Node3D.new()
 	boat.position = far + Vector3(600, 0, 0)

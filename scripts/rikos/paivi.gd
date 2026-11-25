@@ -11,7 +11,7 @@ const TUTKII := 60.0  # tästä yli Päivi tutkii (paivi_tutkii.gd), ja huipennu
 ## Jälki: id -> ensikerrat, joista se syntyy, nousu, K-18-sisältö, viive (päiviä ennen puheeksiottoa) ja Päivin aamurepliikki.
 ## toistuu: jälki syntyy joka kerta (Irman hälytys), muut kerran. Nousut ovat arvioita (02-arkkitehtuuri.md).
 const JALJET := {
-	"kolmio": {"first": ["kolmio_saloinen", "kolmio_vaala"], "nousu": 20.0, "k18": true, "viive": 1,
+	"kolmio": {"first": ["kolmio_saloinen"], "nousu": 20.0, "k18": true, "viive": 1,
 		"aamu": "Sytkäri? Mikä ihmeen Sytkäri? Sun puhelimessa oli kartta ja kolme ympyrää. Kenen ovelle ne osoitti?"},
 	"rasvanappi": {"first": ["rasvanappi"], "nousu": 15.0, "k18": true, "viive": 1,
 		"aamu": "Sun paidassa oli jotain liukasta, ja makasiinilta kuulu eilen huutoa. Missä sää oikein olit?"},
@@ -245,16 +245,11 @@ func _testi_jalki() -> void:
 			_vika("jälki %s nosti %.1f, piti %.1f" % [id, d, j.nousu])
 		if absf(d2) > 0.01 or absf(d3) > 0.01:
 			_vika("jälki %s laskettiin kahdesti (%+.1f, %+.1f)" % [id, d2, d3])
-	var dv := _koe_first("kolmio_vaala")
-	print("PAIVI kolmio_vaala Saloisten jälkeen %+.0f" % dv)
-	if absf(dv) > 0.01:
-		_vika("kolmio_vaala nosti uudelleen (sama jälki kolmio)")
 	if not "paivi_jalki" in game.tilat.firsts:
 		_vika("first:paivi_jalki ei kirjautunut")
 	var e0 := epaluulo
 	game._rikos_event("myynti", {"key": "opiaatti", "paikka": "saloinen"})
 	var dm := epaluulo - e0
-	game._rikos_event("myynti", {"key": "opiaatti", "paikka": "vaala"})
 	print("PAIVI myynti %+.0f, toinen myynti %+.0f" % [dm, epaluulo - e0 - dm])
 	if absf(dm - JALJET.huume.nousu) > 0.01 or absf(epaluulo - e0 - dm) > 0.01:
 		_vika("huumejälki ei noussut kerran")

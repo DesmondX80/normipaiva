@@ -2,13 +2,12 @@ extends Node
 ## Asentojen tarkistus, osa B (koti ja välianimaatiot): ajaa oikean välianimaation, jäädyttää ajan ja kuvaa kaikki
 ## istujat (kuvat edestä, päädyistä, ylhäältä, takaa) sekä tulostaa ASENTO-rivit.
 ## "$(tools/testit/godot.sh)" --path . --resolution 1280x720 -- --nohud --scene=asennot --asento=b --kohta=<nimi>
-## kohta: tarpio, viita, mirkku, makkara, sauna_savu, sauna_tynnyri, taksi_koti, pekka, juna, tv, uutiset, nortti, ankkuri
+## kohta: tarpio, viita, mirkku, taksi_koti, pekka, juna, tv, uutiset, nortti, ankkuri
 
 const Pose := preload("res://scripts/pose.gd")
 const Asento := preload("res://tools/testit/asento.gd")
 const B := preload("res://scripts/build.gd")
 const M := preload("res://scripts/map_data.gd")
-const Mokki := preload("res://scripts/mokki.gd")
 const Looks := preload("res://scripts/looks.gd")
 const NewsScreen := preload("res://scripts/news_screen.gd")
 const HomeInterior := preload("res://scripts/home_interior.gd")
@@ -72,14 +71,10 @@ func run() -> void:
 	# kuin 12 ruutua oli kulunut (root = cs._props: vapautettu). _end odottaa, kunnes testi päästää (lopussa).
 	cs.test_hold = true
 	match kohta:
-		"tarpio", "viita", "mirkku", "makkara":
+		"tarpio", "viita", "mirkku":
 			var pit: Vector3 = M.w(M.LAAVU)
 			if kohta == "viita":
 				pit = main.world.viita_pos
-			if kohta == "makkara":
-				var lay: Dictionary = Mokki.keskimmainen_layout()
-				main.mokki.ensure_built()
-				pit = main.mokki.to_global(main.mokki.laavu_fire)
 			main.player.global_position = pit + Vector3(0, 1, 6)
 			await _frames(30)
 			match kohta:
@@ -90,18 +85,6 @@ func run() -> void:
 					cs.laavu_sunset(pit, main.world.viita_fire, "T", "S", func() -> void: pass, main._viita_dir)
 				"mirkku":
 					cs.mirkku_teltta(pit, main.world.fire, main.mirkku_tent, "T", "S", func() -> void: pass)
-				"makkara":
-					var lay2: Dictionary = Mokki.keskimmainen_layout()
-					cs.makkara(pit, main.mokki.global_basis * Vector3(lay2.d.x, 0, lay2.d.y), func() -> void: pass)
-			await _frames(12)
-			root = cs._props
-		"sauna_savu", "sauna_tynnyri":
-			main.mokki.ensure_built()
-			var frame: Transform3D = main.mokki.sauna_frame() if kohta == "sauna_savu" else main.mokki.barrel_frame()
-			main.player.global_position = frame.origin + Vector3(0, 1, 6)
-			await _frames(30)
-			var lay3: Dictionary = {} if kohta == "sauna_savu" else Cutscene_SAUNA_TYNNYRI()
-			cs.sauna_relax(frame, false, func() -> void: pass, lay3, false)
 			await _frames(12)
 			root = cs._props
 		"taksi_koti":

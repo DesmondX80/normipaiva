@@ -518,15 +518,6 @@ func _luo_poliisi() -> void:
 	game._show_message("POLIISI MUKANA JAHDISSA!", 2.5)
 
 
-## Kuminauha: kaukana oleva jahtaaja näkymättömiin pelaajan lähelle (tieverkon solmu, mieluiten kameran takana).
-func _kumilla(a: Node3D) -> void:
-	var p: Vector3 = game.player.global_position
-	var i := _solmu_lahella(p, KUMI_ETAISYYS)
-	if game.world.graph_nodes[i].distance_to(p) >= a.global_position.distance_to(p) - 20.0:
-		return  # ei lähempää solmua: jahtaaja jatkaa omaa reittiään
-	a.reset_to(i)
-	a.alerted = true
-	a.mode = "chase"
 
 
 func _solmu_lahella(p: Vector3, r: Vector2) -> int:

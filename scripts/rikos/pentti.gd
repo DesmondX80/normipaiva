@@ -1,7 +1,7 @@
 extends "res://scripts/rikos/osa.gd"
 ## Pentin pakettiauto (#299, vain aikuisille): keski-ikäinen viiksimies Pentti (Looks.PENTTI, keksitty hahmo) seisoo
 ## tuunatun pakettiautonsa (Vehicles.pentin_auto, kyljissä PENTIN BANGBUS -banderolli) vieressä perjantai- ja
-## lauantai-iltaisin klo 19–23: Saloisissa K-Marketin parkkipaikalla, Vaalassa Zabukin asiakasparkissa. Muina aikoina
+## lauantai-iltaisin klo 19–23 Saloisissa K-Marketin parkkipaikalla. Muina aikoina
 ## Pentti ajaa autollaan Saloisten liikenteessä (traffic_car.gd pentti; piilotetaan pysäkin ajaksi).
 ## Juttelu: kaksimieliset repliikit sekoitetusta pakasta (eivät toistu samalla kerralla, kuten ranta_flirtti.gd) ja
 ## kyyti. Kyyti on välikohtaus (cutscene.gd pentti_ride: auto keinuu, ikkunat huurtuvat, radiosta humppa); mitään ei
@@ -51,8 +51,6 @@ const HELLO_TAAS := "Sieltähän se tuttu kyytiläinen tulee! Penkki on vielä v
 const HELLO_VIHJE := "Kuule, mää suunnittelen kiertuetta. Kajaani, Kuhmo, Suomussalmi. Tänään ajellaan vielä täällä, mutta ens kerralla lähetään, jos uskallat."
 const HELLO_KIERTUE := "No niin! Tänään lähetään kiertueelle. Tankki täynnä, kasetti kelattu alkuun ja verhot vedetty. Ootko mukana?"
 const KIERTUE_HERAYS := "Pentti jätti sut kotipihaan aamuyöllä. Kiertue kesti yhden yön, mutta tuntui viikolta. Kaulassa on vielä pehmonoppa, ja Päivi seisoo ovella kädet puuskassa."
-const KIERTUE_HERAYS_V := "Pentti jätti sut Gasthausin pihaan aamuyöllä. Kiertue kesti yhden yön, mutta tuntui viikolta. Kaulassa on vielä pehmonoppa."
-const KIERTUE_MSG_V := "Huomenta Vaalasta! Kiertue on ohi, mopo odottaa Gasthausin pihassa."
 ## Juttelurepliikit autosta; pakka sekoitetaan, joten sama ei toistu ennen kuin kaikki on kuultu.
 const LINES := [
 	"Tässä on viis vaihetta eteenpäin ja yks taaksepäin. Mää käytän enimmäkseen eteenpäin.",
@@ -75,14 +73,12 @@ const BANGBUS := ["BangBus? No ku moottori paukkuu. Bang! Ihan tekninen nimi. Mi
 const EI := "No ei se mitään. Pentti ei pakota. Pentti odottaa. Ensi perjantaina samaan aikaan."
 const SEEN := "Joku katsoo pitkään, kun liukuovi sulkeutuu perässäsi. Tästä kuullaan vielä."
 const MORNING := "Mulle soitettiin. Sää kuulemma nousit eilen illalla jonku viiksiniekan pakettiautoon. BANGBUS? Mikä se on?"
-## Herätys Saloisissa: [teksti, paikka-avain] (paikka _heratys_paikka). Vaalassa Gasthausin pihalta (_gasthaus_morning).
+## Herätys: [teksti, paikka-avain] (paikka _heratys_paikka).
 const WAKE_SALOINEN := [
 	["Heräsit urheilukentän maalista verkkoon kietoutuneena, nahkaliivi peittona. Pentistä ja autosta ei näy jälkeäkään. Liivi jäi.", "kentta"],
 	["Heräsit Oravajärven rannalta. Taskussa on kasetti: \"Pentin parhaat humpat 3\". Kenen viikset ne on sun naamassa? Tussia.", "ranta"],
 	["Heräsit aseman laiturin penkiltä. Kaulassa roikkuu pehmonoppa kuin mitali.", "laituri"],
 ]
-const WAKE_VAALA := "Heräsit Gasthausin pihalta mopon vierestä. Kaulassa roikkuu pehmonoppa, ja jostain kuuluu vielä humppa."
-const WAKE_VAALA_MSG := "Huomenta Vaalasta! Pentti jätti sut Gasthausin pihaan. Mopo odottaa."
 
 var tavattu := false
 var kyydit := 0
@@ -93,7 +89,6 @@ var _last := -1
 var _huuto_t := 0.0
 var _liikenne_piilossa := false
 var _s: Dictionary = {}  # Saloisten auto: {"root", "pentti", "body", "kupla"}
-var _v: Dictionary = {}  # Vaalan auto (mopo_trip.vaala:n lapsi) ja vaala-solmu "vl"
 
 
 func _init() -> void:
@@ -137,12 +132,7 @@ func _nayta(d: Dictionary, on: bool) -> void:
 func tick(_e: bool) -> void:
 	var on := paikalla()
 	_liikenne(on)
-	if game._in_vaala:
-		_nayta(_s, false)
-		_tick_vaala(on)
-	else:
-		_nayta(_v, false)
-		_tick_saloinen(on)
+	_tick_saloinen(on)
 
 
 ## Pysäkin ajaksi Pentin liikenneauto piiloon ja pysähdyksiin (sama auto ei voi olla kahdessa paikassa).
@@ -171,27 +161,6 @@ func _tick_saloinen(on: bool) -> void:
 		_puhe(walk, _s, game.player != game.bike)
 
 
-func _tick_vaala(on: bool) -> void:
-	var mt: Node = game.mopo_trip
-	if mt == null or not mt.active or mt.vaala == null or not mt.vaala.built:
-		_nayta(_v, false)
-		return
-	var vl: Node3D = mt.vaala
-	if vl.pentti_spot == Vector3.INF:
-		return
-	if not _v.is_empty() and (not is_instance_valid(_v.root) or _v.vl != vl):
-		_v = {}
-	var walk: Node3D = mt.on_foot if mt.on_foot != null else mt.mopo
-	var spot: Vector3 = vl.to_global(vl.pentti_spot)
-	var nakyy := on and Vector2(walk.global_position.x - spot.x, walk.global_position.z - spot.z).length() < NAKYY_R
-	if nakyy and _v.is_empty():
-		_v = _rakenna(vl, vl.pentti_spot, vl.pentti_yaw)
-		_v["vl"] = vl
-	_nayta(_v, nakyy)
-	if nakyy:
-		_puhe(walk, _v, mt.on_foot != null)
-
-
 ## Pentti kääntyy tulijaan, huutelee ja tarjoaa juttelua PUHE_R:n päässä.
 func _puhe(walk: Node3D, d: Dictionary, on_foot: bool) -> void:
 	var p: Node3D = d.pentti
@@ -215,7 +184,7 @@ func _puhe(walk: Node3D, d: Dictionary, on_foot: bool) -> void:
 
 
 func _nykyinen() -> Dictionary:
-	return _v if game._in_vaala else _s
+	return _s
 
 
 # --- Puhe -----------------------------------------------------------------------------------------------------
@@ -297,7 +266,7 @@ func todistajat() -> int:
 	if d.is_empty():
 		return 0
 	var at: Vector3 = (d.root as Node3D).global_position
-	var parent: Node = d.vl if d.has("vl") else game
+	var parent: Node = game
 	var n := 0
 	for c in parent.get_children():
 		if c is CharacterBody3D and "display_name" in c and c.is_visible_in_tree() \
@@ -307,7 +276,6 @@ func todistajat() -> int:
 
 
 func _kyyti() -> void:
-	var town := "vaala" if game._in_vaala else "saloinen"
 	var nahty := false
 	if todistajat() > 0:
 		nahty = todistaja_pakko == 1 or randf() < KANTELU_P
@@ -326,19 +294,16 @@ func _kyyti() -> void:
 	var nakyi := "Joku näki, kun nousit kyytiin." if nahty else "Kukaan ei nähnyt. Toivottavasti."
 	if kiertue:
 		var lstats := "Kajaani, Kuhmo, Suomussalmi yhdessä yössä  ·  %s" % game._ending_line("pentin_kiertue")
-		game.cutscene.pentti_tour(lstats, func() -> void: _kiertue_aamu(town, raha))
+		game.cutscene.pentti_tour(lstats, func() -> void: _kiertue_aamu(raha))
 		return
 	var stats := "Kyyti nro %d  ·  %s" % [kyydit, nakyi]
-	game.cutscene.pentti_ride(stats, func() -> void: _herays(town, raha))
+	game.cutscene.pentti_ride(stats, func() -> void: _herays(raha))
 
 
 ## Aamu kyydin jälkeen: herätys oudosta paikasta myöhään, tilat ja rahat, päiväkirja ja legendaarinen hetki.
-func _herays(town: String, raha: float) -> void:
-	if town == "vaala":
-		game._gasthaus_morning(WAKE_VAALA, WAKE_VAALA_MSG)
-	else:
-		var w: Array = WAKE_SALOINEN[(kyydit - 1) % WAKE_SALOINEN.size()]
-		game._new_day(heratys_paikka(String(w[1])), false, String(w[0]))
+func _herays(raha: float) -> void:
+	var w: Array = WAKE_SALOINEN[(kyydit - 1) % WAKE_SALOINEN.size()]
+	game._new_day(heratys_paikka(String(w[1])), false, String(w[0]))
 	game.clock_min = 10.5 * 60.0  # herätys myöhään
 	game.money -= raha
 	for k in ["moraali", "vireys", "kipu", "stressi"]:
@@ -355,12 +320,9 @@ func _herays(town: String, raha: float) -> void:
 	game._save_game()
 
 
-## Kiertueen jälkeinen aamu: kotipihalla (Saloinen) tai Gasthausin pihalla (Vaala), tilat ja kiertuekulut.
-func _kiertue_aamu(town: String, raha: float) -> void:
-	if town == "vaala":
-		game._gasthaus_morning(KIERTUE_HERAYS_V, KIERTUE_MSG_V)
-	else:
-		game._new_day(game.home_zone + Vector3(0, 0, 4), false, KIERTUE_HERAYS)
+## Kiertueen jälkeinen aamu kotipihalla: tilat ja kiertuekulut.
+func _kiertue_aamu(raha: float) -> void:
+	game._new_day(game.home_zone + Vector3(0, 0, 4), false, KIERTUE_HERAYS)
 	game.clock_min = 11.0 * 60.0
 	game.money -= raha
 	for k in ["moraali", "vireys", "kipu", "stressi"]:
@@ -413,7 +375,7 @@ func load_from(cfg: ConfigFile) -> void:
 	kantelu_day = d.get("kantelu_day", -1)
 
 
-# --- Testi: --scene=bangbus (Saloinen) ja --scene=bangbus_vaala ------------------------------------------------
+# --- Testi: --scene=bangbus ------------------------------------------------
 
 var _vikoja := 0
 
@@ -457,9 +419,8 @@ func _lahikuva(suffix: String, from: Vector3, at: Vector3, fov := 45.0) -> void:
 		prev.make_current()
 
 
-func testi(arg: String) -> void:
+func testi(_arg: String) -> void:
 	_vikoja = 0
-	var vaala := arg == "vaala"
 	# Päivä torstai: ei paikalla. Perjantai klo 18: ei vielä. Perjantai klo 20: paikalla.
 	while game._weekday() != 3:
 		game.day += 1
@@ -476,37 +437,17 @@ func testi(arg: String) -> void:
 		_vika("perjantaina klo 20 ei paikalla")
 	var walk: Node3D
 	var d: Dictionary
-	if vaala:
-		game._start_mopo()
-		await _tf(30, 20 * 60)
-		var mt: Node3D = game.mopo_trip
-		var vl: Node3D = mt.vaala
-		if vl.pentti_spot == Vector3.INF:
-			_vika("Vaalassa ei Pentin paikkaa (vaala.gd pentti_spot)")
-			print("BANGBUS testi valmis, %d vikaa" % _vikoja)
-			return
-		var mp: CharacterBody3D = mt.mopo
-		var fwd := Vector3(-sin(vl.pentti_yaw), 0, -cos(vl.pentti_yaw))
-		var sp: Vector3 = vl.pentti_spot + fwd * 5.0 + fwd.cross(Vector3.UP) * -1.0
-		mp.position = sp + Vector3(0, 0.6, 0)
-		mp.speed = 0.0
-		await _tf(5, 20 * 60)
-		game._mopo_dismount()
-		await _tf(20, 20 * 60)
-		walk = mt.on_foot
-		d = _v
-	else:
-		if game.player == game.bike:
-			game._toggle_mount()
-		var c := M.w(M.SHOP_BUILDING)
-		game._place_on_foot(c + Vector3(0.0, 0.3, 30.0))
-		await _tf(30, 20 * 60)
-		walk = game.walker_out
-		d = _s
-		# Liikenteen Pentti piilossa pysäkin aikana.
-		for car in game.get_tree().get_nodes_in_group(TrafficCar.GROUP):
-			if car.get("pentti") and car.visible:
-				_vika("liikenteen Pentin auto näkyy pysäkkiaikana")
+	if game.player == game.bike:
+		game._toggle_mount()
+	var c := M.w(M.SHOP_BUILDING)
+	game._place_on_foot(c + Vector3(0.0, 0.3, 30.0))
+	await _tf(30, 20 * 60)
+	walk = game.walker_out
+	d = _s
+	# Liikenteen Pentti piilossa pysäkin aikana.
+	for car in game.get_tree().get_nodes_in_group(TrafficCar.GROUP):
+		if car.get("pentti") and car.visible:
+			_vika("liikenteen Pentin auto näkyy pysäkkiaikana")
 	if d.is_empty() or not (d.root as Node3D).visible:
 		_vika("auto ei näy pysäkillä")
 		print("BANGBUS testi valmis, %d vikaa" % _vikoja)
@@ -588,12 +529,11 @@ func testi(arg: String) -> void:
 		_vika("päiväkirjan tehtävä ei valmistunut (first:pentti_kyyti)")
 	if kantelu_day != day0:
 		_vika("kantelu ei kirjautunut")
-	if not vaala:
-		var spot := heratys_paikka(String(WAKE_SALOINEN[(kyydit - 1) % WAKE_SALOINEN.size()][1]))
-		var dist: float = game.walker_out.global_position.distance_to(spot)
-		print("BANGBUS herätys %.1f m herätyspaikasta" % dist)
-		if dist > 3.0:
-			_vika("herätys ei oudossa paikassa (%.1f m)" % dist)
+	var spot := heratys_paikka(String(WAKE_SALOINEN[(kyydit - 1) % WAKE_SALOINEN.size()][1]))
+	var dist: float = game.walker_out.global_position.distance_to(spot)
+	print("BANGBUS herätys %.1f m herätyspaikasta" % dist)
+	if dist > 3.0:
+		_vika("herätys ei oudossa paikassa (%.1f m)" % dist)
 	await _kuva("_aamu")
 	# Aamurivi: aamu() palauttaa Päivin rivin edellisen päivän kantelusta (tarkistetaan suoraan, rivi luettiin jo).
 	var rivi := ""
@@ -648,11 +588,10 @@ func testi(arg: String) -> void:
 		if nro == 3:
 			if game.endings.counts.get("pentin_kiertue", 0) != loput + 1 or not Endings.is_loppu("pentin_kiertue"):
 				_vika("kiertue ei kirjautunut onnelliseksi lopuksi")
-			if not vaala:
-				var hd: float = game.walker_out.global_position.distance_to(game.home_zone + Vector3(0, 0, 4))
-				print("BANGBUS kiertueen herätys %.1f m kotipihasta" % hd)
-				if hd > 3.0:
-					_vika("kiertueen jälkeen ei herätty kotipihalta (%.1f m)" % hd)
+			var hd: float = game.walker_out.global_position.distance_to(game.home_zone + Vector3(0, 0, 4))
+			print("BANGBUS kiertueen herätys %.1f m kotipihasta" % hd)
+			if hd > 3.0:
+				_vika("kiertueen jälkeen ei herätty kotipihalta (%.1f m)" % hd)
 			await _kuva("_kiertue_aamu")
 	todistaja_pakko = -1
 	# Tallennus edestakaisin.

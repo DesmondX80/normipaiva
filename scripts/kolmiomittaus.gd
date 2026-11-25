@@ -1,23 +1,22 @@
 extends RefCounted
 ## Kolmiomittaus (#255): Sytkäri-sovelluksen mätsi ei kerro osoitettaan, vain etäisyyden ("350 m päässä"). Pelaaja ja
-## kaksi kaveria mittaavat etäisyyden eri paikoista, Esa (tai Timo) piirtää ympyrät paperikarttaan, ja ympyröiden
+## kaksi kaveria mittaavat etäisyyden eri paikoista, Esa piirtää ympyrät paperikarttaan, ja ympyröiden
 ## leikkauksessa on naisen talo. Sovellus pyöristää etäisyyden (lähempänä tarkemmin), joten yksi kierros antaa vain
 ## alueen: lisämittaukset lähempää tarkentavat sitä. Väärällä ovella avaa joku muu. Kolme kolmiomittaajaa tuovat
 ## kukin yhden lahjan (mansikat, kermavaahto, ruusut) kuin itämaan tietäjät; ilman kaikkia kolmea ovi ei aukea.
 ## Ilta päättyy erikoissääntöiseen Rasvanappiin (rasvanappi_game.gd rules) ja aamu onnelliseen loppuun.
-## Kaksi kohdetta: Saloinen (Joni ja Esa, Minttu) ja Vaala (Hevari-Tero ja Sivikki-Timo, Katja). Luvun 6 kolmas kohde
+## Kohde: Saloinen (Joni ja Esa, Minttu). Luvun 6 toinen kohde
 ## "koti" (Kesäheila -96) johtaa pelaajan omalle ovelle, jossa odottaa Päivi.
 ## Tämä tiedosto on tehtävän tila ja data; main.gd kytkee sen maailmaan (_kolmio_*), Sytkäri on sytkari.gd ja
 ## ovi- ja aamukohtaukset kolmio_kohtaus.gd.
 ##
-## Koordinaatit: Saloisissa maailman x/z (main.gd world), Vaalassa Vaalan paikallinen x/z (vaala.gd, sama kuin
-## paperikartan Neittävä–Vaala-kehys).
+## Koordinaatit: maailman x/z (main.gd world).
 
 ## Mittauspisteiden vähimmäisväli: samasta paikasta mitattu ympyrä ei kerro mitään uutta.
 const MIN_GAP := 35.0
-## Kaverin etämittaus (Esa kirkolta, Timo Veturitallilta) tulee tekstiviestinä tämän ajan päästä (s).
+## Kaverin etämittaus (Esa kirkolta) tulee tekstiviestinä tämän ajan päästä (s).
 const REMOTE_DELAY := 40.0
-## Oma lahja kaupan tiskiltä (Saloisissa ruusut, Vaalassa mansikat).
+## Oma lahja kaupan tiskiltä (ruusut).
 const GIFT_PRICE := 9.0
 ## Onnellinen loppu tiloihin (day_stats.gd: suurempi on parempi): maine = moraali, stressi helpottaa, mielihyvä = vireys.
 const END_MORAALI := 0.25
@@ -35,14 +34,6 @@ const SITES := {
 		"gifts": [["Esa", "mansikat"], ["Joni", "kermavaahdon"], ["Sinä", "ruusut"]],
 		"age": 34, "bio": "Etsi minut, jos osaat ;) Tuo jotain makeaa.", "job": "Kampaaja, Saloinen",
 		"ending": "minttu",
-	},
-	"vaala": {
-		"woman": "Katja", "gen": "Katjan", "talker": "kolmio_vaala", "friends": ["Hevari-Tero", "Sivikki-Timo"],
-		"gift_me": "mansikat", "gift_part": "mansikoita", "start_place": "aseman pihassa",
-		"remote": "Timo", "remote_place": "Vaalantien varresta", "drive": true,  # Timo mittaa Sivikki-ajolla (main.gd)
-		"gifts": [["Timo", "kermavaahdon"], ["Tero", "ruusut"], ["Sinä", "mansikat"]],
-		"age": 37, "bio": "Moottoripyörä tallissa, kahvi kuumana. Löydä, jos uskallat. Tuo jotain makeaa.",
-		"job": "Rekkakuski, Vaala", "ending": "katja",
 	},
 	# Luku 6 "Päivi epäilee" (#326): mätsi tulee vasta, kun Päivin huipennus on auki (rikos/paivi.gd huipennus_auki).
 	# Profiilikuva on Päivi kesältä -96 Saloisten lavalla (sytkari.gd), ja ympyrät leikkaavat pelaajan oman kodin.
@@ -67,14 +58,6 @@ const WRONG_DOORS := {
 		{"who": "Pieni poika", "line": "ÄITI! Täällä on taas joku setä ruusujen kanssa!",
 			"after": "Ovi pamahtaa kiinni. Jossain sisällä haukkuu koira."},
 	],
-	"vaala": [
-		{"who": "Mummo kepin kanssa", "line": "Kolme miestä ja kermavaahtoa? Minä soitan Roivaiselle!",
-			"after": "Perääntyt ennen kuin keppi nousee. Tero: \"Ihan ku verottaja.\""},
-		{"who": "Verotoimiston Raimo", "line": "Mansikoita? Ne pitää ilmoittaa luontoisetuna. Ja kuka teistä on Tero?",
-			"after": "Tero huutaa pihalta: \"MÄÄ SANOIN! Valtio kolmiomittaa mua!\""},
-		{"who": "Unenpöpperöinen yövuorolainen", "line": "Katja asuu jossain tuolla päin. Ja hiljempaa sen Hondan kanssa.",
-			"after": "Timo kääntää Sivikin avainta: VTEC kytkeytyy kahvinkeiton tahtiin."},
-	],
 	"koti": [
 		{"who": "Mummo kepin kanssa", "line": "Kesäheilaa etsitte? Kolme miestä ja harppi? Päivihän se asuu tuossa naapurissa!",
 			"after": "Perääntyt portaita alas. Mummo jää ovelle katsomaan, mihin suuntaan lähdette."},
@@ -85,7 +68,7 @@ const WRONG_DOORS := {
 	],
 }
 
-## Kaverien jutut (puhekuplat ja Mitä kuuluu?). Saloisissa Joni ja Esa, Vaalassa Tero ja Timo.
+## Kaverien jutut (puhekuplat ja Mitä kuuluu?). Joni ja Esa.
 const LINES := {
 	"saloinen": [
 		"Joni: Tää rinkka on testattu Hailuodon golfkentällä. Kolme Sandelsia, yks pallo. Pallo hävis.",
@@ -106,27 +89,8 @@ const LINES := {
 		"Esa: Harppi ei valehtele. Mutta joskus se näyttää paikan, jota ei haluais nähdä.",
 		"Joni: Hcp kakskytkuus, mutta tää tuntuu jo vesiesteeltä.",
 	],
-	"vaala": [
-		"Tero: Etäisyys pyöristetään ylöspäin. Ihan ku verot. Valtio varmaan kolmiomittaa mua koko ajan.",
-		"Timo: Kolme kilsaa? Sivikillä se on kakkosvaihde ja VTEC. Pidä Terosta kiinni.",
-		"Tero: Ajoneuvovero tuosta Sivikistä on enemmän ku mun Kela-tuki. Ja silti mää maksan bensat.",
-		"Timo: Kuuntele ku se huutaa. Seittemäntuhatta kierrosta ja sitten VTEC. Se on kuin rakkautta.",
-		"Tero: Kela halus taas selvityksen. Selvitin, että mää en tykkää Kelasta.",
-		"Timo: Matalat jouset ja kakskytkuus vuotta ruostetta. Ei tällasta enää tehä.",
-		"Tero: Bensan hinnasta menee puolet valtiolle. Toinen puoli Timon pakoputkeen.",
-		"Timo: Pakoputken ääni on sävelletty. Honda tiesi mitä teki.",
-		"Tero: Sakot tuli taas. Kuulemma tunneli ei oo moshpit.",
-	],
 }
 
-## Sivikki-ajon jutut (main.gd _kolmio_drive_step), kuuden sekunnin välein.
-const DRIVE_LINES := [
-	"Timo: \"Kuuntele ku se huutaa. Matalat jouset, kakskytkuus vuotta ruostetta.\"",
-	"Tero: \"Ajoneuvovero tästä on enemmän ku mun Kela-tuki. Ja mää maksan bensat.\"",
-	"Timo: \"Pakoputken ääni on sävelletty. Honda tiesi mitä teki.\"",
-	"Tero: \"Valtio näkee meidät nytkin. Kamerat. Ja Sytkäri.\"",
-	"Timo: \"Kakkosella satasen. Älä kerro Katjalle.\"",
-]
 
 ## Mittauksen kommentit (tekstiviesti kaverilta joka mittauksen jälkeen), kierrätetään järjestyksessä.
 const MEASURE_LINES := {
@@ -144,13 +108,6 @@ const MEASURE_LINES := {
 		"Joni: Mää en sano mitään. Mää vaan kannan rinkkaa.",
 		"Esa: Jäljet lumessa johtaa aina kotiin. Erämiehen sääntö.",
 	],
-	"vaala": [
-		"Tero: Taas pyöristys. Ihan ku verottaja olis tehny tän sovelluksen.",
-		"Timo: Mää ajoin Sivikillä sinne ja takas. VTEC kytkeytyi kolme kertaa. Tuli mittaus siinä samalla.",
-		"Tero: Kela kysyy kohta, miksi mää liikun kolmessa pisteessä.",
-		"Timo: Ympyrät piirretty. Sivikin hansikaslokerossa on harppi, tietenkin.",
-		"Tero: Lähempää mittaat, tarkempi on. Ainoo asia, mikä tässä maassa toimii.",
-	],
 }
 
 ## Päivin puhelu kesken Rasvanapin.
@@ -158,7 +115,7 @@ const PAIVI_CALL := [["Päivi", "Missä sää oot?"], ["Sinä", "Kolmiomittaamas
 
 ## Erikoissääntöinen Rasvanappi naisen pimennetyssä olohuoneessa (rasvanappi_game.gd people ja rules): viisi pelaajaa
 ## (pelaaja, nainen, kaksi kaveria ja naisen ystävätär), kermavaahto margariinin tilalla, mansikka oikeasta arvauksesta.
-## Tunnusäänet: naisen kikatus tai matala nauru, Esan hyräily, Jonin golfjutut, Teron valitus ja Timon VTEC.
+## Tunnusäänet: naisen kikatus tai matala nauru, Esan hyräily ja Jonin golfjutut.
 const RASVA_PEOPLE := {
 	"saloinen": [
 		{"id": "minttu", "name": "Minttu", "gen": "Mintun", "desc": "kikattaa", "bulk": 0.9, "col": Color(1.0, 0.5, 0.35),
@@ -179,35 +136,12 @@ const RASVA_PEOPLE := {
 			"snd": ["groan", 1.4], "lick": "Ai että, kermaa.", "towel": Color(0.9, 0.45, 0.6), "woman": true,
 			"look": {"hair": "long", "hair_col": Color(0.6, 0.45, 0.28), "skin": Color(0.97, 0.8, 0.72), "bust": 2.0, "curves": 0.6}},
 	],
-	"vaala": [
-		{"id": "katja", "name": "Katja", "gen": "Katjan", "desc": "nauraa matalalla", "bulk": 0.92, "col": Color(0.85, 0.85, 0.95),
-			"tics": ["Heh-heh.", "Ei tarvinnu ees koskee, se valitti jo valtiosta.", "Kuka teistä haisee bensalle? Ai kaikki.", "Heh. Löydän teidät kyllä."],
-			"snd": ["groan", 1.25], "lick": "Heh. Makeaa.", "towel": Color(0.7, 0.1, 0.15), "woman": true,
-			"look": {"hair": "long", "hair_col": Color(0.03, 0.025, 0.03), "skin": Color(0.98, 0.86, 0.78), "bust": 2.7, "curves": 1.0,
-				"long_hair": true}},
-		{"id": "tero", "name": "Tero", "gen": "Teron", "desc": "valittaa valtiosta", "bulk": 1.15, "col": Color(1.0, 0.55, 0.3),
-			"tics": ["Valtio kolmiomittaa mua nytkin.", "Kela ei korvaa tätä.", "Tästäkin menee vero.", "Perkeleen ajoneuvovero."],
-			"snd": ["grunt", 0.75], "lick": "Verotonta. Ainoo.", "towel": Color(0.35, 0.35, 0.38),
-			"look": {"hair": "long", "hair_col": Color(0.2, 0.15, 0.12), "beard": true, "skin": Color(0.97, 0.84, 0.76), "long_hair": true}},
-		{"id": "timo", "name": "Timo", "gen": "Timon", "desc": "ääntelee VTECiä", "bulk": 0.95, "col": Color(1.0, 0.35, 0.35),
-			"tics": ["Vrrrrr… VTEC!", "Nyt kytkeytyy!", "Iiiiihhh-VTEC!", "Seittemäntuhatta…"],
-			"snd": ["grunt", 1.25], "lick": "Kakkosvaihde.", "towel": Color(0.85, 0.1, 0.12),
-			"look": {"hair": "short", "hair_col": Color(0.55, 0.42, 0.25), "skin": Color(0.98, 0.84, 0.74)}},
-		{"id": "sari", "name": "Sari", "gen": "Sarin", "desc": "kikattaa", "bulk": 0.9, "col": Color(1.0, 0.8, 0.4),
-			"tics": ["Hihii!", "Katja, sää lupasit!", "Hihihii, kuka siellä?", "Ihan kuin piirakkaa…"],
-			"snd": ["grunt", 1.7], "lick": "Hihii! Lisää!", "towel": Color(0.95, 0.7, 0.2), "woman": true,
-			"look": {"hair": "long", "hair_col": Color(0.95, 0.85, 0.55), "skin": Color(0.98, 0.82, 0.72), "bust": 2.0, "curves": 0.6}},
-	],
 }
 const RASVA_RULES := {
 	"saloinen": {"end_quote": "Esa: \"Rasvanapin jälkeen pitää syödä rasvasta.\"",
 		"end_lines": ["Minttu sytyttää kynttilän. Kaikki jähmettyvät.", "Joni: \"Tasan par.\""],
 		"style": {"olohuone": true, "floor": Color(0.66, 0.5, 0.32), "wall": Color(0.82, 0.72, 0.58),
 			"sofa": Color(0.36, 0.45, 0.3), "rug": Color(0.62, 0.2, 0.18)}},
-	"vaala": {"end_quote": "Tero: \"Tästäkin menee vero.\"",
-		"end_lines": ["Katja vetää verhot auki. Kaikki jähmettyvät.", "Timo: \"Sivikki lämpiää jo.\""],
-		"style": {"olohuone": true, "floor": Color(0.5, 0.38, 0.27), "wall": Color(0.42, 0.48, 0.58),
-			"sofa": Color(0.62, 0.5, 0.25), "rug": Color(0.22, 0.3, 0.5)}},
 }
 
 ## Räsytupin repliikit (tuppi_game.gd, vain aikuisille): rivoja mutta hauskoja. riisuu: id -> [kengät, paita, housut].
@@ -232,27 +166,6 @@ const TUPPI_LINES := {
 			"Pantu tuppeen kalsareissa. Esa: \"Erämies ei koskaan unohda tätä näkyä.\""],
 		"loppu": ["Hihii. No niin, nukkumaan. Kaikki samaan sänkyyn vai?", "Kerma ja mansikat aamulla, pojat."],
 	},
-	"vaala": {
-		"alku": ["Räsytuppi. Häviäjä maksaa veroa vaatteina.", "Tero: Valtio vie paidan, vie ny sitte."],
-		"rami": ["Rami! VTEC kytkeytyy!", "Rami. Rekkakuski ottaa mitä tahtoo."],
-		"nolo": ["Nolo. Pysytään verotuksen alarajalla.", "Nolo. Hiljaa niinku tyhjäkäynnillä."],
-		"tikki": {"tero": ["Verottaja otti tän.", "Mun tikki, rokkia!", "Perintäkulut perään."],
-			"timo": ["Seitsemäntuhatta kierrosta!", "VTEC!", "Ohitus oikealta."],
-			"katja": ["Kuorma kyydissä.", "Mun. Rekkakuski ei jarruta.", "Hehe, tuplaperävaunu."]},
-		"riisuu": {"tero": ["Maiharit pois. Varpaat on mustat ku levy.", "Nahkaliivi pois… Tatuoinnit on veroton etu.",
-			"Housut pois. Tää on mun viimenen omaisuus."],
-			"timo": ["Kengät pois, kaasujalka paljaana.", "Paita pois. Näkyy Sivikin turvavyön jälki.",
-			"Housut pois… Ei oo VTEC, mutta kiertää."],
-			"katja": ["Kumpparit pois.", "Paita pois. Rekkakuskin rintaliivit, pojat!", "Housut pois. Nyt ajetaan ilman kuormaa."],
-			"pelaaja": ["", "", ""]},
-		"kommentti": ["Tero: Ihan ku verottaja kattois.", "Hehe, Timon kalsareissa lukee Honda.", "Katja nauraa ku rekan torvi.",
-			"Tää on parempi ku Rasvanappi.", "Ikkunat huurussa."],
-		"voitto": ["Tero ja Timo kalsareissa: pantu tuppeen! Tero ilmoittaa vaatteet verottajalle luontoisetuna.",
-			"Kaverit tupessa! Timo lämmittää Sivikin ja ajaa kotiin kalsareissa."],
-		"tuppeen": ["Te tupessa! Katja soittaa rekan torvea, ja Tero kirjaa teidät verottajan listalle.",
-			"Pantu tuppeen kalsareissa. Timo: \"Tää oli kovempi ku VTEC.\""],
-		"loppu": ["No niin. Mansikat aamulla, pojat.", "Katja: Rekkakuski nukkuu missä vaan."],
-	},
 }
 
 ## Lettukisan repliikit (lettu_game.gd, vain aikuisille). "%s" havio-rivissä = voittajan nimi.
@@ -271,20 +184,6 @@ const LETTU_LINES := {
 			"Voittaja nuolee vatkaimen. Tuu tänne, kulta."],
 		"havio": ["%s voitti! Voittaja nuolee vatkaimen, ja häviäjät tiskaa kalsareissa.", "%s voitti. Hihii, sulla on kermaa poskessa."],
 	},
-	"vaala": {
-		"alku": ["Lettukisa! Minuutti aikaa, ja voittaja saa kermat siitä mistä haluaa.",
-			"Rekkakuskin letut: isoja, rasvasia ja niitä tulee koko ajan."],
-		"kerma": ["Ruiskutanko lisää, Timo? Sää näytät kermamieheltä.", "Nielkää, pojat. Kuorma tulee perässä.",
-			"Lisää lettuja! Tää on tuplaperävaunu.", "Tero, älä mussuta. Nielaise vaan."],
-		"tukehtuu": {"tero": ["Hhkk! Valtio pakotti mut nielemään!", "Kerma tuli nenästä. Siitä ei makseta veroa."],
-			"timo": ["Kerma tuli ulos ku VTEC: yhtäkkiä ja kovaa!", "Hhkk! Ohitus meni pieleen!"]},
-		"tukehtuu_sina": ["Hehe, liian iso kuorma! Kerma tuli nenästä.", "Hitaasti. Ei ahmita ku rekkakuski tauolla."],
-		"kommentti": {"tero": ["Kermasta ei makseta valmisteveroa. Vielä.", "Mää syön nää ennen ku verottaja ehtii."],
-			"timo": ["Mää vedän lettuja ku Sivikki bensaa: kierroksilla.", "Katja, ruiskuta suoraan suuhun. Säästetään aikaa."]},
-		"voitto": ["Sää nielit eniten. Mää tiedän nyt, kenet otan mukaan seuraavaan kisaan.",
-			"Voittaja nuolee vatkaimen. Tuu tänne, rekkakuski odottaa."],
-		"havio": ["%s voitti! Voittaja nuolee vatkaimen, ja häviäjät tiskaa kalsareissa.", "%s voitti. Hehe, kermaa on joka paikassa."],
-	},
 }
 
 ## Löylykisan repliikit (loyly_game.gd, vain aikuisille). "%s" havio-rivissä = voittajan nimi.
@@ -302,36 +201,8 @@ const LOYLY_LINES := {
 		"voitto": ["Sää kestit! Tuu alalauteelle, mää heitän sulle henkilökohtasen löylyn.", "Viimeinen lauteilla. Mää tykkään sisukkaista."],
 		"havio": ["%s voitti! Ja sun pyyhe makaa vieläkin lauteilla.", "%s kesti pisimpään. Hihii, sun pakarat oli punasemmat ku kiuas."],
 	},
-	"vaala": {
-		"alku": ["Löylykisa! Rekkakuskin sauna lämpiää sataan kahteenkymppiin. Pyyhkeet tiukalle.",
-			"Mää heitän, te kestätte. Timo, ota ne sukat pois."],
-		"heitto": ["Lisää löylyä! Tää on ku rekan pakoputki.", "Sihisee! Tero, verottaja ei pääse tänne.",
-			"Toinen kauhallinen. Kuka on vielä hengissä?", "Kuuma? Tää on vasta tyhjäkäyntiä."],
-		"pakenee": {"tero": ["Valtio pakottaa mut lähtemään!", "Pyyhe jäi! Se on nyt valtion omaisuutta."],
-			"timo": ["Mää lähen! Sukat syttyy!", "VTEC ylikuumeni! Pyyhe jäi, älkää kattoko!"]},
-		"pakenee_sina": ["Hehe! Pyyhe jäi lauteille, ja Katja näki kaiken.", "Sää lähdit ekana. Ilman pyyhettä. Mää näin."],
-		"kommentti": {"tero": ["Kiukaan kivistä ei makseta veroa. Vielä.", "Mun tatuoinnit sulaa."],
-			"timo": ["Mun sukat on aerodynaamiset.", "Tää on kuumempi ku Sivikin moottoritila."]},
-		"voitto": ["Sää kestit! Rekkakuskit arvostaa kestäviä miehiä.", "Viimeinen lauteilla. Tuu, mää heitän vielä yhen."],
-		"havio": ["%s voitti! Sun pyyhe on vielä lauteilla.", "%s kesti pisimpään. Hehe, sun takapuoli on ku jarruvalo."],
-	},
 }
 
-## Sivikki-diskon repliikit (disko_game.gd, vain Vaala, vain aikuisille). "%s" havio-rivissä = voittajan nimi.
-const DISKO_LINES := {
-	"vaala": {
-		"alku": ["Ovet auki ja bassot kaakkoon! Pihadisko alkaa, naapurit saa valittaa verottajalle.",
-			"Sivikin stereot: kakssataa wattia ja yks kaiutin. Tanssikaa, pojat!"],
-		"kommentti": {"tero": ["Valtio ei tanssi. Mää tanssin.", "Tää on mun veroton lantio."],
-			"timo": ["Kato mun pyllistystä, Katja! Seitsemäntuhatta kierrosta!", "VTEC kytkeytyy lantiossa!"],
-			"katja": ["Lantio lähemmäs, Timo. Ei noin lähelle!", "Rekkakuski tykkää, kun peräpää heiluu.",
-				"Hehe, Teron nahkaliivi narisee tahdissa."]},
-		"pylly": ["Hehe, kato ny tota peräpäätä!", "Pyllistys! Mää näin kaiken.", "Tuo on parempi ku Timon spoileri."],
-		"ohi_sina": ["Sää liikut ku Sivikki talvirenkailla.", "Tahti, kulta, tahti!", "Hehe, väärä vaihde."],
-		"voitto": ["Sää vietät mut hitaille. Timo, laita hitaat soimaan.", "Paras peräpää koko Vaalassa. Tuu tänne."],
-		"havio": ["%s voitti! Se vie mut hitaille, ja sää tanssit Teron kanssa.", "%s voitti. Hehe, sun pyllistys oli vähän laimea."],
-	},
-}
 
 ## Karaoke-illan repliikit ja säkeistöt (ilta_karaoke.gd, vain aikuisille): "sakeet" laulajan id -> neljä riviä
 ## (omat sanat, laulettavat karaoke_game.gd:n nuottikaistoilla), "nimet_<id>" kappaleen nimi. "%s" = laulajan nimi.
@@ -352,23 +223,6 @@ const KARAOKE_LINES := {
 		"voitto": ["Sää lauloit parhaiten. Mää valitsen sut, ja Esa nukkuu saunassa.", "Kultakurkku. Tuu tänne, mää kuiskaan sulle jotain."],
 		"havio": ["%s voitti! Se nukkuu mun vieressä, ja sää sohvalla mikki kainalossa.", "%s lauloi parhaiten. Hihii, sori."],
 	},
-	"vaala": {
-		"alku": ["Karaoke! Rekkakuskin äänilaitteet, pojat. Paras laulaja saa valita vierustoverin.",
-			"Mikki on lämmin. Tero, älä laula verottajalle."],
-		"sakeet": {
-			"tero": ["Valtio vie rahat ja valtio vie naiset", "mutta tätä yötä ei verottaja saa",
-				"nahkaliivi narisee ja Katja nauraa", "pantu tuppeen ja perintäkulut perään"],
-			"pelaaja": ["Päivi soitti yöllä ja kysy missä mää oon", "mittaamassa kulta ihan oikeesti mittaamassa",
-				"harppi oli pitkä ja kynä oli terävä", "ympyrät leikkas just sängyn kohdalla"],
-			"timo": ["Sivikki keulii ja VTEC kytkeytyy", "takapenkki huurussa ja kalsarit hukassa",
-				"seitsemäntuhatta kierrosta ja Katja kyydissä", "ohitus oikealta ja suoraan perille"]},
-		"nimet_tero": ["Veroton yö"], "nimet_pelaaja": ["Kolmiomittauksen blues"], "nimet_timo": ["VTEC-rakkaus"],
-		"kehu": ["Hehe, %s lauloi niin, että rekan torvi soi itsestään!", "Kultakurkku! Mää meinasin pudota jakkaralta."],
-		"pilkka": ["Hehe, %s kuulosti Sivikiltä ilman pakoputkea.", "Naapurit soittaa poliisit. Ei se mitään."],
-		"kommentti": {"tero": ["Tää laulu on verovähennyskelpoinen."], "timo": ["Mää laulan aina ku VTEC kytkeytyy."]},
-		"voitto": ["Sää lauloit parhaiten. Mää valitsen sut, ja Timo nukkuu Sivikissä.", "Kultakurkku. Rekkakuski on myyty."],
-		"havio": ["%s voitti! Se nukkuu mun vieressä, ja sää sohvalla.", "%s lauloi parhaiten. Hehe, sori kulta."],
-	},
 }
 
 var state := {}  # kohde -> {stage, rings, remote_t, gift, wrong, done_day}
@@ -385,8 +239,8 @@ func _fresh() -> Dictionary:
 	return {"stage": "", "rings": [], "remote_t": -1.0, "gift": false, "wrong": [], "done_day": -1, "illat": 0}
 
 
-## Iltakivat Rasvanapin jälkeen kiertävässä järjestyksessä (kohde -> lista); Sivikki-disko vain Vaalassa (Timon auto).
-const KIVAT := {"saloinen": ["tuppi", "lettu", "karaoke", "loyly"], "vaala": ["tuppi", "disko", "loyly", "lettu", "karaoke"]}
+## Iltakivat Rasvanapin jälkeen kiertävässä järjestyksessä (kohde -> lista).
+const KIVAT := {"saloinen": ["tuppi", "lettu", "karaoke", "loyly"]}
 
 
 ## Seuraavan illan iltakiva: ensimmäinen ilta on aina Rasvanappi, sen jälkeen KIVAT kiertäen.
@@ -501,7 +355,7 @@ func remote_step(site: String, delta: float) -> bool:
 	return true
 
 
-## Onko kaveri (remote) jo mitannut (Vaalassa Sivikki-ajo tehty).
+## Onko kaveri (remote) jo mitannut.
 func remote_done(site: String) -> bool:
 	for r: Dictionary in st(site).rings:
 		if r.who == SITES[site].remote:

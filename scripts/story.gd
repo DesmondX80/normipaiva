@@ -1,5 +1,5 @@
 extends RefCounted
-## Tarina "Paapeliin pääsee, kunhan…" (main.gd _story_*): ohjaa Saloisissa naapurilta toiselle, mutta kaikki muu
+## Tarina "Pekan hommat" (main.gd _story_*): ohjaa Saloisissa naapurilta toiselle, mutta kaikki muu
 ## pysyy vapaana. Vaiheet (step):
 ##   kaljat        – kuutonen kotijemmoihin (eteinen, talli ja komposti yhteensä vähintään 6)
 ##   pekka_kutsuu  – Pekka huikkaa pihalta; juttelu antaa kolme tehtävää
@@ -7,7 +7,7 @@ extends RefCounted
 ##   pekka_avaimet – kaikki tehty, Pekka huikkaa taas: autonavaimet hukassa
 ##   avaimet       – avaimet ovat kodalla lintutornin juurella (Pekka oli siellä kännissä "kyyhkyjahdissa")
 ##   avaimet_mukana – avaimet löytyneet, vie ne Pekalle
-##   valmis        – Pekan kyyti Paapeliin auki (välietappi: tarina jatkuu myöhemmin)
+##   valmis        – kaikki hommat tehty ja avaimet palautettu
 ## Tehtävälista näkyy repussa (R) sitä mukaa kuin tehtäviä löytyy. Tallentuu osioon [tarina].
 
 const KUUTONEN := 6  # kotijemmoissa yhteensä
@@ -17,13 +17,13 @@ const STEPS := ["kaljat", "pekka_kutsuu", "tehtavat", "pekka_avaimet", "avaimet"
 
 const PEKKA_CALL := "Pekka huikkaa pihalta: \"Hei naapuri! Tuuppa käymään, mulla ois asiaa, perkele!\""
 const PEKKA_TASKS := [
-	"Perkele, mää lähtisin Paapeliin vaikka heti, mutta ei ehitä vielä.",
+	"Perkele, mää lähtisin kyyhkyjahtiin vaikka heti, mutta ei ehitä vielä.",
 	"Ne saatanan sienet pitäs poimia ensin. Kolme litraa! Arto tietää paikat, kysy siltä.",
 	"Ja Arto kyseli puolukoita hilloon, viis litraa. Ja Sinikan nurmikko pitäs leikata... niin ettei Päivi nää, ymmärräthän.",
 ]
 const PEKKA_WAITING := [
 	"Ei ehitä lähteä, ku sienet on poimimatta. Arto tietää paikat.",
-	"Perkele, ensin hommat ja sitte Paapeliin.",
+	"Perkele, ensin hommat ja sitte kyyhkyjahtiin.",
 	"Kato listaa, mitä vielä puuttuu. Sitte lähetään.",
 ]
 const PEKKA_KEYS := [
@@ -31,7 +31,7 @@ const PEKKA_KEYS := [
 	"Kävin eilen lintutornilla kaverin kyydillä. Olin niin kännissä, että ammuin kaikenlaisia lintuja, luvallisia ja luvattomia.",
 	"En osunu yhtään, ku oli niin jutuissa. Avaimet jäi varmaan kodalle. Käyppä hakemassa, ite en pääse ilman autoa!",
 ]
-const PEKKA_THANKS := "Avaimet! Perkele, kiitti! Nyt ku haluat Paapeliin, niin hyppää kyytiin."
+const PEKKA_THANKS := "Avaimet! Perkele, kiitti! Nyt ne on tallessa, ja mää lähen kyyhkyjahtiin."
 
 var step := "kaljat"
 var done := {"sienet": false, "puolukat": false, "nurmikko": false}
@@ -43,17 +43,13 @@ func at_least(s: String) -> bool:
 	return STEPS.find(step) >= STEPS.find(s)
 
 
-func ride_unlocked() -> bool:
-	return step == "valmis"
-
-
 func all_tasks_done() -> bool:
 	return done.sienet and done.puolukat and done.nurmikko
 
 
 ## Repun tehtävälista: [teksti, valmis]. Näkyy vain sitä mukaa kuin tehtäviä löytyy.
-## arrived = Paapeliin on päästy (main.gd: loppu "paapeli" kirjattu), home = kotijemmojen kaljat.
-func list(arrived := false, home := 0) -> Array:
+## home = kotijemmojen kaljat.
+func list(home := 0) -> Array:
 	var out := []
 	if step == "kaljat":
 		out.append(["Kuutonen kotijemmoihin %d / %d" % [mini(home, KUUTONEN), KUUTONEN], false])
@@ -70,8 +66,6 @@ func list(arrived := false, home := 0) -> Array:
 	if at_least("avaimet"):
 		out.append(["Pekan autonavaimet kodalta", at_least("avaimet_mukana")])
 		out.append(["Avaimet Pekalle", at_least("valmis")])
-	if step == "valmis":
-		out.append(["Pekan kyydillä Paapeliin", arrived])
 	return out
 
 

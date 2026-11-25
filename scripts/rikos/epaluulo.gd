@@ -151,7 +151,7 @@ func _poista_auto() -> void:
 func tick(_e: bool) -> void:
 	_partio()
 	var ap: Dictionary = game.world.apteekki_s if game.world != null else {}
-	if ap.is_empty() or game._in_vaala:
+	if ap.is_empty():
 		if node != null and is_instance_valid(node):
 			node.visible = false
 		return
@@ -259,7 +259,7 @@ func _korvalle() -> void:
 ## Partio hälytyspäivänä: auto tieverkolle ~150 m pelaajasta, määränpäät apteekin ympäriltä. Näkee pelaajan vain,
 ## kun taskussa on lääkkeitä ja pelaaja on ulkona Saloisissa (muuten grace pitää sen sokeana).
 func _partio() -> void:
-	if not halytys or _partio_ohi or game._in_vaala:
+	if not halytys or _partio_ohi:
 		if auto != null and is_instance_valid(auto):
 			auto.grace = 1.0e6
 		return
@@ -447,8 +447,6 @@ func testi(_arg: String) -> void:
 	print("EPALUULO luukkuosto -> %.0f" % epaluulo)
 	game._rikos_event("myynti", {"key": "opiaatti", "paikka": "saloinen"})
 	print("EPALUULO myynti Saloisissa -> %.0f" % epaluulo)
-	game._rikos_event("myynti", {"key": "opiaatti", "paikka": "vaala"})
-	print("EPALUULO myynti Vaalassa -> %.0f" % epaluulo)
 	if epaluulo != LISA_LUUKKU + LISA_MYYNTI:
 		_vika("kasvu: %.0f (odotettiin %.0f)" % [epaluulo, LISA_LUUKKU + LISA_MYYNTI])
 	var rs: Array = game.journal_data().get("riskit", [])

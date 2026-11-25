@@ -1,5 +1,5 @@
 extends "res://scripts/rikos/osa.gd"
-## S2 Yliannos (Saloinen ja Vaala). Kaksi puolta, molemmat vakavia eikä kumpikaan vitsi:
+## S2 Yliannos (Saloinen). Kaksi puolta, molemmat vakavia eikä kumpikaan vitsi:
 ## 1) Pelaajan oma olo: jokainen lääkkeen otto (tapahtuma "otto") lisää pelin "kuormaa" lääkkeen mukaan (KUORMA, kerrottuna
 ##    jatkamisen teholla), muu humala kertoo sen kaksinkertaiseksi ja kuorma laskee ajan myötä. VAROITUS-rajalla tulee
 ##    varoitus, RAJA-rajalla pelaaja lyyhistyy: game._rikos_loppu("yliannos") (ELVYTETTY, Päivi: "HUUMEET ON VAARALLISIA.
@@ -260,7 +260,7 @@ func _ring() -> Node3D:
 
 func _voi_alkaa() -> bool:
 	var r := _ring()
-	if r == null or not r.visible or game._in_vaala or game.state != "ulkona":
+	if r == null or not r.visible or game.state != "ulkona":
 		return false
 	if game.day != myynti_paiva + 1 or game.day - tapaus_paiva < VALI:
 		return false
@@ -269,8 +269,6 @@ func _voi_alkaa() -> bool:
 
 
 func tick(_e: bool) -> void:
-	if game._in_vaala:
-		return
 	if tila == "":
 		if arvottu_paiva != game.day and _voi_alkaa():
 			arvottu_paiva = game.day

@@ -69,7 +69,7 @@ func jumppa_aika(t: float) -> bool:
 
 func tick(_e: bool) -> void:
 	var w: Node3D = game.wife
-	if w == null or not w.jumppa or game._in_vaala:  # halpa ehto ensin (K21): ei jumppaa = ei mitään
+	if w == null or not w.jumppa:  # halpa ehto ensin (K21): ei jumppaa = ei mitään
 		_lahella_t = 0.0
 		_kaukana_t = 0.0
 		return

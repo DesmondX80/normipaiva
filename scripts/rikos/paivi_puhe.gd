@@ -98,7 +98,7 @@ func tick(_e: bool) -> void:
 		if not game._talk_box.is_open():
 			_auki = {}  # suljettu ilman valintaa: jälki jää jonoon
 		return
-	if kysytty_day == game.day or game.clock_min >= AAMU_ASTI or game._in_vaala or game.state != "ulkona":
+	if kysytty_day == game.day or game.clock_min >= AAMU_ASTI or game.state != "ulkona":
 		return
 	# Lapun näkyvyys on läpinäkyvyys (note.gd is_showing): solmu on pelissä aina visible (testit piilottavat sen).
 	if game._talk_box.is_open() or game._note.is_showing() or game.cutscene.busy:

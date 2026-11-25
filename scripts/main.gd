@@ -41,7 +41,6 @@ const ApteekkiSaloinen := preload("res://scripts/apteekki_saloinen.gd")
 const SinikanKuisti := preload("res://scripts/sinikan_kuisti.gd")
 const SinikanKuistiMallit := preload("res://scripts/sinikan_kuisti_mallit.gd")
 ## Siitarin baari sisältä (siitari_interior.gd) ja karaoke (karaoke_game.gd).
-const ApteekkiInterior := preload("res://scripts/apteekki_interior.gd")
 ## Rautatieasemien odotussali (station_interior.gd): juopot ja narkkarit, rahakätkö viinahörpystä.
 const StationInterior := preload("res://scripts/station_interior.gd")
 const ASEMA_INT_POS := Vector3(0, 0, -16000)
@@ -87,7 +86,6 @@ const RAAHE_QUIZ := [
 ]
 const RAAHE_KARAOKE_PRICE := 2.0
 const KaraokeGame := preload("res://scripts/karaoke_game.gd")
-const APTEEKKI_INT_POS := Vector3(18000, 0, 0)
 ## Karaoken rajat (simulaatio --scene=karaokesim: hyvä 92–96 %, keskiverto 79–85 %, rento 60–77 %): "raikuu" vaatii
 ## keskiverron pelaajan hyvän suorituksen, "kelpo" erottaa rennon pelaajan mokaajasta.
 const KARAOKE_RAIKUU := 0.85
@@ -108,7 +106,7 @@ const ATM_LAMA := ["KORTTI HYLÄTTY. Ottakaa yhteys pankkiinne.", "PALVELU EI OL
 	"Tilillä ei ole katetta... ai, ei vaan. Kone sylkäisi kortin takaisin. Kokeile uudestaan."]
 const ATM_LIMIT_LAMA := 10.0  # pankki laski nostorajaa
 var _atm_lama_day := -1  # päivä, jona automaatin oikku on jo koettu
-## Vaalan apteekki (apteekki_interior.gd): [nimi, hinta, vaatii reseptin, kipu, humala, moraali]. Kolmiolääkkeet (▲) vain reseptillä (Panacod on vapaa); takaluukulta oksikodonia ja pervitiiniä ilman reseptiä x10 hintaan;
+## Apteekin lääkkeet (luukkuosto): [nimi, hinta, vaatii reseptin, kipu, humala, moraali]. Kolmiolääkkeet (▲) vain reseptillä (Panacod on vapaa); takaluukulta oksikodonia ja pervitiiniä ilman reseptiä x10 hintaan;
 ## reseptin saa aarrekätköstä (juopolle viinaa, _take_cache). Ostettu lääke menee reppuun (`laake`) ja otetaan sieltä tai
 ## T-valikosta (_take_laake). Opiaatti nostaa humalan täysille, pervitiini kiihdyttää kaikkea liikettä PERV_MULT PERV_MIN minuutiksi.
 const APTEEKKI_MENU := {
@@ -119,7 +117,7 @@ const APTEEKKI_MENU := {
 	"opiaatti": ["Oksikodoni ▲", 24.9, true, -1.0, 1.0, 0.0],
 	"perv": ["Pervitiini ▲", 19.9, true, 0.0, 0.0, 0.05],
 }
-const APTEEKKI_TAKA := ["opiaatti", "perv"]  # takaoven luukulta (vaala.gd apteekki_taka): ilman reseptiä, hinta x APTEEKKI_TAKA_MULT
+const APTEEKKI_TAKA := ["opiaatti", "perv"]  # takaoven luukulta: ilman reseptiä, hinta x APTEEKKI_TAKA_MULT
 const APTEEKKI_TAKA_MULT := 10.0
 const PERV_MULT := 1.5  # pervitiini: mopo, juoksu, pyöräily ja kävely +50 %
 const PERV_MIN := 30.0  # peliminuuttia
@@ -133,7 +131,7 @@ const LAAKE_JATKO_MAX := 4
 const TEINI_KIINNI := [0.0, 0.1, 0.3, 0.6, 0.9]
 var reseptit := 0  # kipulääkereseptit (kätköstä)
 var laake := {}  # reppuun ostetut lääkkeet: APTEEKKI_MENU-id -> kappalemäärä
-var klaffipoyta := false  # taitettava klaffipöytä löydetty (Reipparin seinältä tai Zabukin luukun vierestä), jatkaminen reseptikirjan mukaan (klaffipoyta.gd)
+var klaffipoyta := false  # taitettava klaffipöytä löydetty (Reipparin seinältä), jatkaminen reseptikirjan mukaan (klaffipoyta.gd)
 var craft_known := {}  # opitut jatkoreseptit: reseptin id -> true (klaffipöydän reseptikirja)
 var perv_mult := PERV_MULT  # käytössä olevan pervitiiniannoksen kerroin (jatkettu on heikompi)
 var perv_until := -1.0  # pervitiinin vaikutus päättyy (day * 1440 + clock_min)
@@ -327,16 +325,10 @@ var wine_locked := false  # viinibileiden jälkeen: ei enää ikinä
 var wine_lock_day := -1  # päivä, jona lupaus annettiin
 var wine_endings := 0
 var has_korpihiiva := false
-## Saaviin jo lisätyt ainekset (koti / paapeli): marjat (l), hiiva ("" / hiiva / turbo / korpi), sokeri. Ainekset
+## Saaviin jo lisätyt ainekset (koti): marjat (l), hiiva ("" / hiiva / turbo / korpi), sokeri. Ainekset
 ## kaadetaan saaviin yksitellen (E saavilla avaa valikon), ja kun kaikki on sisällä, liina päälle ja käymään.
-var vat_mix := {"koti": {"marjat": 0, "hiiva": "", "sokeri": false}, "paapeli": {"marjat": 0, "hiiva": "", "sokeri": false}}
+var vat_mix := {"koti": {"marjat": 0, "hiiva": "", "sokeri": false}}
 var _vat_where := ""
-var mwine_start := -1  # Paapelin viinisaavi
-var mwine_days := 0
-var mwine_locked := false
-var mwine_lock_day := -1
-var mwine_endings := 0
-var apteekki_int: Node3D
 var asema_int: Node3D
 var kirppis_int: Node3D
 var varasto_int: Node3D
@@ -427,7 +419,6 @@ const PINGIS_POS := Vector3(-3000, 0, 300)  # mökin pingisnäyttämö kaukana k
 const CHOCO_CHANCE := 0.5  # suklaa lepyttää Päivin
 const CHOCO_MONEY := 5.0  # leppynyt Päivi antaa aamulla ylimääräistä
 const BEER_PRICE := 12.90
-const PEKKA_RIDE_PRICE := 10.0  # tai kalja: Pekan kyyti mökille
 
 var world: Node3D
 var home_zone: Vector3
@@ -459,14 +450,12 @@ var clock_min := DAY_START
 ## lähtemään: baareista ja lavalta ohjataan ulos CLOSE_GRACE minuutin päästä, kaupassa kauppias vain hoputtaa.
 ## Pankkiautomaatti ja Hotelli Siitarin vastaanotto ovat aina auki.
 const OPEN_HOURS := {
-	"kauppa": Vector2(7 * 60, 21 * 60),   # K-Market (Saloinen) ja K-Market Tervaportti (Vaala)
+	"kauppa": Vector2(7 * 60, 21 * 60),   # K-Market
 	"alko": Vector2(9 * 60, 18 * 60),     # Alkon hylly Tervaportissa
-	"siitari": Vector2(11 * 60, 2 * 60),  # Hotelli-Ravintola Siitarin baari
 	"raahe": Vector2(14 * 60, 2 * 60),    # Kapteenin Kulma ja Kellari
-	"lava": Vector2(20 * 60, 1 * 60),     # Oulujärven lavan tanssit
 	"apteekki": Vector2(9 * 60, 17 * 60), # Vaalan apteekki
 }
-const OPEN_NAMES := {"kauppa": "K-Market", "alko": "Alko", "siitari": "Siitari", "raahe": "Kapteenin Kulma", "lava": "Lavatanssit", "apteekki": "Apteekki"}
+const OPEN_NAMES := {"kauppa": "K-Market", "alko": "Alko", "raahe": "Kapteenin Kulma", "apteekki": "Apteekki"}
 const CLOSE_GRACE := 15.0
 var _closing_at := -1.0  # sulkemisvaroituksen kellonaika (sisällä), -1 = ei varoitettu
 var _closing_nag := 0.0
@@ -691,7 +680,7 @@ const StrayDog := preload("res://scripts/stray_dog.gd")
 ## pahenee hoitamatta. Haavan hoitavat Pekka, Päivi tai mökillä Santtu omin konstein.
 const Beast := preload("res://scripts/beast.gd")
 const BEAST_FOREST_S := [50.0, 110.0]
-const BEAST_MAX := {"koti": 1, "mokki": 2}
+const BEAST_MAX := {"koti": 1}
 const BEAST_MEAT := ["piirakka", "savukala", "savuriista", "karrella"]
 const BEAR_HURT_SPEED := 0.45
 var _beast: Node3D = null
@@ -898,7 +887,7 @@ var _hedge_done_today := false
 var _hedge_game: Node = null
 var _basket_game: Node = null
 var koris_best := 0  # pisin koriputki
-var story: RefCounted  # tarina (story.gd): ohjaa naapurilta toiselle, Pekan kyyti Paapeliin aukeaa lopuksi
+var story: RefCounted  # tarina (story.gd): ohjaa naapurilta toiselle
 var ebike: RefCounted  # sähköpyörä (ebike.gd, #107): osat, tarvikkeet, liitokset ja akku
 var oma_mopo: RefCounted  # oma mopo (oma_mopo.gd, #155): Sepon luottamus, osat, kunnostus, bensa ja ajo
 var sinikka_lawn: Node3D  # Sinikan takapihan nurmikko (tarinatehtävä)
@@ -982,11 +971,6 @@ func _ready() -> void:
 	add_child(garage_int)
 	garage_int.exited.connect(func() -> void: _on_garage_exited(false))
 	garage_int.acted.connect(_on_garage_acted)
-	apteekki_int = ApteekkiInterior.new()
-	apteekki_int.position = APTEEKKI_INT_POS
-	add_child(apteekki_int)
-	apteekki_int.exited.connect(_on_apteekki_exited)
-	apteekki_int.acted.connect(_on_apteekki_acted)
 	headphones = Headphones.new()
 	add_child(headphones)
 	phone = Phone.new()
@@ -1217,7 +1201,7 @@ func _loading_hide() -> void:
 
 
 func _process(delta: float) -> void:
-	CamCtl.indoors = state in ["in_shop", "in_home", "in_garage", "in_apteekki", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
+	CamCtl.indoors = state in ["in_shop", "in_home", "in_garage", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
 	_clock_fast_keys()
 	clock_min = fmod(clock_min + delta * CLOCK_RATE * (CLOCK_FAST if _clock_fast else 1.0), 1440.0)
 	_night_tick(delta)
@@ -1268,10 +1252,6 @@ func _process(delta: float) -> void:
 		"in_varasto":
 			_varasto_hints()
 			_hint.text = varasto_int.hint
-		"in_apteekki":
-			if not _item_menu.is_open():
-				_hint.text = apteekki_int.hint
-				_bar_prompt(apteekki_int, {"tiski": "apteekki"})
 		"in_raahe":
 			if not _item_menu.is_open():
 				_hint.text = raahe_int.hint
@@ -4359,25 +4339,18 @@ func _juntti_roam() -> void:
 	_juntti_hop_t = JUNTTI_HOP_GAP
 
 
-## --- Korjaamot (#142): Pekan Volvo Korpelalle, Simo korjaa sähköpyörän oikosulun, Heiskasen kaasupullo Sululle ja
+## --- Korjaamot (#142): Simo korjaa sähköpyörän oikosulun, Heiskasen kaasupullo Sululle ja
 ## sammutin, Huhtalan romuautot (takakontti jemmana) ja varaosat. ------------------------------------------------
-const VOLVO_HINTA := 25.0
 const SIMO_HINTA := 10.0
 const KAASU_HINTA := 12.0
 const SAMMUTIN_HINTA := 15.0
 const HUHTALA_OSA := 5.0
-var _volvo_fixed_day := -1
 var _has_kaasu := false
 var _kanister_paid := 0.0  # kädessä olevan kanisterin hinta (kaasupullosta palautetaan)
 var _sulo_free := false  # Sulon lupaus pannusta: seuraava kanisteri ilmaiseksi
 var _has_sammutin := false
 var _kaasu_given := false
 var _huhtala_day := -1
-
-
-## Pekan Volvo ei lähde joka kuudes päivä (päivä % 6 == 4), kunnes Korpela korjaa sen.
-func _volvo_broken() -> bool:
-	return story.ride_unlocked() and day % 6 == 4 and _volvo_fixed_day != day
 
 
 func _korjaamo_logic() -> void:
@@ -4433,11 +4406,7 @@ func _sulo_kaasu() -> void:
 func _korjaamo_options(who: String, o: Array) -> void:
 	match who:
 		"korpela":
-			if _volvo_broken():
-				o.append(_opt("volvo", "Korjaa Pekan Volvo (%s)" % ("2 kaljaa" if beers >= 2 else _eur(VOLVO_HINTA) + " €"),
-					beers >= 2 or money >= VOLVO_HINTA, "2 kaljaa tai %s €" % _eur(VOLVO_HINTA), true))
-			else:
-				o.append(_opt("x_volvo", "Pekan Volvo on kunnossa", false, "tänään ei hajonnut"))
+			pass
 		"simo":
 			o.append(_opt("oikosulku", "Korjaa sähköpyörän oikosulku (%s €)" % _eur(SIMO_HINTA), ebike.shorted and money >= SIMO_HINTA,
 				"ei oikosulkua" if not ebike.shorted else "rahat ei riitä", ebike.shorted))
@@ -4455,19 +4424,6 @@ func _korjaamo_options(who: String, o: Array) -> void:
 
 func _korjaamo_choose(id: String) -> void:
 	match id:
-		"volvo":
-			if beers >= 2:
-				beers -= 2
-				player.set_carrying(beers > 0)
-			else:
-				money -= VOLVO_HINTA
-			_volvo_fixed_day = day
-			_advance_clock(60.0)
-			tilat.first("volvo_korjattu", 0.3)
-			Sfx.play("rattle_hard", -4.0, 0.9)
-			_save_game()
-			_talk_box.reply("Hinataan... no niin. Sytytystulpat oli ku Pekan hampaat. Tunti meni. Kerro Pekalle, että seuraavalla "
-				+ "kerralla hän tuo makkaraa.", _talk_options(), "Pekan Volvo korjattu: tämän päivän kyyti Paapeliin on ilmainen.")
 		"oikosulku":
 			money -= SIMO_HINTA
 			ebike.fasten("johdot", "sahkoteippi")
@@ -7649,7 +7605,7 @@ var _idea_t := 0.0
 
 
 func _quest_ideas() -> void:
-	quests.update_done(tilat.firsts, quest_flag, day, story.list(quest_flag("paapeli"), jemma))
+	quests.update_done(tilat.firsts, quest_flag, day, story.list(jemma))
 	for q in quests.newly_known(tilat.firsts, quest_flag, day):
 		if quests.check(q.done, tilat.firsts, quest_flag):
 			continue  # tiedoksi ja tehdyksi samalla kertaa (esim. pummilla lavalle ilman vinkkiä): idea olisi myöhässä
@@ -7704,8 +7660,8 @@ func quest_flag(name: String) -> bool:
 	if name.begins_with("ending_"):
 		return endings.counts.has(name.trim_prefix("ending_"))
 	match name:
-		"paapeli":
-			return endings.counts.has("paapeli")
+		"pekan_hommat":
+			return story.at_least("valmis")
 		"korkit_kaikki":
 			return korkit.distinct() >= Korkit.total_slots()
 		"taimet_pyydetty":
@@ -7807,7 +7763,7 @@ func quest_progress(key: String) -> String:
 ## Päiväkirjan sisältö (journal.gd).
 func journal_data() -> Dictionary:
 	_quest_ideas()  # juuri tiedoksi tullut tehtävä saa ideaviestinsä ennen kuin build() merkitsee sen tunnetuksi
-	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(quest_flag("paapeli"), jemma), quest_progress, day)
+	var d: Dictionary = quests.build(tilat.firsts, quest_flag, story.list(jemma), quest_progress, day)
 	# Onnelliset loput ja legendaariset hetket omina listoinaan (löytämättömät null = ???).
 	for kind in ["loppu", "hetki"]:
 		var list: Array = []
@@ -7885,8 +7841,6 @@ func quest_spots(id: String) -> Array:
 			return [M.w2(M.KOULUKESKUS)]
 		"asemakatkot":
 			return [v3.call(world.station_pos)] if world.station_pos != Vector3.ZERO else []
-		"volvo":
-			return [M.w2(M.KORPELA)]
 		"kaasu":
 			return [M.w2(M.HEISKANEN)]
 		"eramaa":
@@ -9393,8 +9347,6 @@ func _active_walker() -> CharacterBody3D:
 	match state:
 		"in_shop":
 			return interior.walker
-		"in_apteekki":
-			return apteekki_int.walker
 		"in_asema":
 			return asema_int.walker
 		"in_kirppis":
@@ -9414,7 +9366,7 @@ func _active_walker() -> CharacterBody3D:
 
 ## T sisätiloissa: sama syö/juo-valikko kuin ulkona, kun hahmo on vapaana (ei minipeliä, keskustelua tai valikkoa).
 func _indoor_eat() -> void:
-	if not state in ["in_shop", "in_siitari", "in_apteekki", "in_raahe", "in_home", "in_mokki", "in_garage", "in_asema", "in_kirppis", "in_varasto", "in_retki"] or _item_menu.is_open() or _talk_box.is_open():
+	if not state in ["in_shop", "in_raahe", "in_home", "in_garage", "in_asema", "in_kirppis", "in_varasto", "in_retki"] or _item_menu.is_open() or _talk_box.is_open():
 		return
 	if Input.is_action_just_pressed("eat") and _active_walker().controls_enabled:
 		_open_eat_menu()
@@ -9498,7 +9450,7 @@ var _own_drink_warned := false  # nollataan baariin tullessa
 
 
 func _own_drink_in_bar() -> void:
-	if not state in ["in_raahe", "in_siitari"] or randf() >= OWN_DRINK_SEEN:
+	if state != "in_raahe" or randf() >= OWN_DRINK_SEEN:
 		return
 	if not _own_drink_warned:
 		_own_drink_warned = true
@@ -9510,27 +9462,22 @@ func _own_drink_in_bar() -> void:
 	Sfx.play("lose", -4.0)
 	_show_message("Baarimikko heitti sinut ulos omien juomien takia!", 3.0)
 	tilat.first("baarista_ulos", 0.3)
-	var where := state
 	get_tree().create_timer(2.5).timeout.connect(func() -> void:
-		if state != where:
-			return
-		if where == "in_raahe":
+		if state == "in_raahe":
 			_raahe.kicked = true
-			_on_raahe_exited()
-		else:
-			pass
-			_show_message("Siitarista heitettiin ulos omien juomien takia. Mopo odottaa pihassa.", 3.5))
+			_on_raahe_exited())
 
 
 ## Sisätilan toimintopisteet pois päältä valikon ajaksi: valikon valinta-E ei saa samalla avata ovea (ulos) tai
 ## toimia hyllyllä. Suljettaessa vielä saman ruudun yli (_enter_frame).
 func _interior_busy(on: bool) -> void:
 	var it: Node = {"in_home": home_int, "in_garage": garage_int, "in_shop": interior,
-		"in_raahe": raahe_int, "in_retki": retki_int, "in_apteekki": apteekki_int, "in_asema": asema_int, "in_kirppis": kirppis_int, "in_varasto": varasto_int}.get(state)
+		"in_raahe": raahe_int, "in_retki": retki_int, "in_asema": asema_int, "in_kirppis": kirppis_int, "in_varasto": varasto_int}.get(state)
 	if it == null:
 		return
+	it.busy = on
 	if not on:
-		pass
+		it._enter_frame = Engine.get_process_frames()
 
 
 func _on_eat(id: String) -> void:
@@ -10201,7 +10148,7 @@ const NOTE_PEKKA := {
 		"Pekka kyseli sua. Sillä on kuulemma jotain asiaa. Mää en halua tietää.",
 		"Ps. Pekka kävi ovella kysymässä sua. Haisi kyyhkyltä."],
 	"pekka_avaimet": ["Pekka kyseli taas sua, ihan innoissaan. Mitä te oikein suunnittelette?",
-		"Ps. Pekka huuteli aamulla aidan takaa jotain Paapelista. Mikä se on?"]}
+		"Ps. Pekka huuteli aamulla aidan takaa jotain autonavaimista. Mikä ihme se on?"]}
 
 
 ## Päivin heippalappu päivän alkuun: otsikko, tehtävä ja kauppalista värikynillä (kukin tuote oman värisellä
@@ -11108,7 +11055,7 @@ func _kolmio_logic() -> void:
 ## vaihtuessa takaisin hahmot palaavat näkyviin (kolmiomittauksen Esan poissaolon hoitaa _kolmio_logic itse).
 const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala", "iltakivat"]  # päiväkirjan tehtävät
 const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue", "kulissit", "avoin_pelikortti", "kesaheila", "rasytuppi", "lettukunkku", "loylykunkku",
-	"sivikkidisko", "karaokekunkku"]  # onnelliset loput ja legendaariset hetket
+	"karaokekunkku"]  # onnelliset loput ja legendaariset hetket
 func _k18_hide(npcs: Array) -> bool:
 	var off: bool = Settings.get_v("k18_pois")
 	for v in npcs:
@@ -11363,13 +11310,13 @@ func _kolmio_knock(site: String, idx: int) -> void:
 
 
 ## Iltakivat sivutehtävää varten (quests.gd "iltakivat"): koettu kiva kirjataan aamulla tilat.first("kiva_<nimi>").
-const KOLMIO_KIVAT := ["rasvanappi", "tuppi", "lettu", "loyly", "disko", "karaoke"]
+const KOLMIO_KIVAT := ["rasvanappi", "tuppi", "lettu", "loyly", "karaoke"]
 const KOLMIO_KIVA_NIMET := {"rasvanappi": "Rasvanappi", "tuppi": "räsytuppi", "lettu": "lettukisa", "loyly": "löylykisa",
-	"disko": "Sivikki-disko (Vaala)", "karaoke": "karaoke"}
+	"karaoke": "karaoke"}
 
 
 ## Iltakiva naisen luona: kohteen ensimmäinen ilta on Rasvanappi, seuraavat kiertävät (kolmiomittaus.gd KIVAT):
-## räsytuppi, lettukisa, löylykisa, Sivikki-disko (Vaala) ja karaoke. Kaikki K-18 ja vähän rivoja.
+## räsytuppi, lettukisa, löylykisa ja karaoke. Kaikki K-18 ja vähän rivoja.
 func _kolmio_kiva(site: String, kiva: String) -> void:
 	match kiva:
 		"tuppi":
@@ -11378,8 +11325,6 @@ func _kolmio_kiva(site: String, kiva: String) -> void:
 			_kolmio_ilta(site, LettuGame.new(), Kolmio.LETTU_LINES, "lettukunkku")
 		"loyly":
 			_kolmio_ilta(site, LoylyGame.new(), Kolmio.LOYLY_LINES, "loylykunkku")
-		"disko":
-			pass
 		"karaoke":
 			var k := IltaKaraoke.new()
 			k.drunk = _hand_shake()
@@ -11455,14 +11400,14 @@ func _kolmio_people(site: String) -> Array:
 		{"id": TUPPI_NAINEN[site], "name": info.woman, "look": RasvanappiGame.real_look(TUPPI_NAINEN[site])}]
 
 
-## Lettukisa, löylykisa, Sivikki-disko ja karaoke (lettu_game.gd ...): samat kentät ja finished-tulos; pelaajan voitto
+## Lettukisa, löylykisa ja karaoke (lettu_game.gd ...): samat kentät ja finished-tulos; pelaajan voitto
 ## on legendaarinen hetki (ending).
 func _kolmio_ilta(site: String, g: CanvasLayer, all_lines: Dictionary, ending: String) -> void:
 	g.site = site
 	g.anchor = _kolmio_new_anchor(site)
 	g.sun = _sun
 	g.style = (Kolmio.RASVA_RULES[site] as Dictionary).get("style", {})
-	g.lines = all_lines.get(site, all_lines.values()[0])  # disko on vain Vaalassa: muualla Vaalan repliikit
+	g.lines = all_lines.get(site, all_lines.values()[0])
 	g.people = _kolmio_people(site)
 	g.finished.connect(func(r: Dictionary) -> void:
 		if r.get("voitto", false):
@@ -11489,7 +11434,7 @@ func _kolmio_morning(site: String, r: Dictionary) -> void:
 	if r.has("rasy"):  # räsytuppi: kumpi pari pantiin tuppeen
 		ilta = "Räsytuppi: kaverit tupessa ✔" if r.get("voitto", false) else "Räsytuppi: te tupessa, kalsareissa"
 	elif r.has("kiva"):
-		var nimi: String = {"tuppi": "Räsytuppi", "lettu": "Lettukisa", "loyly": "Löylykisa", "disko": "Sivikki-disko", "karaoke": "Karaoke"}.get(r.kiva, "Ilta")
+		var nimi: String = {"tuppi": "Räsytuppi", "lettu": "Lettukisa", "loyly": "Löylykisa", "karaoke": "Karaoke"}.get(r.kiva, "Ilta")
 		ilta = "%s: %s" % [nimi, "voitit ✔" if r.get("voitto", false) else ("luovutit" if r.get("luovutti", false) else "hävisit")]
 	var stats := "Kolme ympyrää ✔  ·  Kolme lahjaa ✔  ·  %s  ·  %s" % [ilta, _ending_line(info.ending)]
 	kolmio.maito_day = day + 1
@@ -12611,8 +12556,6 @@ func _talk_end() -> void:
 		_interior_busy(false)
 		if state == "in_raahe":
 			raahe_int.block_interact()
-		elif state == "in_apteekki":
-			apteekki_int.block_interact()
 		elif state == "in_kirppis":
 			kirppis_int.block_interact()
 		elif state == "in_varasto":
@@ -12666,7 +12609,7 @@ func _talk_options(who := "") -> Array:
 				"pekka_kutsuu":
 					o.append(_opt("tarina", "Mitä asiaa sulla oli?", true, "", true))
 				"pekka_avaimet":
-					o.append(_opt("tarina", "Kaikki tehty. Lähdetäänkö Paapeliin?", true, "", true))
+					o.append(_opt("tarina", "Kaikki tehty. Mitä nyt?", true, "", true))
 				"avaimet":
 					o.append(_opt("tarina", "Missä ne autonavaimet olikaan?"))
 				"avaimet_mukana":
@@ -12681,17 +12624,6 @@ func _talk_options(who := "") -> Array:
 			if bitten:
 				o.append(_opt("haava", "Hoida mun haava (%s)" % ("kalja" if beers > 0 else _eur(PEKKA_CARE) + " €"),
 					beers > 0 or money >= PEKKA_CARE, "ei kaljaa eikä %s €" % _eur(PEKKA_CARE)))
-			if story.ride_unlocked():
-				var why := ""
-				if false:
-					why = "Santtu häätänyt mökiltä tänään"
-				elif _volvo_broken():
-					why = "Volvo ei lähde (Korpelan korjaamo)"
-					tilat.first("volvo_rikki", 0.0)  # sivutehtävä tiedoksi vasta, kun Pekan Volvo oikeasti on rikki
-				elif _volvo_fixed_day == day:
-					why = ""
-				elif beers <= 0 and money < PEKKA_RIDE_PRICE:
-					why = "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
 		"annaliisa", "sinikka_seura":
 			_seura_options(who, o)
 		"hilkka", "raili", "tauno":
@@ -13221,7 +13153,7 @@ func _talk_neighbor(id: String) -> void:
 						"Kodalla ne on, perkele. Laavulta polkua etelään."].pick_random(), _talk_options())
 				"avaimet_mukana":
 					_story_step("valmis")
-					_talk_box.reply(Story.PEKKA_THANKS, _talk_options(), "Pekan kyyti Paapeliin on nyt auki!")
+					_talk_box.reply(Story.PEKKA_THANKS, _talk_options(), "Pekan hommat on hoidettu.")
 		"taimet":
 			sinikka_taimet = 2
 			_has_taimet = false
@@ -13397,8 +13329,6 @@ func _talk_chat_line() -> String:
 			return POJAT_LINES.pick_random()
 		"raahe":
 			return RAAHE_LINES.pick_random()
-		"apteekki":
-			return ApteekkiInterior.LINES.pick_random()
 		"apteekki_taka":
 			return ["Älä seiso siinä.", "Maksa ja häivy.", "Ei kysymyksiä, ei kuitteja."].pick_random()
 		"apteekki_hoitaja":
@@ -14287,14 +14217,6 @@ func _enter_shop() -> void:
 
 
 
-## Vaalan apteekki: sisälle jalan (mopo jää oven eteen), tiskiltä käsikauppaa ja reseptillä kolmiolääkkeitä.
-func _enter_apteekki() -> void:
-	pass
-	state = "in_apteekki"
-	_compass.visible = false
-	apteekki_int.enter()
-	Sfx.play("door", -3.0)
-	_show_message("Vaalan apteekki. Käsikauppaa saa ilman reseptiä, kolmiolääkkeet vain reseptillä. Reseptejä: %d." % reseptit, 3.5)
 
 
 
@@ -14303,17 +14225,8 @@ func _enter_apteekki() -> void:
 
 
 
-func _on_apteekki_exited() -> void:
-	apteekki_int.leave()
-	Sfx.play("door_close", -3.0)
-	_compass.visible = true
-	pass
-	_show_message("Takaisin ulos.", 2.0)
 
 
-func _on_apteekki_acted(kind: String) -> void:
-	if kind == "tiski":
-		_talk_open("apteekki", null, "Mitäs saisi olla?")
 
 
 ## Apteekin osto: lääke menee reppuun (resepti kuluu ostettaessa), otetaan repusta tai T-valikosta (_take_laake).
@@ -14943,7 +14856,7 @@ func _teini_tulos(won: bool) -> String:
 # päivänä, tallennuksessa ja päiväkirjassa. Osat eivät koske main.gd:hen; tapahtumat kulkevat _rikos_eventin kautta.
 ## pentti: sivujuoni (#299) samalla rajapinnalla. paivi*: luku 6 "Päivi epäilee" (#326) ennen Penttiä, jotta Pentin
 ## Päivi-vihje (paivi_tutkii.hello) voittaa Pentin oman tervehdyksen.
-const RIKOS_OSAT := ["velka", "valeostaja", "epaluulo", "yliannos", "huijari", "autovarkaus",
+const RIKOS_OSAT := ["epaluulo", "yliannos", "huijari", "autovarkaus",
 	"paivi", "paivi_puhe", "paivi_hyvitys", "paivi_tutkii", "pentti"]
 const RIKOS_PIDATYS_MAINE := 10.0
 var rikos: Array = []  # osien instanssit (osa.gd)
@@ -15438,7 +15351,7 @@ func _story_step(to: String) -> void:
 		"avaimet":
 			_place_keys()
 		"valmis":
-			_msg_queue.append(["Pekan kyyti Paapeliin on nyt auki! Pyydä Pekalta kyyti mökille.", 4.0])
+			_msg_queue.append(["Pekan autonavaimet löytyivät, ja kaikki naapurin hommat on hoidettu.", 4.0])
 	Sfx.play("win_small", -6.0)
 	_save_game()
 
@@ -15748,13 +15661,8 @@ func _load_game() -> void:
 	pontikka = cfg.get_value("viini", "pontikka", 0)
 	has_korpihiiva = cfg.get_value("viini", "korpihiiva", false)
 	var vm = cfg.get_value("viini", "saavit", {})  # null ei kelpaa oletukseksi (Godot: "no default")
-	if vm is Dictionary and vm.has("koti") and vm.has("paapeli"):
-		vat_mix = vm
-	mwine_start = cfg.get_value("paapeli", "viini_alku", -1)
-	mwine_days = cfg.get_value("paapeli", "viini_paivat", 0)
-	mwine_locked = cfg.get_value("paapeli", "viini_lukossa", false)
-	mwine_lock_day = cfg.get_value("paapeli", "lukko_paiva", day if mwine_locked else -1)
-	mwine_endings = cfg.get_value("paapeli", "bileet", 0)
+	if vm is Dictionary and vm.has("koti"):
+		vat_mix = {"koti": vm.koti}
 	world.forage_revealed = cfg.get_value("peli", "marjapaikat", false)  # Arton merkinnät karttaan
 	# Päivästä toiseen säilyvät (uusi päivä ei nollaa): ämpärin marjat ja sienet, kodan pölkyt ja halot, rikkinäinen
 	# drooni ja Sinikan nurmikon leikkuu (tarina).
@@ -15779,7 +15687,6 @@ func _load_game() -> void:
 	has_mower_part = cfg.get_value("nurmikko", "varaosa", false)
 	sinikka_task = cfg.get_value("sinikka", "tehtava", 0)
 	tikka_ennatys = cfg.get_value("mokki", "tikka_ennatys", 0)
-	_volvo_fixed_day = cfg.get_value("peli", "volvo_korjattu", -1)
 	_has_taimet = cfg.get_value("peli", "taimet", false)
 	_sulo_free = cfg.get_value("peli", "sulo_ilmainen", false)
 	_auction_day = cfg.get_value("paivarajat", "huutokauppa", -1)
@@ -15911,7 +15818,6 @@ func _save_game() -> void:
 	cfg.set_value("tanaan", "kanisteri_hinta", _kanister_paid)
 	cfg.set_value("peli", "taimet", _has_taimet)
 	cfg.set_value("peli", "sulo_ilmainen", _sulo_free)
-	cfg.set_value("peli", "volvo_korjattu", _volvo_fixed_day)
 	# Kerran päivässä -rajat (päivänumeroita): lataus ei saa avata niitä uudelleen samana päivänä.
 	cfg.set_value("paivarajat", "huutokauppa", _auction_day)
 	cfg.set_value("paivarajat", "bingo", _bingo_day)
@@ -16021,11 +15927,6 @@ func _save_game() -> void:
 	cfg.set_value("viini", "pontikka", pontikka)
 	cfg.set_value("viini", "korpihiiva", has_korpihiiva)
 	cfg.set_value("viini", "saavit", vat_mix)
-	cfg.set_value("paapeli", "viini_alku", mwine_start)
-	cfg.set_value("paapeli", "viini_paivat", mwine_days)
-	cfg.set_value("paapeli", "viini_lukossa", mwine_locked)
-	cfg.set_value("paapeli", "lukko_paiva", mwine_lock_day)
-	cfg.set_value("paapeli", "bileet", mwine_endings)
 	if world != null:
 		cfg.set_value("peli", "marjapaikat", world.forage_revealed)
 	cfg.set_value("peli", "ampari", bucket)
@@ -16299,9 +16200,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		wine_locked = false
 		wine_lock_day = -1
 		_morning_info.append("Se viinilupaus... mikä lupaus? Autotallin saavi odottaa taas.")
-	if mwine_locked and day - mwine_lock_day >= WINE_LOCK_DAYS:
-		mwine_locked = false
-		mwine_lock_day = -1
+	if false:
 		_morning_info.append("Santtu ja sinä lupasitte jotain Paapelin viinistä... Ei muista kumpikaan. Saavi odottaa.")
 	_beasts_today = 0
 	_beast_forest_t = 0.0
@@ -16541,7 +16440,7 @@ var _hint_shown := ""
 ## Näppäinohjerivin teksti: syö, reppu ja kartta; ulkona jalan juoksu, pyörällä spurtti, jarru ja kello.
 ## Näppäimet asetuksista.
 func _help_text() -> String:
-	if cutscene.busy or not state in ["ulkona", "in_shop", "in_home", "in_garage", "in_mokki", "in_raahe", "in_siitari", "in_asema", "in_kirppis", "in_varasto", "in_retki"]:
+	if cutscene.busy or not state in ["ulkona", "in_shop", "in_home", "in_garage", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]:
 		return ""  # minipeleillä ja välianimaatioilla omat ohjeensa
 	var k := func(action: String, what: String) -> String:
 		return "[%s] %s" % [Settings.action_key(action), what]
@@ -17124,7 +17023,7 @@ func _update_hud() -> void:
 
 	var nb: CharacterBody3D = interior.neighbor
 	_sus_box.visible = state == "in_shop" and nb != null
-	_stat_bars.visible = state in ["ulkona", "in_shop", "in_mokki", "in_home", "in_garage", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
+	_stat_bars.visible = state in ["ulkona", "in_shop", "in_home", "in_garage", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
 	_stat_bars.offset_top = 90 if _sus_box.visible else 36
 	if _sus_box.visible:
 		_sus_bar.value = nb.suspicion
@@ -17313,7 +17212,7 @@ func inventory_info() -> Dictionary:
 			elif paivi_bag.has(it[0]) or interior.bag.has(it[0]):
 				mark = "  (kassissa)"
 			info.list.append(row + mark)
-	info.tasks = story.list(quest_flag("paapeli"), jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _hiidenportti_tasks() + _pyhakoski_tasks() + _messenius_tasks() + _kalajoki_tasks() + _raate_tasks() + _kanttori_tasks() + _lemmikki_tasks()
+	info.tasks = story.list(jemma) + ebike.tasks() + oma_mopo.tasks() + _tokola_tasks() + _pannu_tasks() + _kertun_tasks() + _aarni_tasks() + _ukko_tasks() + _pyhimys_tasks() + _olavi_tasks() + _kuningas_tasks() + _hanhikivi_tasks() + _pakkahuone_tasks() + _peruskivi_tasks() + _manamansalo_tasks() + _wanharaahe_tasks() + _kuvakirkko_tasks() + _tietokonemuseo_tasks() + _vanhaherra_tasks() + _karhut_tasks() + _hiidenportti_tasks() + _pyhakoski_tasks() + _messenius_tasks() + _kalajoki_tasks() + _raate_tasks() + _kanttori_tasks() + _lemmikki_tasks()
 	info.stashes.append("Kotijemma %d / %d%s" % [jemma, JEMMA_GOAL, "  ⚠" if not _risky_stashes().is_empty() else ""])
 	for id in STASHES:
 		if id in stash_used or stash.get(id, 0) > 0:
@@ -17387,10 +17286,9 @@ func closed_text(place: String, at := -1.0) -> String:
 	if is_open(place, at):
 		return ""
 	var span: Vector2 = OPEN_HOURS[place]
-	var verb := "alkaa" if place == "lava" else "aukeaa"
+	var verb := "aukeaa"
 	return "%s on kiinni: %s klo %d (auki %d–%02d)." % [OPEN_NAMES[place], verb, int(span.x / 60.0), int(span.x / 60.0),
-		int(span.y / 60.0)] if place != "lava" else "Lavatanssit alkaa klo %d (tanssit %d–%02d)." % [int(span.x / 60.0),
-		int(span.x / 60.0), int(span.y / 60.0)]
+		int(span.y / 60.0)]
 
 
 ## Sisällä sulkemisaikaan: kehotus lähteä, ja baareista ja lavalta ulos CLOSE_GRACE minuutin kuluttua.
@@ -17586,7 +17484,7 @@ func _coffee() -> void:
 	_night_coffee += 1
 
 
-const NIGHT_STATES := ["ulkona", "in_shop", "in_home", "in_garage", "in_mokki", "in_siitari", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
+const NIGHT_STATES := ["ulkona", "in_shop", "in_home", "in_garage", "in_raahe", "in_asema", "in_kirppis", "in_varasto", "in_retki"]
 
 
 func _night_tick(delta: float) -> void:
@@ -17814,7 +17712,7 @@ func _maybe_screenshot() -> void:
 			get_tree().quit()
 			return
 		"kolmio_iltakivat":
-			# Lettukisa, löylykisa, disko ja karaoke pelimaailmassa ovelta aamuun (tools/testit/kolmio_iltakivat.gd).
+			# Lettukisa, löylykisa ja karaoke pelimaailmassa ovelta aamuun (tools/testit/kolmio_iltakivat.gd).
 			var saved_ik := FileAccess.get_file_as_bytes(SAVE_PATH)
 			var ik: Node = load("res://tools/testit/kolmio_iltakivat.gd").new()
 			ik.main = self
@@ -18477,15 +18375,12 @@ func _maybe_screenshot() -> void:
 			reseptit = 0
 			money = 100.0
 			clock_min = 10.0 * 60.0
-			_enter_apteekki()
 			for i in 40:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_sisalla.png"))
-			apteekki_int.walker.position = apteekki_int.spots.tiski[0]
 			for i in 20:
 				await get_tree().process_frame
-			print("APTEEKKI tila ", state, " paikka ", apteekki_int.spot, " vihje ", apteekki_int.hint)
 			_talk_open("apteekki", null, "Mitäs saisi olla?")
 			for i in 20:
 				await get_tree().process_frame
@@ -22625,7 +22520,6 @@ func _maybe_screenshot() -> void:
 			# Heiskasen kaasupullo Sululle (ilmainen kanisteri) ja sammutin, Huhtalan varaosat ja romuauton jemma. Kuvat.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			quests = Quests.new()
-			_volvo_fixed_day = -1
 			_has_kaasu = false
 			_kaasu_given = false
 			_has_sammutin = false
@@ -22676,7 +22570,6 @@ func _maybe_screenshot() -> void:
 			_talk_box._pages.clear()
 			_talk_choose("volvo")
 			_talk_box.close()
-			print("KO volvo korjattu %s, kello %d, kaljoja %d, pekka: %s" % [_volvo_fixed_day == day, clock_min, beers, opts.call("pekka")])
 			ebike.joints = {"moottori": "ruuvi", "akku": "ruuvi", "ohjain": "ruuvi", "kaasu": "ruuvi", "johdot": "teippi"}
 			ebike.shorted = true
 			ebike.battery = 0.3
