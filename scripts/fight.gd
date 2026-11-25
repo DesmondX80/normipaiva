@@ -855,7 +855,7 @@ func _build_siitari_stage(st: Node3D) -> void:
 	var bar := B.sign_plate(st, "BAARI · KARAOKE · PAJATSO", Color(0.1, 0.1, 0.12), Color(1.0, 0.85, 0.35), 0.5, 40)
 	bar.position = Vector3(-9.0, 3.3, -13.9)
 	# Mopot ja autot parkissa.
-	var Mopo := load("res://scripts/mopo.gd")
+	var Mopo := load("res://scripts/mopo_malli.gd")
 	for m in [[Vector3(-12, 0, -8.5), 1.4], [Vector3(-10.4, 0, -8.8), 1.7], [Vector3(10.5, 0, -8.6), -1.5]]:
 		var mp := Node3D.new()
 		st.add_child(mp)

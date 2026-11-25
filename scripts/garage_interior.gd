@@ -10,7 +10,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Vehicles := preload("res://scripts/vehicles.gd")
 const Walker := preload("res://scripts/player_walker.gd")
-const Mopo := preload("res://scripts/mopo.gd")
+const Mopo := preload("res://scripts/mopo_malli.gd")
 
 const HALF := Vector2(4.2, 5.0)
 const WALL_H := 2.6

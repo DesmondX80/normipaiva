@@ -5,7 +5,7 @@ const B := preload("res://scripts/build.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Looks := preload("res://scripts/looks.gd")
 const DrunkWobble := preload("res://scripts/drunk_wobble.gd")
-const Mopo := preload("res://scripts/mopo.gd")
+const Mopo := preload("res://scripts/mopo_malli.gd")
 const TwoStroke := preload("res://scripts/two_stroke.gd")
 const Vehicles := preload("res://scripts/vehicles.gd")
 

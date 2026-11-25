@@ -1,5 +1,5 @@
 extends Node3D
-## Pihapingis Santtua vastaan mökin nurmella, Street Fighter -tyyliin sivulta kuvattuna. Ei pöytää: isoilla
+## Pihapingis kylän nuoria vastaan koulun pihalla, Street Fighter -tyyliin sivulta kuvattuna. Ei pöytää: isoilla
 ## puumailoilla lyödään palloa ilmassa pelaajalta toiselle, ja se, jonka puolelle pallo putoaa maahan,
 ## häviää erän (ROUND). Kaksi erävoittoa voittaa ottelun. Pallo kiihtyy rallin pidetessä.
 ## A/D liiku, W hyppy, J lyönti, K smash (kova ja matala, vain korkeasta pallosta), eteen/taakse lyödessä
@@ -10,7 +10,6 @@ signal finished(won: bool, my_rounds: int, santtu_rounds: int)
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
-const Mokki := preload("res://scripts/mokki.gd")
 
 const R := 0.045  # pallo on näkyvyyden vuoksi vähän oikeaa isompi
 const G := 9.0
@@ -26,21 +25,13 @@ const X_MIN := 0.6  # kummankin pelaajan etäisyys keskilinjasta vähintään
 const X_MAX := 6.0  # ja enintään (kauemmas lyöty pallo on ulkona)
 const ROUNDS_TO_WIN := 2
 const HIT_WORDS := ["PLOK!", "PONK!", "TÖK!", "PLÄK!", "KLONK!"]
-const SANTTU_INTRO := ["Pihapingis on mun laji. Superhost mailassakin!", "Tällä nurmella ei oo vielä kukaan voittanu.",
-	"Katotaan, mitä kaupunkilainen osaa.", "Häviäjä lämmittää saunan!"]
-const SANTTU_ROUND_WIN := ["Heh, kotikenttäetu!", "Tuo oli Airbnb-tason palvelu.", "Viides vuosi Superhostina, eikä pihapeleissä hävitä.",
-	"Mitäs nyt?"]
-const SANTTU_ROUND_LOSE := ["Perkele!", "Tuuripallo.", "No huh.", "Aurinko paisto silmiin!", "Mäntyyn osu, eikö?"]
-const SANTTU_WIN := ["Pihapingismestari Neittävältä!", "Tuu uuestaan, harjottelet vähän."]
-const SANTTU_LOSE := ["Hyvä peli. Sää saat kahvit.", "Ensi kerralla mää voitan, oikeesti."]
 
-## Vastustaja ja paikka (oletuksena Santtu mökin pihalla; #143: kylän nuoret koulun pihalla).
-var opp_name := "SANTTU"
+## Vastustaja (#143: kylän nuoret koulun pihalla); main.gd asettaa nimen, ulkonäön ja repliikit.
+var opp_name := "NUORET"
 var opp_title := "pihapingismestari"
-var opp_look := {}  # tyhjä = Mokki.SANTTU_LOOK
-var opp_skill := 1.0  # 1 = Santtu; pienempi = hitaampi ja virheherkempi
-var opp_lines := {}  # intro / round_win / round_lose / win / lose -> repliikkilista (tyhjä = Santun omat)
-var venue := "mokki"  # "mokki" | "koulu"
+var opp_look := {}
+var opp_skill := 1.0  # pienempi = hitaampi ja virheherkempi
+var opp_lines := {}  # intro / round_win / round_lose / win / lose -> repliikkilista
 var _phase := "intro"  # intro | serve | rally | point | over | done
 var _t := 0.0
 var _rounds := [0, 0]  # erävoitot [pelaaja, Santtu]
@@ -79,7 +70,7 @@ func _ready() -> void:
 	Touch.set_extra([[KEY_J, "Lyönti"], [KEY_K, "Smash"]])
 	_build_stage()
 	_pl.append(_make_player(Looks.player(), -2.6, 1.0, true))
-	_pl.append(_make_player(Mokki.SANTTU_LOOK if opp_look.is_empty() else opp_look, 2.6, -1.0, false))
+	_pl.append(_make_player(opp_look, 2.6, -1.0, false))
 	_ball_node = MeshInstance3D.new()
 	_ball_node.mesh = B.sphere(R, 12)
 	_ball_node.material_override = B.unshaded(Color(1.6, 1.25, 0.7))
@@ -104,7 +95,7 @@ func _ready() -> void:
 	_cam.current = true
 	_build_hud()
 	_start_round_intro()
-	_say(1, _line("intro", SANTTU_INTRO))
+	_say(1, _line("intro"))
 
 
 func _make_player(look: Dictionary, x: float, facing: float, cap: bool) -> Dictionary:
@@ -198,8 +189,8 @@ func _help_text() -> String:
 		Settings.cap("punch"), Settings.cap("kick"), Settings.cap("forward")]
 
 
-func _line(key: String, fallback: Array) -> String:
-	var pool: Array = opp_lines.get(key, fallback)
+func _line(key: String) -> String:
+	var pool: Array = opp_lines.get(key, [""])
 	return pool.pick_random()
 
 
@@ -208,7 +199,7 @@ func _end_game() -> void:
 	_t = 0.0
 	var won: bool = _rounds[0] > _rounds[1]
 	_announce.text = "SÄÄ VOITTI!" if won else "%s VOITTI!" % opp_name
-	_say(1, _line("lose" if won else "win", SANTTU_LOSE if won else SANTTU_WIN))
+	_say(1, _line("lose" if won else "win"))
 	(_pl[0 if won else 1].body as Node3D).play("Dance", 0.3)
 	(_pl[1 if won else 0].body as Node3D).play("Idle_Talking", 0.3)
 	Sfx.play("win" if won else "lose", -4.0)
@@ -420,7 +411,7 @@ func _round_over(winner: int, why: String) -> void:
 	Sfx.play("win_small" if winner == 0 else "lose", -8.0)
 	(_pl[winner].body as Node3D).play("Dance", 0.3)
 	(_pl[1 - winner].body as Node3D).play("Idle_Talking", 0.3)
-	_say(1, _line("round_lose" if winner == 0 else "round_win", SANTTU_ROUND_LOSE if winner == 0 else SANTTU_ROUND_WIN))
+	_say(1, _line("round_lose" if winner == 0 else "round_win"))
 	if _rally >= 8:
 		_effect("%d LYÖNNIN RALLI!" % _rally, Vector3(0, 2.6, 0.3), Color(1.0, 0.8, 0.2), 1.2)
 
@@ -491,32 +482,7 @@ func _build_stage() -> void:
 	B.box(self, Vector3(0.04, 0.02, 3.0), Vector3(0, 0.01, 0), Color(0.95, 0.95, 0.9), false)
 	for sx in [-X_MAX - 0.6, X_MAX + 0.6]:
 		B.mesh(self, B.cyl(0.03, 0.03, 0.35, 6), Vector3(sx, 0.17, -0.8), Color(0.9, 0.5, 0.1))
-	if venue == "koulu":
-		_build_school_backdrop()
-		return
-	# Mökki taustalla: tumma pystylauta, peltikatto ja ikkunat.
-	var wall := Color(0.24, 0.15, 0.09)
-	B.box(self, Vector3(9.4, 2.6, 5.0), Vector3(-3.0, 1.3, -12.0), wall, false)
-	for i in 20:
-		B.box(self, Vector3(0.03, 2.6, 0.02), Vector3(-7.5 + i * 0.47, 1.3, -9.49), wall.lightened(0.14), false)
-	var roof := PrismMesh.new()
-	roof.size = Vector3(6.0, 1.2, 10.4)
-	B.mesh(self, roof, Vector3(-3.0, 3.2, -12.0), Color(0.2, 0.2, 0.22), Vector3(0, 90, 0))
-	for wx in [-5.5, -2.0, 0.8]:
-		B.box(self, Vector3(1.2, 1.0, 0.05), Vector3(wx, 1.5, -9.47), Color(0.75, 0.82, 0.85), false)
-		B.box(self, Vector3(1.3, 1.1, 0.04), Vector3(wx, 1.5, -9.48), Color(0.94, 0.94, 0.9), false)
-	# Järvi ja vastaranta.
-	B.box(self, Vector3(120, 0.05, 30), Vector3(0, 0.02, -40), Color(0.25, 0.38, 0.45), false)
-	for i in 30:
-		var x := -40.0 + i * 2.8 + randf_range(-0.8, 0.8)
-		var s := randf_range(0.8, 1.3)
-		B.mesh(self, B.cyl(0.05, 0.12, 3.0 * s, 6), Vector3(x, 1.5 * s, -56), Color(0.35, 0.25, 0.16))
-		B.mesh(self, B.cyl(0.02, 1.1 * s, 3.4 * s, 7), Vector3(x, 4.2 * s, -56), Color(0.14, 0.25, 0.13))
-	# Männyt pihan reunoilla.
-	for tp in [Vector2(-9.5, -5.0), Vector2(8.5, -6.0), Vector2(11.0, -2.5), Vector2(-12.0, -1.5), Vector2(4.5, -14.0)]:
-		B.mesh(self, B.cyl(0.18, 0.28, 7.0, 8), Vector3(tp.x, 3.5, tp.y), Color(0.4, 0.27, 0.16))
-		for k in 3:
-			B.mesh(self, B.cyl(0.03, 1.4 - k * 0.3, 2.0, 8), Vector3(tp.x, 5.2 + k * 1.2, tp.y), Color(0.15, 0.27, 0.14))
+	_build_school_backdrop()
 
 
 ## Koulun piha (#143): tiilinen koulurakennus taustalla, verkkoaita ja jalkapallomaali, ei järveä.

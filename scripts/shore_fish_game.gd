@@ -12,7 +12,14 @@ signal finished(catch: Array)
 const B := preload("res://scripts/build.gd")
 const T := preload("res://scripts/terrain.gd")
 const Looks := preload("res://scripts/looks.gd")
-const Mokki := preload("res://scripts/mokki.gd")
+## Rantakalastuksen lajit, roskasaaliit ja ohilaukaisun repliikit.
+const FISH := [
+	{"name": "särjen", "nom": "särki", "kg": 0.25}, {"name": "ahvenen", "nom": "ahven", "kg": 0.35},
+	{"name": "lahnan", "nom": "lahna", "kg": 0.9}, {"name": "hauen", "nom": "hauki", "kg": 1.6},
+	{"name": "mateen", "nom": "made", "kg": 0.8},
+]
+const FISH_JUNK := ["vanhan kumisaappaan", "ruosteisen peltitölkin", "jonkun kadonneen lippiksen", "pelkän oksankappaleen"]
+const FISH_MISS_LINES := ["Kala vei syötin.", "Onki jäi tyhjäksi.", "Siima venähti tyhjää.", "Ei tällä kertaa."]
 
 const ONKI_CAST := Vector2(2.0, 8.0)
 const VIRVELI_CAST := Vector2(6.0, 24.0)
@@ -247,7 +254,7 @@ func _process(delta: float) -> void:
 			if Input.is_action_just_pressed("interact"):
 				_hook()
 			elif _t > _bite_at:
-				_miss(Mokki.FISH_MISS_LINES.pick_random() if gear == "onki" else "Kala tönäisi uistinta ja kääntyi pois.")
+				_miss(FISH_MISS_LINES.pick_random() if gear == "onki" else "Kala tönäisi uistinta ja kääntyi pois.")
 		"reel":
 			_reel(delta)
 		"end":
@@ -372,7 +379,7 @@ func _pick_fish() -> Dictionary:
 		if r <= 0.0:
 			nom = k
 			break
-	for f in Mokki.FISH:
+	for f in FISH:
 		if f.nom == nom:
 			var kg: float = f.kg * randf_range(0.5, 1.4) * (0.8 if gear == "onki" else 1.1)
 			return {"nom": nom, "name": f.name, "kg": kg, "power": minf(POWER[nom] * clampf(kg / f.kg, 0.7, 1.3), 1.15)}
@@ -468,7 +475,7 @@ func _reel(delta: float) -> void:
 func _land() -> void:
 	if _fish.get("junk", false):
 		Sfx.play("rattle", -4.0, 0.9)
-		_end_reel("Vedit rantaan %s. Ei syötävää." % Mokki.FISH_JUNK.pick_random())
+		_end_reel("Vedit rantaan %s. Ei syötävää." % FISH_JUNK.pick_random())
 		return
 	var ukko: bool = _fish.nom == "ukko"
 	Sfx.play("win" if ukko else "win_small", -4.0)

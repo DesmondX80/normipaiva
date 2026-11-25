@@ -24,8 +24,6 @@ const BarGame := preload("res://scripts/bar_game.gd")
 const HumppaBand := preload("res://scripts/humppa_band.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
 ## Santun hommat mökillä (santun_hommat.gd) ja niiden minipelit.
-const LaituriGame := preload("res://scripts/laituri_game.gd")
-const RanniGame := preload("res://scripts/ranni_game.gd")
 const AmpiaisGame := preload("res://scripts/ampiais_game.gd")
 const TiskiGame := preload("res://scripts/tiski_game.gd")
 ## Rasvanappi aseman takana makasiinissa Saloisissa ja Vaalassa (vain aikuisille): salasana luukulle ja peli pimeässä.
@@ -166,9 +164,7 @@ var klaffipoyta := false  # taitettava klaffipöytä löydetty (Reipparin seinä
 var craft_known := {}  # opitut jatkoreseptit: reseptin id -> true (klaffipöydän reseptikirja)
 var perv_mult := PERV_MULT  # käytössä olevan pervitiiniannoksen kerroin (jatkettu on heikompi)
 var perv_until := -1.0  # pervitiinin vaikutus päättyy (day * 1440 + clock_min)
-const HuntGame := preload("res://scripts/hunt_game.gd")
 const DartsGame := preload("res://scripts/darts_game.gd")
-const FishGame := preload("res://scripts/fish_game.gd")
 const Muskelivene := preload("res://scripts/muskelivene.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
@@ -5561,7 +5557,6 @@ func _start_pingis_nuoret() -> void:
 	Sfx.play("pickup", -6.0, 1.3)
 	var game := PingisGame.new()
 	game.position = PINGIS_POS
-	game.venue = "koulu"
 	game.opp_name = "KYLÄN NUORET"
 	game.opp_title = ""
 	game.opp_look = NUORET_LOOK
@@ -13979,10 +13974,8 @@ func _start_fishing(north := false) -> void:
 	player.visible = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
-	var game := FishGame.new()
 	if north:
 		pass
-	game.drunk = _hand_shake()
 
 
 func _after_fishing(got: Array) -> void:
@@ -14119,7 +14112,6 @@ func _open_viina(i: int) -> void:
 
 ## Metsästyslava riistapolulla: E nousee lavalle, ja metsästys on FPS-minipeli (hunt_game.gd).
 func _hunt_logic(e: bool) -> void:
-	_hint.text = "[E] Nouse metsästyslavalle (haulikko, %d patruunaa)" % HuntGame.SHELLS
 	if e:
 		_start_hunt()
 
@@ -14134,15 +14126,6 @@ func _start_hunt() -> void:
 	player.visible = false
 	_hazards.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	_hud.visible = false
-	var game := HuntGame.new()
-	game.finished.connect(func(bag: Array, moose: bool) -> void:
-		state = _minigame_prev
-		player.visible = true
-		player.activate_camera()
-		player.controls_enabled = true
-		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
-		_hud.visible = true
-		_after_hunt(bag, moose))
 
 
 func _after_hunt(bag: Array, moose: bool) -> void:
@@ -14156,9 +14139,7 @@ func _after_hunt(bag: Array, moose: bool) -> void:
 		pass
 	var names: Array = []
 	for k in bag:
-		var nom: String = HuntGame.SPECIES[k].nom
-		saalis.append({"type": "riista", "nom": nom})
-		names.append(nom)
+		pass
 	if not bag.is_empty():
 		tilat.add("moraali", minf(0.05 * bag.size(), 0.2))
 		tilat.add("stressi", 0.1)
