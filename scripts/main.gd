@@ -633,7 +633,6 @@ var _env: Environment
 var _fps_label: Label
 var _sun: DirectionalLight3D
 static var skip_menu := false  # "Uusi peli" lataa kentän uudelleen ilman alkuvalikkoa
-var trailer_safe := false  # traileria kuvattaessa (tools/traileri) ei hävitä vahingossa, esim. liikenneauton alle
 var jemma_best := 0
 var jemma_wins := 0
 ## Nurmikon leikkuu (lawn.gd): kaksi siiliä -> poliisi, kaksi kiveä -> leikkuri rikki (varaosa Artolta + kalja).
@@ -14687,7 +14686,7 @@ func _on_laavu_challenge(kind: String, direction: Vector3) -> void:
 
 
 func _start_fight(foe_key: String, source: String, direction: Vector3) -> void:
-	if state != "ulkona" or trailer_safe:
+	if state != "ulkona":
 		return
 	_fight_source = source
 	_grill_t = -1.0
@@ -14908,7 +14907,7 @@ func _rikos_riskit() -> Array:
 ## Pidätys takavarikoi lääkkeet ja puolet rahoista ja vie mainetta. Raahessa herätys kuten mopon kuolemassa (Päivi soittaa),
 ## Saloisissa _lose (Päivi motkottaa pihalla).
 func _rikos_loppu(cause: String, reason: String) -> void:
-	if state == "cutscene" or trailer_safe:
+	if state == "cutscene":
 		return
 	if cause == "pidatys":
 		laake.clear()
@@ -16048,7 +16047,7 @@ func _jemma_check(allow_found := true) -> String:
 ## Häviö: WASTED-välianimaatio ja Päivin motkotus, sitten uusi päivä lähimmästä turvapaikasta.
 ## at = häviön paikka (oletus pelaaja); annettuna (mopomatka) uusi päivä alkaa kotoa.
 func _lose(reason: String, cause := "default", at := Vector3.INF) -> void:
-	if state == "cutscene" or trailer_safe:
+	if state == "cutscene":
 		return
 	state = "cutscene"
 	_stop_mowing()
@@ -17613,15 +17612,6 @@ func _maybe_screenshot() -> void:
 	if nohud:
 		get_tree().process_frame.connect(func() -> void: _hud.visible = false)
 	await get_tree().process_frame
-	# Traileri (tools/traileri/renderoi.gd): --trailer=otos1,otos2 kuvaa otokset ja sulkee pelin.
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--trailer="):
-			var ohjaaja: Node = load("res://tools/traileri/ohjaaja.gd").new(self, arg.substr(10).split(","),
-				"--trailer-preview" in OS.get_cmdline_user_args(), path.get_base_dir())
-			add_child(ohjaaja)
-			await ohjaaja.run()
-			get_tree().quit()
-			return
 	if scene == "kuisti":
 		var tb := Time.get_ticks_msec()
 		print("MOKKI rakennettu %d ms" % (Time.get_ticks_msec() - tb))

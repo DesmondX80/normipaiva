@@ -56,7 +56,7 @@ var _prev_cam: Camera3D
 
 
 ## Välianimaatioiden kello (ms): ruutujen skaalaamattomat deltat yhteen. Pelissä sama kuin seinäkello, mutta
-## Movie Maker -tallennuksessa (traileri, kiinteä fps) kulkee videon tahtiin, kun Time.get_ticks_msec ei kulkisi.
+## Movie Maker -tallennuksessa (kiinteä fps) kulkee videon tahtiin, kun Time.get_ticks_msec ei kulkisi.
 var _clock_ms := 0.0
 
 

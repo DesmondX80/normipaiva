@@ -887,7 +887,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     painallukset viivästyvät. Tulos = osumien laatu ja pitojen bonus / täydet pisteet. Kappaleet: paikan oma ("Mopolla Raaheen",
     "Ruukin valot": sävelkorkeus määrää raidan, melodia syntetisoidaan ja osuma laulaa nuotin) tai **Normipäivä Saloisissa
     (lyhennetty aito versio)**: tunnari oikealla soittoraidalla (`assets/music/normipaiva_lyhyt.mp3`, laulu erotettu, n. 56 s:
-    ensimmäinen verso ja kertosäe sekä loppukertosäe, ristiinhäivytetty) ja trailerin karaokeen ajoitetuilla sanoilla
+    ensimmäinen verso ja kertosäe sekä loppukertosäe, ristiinhäivytetty) ja ajoitetuilla sanoilla
     (`assets/music/normipaiva_sanat_lyhyt.json`, 58 sanaa; raita arvotaan sanasta). Esc lopettaa. Testi `--scene=karaokeaito`
     (botti pelaa molemmat kappaleet, kuvat; ei `--headless`).
   - **Räkäleima (pummin leima teinin kädestä):** lavan pihalla juovilta teineiltä (E, "Kopioi tuore leima teinin kädestä", kerran
