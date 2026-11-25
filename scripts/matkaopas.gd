@@ -15,7 +15,7 @@ const INK := Color(0.16, 0.16, 0.2)
 const RED := Color(0.62, 0.14, 0.12)
 const CLOTH := Color(0.7, 0.17, 0.14)  # pehmeä kangaskansi (päiväkirja on nahkaa)
 const STAMP := Color(0.2, 0.28, 0.62)
-const LAHTO := {"taksi": "Taksi, K-Marketin tolppa", "vaala_asema": "Juna, Raahen asema"}
+const LAHTO := {"taksi": "Taksi, K-Marketin tolppa"}
 
 var game: Node
 var _links: Array = []  # [Rect2, retken id] "taksitolppa kartalle" -linkit tällä aukeamalla
@@ -317,9 +317,6 @@ func _dest_page(pg: Rect2, p: Dictionary, n: int) -> void:
 	y += 16
 	var facts := [["taksi", LAHTO.get(p.lahto, String(p.lahto))], ["kello", "%d min suuntaansa" % int(p.hop_min)],
 		["kolikko", "%s € meno-paluu" % _eur(p.hinta)]]
-	if Retket.LISTA.has(String(p.id)):
-		var vo: Dictionary = Retket.tarjous(String(p.id), true)
-		facts.append(["taksi", "Raahesta: %d min, %s € meno-paluu" % [int(vo.hop_min), _eur(vo.hinta)]])
 	for f in facts:
 		_icon(f[0], Vector2(x0 + 11, y + 10))
 		draw_string(font, Vector2(x0 + 30, y + 16), f[1], HORIZONTAL_ALIGNMENT_LEFT, tw - 30, 17, INK)

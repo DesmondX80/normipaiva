@@ -75,17 +75,7 @@ keski- ja yläosassa; sisällä tai lähin yli 1,5 cm = vika), kädet vartalosta
 Jonin rinkka seisten ja kävelyn kahdeksassa vaiheessa (`KOLMIO rinkka`: selän rako, kädet pakkaukseen ja olkahihnat
 vartaloon). Lahjojen mallit: `scripts/kolmio_lahjat_mallit.gd`.
 Saloisten huumekauppa: `tools/testit/aja.sh tscn tools/testit/apteekki_s_kuvat.tscn [--vain-hoitaja]` (apteekin paikka ja raot tiehen, halliin ja puihin, hoitajan raot luukussa ja `Asento.solids`, kuvat ulkoa, takaa ja luukulta), `tools/testit/aja.sh tscn tools/testit/saloinen_teinit_kuvat.tscn` (kaukalon iltateinit, kellonaika 20–01, läpimenot, kääntyminen pelaajaan, laavun `peaceful`; repliikeissä ei sanoja Raahe/Siitari) ja `tools/testit/aja.sh tscn tools/testit/laakelaukku_kuvat.tscn` (paljastumisporras, laukku 3. ostolla kerran, tallennus, 3D-laukku portaalla, ikoni, laukun ja klaffipöydän minipelit). Raahen regressio: `--scene=apteekki` (APTEEKKI- ja KLAFFI-rivit).
-`--scene=valentinvaala`: Raahen Veturitalli (ovi, päiväehto joka 28. päivän 26.-28. päivä klo 13-17, banderolli, esitys, kello +40 min; kuvat `_talli`, `_esitys`; `--shot=`).
-`--scene=kmarket_vaala`: Raahen K-Marketin parkki, mummot ja taksitolppa; taksivalikon hinnat Raahesta ja Saloisista, retki Manamansaloon ja paluu tolpalle, mummojen suuttuminen mopon ohituksesta (kuvat `_mummot`, `_taksi`, `_retki`, `_karkit`).
-`--scene=sahanranta`: siirretty asema ja Satamantien risteys, uusi satama ja Uiton sauna; E saunan ovella ja laiturilla (välianimaatiot), kuvat `_asema`, `_risteys`, `_risteys_ylhaalta`, `_uitto_*`, `_satama`, `_sauna_0..3`, `_uinti_0..4`. Tie- ja maastodata: `venv/bin/python tools/vaala_sahanranta.py` (kerran, `vaala_suorat.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`); `--scene=vaala_ajo --ajo=yhteys` tarkistaa tiet.
-`--scene=uittorinne`: Uiton saunan rinne; törmäyskorkeus vs. `h()` saunan ovelta rantaan, hahmo neljässä kohdassa (jalan korkeus ja rinteen kulma lokiin) ja kuvat `_t1`…`_t10`. Törmä on loivennettu ~20° (maasto 4 m ruudukossa; ennen 39°, jolloin jalka upposi rinteeseen). Rinne on lisäksi loivennettu `tools/vaala_uitto_rinne.py`:llä (piha 1,6 m vedenpinnan yläpuolella, terassin reunalta vesirajaan ~16–18°, rannan vesiruudut maaksi; vesiruutujen pohjaa ei saa nostaa, koska se määrää vedenpinnan). Ajo: `venv/bin/python tools/vaala_uitto_rinne.py`; jos ajaa uudestaan, aja ensin `git checkout assets/vaala`.
-`--scene=satama`: mopolla Raahen satamaan, E laiturilla, autopilotti ajaa muskeliveneen kaakkoon kartan reunaan ja
-takaisin laiturille (loki: törmäykset, huippunopeus, humala, tallennus) ja ottaa kuvat `_satama`, `_laituri`, `_kyltti`,
-`_vene_*`, `_ajo`, `_kaanne`, `_reuna`. Sataman paikka leivotaan työkalulla `tools/vaala_satama.py` (ajo `vaala_bake.py`:stä).
-Uusi Satamantie (kapea asfalttikatu K-Marketilta satamaan ja Uitolle, vanha soratie pois): `venv/bin/python tools/vaala_satamatie.py` (kerran, `vaala_kierros.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). Kuvat `--scene=sahanranta`, tiet `--scene=vaala_ajo --ajo=yhteys`.
 
-Raahen asematie (Raahentie torille, Aseman piha suoraan asemalle, Satamantie soraksi, tori laajennettu): `python3 tools/vaala_asematie.py` (kerran, `vaala_risteys.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). `--scene=vaala_ajo --ajo=yhteys`: kaikki Raahen tiet tavoitettavissa mökiltä (ajoalueen tulvatäyttö; irralliset saarekkeet listataan). `--ajo=venelava`: veneen reitti lavan laituriin. `--ajo=portti`: mopo ei pääse lavan portista eikä aidan läpi (parkki aidan ulkopuolella). Tieverkon siistii ja suoristaa `python3 tools/vaala_suorat.py` (bake-ketjun viimeinen vaihe, ajetaan kerran; sivutiet, jalkakäytävät ja umpikujahaarat pois, jäljelle suorat tiet kohteisiin).
-Raahen Ratatie (asfalttikierros aseman edestä Zabukin taakse Aseman pihaan, 3 pientä rakennusta pois): `python3 tools/vaala_kierros.py` (kerran, `vaala_asematie.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). `--scene=vaalakierros`: paperikartta keskustasta kahdella zoomilla sekä vapaan kameran kuvat `_ylhaalta`, `_ymparyra`, `_tori`, `_zabuki`, `_asemalle`.
 
 `tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin
 HUD-laatikoita (autovarkauden tähtilaatikko `rikos/tahdet_hud.gd` on piilossa, kun valikko on auki tai tähtiä ei ole).
@@ -101,11 +91,6 @@ biisien tempot (`disko_game.gd BIISIT`) mitattiin iskuenergian autokorrelaatioll
 iskuvaihe pysyy samana jaksosta toiseen (30–120 s), ovat listalla. Yhteiset palat (olohuone, istuminen, puhekupla
 puhujaan): `scripts/ilta_room.gd`.
 
-Raahen itäisen asuinalueen (Katjan talo) kadut: `venv/bin/python tools/vaala_kadut.py` (kerran, viimeisenä `vaala_kirkkotie.py`:n jälkeen; kuiva-ajo `--kuiva kuva.png`; uusi lähtö `git checkout assets/vaala`). Alueen MML-talot ovat aseman suuntaisia rivejä ilman katuja, joten skripti lisää Raahentien jatkeen, Mäntytien, Rekkatien, Pihlajatien ja umpikadut Koivukuja ja Rinnetie (kapeita asfalttikatuja, `street`), tasaa maaston ja raivaa puut. Kadut ovat `tie.json`:ssa merkillä `_kadut`: `vaala.gd _route_build` käsittelee ne ydinreittinä, joten talot niiden ympärillä säilyvät karsinnassa. Koulukeskuksen möhkäle (OSM 472392144) on pois (`vaala_bake.py DROP_BUILDING_IDS`). `vaala.gd _build_street_details`: katuvalot ja kadunnimikyltit asfalttikaduille sekä sorapolku ja postilaatikko jokaiselle ovelle tien suuntaan. Katujen vierukset muutetaan nurmeksi vaiheella `tools/vaala_kadut.py --nurmi` (kerran). Isot tasakattoiset talot saavat `vaala.gd _flat_details`:ssa otsapellin, sokkelin, syöksytorvet, sisäänkäyntikatoksen ja kattokoneet; Veturitalli on tiiliseinäinen (`bricks.gdshader`) peltikattoinen ja siinä on pääty- ja ovidetaljit. `--scene=kolmiomittaus_vaala` tarkistaa, että paperikartan hahmomerkki on kävelijän paikalla (ero alle 0,5 m; `paper_map.gd _vaala_me` käyttää jalan kävelijää, ei parkissa olevaa mopoa) ja ottaa kuvat `_kartta_merkki`, `_katja_ylhaalta`, `_katu_*`.
-Raahen tori ja Zabuki kauemmaksi Siitarista, liikenneympyrä kauimmaiseen risteykseen (oikealle Aseman piha asemalle, vasemmalle Torintie torille; Ratatien kierros pois): `venv/bin/python tools/vaala_torisiirto.py` (kerran, `vaala_satamatie.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). Kuvat `--scene=vaalakierros`.
-Kunnantalo Siitarin viereen tien oikealle puolelle (OSM:n Kunnanvirasto korvataan omalla mallilla): `venv/bin/python tools/vaala_kunnantalo.py` (kerran, `vaala_torisiirto.py`:n jälkeen; uusi lähtö `git checkout assets/vaala`). Alikulku Satamantielle radan alle: `tools/vaala_alikulku.py`, apteekki sen jälkeen: `tools/vaala_apteekki.py`. Koko ketju puhtaasta lähtötilasta: `vaala_satamatie.py`, `vaala_torisiirto.py`, `vaala_kunnantalo.py`, `vaala_alikulku.py`, `vaala_apteekki.py` (`vaala_sahanranta.py Terrain.save` päivittää kaukomaaston muuttuneille ruuduille). `--scene=apteekki`: apteekin ulkokuva, sisätila, tiskin valikko ja ostot (ilman reseptiä, reseptillä, reseptin saanti kätköstä). Kuvat `--scene=vaalakierros --nohud` (`_alikulku*`, `_apteekki*`). K-Market ympyrän suoraan eteen ja kaksikaistainen tie sinne (`vaala_apteekki.py`:n jälkeen, kerran): `venv/bin/python tools/vaala_kmarket_ymparyra.py` (uusi lähtö `git checkout assets/vaala`). Tori, matkakeskus ja Zabuki 90 astetta vastapäivään, K-Market 90 astetta myötäpäivään tien varteen, tie jatkuu kaupan ohi ja Torintie kirkolle (`vaala_kmarket_ymparyra.py`:n jälkeen, kerran): `venv/bin/python tools/vaala_kirkkotie.py` (kuiva-ajo kuvaksi: `--kuiva <kuva.png>`; uusi lähtö `git checkout assets/vaala`). Alikulun siivous (`vaala_alikulku.py`:n jälkeen, kerran): `venv/bin/python tools/vaala_kaukomaasto.py` painaa kaukomaaston leikkauksen alle (muuten sen "katto" peittää tien ja luiskat) ja `tools/vaala_alikulku_nurmi.py` yhtenäistää luiskat nurmeksi.
-Pelisisällön kuvauksissa ([pelin-sisalto.md](pelin-sisalto.md)) kerrotaan kunkin ominaisuuden testi
-(`Testi --scene=...`). Lisäksi `tools/testit/` sisältää kuvatestikohtaukset (esim. `mummo_kuvat.tscn`).
 `--scene=sinikkaranta` tarkistaa myös iltapäivän aurinko-Sinikan (rivit `AS`, viat `TESTI VIKA aurinko-Sinikka`):
 näkyvyys klo 11/13/18, vihje (pyörä viereen: Sinikan juttelu voittaa pyörän vihjeen), repliikit ilman toistoa, mittarit
 kerran päivässä, kantelun arpa (0 ja 1) ja ruutuaika; kuva `_aurinko_huomaa`. Asento ja rekvisiitta (kuva `huomaa_kasvot`:
@@ -158,8 +143,6 @@ Liikenteen pakettiautoissa on kuski (`Vehicles.kuski(..., "hiace")`, istuin etup
 sen pään raon kattoon, jalat ja kädet ratilla sekä ottaa leikkauskuvat (`paku_*`).
 Kuskit ovat myös kaapatussa autossa (pelaajan hahmo, mopomatkan kyytiläinen etupenkillä), Roivaisen Saabissa, kauppa-autossa
 (Eila ajaa, luukulla myy), taksimatkan ja kotipihan välianimaatioiden takseissa sekä retkikohteiden odottavissa takseissa.
-`--scene=mokkikauppaauto`: kauppa-auto mökillä (kuvat `_tulee` Eila ratissa, `_luukku`, `_luukku_lahi` luukku auki hyllyineen);
-ajo ja lähtö nopeutetaan `Engine.time_scale`:lla, jotta hitaalla renderöinnillä auto ehtii perille.
 `tools/testit/aja.sh tscn tools/testit/hiace_kuvat.tscn` (matala, korkea ja ambulanssi; mittaa 1,69 × 1,93/2,20 × 4,60 ±5 %,
 akselivälin 2,56).
 Pentin BangBus (#299, `scripts/rikos/pentti.gd`, osa-rajapinnalla vaikka ei ole huumekauppaa; auto `Vehicles.pentin_auto`,
@@ -235,9 +218,6 @@ pidätys (mopo kotona). Kuvat `_autovarkaus_pysahtyi`, `_ovella`, `_kaappaus`, `
 - `tools/testit/aja.sh tscn tools/testit/saloinen_taytto_b.tscn`: Saloinen pelimaailmassa. Tyyppimäärät, puita sisällä / tiellä /
   päällekkäin (tulee olla 0), `FILL_KEEP`-talot ennallaan, pohjat ilman taloa syittäin (raja, tie, päällekkäin), ruutuaika. Kuvat
   kylästä, reunasta, kaukomaisemasta ja yläkuvasta. Viimeksi: 1186 päätaloa, K1 31,5 / K2 43,2 / K3 19,6 / K4 0,4 / K5 3,4 / K6 0,8 / K8 1,2 %.
-- `tools/testit/aja.sh tscn tools/testit/vaala_taytto_g.tscn`: Raahe. Jakauma, paikkojen tyypit (koulu ja kerrostalot), Katjan
-  valinta (pisin `house_doors`-pituus on Katja), rungot päällekkäin (0), latausaika, ruutuaika ja kuvat. Viimeksi: 204 taloa, päällekkäin 0,
-  Katja id -101209 len 25,4 ennallaan.
 - Kuvat tallentuvat `/tmp/normipaiva_ajot/<testi>_<aika>/`. Luvut ovat arvontaa pohjista: pienet muutokset DIST-painoissa siirtävät niitä.
 
 ## Pyörän ja hengityksen äänet
@@ -523,7 +503,6 @@ lopetus ja kuvat).
 
 ## Latausaika (lataus-testi)
 
-`tools/testit/aja.sh --ei-kuvia --kiintea tscn tools/testit/lataus.tscn <kansio> --ajastus` mittaa Saloisten latauksen (`LATAUS Saloinen`), Raahen latauksen (`LATAUS Raahe`, jaettuna rakennukseen, `_start_mopo`:on ja viiteen ensimmäiseen ruutuun) ja vaihekohtaiset ajat (`RAAHE vaiheet`). Testi tallentaa yhden kuvan (`lataus.png`, Raahen ensiruutu) tulostekansioon, joten `--ei-kuvia` ei ole pakollinen (se käy silti, jos kuvaa ei tarvita). Kylmä mittaus: poista ajon `HOME`:n `.local/share/godot/app_userdata/Normipäivä/cache`. Lisävalitsimet: `--avaintesti` (ajoalueen välimuistiavaimen kattavuus: syötteen muutos muuttaa maskin ja avaimen), `--tarkista-ajomaski` (välimuistista ladattu maski vs. laskettu), `--ei-valimuistia` (ohita ajomaskin levyvälimuisti `vaala_ajo`). Luvut ennen/jälkeen: työkansion `03-baseline.md`.
 
 ## Raahen reitin vyöhyke (150 m)
 

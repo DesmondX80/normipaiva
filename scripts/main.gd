@@ -11957,7 +11957,7 @@ func _pekka_ride() -> void:
 
 
 func _taxi_trip(escape := false) -> void:
-	var offer := Retket.raahe_tarjous(false)
+	var offer := Retket.raahe_tarjous()
 	var fare: float = offer.hinta
 	_raahe_hop = offer.hop_min
 	state = "cutscene"
@@ -12840,7 +12840,7 @@ func _talk_options(who := "") -> Array:
 		"taksi":
 			chat = false
 			# Hinta ja kesto lähtöpaikan mukaan: Raahen tolpalta kaikki Raahen seudun kohteet ovat pitkän matkan päässä.
-			var raahe_offer := Retket.raahe_tarjous(false)
+			var raahe_offer := Retket.raahe_tarjous()
 			var raahe_hop: float = raahe_offer.hop_min
 			var raahe_fare: float = raahe_offer.hinta
 			var shut := closed_text("raahe", fposmod(clock_min + raahe_hop, 1440.0))
@@ -24871,7 +24871,7 @@ func _maybe_screenshot() -> void:
 				drag.call(1, vc + Vector2(50 + 10 * (k + 1), 0))
 			touch.call(0, vc, false)
 			touch.call(1, vc, false)
-			print("KARTTAVETO mökki vaala=%s nipistys: zoom %.3f -> %.3f" % [_paper._vaala, z0, _paper._vzoom])
+			print("KARTTAVETO nipistys: zoom %.3f -> %.3f" % [z0, _paper._vzoom])
 			_paper.toggle()
 		"karttamerkit":
 			# Lyijykynämerkinnät: muutama sivutehtävä tiedossa (yksi tehty), kartta kaukaa ja läheltä, päiväkirjan

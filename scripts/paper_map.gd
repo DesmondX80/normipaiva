@@ -1,12 +1,10 @@
 extends Control
 ## Paperikarttanäkymä (M): kellertävä paperi taitoksineen, maastokartan värit ja merkit,
 ## paikannimet, tienimet, kompassiruusu, mittakaava ja selite. Peli on pysäytettynä kun kartta on auki.
-## Molemmat kartat zoomataan ja siirretään samalla tavalla: rulla zoomaa hiiren kohtaan, kello/toiminto (Q/E) tai
+## Kartta zoomataan ja siirretään samalla tavalla: rulla zoomaa hiiren kohtaan, kello/toiminto (Q/E) tai
 ## kahden sormen nipistys zoomaa, W/A/S/D tai vetäminen siirtää, hyppy (välilyönti) keskittää pelaajaan, M tai Esc
 ## sulkee. Kyläkartalla klikkaus asettaa kompassin kohteen (tarttuu lähimpään merkkiin), klikkaus kohteen päälle tai
 ## oikea nappi poistaa sen.
-## Mökillä ja Raahen mopomatkalla kartta on yksi iso Neittävä–Raahe-kartta mopomatkan kehyksessä (vaala.gd:
-## origo mökin osoitepisteessä, x itään, z etelään): mökin piha, tie Raaheen ja Raahen keskusta kohteineen.
 
 const M := preload("res://scripts/map_data.gd")
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
@@ -15,7 +13,6 @@ const MAP_W := 600.0
 const INK := Color(0.22, 0.16, 0.1)
 const PAPER := Color(0.93, 0.88, 0.74)
 const VZOOM_MAX_KYLA := 2.0  # kyläkartan talot ovat merkkejä, ei pohjia: tätä lähemmäs ei kannata
-## Mopomatkan tilat (main.gd state), joissa näytetään Neittävä–Raahe-kartta.
 
 var world: Node3D
 var player: Node3D
@@ -38,7 +35,7 @@ var _vtree_pts := PackedVector2Array()  # puumerkit metsään (Saloisten tapaan)
 const VROAD_GRAVEL_HALF := 2.6
 const VROAD_OUT := Color(0.45, 0.25, 0.1)
 const VROAD_FILL := Color(0.98, 0.86, 0.4)
-## Näkymä (molemmat kartat): _vrect = kartan alue (kyläkartalla maailman x/z, Raahessa kehyksen x/z), _vcenter
+## Näkymä: _vrect = kartan alue (maailman x/z), _vcenter
 ## keskipiste samassa kehyksessä, _vzoom pikseliä metrille.
 var _vrect := Rect2()
 var _vbld_pts := PackedVector2Array()  # rakennusten kolmiot (kehyksen x/z), yksi piirtokutsu
@@ -121,7 +118,7 @@ func _fit_zoom() -> float:
 	return minf(_view.size.x / _vrect.size.x, _view.size.y / _vrect.size.y)
 
 
-## Näkymä pelaajan kohdalle (kyläkartalla maailman x/z, Raahessa mökin tai mopon paikka kehyksessä).
+## Näkymä pelaajan kohdalle (maailman x/z).
 func _center_on_me() -> void:
 	if player != null:
 		_vcenter = Vector2(player.global_position.x, player.global_position.z)
@@ -151,7 +148,7 @@ var _hover_name := ""
 const DRAG_CLICK := 10.0
 var _drag_on := false
 var _dragged := 0.0
-## Kahden sormen nipistys (Raahen kartta): sormien paikat indeksin mukaan.
+## Kahden sormen nipistys: sormien paikat indeksin mukaan.
 var _touches := {}
 var _pinch_d := 0.0
 
@@ -297,10 +294,6 @@ func _pts(arr: Array) -> PackedVector2Array:
 	return out
 
 
-
-
-
-
 ## Mopomatkan kehyksen (x itään, z etelään, origo mökin osoitepisteessä) piste näkymän pikseleiksi.
 func _vpx(p: Vector2) -> Vector2:
 	return (p - _vcenter) * _vzoom + _view.size / 2.0
@@ -391,8 +384,6 @@ func _legend(p: Vector2) -> float:
 	var font := ThemeDB.fallback_font
 	var y := p.y
 	return y
-
-
 
 
 # --- Karttasisältö -----------------------------------------------------------
@@ -630,15 +621,10 @@ func _mask_outside(v: Control) -> void:
 		v.draw_rect(Rect2(a, b - a), INK, false, 1.5)
 
 
-# --- Neittävä–Raahe-kartta --------------------------------------------------------------------------------------
+# --- Näkymä --------------------------------------------------------------------------------------
 
 
-
-
-
-
-
-## Koko alue näkyviin (mökki, tie ja Raahen keskusta).
+## Koko alue näkyviin.
 func _vfit() -> void:
 	_vzoom = minf(_view.size.x / _vrect.size.x, _view.size.y / _vrect.size.y)
 	_vcenter = _vrect.get_center()
@@ -651,12 +637,6 @@ func _vzoom_by(f: float, at: Vector2) -> void:
 	_vcenter = _clamped(_vcenter)
 	_view.queue_redraw()
 	queue_redraw()  # mittakaava
-
-
-
-
-
-
 
 
 ## Tien täyttöleveys pikseleinä: metrit zoomilla, vähintään luettava leveys (asfaltti 3,5 px, katu 2,2 px).
@@ -684,15 +664,6 @@ func _vbld_rect(c: Vector2, face: Vector2, len: float, depth: float, col: Color)
 	_vbld_idx.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
 	for k in 4:
 		_vbld_cols.append(col)
-
-
-
-
-
-
-
-
-
 
 
 ## Teksti tien suuntaisesti (luettavaan suuntaan), keskellä pisteiden a ja b välissä, siirrettynä sivulle.
@@ -740,7 +711,6 @@ func _draw_road_hover(v: Control) -> void:
 
 # --- Merkit (piirto joko tähän tai karttanäkymään) ----------------------------
 
-## Neittävä–Raahe-kartan kohteiden merkit.
 func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 	var font := ThemeDB.fallback_font
 	match kind:
@@ -824,14 +794,6 @@ func _rail_on(ci: CanvasItem, pts: PackedVector2Array, w: float) -> void:
 	ci.draw_polyline(pts, INK, w)
 	for i in pts.size() - 1:
 		ci.draw_dashed_line(pts[i], pts[i + 1], Color(0.95, 0.93, 0.85), w - 1.5, 6.0)
-
-
-## Mopo sivulta: kaksi rengasta ja runko.
-func _mopo_icon_on(ci: CanvasItem, p: Vector2) -> void:
-	var col := Color(0.15, 0.3, 0.6)
-	for o in [-5.0, 5.0]:
-		ci.draw_circle(p + Vector2(o, 2), 3.2, col)
-	ci.draw_rect(Rect2(p + Vector2(-5, -4), Vector2(10, 4)), col)
 
 
 func _house_icon(p: Vector2, col: Color) -> void:
@@ -953,7 +915,7 @@ func _pencil_ring_on(ci: CanvasItem, qm: Array) -> void:
 
 ## Kolmiomittauksen (#255) harppiympyrät: pyöristyksen vyöhyke haaleana punakynävarjostuksena (päällekkäin tummuu,
 ## joten leikkausalue erottuu), harpin viiva näytetyllä etäisyydellä, harpin kärjen jälki ja mittaajan nimi.
-## to_view: kartan koordinaatit (kylässä maailman x/z, Raahessa kehys) näkymän pikseleiksi.
+## to_view: kartan koordinaatit (maailman x/z) näkymän pikseleiksi.
 func _kolmio_rings_on(ci: CanvasItem, rings: Array, to_view: Callable) -> void:
 	var col := Color(0.6, 0.1, 0.12)
 	for r: Dictionary in rings:
