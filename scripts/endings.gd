@@ -68,7 +68,7 @@ const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet"
 
 ## Legendaariset hetket, jotka koetaan lavastettuna kohtauksena (cutscene.gd): ei erillistä ilmoitusta, vaan kohtauksen
 ## jälkeen hillitty rivi päiväkirjan uudesta tarinasta. Muut hetket näyttävät vielä vanhan ilmoituksen.
-const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna"]
+const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti"]
 
 ## [id, nimi, kuvaus] -> kuvaus.
 static func desc_of(id: String) -> String:
