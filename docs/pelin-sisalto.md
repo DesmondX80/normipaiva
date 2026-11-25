@@ -658,6 +658,21 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
       Valmiin työn jälkeen emäntä tarjoaa talkooruoan pirtissä (lihakeitto, ruisleipä, kahvit ja pullat; nälkä ja
       stressi helpottavat), ja kokonaisen ketjun jälkeen isäntä antaa kolme saunakaljaa. Ketjut ovat legendaarisia
       hetkiä: Kaisuan heinätalkoot, Kaisuan sato ja Kaisuan kylvöt.
+    - **Ketjujen legendaariset hetket koetaan kohtauksina** (Kaisua ja Altaan tila, `cutscene.gd maatila_*`). Kun ketjun
+      viimeinen työ on tehty, mitään ilmoitusta ei tule kesken ajon. Isäntä kutsuu pelaajan, ja keskusteluikkunaan tulee
+      valinta, joka aloittaa kohtauksen:
+      - **Heinätalkoot** ("Mennään syömään!"): pihalla pirtin edessä on katettu talkoopöytä, jossa on lihakeittoa,
+        reikäleipää, voita, pullaa, kahvipannu ja saunakaljat. Emäntä kauhoo keittoa, isäntä nostaa pullon
+        talkoomiehelle, ja pelaaja ja apumies nostavat omansa. Talkooruoka syödään ja saunakaljat annetaan tässä
+        kohtauksessa.
+      - **Sato** ("Mennään kattomaan jyviä!"): isäntä ottaa kuivurin elevaattorin näyteluukusta kourallisen ohraa,
+        haistaa sitä ja antaa jyvien valua sormien välistä.
+      - **Kylvöt** ("Mennään kattomaan rivejä!"): kohtaus on kylvetyn pellon laidalla. Kamera katsoo rivejä pitkin
+        pellon yli, isäntä kyykistyy murentamaan multaa, ja isäntä ja apumies toteavat rivit suoriksi.
+      Kohtaus päättyy kameran nousuun kertosäkeen soidessa. Hetken nimi ja tarina näkyvät, ja sen jälkeen tulee vain
+      rivi "Päiväkirjaan uusi tarina". Isäntä muistelee hetkeä seuraavina päivinä tervehtiessään
+      (`maatila_paikka.gd *_muisto`). Kohtaus nähdään vain ensimmäisellä kerralla. Toistot lasketaan päiväkirjaan, ja
+      isäntä kommentoi niitä seuraavalla juttelulla vaihtuvalla repliikillä (`*_toisto`).
   - **Altaan tila (Saloinen, kodin itäpuoli, `kaisua.gd` paikalla `maatila_paikka.gd altaantie`):** samat maatilan
     hommat kuin Kaisuassa noin 650 m kodista itään Altaantien varressa. Pellot ovat oikeat peltolohkot peltoseuranta-
     sovelluksesta (`map_tila.gd`): Isoaho (5,0 ha, asuinalueen eteläpuolella), Altaanpelto ja Vainio pihan pohjoispuolella

@@ -3651,3 +3651,537 @@ func news_tape(stats: String, done: Callable) -> void:
 	flicker.kill()
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
+
+
+# --- Legendaariset hetket: maatila -------------------------------------------------------------------------------
+
+## Kaisuan / Altaan sato (kaisua.gd legend_scene "sato", main.gd _farm_legend): kuivurin pihalla isäntä ottaa
+## elevaattorin näyteluukusta kourallisen ohraa, nostaa sen nenälle ja haistaa, ja jyvät valuvat sormien välistä.
+## Nyökkäys, sitten isäntä kääntyy pelaajaan (lines[1]) ja kamera nousee kuivurin ylle kertosäkeen soidessa.
+## dryer = kuivurin juuri (kaisua_koneet.gd kuivuri: elevaattori x = 3,6, z = -1,2, ovi -Z-seinässä).
+## Hahmot ovat kopioita (oikea isäntä ja pelaaja piilossa hide_nodesissa).
+## ground: maailman piste -> sama piste tilan maan pinnalla (kaisua.gd _ground_g): hahmot seisovat maastolla, joka
+## ei kuivurin ympärillä ole tasainen (Kaisua mökin rinteessä).
+func maatila_sato(dryer: Node3D, ground: Callable, isanta_look: Dictionary, speaker: String, lines: Array, title: String, sub: String,
+		done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.5)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var g := Node3D.new()
+	_props.add_child(g)
+	g.global_transform = dryer.global_transform
+	var tg := func(local: Vector3) -> Vector3: return g.to_global(local)
+	var on_ground := func(local: Vector3) -> Vector3: return g.to_local(ground.call(g.to_global(local)))
+	# Näyteluukku elevaattorin juuressa (luukku auki, kouru ulos).
+	var steel := Color(0.62, 0.62, 0.64)
+	B.mesh(g, B.boxm(Vector3(0.36, 0.3, 0.12)), Vector3(3.6, 1.05, -1.42), steel)
+	B.mesh(g, B.boxm(Vector3(0.3, 0.03, 0.22)), Vector3(3.6, 0.92, -1.56), steel.darkened(0.2))
+	var flap := B.mesh(g, B.boxm(Vector3(0.32, 0.26, 0.02)), Vector3(3.6, 1.22, -1.52), steel.lightened(0.1))
+	flap.rotation_degrees.x = -70.0
+	var isa := Looks.make(g, isanta_look)
+	isa.position = on_ground.call(Vector3(3.62, 0, -2.12))
+	_face(isa, Vector3(3.62, 0, -1.2))
+	isa.play("Idle", 0.0)
+	var hero := Looks.make(g, Looks.player())
+	Looks.add_cap(hero)
+	hero.position = on_ground.call(Vector3(4.75, 0, -3.45))  # suppilon ritilän (z > -2,4) ulkopuolella
+	_face(hero, isa.position)
+	hero.play("Idle", 0.0)
+	# Kourallinen ohraa kämmenellä: pieniä pitkulaisia jyviä keossa.
+	var handful := Node3D.new()
+	var grain_col := Color(0.86, 0.72, 0.42)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for i in 34:
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * 0.035
+		var gm := B.mesh(handful, B.capsule(0.0035, 0.011), Vector3(cos(a) * r, 0.006 + (0.035 - r) * 0.5, sin(a) * r),
+			grain_col.lerp(Color(0.7, 0.55, 0.3), rng.randf() * 0.5))
+		gm.rotation = Vector3(rng.randf() * PI, rng.randf() * PI, rng.randf() * PI)
+	handful.visible = false
+	isa.attach("hand_r", handful, Vector3(0, -0.035, 0.04))
+	# Jyvät valuvat sormien välistä.
+	var trickle := CPUParticles3D.new()
+	trickle.emitting = false
+	trickle.amount = 70
+	trickle.lifetime = 0.7
+	trickle.local_coords = false
+	trickle.direction = Vector3.DOWN
+	trickle.spread = 25.0
+	trickle.initial_velocity_min = 0.1
+	trickle.initial_velocity_max = 0.4
+	trickle.gravity = Vector3(0, -9.0, 0)
+	var tq := BoxMesh.new()
+	tq.size = Vector3(0.005, 0.009, 0.005)
+	var tm := StandardMaterial3D.new()
+	tm.albedo_color = grain_col
+	tq.material = tm
+	trickle.mesh = tq
+	isa.attach("hand_r", trickle, Vector3(0, -0.05, 0.04))
+	# Kuivuri käy: humina ja pöly elevaattorin päästä.
+	var hum := Sfx.loop_on(g, "kone_puinti", -16.0)
+	if hum != null:
+		hum.pitch_scale = 0.55
+	var dust := CPUParticles3D.new()
+	dust.position = Vector3(3.6, 9.6, -1.2)
+	dust.amount = 30
+	dust.lifetime = 3.0
+	dust.direction = Vector3(0.3, 1, 0)
+	dust.spread = 30.0
+	dust.initial_velocity_min = 0.3
+	dust.initial_velocity_max = 0.8
+	dust.gravity = Vector3(0.4, 0.1, 0)
+	dust.scale_amount_min = 1.0
+	dust.scale_amount_max = 2.2
+	var dq := QuadMesh.new()
+	dq.size = Vector2(0.5, 0.5)
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.85, 0.78, 0.6, 0.35)
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	dq.material = dm
+	dust.mesh = dq
+	g.add_child(dust)
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
+	bubble.no_depth_test = true
+	_cam.current = true
+	_cam.fov = 50.0
+	_fade_to(0.0, 0.8)
+	# 1. Yleiskuva: isäntä kurottaa näyteluukulle.
+	var t0 := _now_ms()
+	var reached := false
+	while _now_ms() - t0 < 4200:
+		var u := (_now_ms() - t0) / 4200.0
+		# Sivulta päädyn edestä: isäntä profiilissa elevaattorin luukulla, pelaaja etualalla oikealla.
+		_cam.global_position = tg.call(Vector3(lerpf(8.6, 7.4, u), lerpf(2.2, 1.9, u), lerpf(-6.0, -5.0, u)))
+		_cam.look_at(tg.call(Vector3(3.9, 1.25, -1.9)), Vector3.UP)
+		if not reached and _now_ms() - t0 > 1200:
+			reached = true
+			isa.play("Interact", 0.15)
+			Sfx.play_on(isa, "rattle_1", -12.0, 1.4)
+		if reached and not handful.visible and _now_ms() - t0 > 1200 + isa.anim_length("Interact") * 550.0:
+			handful.visible = true
+		await get_tree().process_frame
+	handful.visible = true
+	# 2. Lähikuva: isäntä kääntyy luukulta, koura nenälle, haistaa ja hieroo; jyvät valuvat.
+	isa.play("Idle", 0.3)
+	_face(isa, hero.position)
+	var head0: Vector3 = isa.bone_position("Head")
+	var t1 := _now_ms()
+	var spoke := false
+	while _now_ms() - t1 < 5600:
+		var s := (_now_ms() - t1) / 1000.0
+		var up := clampf(s / 0.9, 0.0, 1.0)
+		up = up * up * (3.0 - 2.0 * up)
+		var low := Vector3(0.12, 1.0, -0.28)
+		var nose := head0 + Vector3(0.0, 0.04, -0.13)  # Head-luu on pään tyvellä: nenä hieman ylempänä
+		var tgt := low.lerp(nose, up) + Vector3(0, sin(s * 7.0) * 0.006 * up, 0)
+		isa.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", tgt, tgt + Vector3(0.45, -0.3, 0.2))
+		# Pää painuu kouraan haistamaan, sitten nyökkäys.
+		var nod := 0.0
+		if s > 1.0 and s < 2.4:
+			nod = 0.22
+		elif s > 3.6:
+			nod = 0.18 * absf(sin((s - 3.6) * 5.0)) * clampf(5.6 - s, 0.0, 1.0)
+		_bone_turn(isa, "Head", 0.0, 0.0, nod)
+		if s > 2.2 and not trickle.emitting:
+			trickle.emitting = true
+		if s > 2.6 and not spoke:
+			spoke = true
+			bubble.position = isa.to_global(head0 + Vector3(-0.6, 0.12, 0))  # lähikuvassa pään vierellä, ei ruudun yli
+			bubble.text = "%s: %s" % [speaker, lines[0]]
+		var cp := isa.to_global(head0 + Vector3(0.6, -0.2, -1.15))  # edestä oikealta: kasvot ja koura
+		_cam.global_position = cp
+		_cam.look_at(isa.to_global(head0.lerp(tgt, 0.45)), Vector3.UP)
+		await get_tree().process_frame
+	trickle.emitting = false
+	handful.visible = false
+	isa.clear_ik()
+	isa.clear_overrides()
+	# 3. Kaksoiskuva: isäntä kääntyy pelaajaan, kertosäe alkaa.
+	Sfx.music_play(1.2, Sfx.MUSIC_CHORUS)
+	_face(isa, hero.position)
+	isa.play("Idle_Talking", 0.3)
+	bubble.position = isa.to_global(Vector3(0, 2.0, 0))
+	bubble.text = "%s: %s" % [speaker, lines[1]]
+	var t2 := _now_ms()
+	var second := false
+	while _now_ms() - t2 < 7000:
+		var s := (_now_ms() - t2) / 1000.0
+		if not second and s > 3.4 and lines.size() > 2:
+			second = true
+			bubble.text = "%s: %s" % [speaker, lines[2]]
+		var mid: Vector3 = (isa.position + hero.position) * 0.5
+		# Väljä kaksoiskuva: päät kuvan keskivaiheilla, kupla mahtuu niiden yläpuolelle.
+		_cam.global_position = tg.call(mid + Vector3(lerpf(-1.2, -0.9, s / 7.0), 1.55, lerpf(-4.6, -4.2, s / 7.0)))
+		_cam.look_at(tg.call(mid + Vector3(0, 1.75, 0)), Vector3.UP)
+		_bone_turn(hero, "Head", 0.0, 0.0, 0.16 * absf(sin(maxf(s - 4.6, 0.0) * 4.0)) if s > 4.6 and s < 6.2 else 0.0)
+		await get_tree().process_frame
+	bubble.text = ""
+	hero.clear_overrides()
+	isa.play("Idle", 0.4)
+	# 4. Kamera nousee kuivurin ja pellon ylle: hetken nimi ja tarina.
+	_title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35))
+	_title.add_theme_font_size_override("font_size", 78)
+	var t3 := _now_ms()
+	var named := false
+	while _now_ms() - t3 < 7500:
+		var u := (_now_ms() - t3) / 7500.0
+		u = u * u * (3.0 - 2.0 * u)
+		_cam.global_position = tg.call(Vector3(lerpf(8.0, 16.0, u), lerpf(2.0, 13.0, u), lerpf(-6.0, -20.0, u)))
+		_cam.look_at(tg.call(Vector3(2.0, lerpf(1.4, 2.5, u), -1.0)), Vector3.UP)
+		if not named and _now_ms() - t3 > 2600:
+			named = true
+			_title.text = title
+			_sub.text = sub
+		await get_tree().process_frame
+	if hum != null:
+		hum.queue_free()
+	_title.text = ""
+	_sub.text = ""
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Maatilan kohtausten yhteinen lavastus: juurisolmu maailman pisteessä, -Z = fwd (vaakasuora). Palauttaa
+## {"g", "tg" (paikallinen -> maailma), "on_ground" (paikallinen -> paikallinen maan pinnalla), "bubble"}.
+func _farm_stage(at: Vector3, fwd: Vector3, ground: Callable) -> Dictionary:
+	var g := Node3D.new()
+	_props.add_child(g)
+	var f := Vector3(fwd.x, 0, fwd.z).normalized()
+	g.global_transform = Transform3D(Basis.looking_at(f, Vector3.UP), ground.call(at))
+	var tg := func(local: Vector3) -> Vector3: return g.to_global(local)
+	var on_ground := func(local: Vector3) -> Vector3: return g.to_local(ground.call(g.to_global(local)))
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
+	bubble.no_depth_test = true
+	return {"g": g, "tg": tg, "on_ground": on_ground, "bubble": bubble}
+
+
+## Hahmo kohtaukseen maan pinnalle, katse kohteeseen (paikallinen).
+func _farm_person(st: Dictionary, look: Dictionary, local: Vector3, face_to: Vector3, cap := false) -> Node3D:
+	var ch := Looks.make(st.g, look)
+	if cap:
+		Looks.add_cap(ch)
+	ch.position = st.on_ground.call(local)
+	_face(ch, face_to)
+	ch.play("Idle", 0.0)
+	return ch
+
+
+func _farm_say(st: Dictionary, ch: Node3D, who: String, line: String, up := 2.0) -> void:
+	var b: Label3D = st.bubble
+	b.position = ch.to_global(Vector3(0, up, 0))
+	b.text = "%s: %s" % [who, line] if line != "" else ""
+
+
+## Kameran ajo paikallisesta pisteestä toiseen sec sekunnissa; kutsuu tick(s) joka ruutu (s = kulunut aika).
+func _farm_move(st: Dictionary, from: Vector3, to: Vector3, look_from: Vector3, look_to: Vector3, sec: float,
+		tick: Callable = Callable()) -> void:
+	var t0 := _now_ms()
+	while true:
+		var s := (_now_ms() - t0) / 1000.0
+		var u := clampf(s / sec, 0.0, 1.0)
+		var e := u * u * (3.0 - 2.0 * u)
+		_cam.global_position = st.tg.call(from.lerp(to, e))
+		_cam.look_at(st.tg.call(look_from.lerp(look_to, e)), Vector3.UP)
+		if tick.is_valid():
+			tick.call(s)
+		if u >= 1.0:
+			break
+		await get_tree().process_frame
+
+
+func _farm_title(title: String, sub: String) -> void:
+	_title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35))
+	_title.add_theme_font_size_override("font_size", 78)
+	_title.text = title
+	_sub.text = sub
+
+
+func _soft_particles(col: Color, size: float) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.local_coords = false
+	var q := QuadMesh.new()
+	q.size = Vector2(size, size)
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.vertex_color_use_as_albedo = true
+	var gt := GradientTexture2D.new()
+	var gg := Gradient.new()
+	gg.set_color(0, Color(1, 1, 1, 1))
+	gg.set_color(1, Color(1, 1, 1, 0))
+	gt.gradient = gg
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(0.5, 0.0)
+	m.albedo_texture = gt
+	q.material = m
+	p.mesh = q
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 0.0))
+	ramp.add_point(0.2, Color(1, 1, 1, 0.8))
+	ramp.set_color(1, Color(1, 1, 1, 0.0))
+	p.color_ramp = ramp
+	return p
+
+
+## Kaisuan / Altaan heinätalkoot (kaisua.gd legend kind "heina"): talkoopöytä pihalla pirtin edessä. Emäntä kauhoo
+## lihakeittoa, pöydässä ruisleipä, voi, kahvipannu ja saunakaljat; isäntä nostaa pullon talkoomiehelle, ja kamera
+## nousee pihan ja ladon ylle. door/yard maailmassa: pöytä pirtin oven ja pihan väliin, +Z kohti pihaa.
+func maatila_talkoot(door: Vector3, yard: Vector3, ground: Callable, cast: Dictionary, lines: Array, title: String, sub: String,
+		done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.5)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var dir := Vector3(yard.x - door.x, 0, yard.z - door.z).normalized()
+	var st := _farm_stage(door + dir * 5.0, -dir, ground)  # -Z kohti pirttiä
+	var g: Node3D = st.g
+	var top := 0.76
+	# Pöytä, liina ja penkit.
+	var wood := Color(0.55, 0.4, 0.25)
+	B.mesh(g, B.boxm(Vector3(2.1, 0.05, 0.9)), Vector3(0, top - 0.025, 0), wood)
+	for sx in [-0.95, 0.95]:
+		for sz in [-0.36, 0.36]:
+			B.mesh(g, B.boxm(Vector3(0.07, top - 0.05, 0.07)), Vector3(sx, (top - 0.05) / 2.0, sz), wood.darkened(0.2))
+	B.mesh(g, B.boxm(Vector3(2.16, 0.012, 0.96)), Vector3(0, top + 0.006, 0), Color(0.95, 0.94, 0.9))
+	for i in 7:
+		B.mesh(g, B.boxm(Vector3(0.05, 0.014, 0.97)), Vector3(-0.9 + i * 0.3, top + 0.008, 0), Color(0.75, 0.15, 0.12))
+	for sz in [-0.85, 0.85]:
+		B.mesh(g, B.boxm(Vector3(2.0, 0.05, 0.3)), Vector3(0, 0.44, sz), wood)
+		for sx in [-0.85, 0.85]:
+			B.mesh(g, B.boxm(Vector3(0.06, 0.42, 0.2)), Vector3(sx, 0.21, sz), wood.darkened(0.2))
+	# Keittokattila (alumiini) ja keitto, höyry.
+	var y0 := top + 0.012
+	B.mesh(g, B.cyl(0.16, 0.15, 0.2, 20), Vector3(0.3, y0 + 0.1, -0.18), Color(0.75, 0.76, 0.78))
+	B.mesh(g, B.cyl(0.15, 0.15, 0.01, 20), Vector3(0.3, y0 + 0.18, -0.18), Color(0.62, 0.38, 0.18))
+	for k in 6:
+		var a := k * 1.1
+		B.mesh(g, B.boxm(Vector3(0.03, 0.02, 0.03)), Vector3(0.3 + cos(a) * 0.08, y0 + 0.19, -0.18 + sin(a) * 0.08),
+			Color(0.9, 0.55, 0.15) if k % 2 == 0 else Color(0.85, 0.8, 0.6))
+	for sx in [-1.0, 1.0]:
+		B.mesh(g, B.boxm(Vector3(0.05, 0.02, 0.02)), Vector3(0.3 + sx * 0.18, y0 + 0.17, -0.18), Color(0.2, 0.2, 0.2))
+	var steam := _soft_particles(Color(1, 1, 1, 0.5), 0.25)
+	steam.position = Vector3(0.3, y0 + 0.22, -0.18)
+	steam.amount = 18
+	steam.lifetime = 2.2
+	steam.direction = Vector3.UP
+	steam.spread = 15.0
+	steam.initial_velocity_min = 0.15
+	steam.initial_velocity_max = 0.3
+	steam.gravity = Vector3(0, 0.05, 0)
+	steam.scale_amount_min = 0.8
+	steam.scale_amount_max = 1.6
+	g.add_child(steam)
+	# Lautaset keittoineen, reikäleipä, voi, kahvipannu, pullat ja saunakaljat.
+	for p in [Vector3(-0.6, 0, 0.22), Vector3(-0.15, 0, 0.24), Vector3(0.6, 0, 0.22), Vector3(-0.7, 0, -0.22)]:
+		B.mesh(g, B.cyl(0.11, 0.08, 0.04, 18), p + Vector3(0, y0 + 0.02, 0), Color(0.96, 0.96, 0.94))
+		B.mesh(g, B.cyl(0.09, 0.09, 0.005, 18), p + Vector3(0, y0 + 0.035, 0), Color(0.62, 0.38, 0.18))
+		B.mesh(g, B.boxm(Vector3(0.015, 0.005, 0.16)), p + Vector3(0.14, y0 + 0.003, 0), Color(0.7, 0.7, 0.72))
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.035
+	ring.outer_radius = 0.14
+	var loaf := B.mesh(g, ring, Vector3(-0.25, y0 + 0.03, -0.2), Color(0.32, 0.2, 0.12))
+	loaf.scale = Vector3(1, 0.5, 1)
+	B.mesh(g, B.boxm(Vector3(0.3, 0.02, 0.2)), Vector3(-0.25, y0 + 0.01, -0.2), wood.lightened(0.15))
+	B.mesh(g, B.boxm(Vector3(0.09, 0.05, 0.06)), Vector3(0.0, y0 + 0.025, -0.25), Color(0.98, 0.9, 0.5))
+	B.mesh(g, B.cyl(0.07, 0.09, 0.18, 14), Vector3(0.75, y0 + 0.09, -0.2), Color(0.85, 0.85, 0.82))
+	B.mesh(g, B.cyl(0.0, 0.07, 0.06, 14), Vector3(0.75, y0 + 0.21, -0.2), Color(0.85, 0.85, 0.82))
+	B.tube(g, Vector3(0.82, y0 + 0.08, -0.2), Vector3(0.9, y0 + 0.17, -0.2), 0.012, Color(0.85, 0.85, 0.82))
+	for k in 5:
+		B.mesh(g, B.sphere(0.035, 8), Vector3(0.05 + k * 0.06, y0 + 0.03, 0.05), Color(0.8, 0.55, 0.25))
+	var bottle := func(parent: Node3D, pos: Vector3) -> Node3D:
+		var bt := Node3D.new()
+		parent.add_child(bt)
+		bt.position = pos
+		B.mesh(bt, B.cyl(0.03, 0.03, 0.15, 12), Vector3(0, 0.075, 0), Color(0.35, 0.18, 0.06))
+		B.mesh(bt, B.cyl(0.012, 0.03, 0.06, 12), Vector3(0, 0.18, 0), Color(0.35, 0.18, 0.06))
+		B.mesh(bt, B.cyl(0.031, 0.031, 0.05, 12), Vector3(0, 0.07, 0), Color(0.9, 0.85, 0.6))
+		return bt
+	for k in 3:
+		bottle.call(g, Vector3(-0.95 + k * 0.08, y0, 0.0))
+	# Hahmot: emäntä pirtin puolella kattilan takana, isäntä pöydän päässä, pelaaja ja apumies pihan puolella.
+	var em := _farm_person(st, cast.emanta_look, Vector3(0.3, 0, -0.95), Vector3(0.3, 0, 0))
+	var isa := _farm_person(st, cast.isanta_look, Vector3(-1.45, 0, 0.0), Vector3(0, 0, 0))
+	var hero := _farm_person(st, Looks.player(), Vector3(0.35, 0, 1.25), Vector3(0.3, 0, 0), true)
+	var helper: Node3D = null
+	if not (cast.get("helper_look", {}) as Dictionary).is_empty():
+		helper = _farm_person(st, cast.helper_look, Vector3(-0.55, 0, 1.25), Vector3(-0.3, 0, 0))
+	var ladle := Node3D.new()
+	B.tube(ladle, Vector3.ZERO, Vector3(0, -0.3, 0.05), 0.008, Color(0.75, 0.76, 0.78))
+	B.mesh(ladle, B.sphere(0.04, 10), Vector3(0, -0.32, 0.06), Color(0.75, 0.76, 0.78))
+	em.attach("hand_r", ladle, Vector3(0, 0, 0.03))
+	# Maljan pullot käteen (luuhun kiinni: seuraavat kättä).
+	var raised := bottle.call(_props, Vector3.ZERO) as Node3D
+	_props.remove_child(raised)
+	isa.attach("hand_r", raised, Vector3(0, -0.09, 0.02))
+	raised.visible = false
+	_cam.current = true
+	_cam.fov = 50.0
+	_fade_to(0.0, 0.8)
+	# 1. Yleiskuva pihalta: pöytä pirtin edessä, emäntä kauhoo.
+	em.play("Interact", 0.2)
+	await _farm_move(st, Vector3(3.6, 2.3, 6.5), Vector3(2.4, 1.9, 4.8), Vector3(0, 1.0, -0.3), Vector3(0, 0.95, -0.2), 4.5,
+		func(s: float) -> void:
+			if s > 2.2 and em.current() == "Interact":
+				em.play("Idle", 0.3))
+	# 2. Pöydän lähikuva: höyryävä keitto, leipä ja pullat. Emännän kehotus.
+	_farm_say(st, em, cast.emanta_name, lines[0])
+	await _farm_move(st, Vector3(1.5, 1.2, 1.1), Vector3(-0.4, 1.15, 1.05), Vector3(0.35, 0.8, -0.15), Vector3(-0.2, 0.8, -0.15), 4.5,
+		func(_s: float) -> void:
+			if em.current() != "Idle_Talking":
+				em.play("Idle_Talking", 0.3))
+	em.play("Idle", 0.3)
+	# 3. Malja: isäntä nostaa pullon talkoomiehelle, pelaaja ja apumies nostavat omansa.
+	var hero_bottle := bottle.call(_props, Vector3.ZERO) as Node3D
+	_props.remove_child(hero_bottle)
+	hero.attach("hand_r", hero_bottle, Vector3(0, -0.09, 0.02))
+	var help_bottle: Node3D = null
+	if helper != null:
+		help_bottle = bottle.call(_props, Vector3.ZERO)
+		_props.remove_child(help_bottle)
+		helper.attach("hand_r", help_bottle, Vector3(0, -0.09, 0.02))
+	raised.visible = true
+	_face(isa, (hero.position + (helper.position if helper != null else hero.position)) * 0.5)
+	isa.play("Idle_Talking", 0.3)
+	_farm_say(st, isa, cast.isanta_name, lines[1])
+	var toast := func(ch: Node3D, _bt: Node3D, s: float, t_up: float) -> void:
+		# Pullo nousee rinnan edestä olkapään yläpuolelle eteen (malli katsoo -Z:aan, oikea käsi +X).
+		var u := clampf((s - t_up) / 0.6, 0.0, 1.0)
+		u = u * u * (3.0 - 2.0 * u)
+		var sh: Vector3 = ch.get_meta("sh_r") if ch.has_meta("sh_r") else ch.bone_position("upperarm_r")
+		ch.set_meta("sh_r", sh)
+		var tgt := sh + Vector3(0.1, lerpf(-0.3, 0.2, u), lerpf(-0.3, -0.36, u))
+		ch.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", tgt, sh + Vector3(0.45, -0.35, 0.15))
+	var said2 := false
+	await _farm_move(st, Vector3(2.9, 1.7, 1.6), Vector3(2.5, 1.65, 1.4), Vector3(-0.7, 1.35, 0.25), Vector3(-0.6, 1.35, 0.25), 6.8,
+		func(s: float) -> void:
+			toast.call(isa, raised, s, 0.3)
+			toast.call(hero, hero_bottle, s, 3.6)
+			if helper != null:
+				toast.call(helper, help_bottle, s, 3.8)
+			if not said2 and s > 3.4:
+				said2 = true
+				_farm_say(st, isa, cast.isanta_name, lines[2]))
+	_farm_say(st, isa, "", "")
+	Sfx.music_play(1.2, Sfx.MUSIC_CHORUS)
+	Sfx.play_on(isa, "glass_1", -6.0)
+	# 4. Kamera nousee pihan ylle: pöytä, pirtti ja lato.
+	var named := false
+	await _farm_move(st, Vector3(3.0, 2.2, 5.0), Vector3(9.0, 12.0, 15.0), Vector3(0, 1.0, 0), Vector3(0, 1.5, -2.0), 7.5,
+		func(s: float) -> void:
+			toast.call(isa, raised, 9.0, 0.0)
+			toast.call(hero, hero_bottle, 9.0, 0.0)
+			if helper != null:
+				toast.call(helper, help_bottle, 9.0, 0.0)
+			if not named and s > 2.4:
+				named = true
+				_farm_title(title, sub))
+	_title.text = ""
+	_sub.text = ""
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Kaisuan / Altaan kylvöt (kaisua.gd legend kind "kylvo"): pellon laidalla. Isäntä kyykistyy, ottaa kourallisen
+## multaa ja murentaa sen, kamera katsoo rivejä pitkin pellon yli, isäntä (ja apumies) toteavat rivit, ja kamera nousee
+## pellon ylle. edge = pellon reunan piste maailmassa, into = suunta pellon keskelle.
+func maatila_kylvot(edge: Vector3, into: Vector3, ground: Callable, cast: Dictionary, lines: Array, title: String, sub: String,
+		done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.5)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var st := _farm_stage(edge - into.normalized() * 0.6, into, ground)  # -Z pellolle
+	var isa := _farm_person(st, cast.isanta_look, Vector3(0, 0, -0.4), Vector3(0, 0, -10))
+	var hero := _farm_person(st, Looks.player(), Vector3(1.1, 0, 0.35), Vector3(0.3, 0, -6), true)
+	var helper: Node3D = null
+	if not (cast.get("helper_look", {}) as Dictionary).is_empty():
+		helper = _farm_person(st, cast.helper_look, Vector3(-1.15, 0, 0.3), Vector3(-0.3, 0, -6))
+	var soil := CPUParticles3D.new()
+	soil.emitting = false
+	soil.amount = 50
+	soil.lifetime = 0.8
+	soil.local_coords = false
+	soil.direction = Vector3.DOWN
+	soil.spread = 30.0
+	soil.initial_velocity_min = 0.1
+	soil.initial_velocity_max = 0.5
+	soil.gravity = Vector3(0, -9.0, 0)
+	var sm := BoxMesh.new()
+	sm.size = Vector3(0.012, 0.01, 0.012)
+	var smat := StandardMaterial3D.new()
+	smat.albedo_color = Color(0.3, 0.22, 0.15)
+	sm.material = smat
+	soil.mesh = sm
+	isa.attach("hand_r", soil, Vector3(0, -0.04, 0.03))
+	var clod := Node3D.new()
+	for k in 7:
+		B.mesh(clod, B.sphere(0.018 + k * 0.002, 6), Vector3(sin(k * 2.1) * 0.02, 0.0, cos(k * 1.7) * 0.02), Color(0.28, 0.2, 0.14))
+	clod.visible = false
+	isa.attach("hand_r", clod, Vector3(0, -0.03, 0.03))
+	_cam.current = true
+	_cam.fov = 50.0
+	_fade_to(0.0, 0.8)
+	# 1. Olkien yli rivejä pitkin pellon toiseen laitaan.
+	await _farm_move(st, Vector3(0.4, 1.55, 3.4), Vector3(0.2, 1.3, 2.4), Vector3(0, 0.5, -30.0), Vector3(0, 0.4, -30.0), 4.5)
+	# 2. Isäntä kyykistyy, ottaa multaa ja murentaa sen.
+	isa.play("Crouch_Idle", 0.35)
+	var said := false
+	await _farm_move(st, Vector3(1.9, 0.75, -1.9), Vector3(1.6, 0.7, -1.6), Vector3(0, 0.55, -0.6), Vector3(0, 0.6, -0.6), 5.5,
+		func(s: float) -> void:
+			var pel: Vector3 = isa.bone_position("pelvis")
+			var u := clampf((s - 0.8) / 0.8, 0.0, 1.0)
+			var low := pel + Vector3(0.15, -0.38, -0.45)
+			var up := pel + Vector3(0.12, 0.05, -0.38)
+			var tgt: Vector3 = low if s < 1.6 else low.lerp(up, clampf((s - 1.6) / 0.6, 0.0, 1.0))
+			tgt += Vector3(0, sin(s * 9.0) * 0.008 * u, 0)
+			isa.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", tgt, tgt + Vector3(0.5, 0.2, 0.3))
+			if s > 1.5 and not clod.visible:
+				clod.visible = true
+			if s > 2.4 and not soil.emitting:
+				soil.emitting = true
+			if not said and s > 2.6:
+				said = true
+				_farm_say(st, isa, cast.isanta_name, lines[0], 1.5))
+	soil.emitting = false
+	clod.visible = false
+	isa.clear_ik()
+	_farm_say(st, isa, "", "")
+	# 3. Isäntä nousee ja kääntyy: rivit todetaan.
+	isa.play("Idle_Talking", 0.4)
+	_face(isa, helper.position if helper != null else hero.position)
+	_farm_say(st, isa, cast.isanta_name, lines[1])
+	Sfx.music_play(1.2, Sfx.MUSIC_CHORUS)
+	var said2 := false
+	await _farm_move(st, Vector3(0.6, 1.5, -4.9), Vector3(0.3, 1.45, -4.5), Vector3(0, 1.7, 0.1), Vector3(0, 1.7, 0.1), 7.0,
+		func(s: float) -> void:
+			if helper != null and s > 1.6 and helper.current() != "Idle_Talking":
+				helper.play("Idle_Talking", 0.3)
+			if not said2 and s > 3.5:
+				said2 = true
+				_farm_say(st, isa, cast.isanta_name, lines[2]))
+	_farm_say(st, isa, "", "")
+	isa.play("Idle", 0.4)
+	if helper != null:
+		helper.play("Idle", 0.4)
+	_face(isa, Vector3(0, 0, -10))
+	# 4. Kamera nousee pellon ylle.
+	var named := false
+	await _farm_move(st, Vector3(0.0, 2.0, 3.5), Vector3(0.0, 16.0, 9.0), Vector3(0, 0.5, -12.0), Vector3(0, 0.0, -28.0), 7.5,
+		func(s: float) -> void:
+			if not named and s > 2.4:
+				named = true
+				_farm_title(title, sub))
+	_title.text = ""
+	_sub.text = ""
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)
