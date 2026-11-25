@@ -28,6 +28,9 @@ extends Node
 ##   keltainen kaukana, vihreä kohdalla, E aloittaa purun/kippauksen ja opastus piiloon.
 ## mokkikaisua_savu: traktorin ja puimurin pakokaasu nousee ja laajenee (ei jää pisteeksi putken päähän): kuvat
 ##   tyhjäkäynnillä ja kaasulla.
+## altaan_sato / mokkikaisua_sato: sadon legendaarinen hetki. Viimeinen vilja kuivuriin -> isäntä kutsuu (ei ilmoitusta
+##   kesken ajon), keskusteluikkunassa "Mennään kattomaan jyviä", kohtaus kuivurilla (kuvat: kurotus, haistelu, jyvät
+##   valuvat, pelaajalle, nousu), hetki kirjataan, isäntä muistelee seuraavana päivänä ja toinen sato ei toista kohtausta.
 ## mokkikaisua_vilja: puimuri Tienvarsipellolla (kuvat), purku kärryyn, kippaus kuivuriin, äestys ja kylvö Isopellolla,
 ##   kasvu päivä kerrallaan (oras, vihreä, kypsä).
 const Kuva := preload("res://tools/testit/kuva.gd")
@@ -45,7 +48,8 @@ const Asento := preload("res://tools/testit/asento.gd")
 const KOHTAUKSET := ["mokkikaisua", "mokkikaisua_heina", "mokkikaisua_vilja", "mokkikaisua_kivet", "mokkikaisua_tallennus", "mokkikaisua_hahmot",
 	"mokkikaisua_nappaimet", "mokkikaisua_kuski", "mokkikaisua_pinnat", "mokkikaisua_apumies", "mokkikaisua_sade",
 	"altaan", "altaan_ajo", "altaan_leiju", "altaan_kytkenta", "mokkikaisua_kytkenta",
-	"altaan_suppilo", "mokkikaisua_suppilo", "mokkikaisua_savu"]
+	"altaan_suppilo", "mokkikaisua_suppilo", "mokkikaisua_savu",
+	"altaan_sato", "mokkikaisua_sato"]
 
 var main: Main
 var _cam: Camera3D
@@ -98,6 +102,10 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await _suppilo(path, _k())
 		"mokkikaisua_savu":
 			await _savu(path, _k())
+		"altaan_sato":
+			await _sato(path, main.altaan)
+		"mokkikaisua_sato":
+			await _sato(path, _k())
 		_:
 			return 0
 	return 1
@@ -1964,3 +1972,70 @@ func _savu(path: String, k: Node3D) -> void:
 		veh.velocity = Vector3.ZERO
 		k._dismount(veh)
 		await _frames(10)
+
+
+func _sato(path: String, k: Node3D) -> void:
+	var saved := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
+	main._farm_logic(k)
+	var lid: String = k.site.legends.kuivuri
+	var pe = null
+	for p in k.pellot:
+		if p.kind() == "vilja":
+			pe = p
+			break
+	k.tila.talked = true  # sato vaatii, että isäntä on jo tavattu
+	main.endings.counts.erase(lid)  # ajokansion tallennuksessa voi olla edellisen ajon hetki (päiväkirjarivi vain uudesta)
+	var before := 0
+	k._job_done(pe, "kuivuri", {})
+	await _frames(5)
+	print("SATO kutsu: odottaa '%s', kupla '%s', viesti '%s'" % [k.tila.legend_wait, k._bubble.text, main._msg.text])
+	_check(k.tila.legend_wait == lid, "viimeinen vilja: isäntä kutsuu kuivurille")
+	_check(int(main.endings.counts.get(lid, 0)) == before, "hetkeä ei kirjattu kesken ajon")
+	# Pelaaja jalan (traktorista pois kuten pelissä) isännän luo ja keskusteluikkuna.
+	k._mount(k.traktori)
+	await _frames(5)
+	k._dismount(k.traktori)
+	await _frames(10)
+	var ip: Vector3 = k.isanta.global_position
+	var yd: Vector3 = k.to_global(k.site.yard) - ip
+	yd.y = 0.0
+	yd = yd.normalized()
+	main.walker_out.global_position = ip + yd * 1.8 + Vector3(0, 0.3, 0)
+	await _frames(20)
+	main._talk_open("isanta_" + str(k.site.section), k.isanta)
+	await _frames(10)
+	var ids := []
+	for o in main._talk_options():
+		ids.append(o.id if o is Dictionary and o.has("id") else str(o))
+	print("SATO valinnat: %s (who '%s', auki %s, k.section %s, built %s, farm %s)" % [ids, main._talk_who, main._talk_box.is_open(), k.site.section, k.built, main._farm_by_talker(main._talk_who)])
+	await _shot(path, "ikkuna")
+	main._talk_choose("isanta_sato")
+	await _frames(2)
+	_check(main.cutscene.busy, "kohtaus alkoi")
+	var t0 := Time.get_ticks_msec()
+	for st in [["kurotus", 3.2], ["haistelu", 6.4], ["jyvat", 9.3], ["pelaajalle", 12.0], ["pelaajalle2", 15.0], ["nousu", 22.0]]:
+		while (Time.get_ticks_msec() - t0) / 1000.0 < float(st[1]):
+			await _frames(1)
+		await _shot(path, "kohtaus_" + st[0])
+	var w := 0
+	while main.cutscene.busy and w < 1200:
+		w += 1
+		await _frames(1)
+	await _frames(30)
+	print("SATO jälkeen: kerrat %d, viesti '%s', odottaa '%s', päivä %s" % [int(main.endings.counts.get(lid, 0)), main._msg.text,
+		k.tila.legend_wait, k.tila.legend_day])
+	_check(int(main.endings.counts.get(lid, 0)) == before + 1, "hetki kirjattiin kohtauksen jälkeen")
+	_check(main._msg.text.contains("uusi tarina"), "päiväkirjarivi")
+	_check(not main._msg.text.contains("LEGENDAARINEN"), "ei vanhaa ilmoitusta")
+	_check(k.tila.legend_wait == "", "odotus nollattu")
+	await _shot(path, "jalkeen")
+	# Seuraavana päivänä muistelu.
+	k.day += 1
+	var hello: String = k.talk_hello()
+	print("SATO muistelu: '%s'" % hello)
+	_check(hello in (k.site.texts.sato_muisto as Array), "isäntä muistelee seuraavana päivänä")
+	# Toinen sato: ei kohtausta.
+	k._job_done(pe, "kuivuri", {})
+	await _frames(5)
+	_check(k.tila.legend_wait == "" and int(k.tila.legends.get(lid, 0)) == 2, "toinen sato ilman kohtausta")
+	FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)

@@ -658,6 +658,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
       Valmiin työn jälkeen emäntä tarjoaa talkooruoan pirtissä (lihakeitto, ruisleipä, kahvit ja pullat; nälkä ja
       stressi helpottavat), ja kokonaisen ketjun jälkeen isäntä antaa kolme saunakaljaa. Ketjut ovat legendaarisia
       hetkiä: Kaisuan heinätalkoot, Kaisuan sato ja Kaisuan kylvöt.
+    - **Sato koetaan kuivurilla** (Kaisua ja Altaan tila, `cutscene.gd maatila_sato`). Kun viimeinen vilja kipataan
+      kuivuriin, mitään ilmoitusta ei tule kesken ajon: isäntä kutsuu kuivurille, ja keskusteluikkunaan tulee valinta
+      "Mennään kattomaan jyviä!". Kohtauksessa isäntä ottaa elevaattorin näyteluukusta kourallisen ohraa, haistaa sitä
+      ja antaa jyvien valua sormien välistä, sanoo tuomionsa ja kääntyy pelaajan puoleen. Sen jälkeen kamera nousee
+      kuivurin ylle kertosäkeen soidessa, ja hetken nimi ja tarina näkyvät. Kohtauksen jälkeen tulee vain rivi
+      "Päiväkirjaan uusi tarina". Seuraavina päivinä isäntä muistelee satoa tervehtiessään (`maatila_paikka.gd
+      sato_muisto`). Kohtaus nähdään vain ensimmäisellä kerralla, ja myöhemmät sadot lasketaan hiljaa.
   - **Altaan tila (Saloinen, kodin itäpuoli, `kaisua.gd` paikalla `maatila_paikka.gd altaantie`):** samat maatilan
     hommat kuin Kaisuassa noin 650 m kodista itään Altaantien varressa. Pellot ovat oikeat peltolohkot peltoseuranta-
     sovelluksesta (`map_tila.gd`): Isoaho (5,0 ha, asuinalueen eteläpuolella), Altaanpelto ja Vainio pihan pohjoispuolella

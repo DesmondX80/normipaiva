@@ -30,6 +30,8 @@ var site: RefCounted  # maatila_paikka.gd: pellot, piha, isäntä, tekstit (null
 signal message(text: String, secs: float)
 signal paid(amount: float, why: String)
 signal legend(id: String)
+## Legendaarinen hetki lavastettuna (main.gd _farm_legend): kind "sato" = kohtaus kuivurilla (cutscene.gd maatila_sato).
+signal legend_scene(kind: String)
 signal food_eaten
 signal beers_given(n: int)
 signal mount(vehicle: Node3D)
@@ -111,6 +113,8 @@ var _g_ring_t: MeshInstance3D
 var _g_arrow: MeshInstance3D
 var _g_line: MeshInstance3D
 var _g_t := 0.0
+var isanta_guide: Node3D  # isännän nimikyltti (piiloon kohtauksen ajaksi)
+var _recalled_day := -1  # isäntä muisteli legendaarista hetkeä tänä päivänä (kerran päivässä)
 var _guide_on := false  # joku opastus näytti renkaat tässä ruudussa (muuten piilotetaan logic()-lopussa)
 ## Suppilon opastus: puimurin purkuputki tai viljakärryn perä kuivurin suppilolle (rengas + nuoli suppilolla,
 ## pienempi rengas lähteen kohdalla). Näkyy, kun kuormaa on ja suppilo on GUIDE_R:n sisällä.
@@ -403,7 +407,7 @@ func _build_isanta() -> void:
 	_place(isanta, site.isanta[0], site.isanta[1])
 	isanta.play("Idle", 0.0)
 	_bubble = B.bubble(self, isanta.position + Vector3(0, 2.05, 0), Color.WHITE)
-	B.guide(self, site.isanta_name, isanta.position + Vector3(0, 2.25, 0), 34, Color(1, 0.9, 0.6), true)
+	isanta_guide = B.guide(self, site.isanta_name, isanta.position + Vector3(0, 2.25, 0), 34, Color(1, 0.9, 0.6), true)
 
 
 func say(text: String, secs := 3.5) -> void:
@@ -2081,6 +2085,14 @@ func _job_done(pe: Pelto, id: String, bk: Dictionary) -> void:
 	var msg := "%s %s!" % [pe.field_name(), JOB_NAMES[id]]
 	if amount > 0.0:
 		msg += " Isäntä maksoi %s €." % _eur(amount)
+	if id == "kuivuri" and _sato_first():
+		# Ensimmäinen sato: ei ilmoitusta kesken ajon. Isäntä kutsuu kuivurille, ja hetki koetaan siellä yhdessä
+		# (talk_options "sato" -> legend_scene -> cutscene.gd maatila_sato -> legend_told).
+		tila.legend_wait = site.legends[id]
+		tila.beer_due += 3
+		say(site.texts.sato_kutsu, 6.0)
+		message.emit(msg + " Isäntä kutsuu kuivurille: juttele hänen kanssaan.", 5.0)
+		return
 	if id == "latoon" or id == "kuivuri" or id == "kylvo":
 		var lid: String = site.legends[id]
 		tila.legends[lid] = int(tila.legends.get(lid, 0)) + 1
@@ -2091,6 +2103,32 @@ func _job_done(pe: Pelto, id: String, bk: Dictionary) -> void:
 	else:
 		say(["Hyvä! Sitte seuraavaan.", "Nyt joutuu. Kahvit pirtissä, ku kerkiät.", "Ei hassumpi jälki!"][randi() % 3], 3.0)
 	message.emit(msg, 4.5)
+
+
+## Sadon legendaarinen hetki on vielä kokematta (lavastettu kohtaus vain ensimmäisellä kerralla).
+func _sato_first() -> bool:
+	return site.texts.has("sato") and int(tila.legends.get(site.legends.kuivuri, 0)) == 0
+
+
+## Kohtaus nähty: hetki kirjataan (legend -> main.gd _ending) ja isäntä muistelee sitä seuraavina päivinä.
+func legend_told(lid: String) -> void:
+	tila.legend_wait = ""
+	tila.legends[lid] = int(tila.legends.get(lid, 0)) + 1
+	tila.legend_day[lid] = day
+	tila.food_due = true
+	legend.emit(lid)
+
+
+## Isännän muistelu koetusta hetkestä 1–4 päivää jälkeenpäin ("" = ei muisteltavaa).
+func _recollection() -> String:
+	var lid: String = site.legends.get("kuivuri", "")
+	if not tila.legend_day.has(lid) or not site.texts.has("sato_muisto"):
+		return ""
+	var ago := day - int(tila.legend_day[lid])
+	var lines: Array = site.texts.sato_muisto
+	if ago < 1 or ago > lines.size():
+		return ""
+	return lines[ago - 1]
 
 
 func _pay(amount: float, why: String) -> void:
@@ -2123,6 +2161,12 @@ func talk_hello() -> String:
 		return site.texts.hello
 	if raining():
 		return "Sataa. Paalaus ja puinti odottaa poutaa (%s), mutta kyntää ja äestää voi." % rain_end_text()
+	if tila.legend_wait != "":
+		return site.texts.sato_kutsu
+	var rc := _recollection()
+	if rc != "" and _recalled_day != day:
+		_recalled_day = day
+		return rc
 	_talk_i += 1
 	return ["Päivää! Mitä asiaa?", "No, renki! Mites hommat?", "Kahvit on termarissa. Mitä kuuluu?"][_talk_i % 3]
 
@@ -2144,6 +2188,8 @@ func _order_possible() -> bool:
 ## Isännän valinnat: [id, teksti, käytettävissä, syy harmaana, uusi asia].
 func talk_options() -> Array:
 	var o: Array = []
+	if tila.legend_wait != "" and tila.legend_wait == site.legends.get("kuivuri", ""):
+		o.append(["sato", "Mennään kattomaan jyviä!", true, "", true])
 	o.append(["hommat", "Mitä hommia tänään on?", true, "", false])
 	if toinen_vinkki and site.texts.has("toinen"):
 		o.append(["toinen", "Tarviiko muualla renkiä?", _toinen_day != day, "kysyit jo tänään", _toinen_day != day])

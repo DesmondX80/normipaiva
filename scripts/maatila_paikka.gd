@@ -118,6 +118,13 @@ static func kaisua() -> RefCounted:
 		"hello": "No terve! Santun mökiltä? Traktori on konevajan edessä ja koneet vajassa. Kotipelto on niittokunnossa ja Tienvarsipelto puintikypsä. Maksan joka hommasta, ja emäntä laittaa talkooruoat.",
 		"intro": "Kaisuan hommat: traktorilla (%s) niittokone, karhotin, paalain, äes, kylvökone ja viljakärry konevajan suulta (%s kytkee peruuttamalla). Puimuri on talon vieressä.",
 		"toinen": "Saloisissa on Altaan tila, Altaantien varressa. Isäntä on vanha tuttu, soitti ja kyseli renkiä: ohraa on viis hehtaaria ja poika ajaa yksin. Käy kattomassa, jos kotona oot.",
+		# Legendaarinen hetki "sato" (cutscene.gd maatila_sato): kutsu, kohtauksen repliikit ja muistelut seuraavina päivinä.
+		"sato_kutsu": "Viimeiset jyvät kuivurissa! Tuu kuivurille, ku kerkiät. Katotaan, mitä siitä tuli.",
+		"sato": ["Kuivaa ku korppu. Kuustoista prosenttia, ei tippaakaan yli.",
+			"Isävainaa ois sanonu, että nyt on ohraa.", "Saunakaljat on ansaittu. Emäntä keittää lihakeiton."],
+		"sato_muisto": ["Vieläki on sen ohran haju sieraimissa. Emäntä sanoo, että haisen leivältä.",
+			"Naapurin Raija kysy, kuka meillä puimuria ajo. Sanoin, että renki, mutta semmonen renki, ettei ennen nähty.",
+			"Myllyltä soitettiin: sanovat, että Kaisuan ohra oli tänä vuonna pitäjän parasta. Arvaa, kenen ansiosta."],
 	}
 	s.toinen = "altaantie"
 	s.legends = {"latoon": "kaisuan_heinatalkoot", "kuivuri": "kaisuan_sato", "kylvo": "kaisuan_kylvot"}
@@ -218,6 +225,12 @@ static func altaantie() -> RefCounted:
 		"hello": "Päivää! Altaan tilalle töihin? Traktori on pihalla ja koneet konevajan suulla. Isoaho ja Vainio on puintikypsiä, Kotiniitty niittokunnossa ja Altaanpellon sänki kynnettävä. Isoahon pelto on tuolla pohjoisessa metsän takana, sinne pääsee pellon välistä polkua. Maksan joka hommasta, ja emäntä laittaa ruuat.",
 		"intro": "Altaan tilan hommat: traktorilla (%s) niittokone, karhotin, paalain, aura, äes, kylvökone ja viljakärry konevajan suulta (%s kytkee peruuttamalla). Puimuri on pihalla. Isoahoon ajetaan peltojen välistä polkua pohjoiseen.",
 		"toinen": "Vaalan Neittävällä on Kaisuan tila, Kaisuantien varressa. Sikäläinen isäntä kaipais talkoomiestä heinille ja ohrille. Jos sinne päin meet, käy sanomassa päivää.",
+		"sato_kutsu": "Isoahon ohra on kuivurissa! Tuu kuivurille, ku kerkiät. Katotaan, mitä siitä tuli.",
+		"sato": ["No niin. Tuoksuu leivältä, eikä yhtään ummehtunutta.",
+			"Kodin naapurista sai kerrankin apua.", "Tätä Eetu ei usko, ennen ku näkee. Saunakaljat on ansaittu."],
+		"sato_muisto": ["Eetu kävi kuivurilla haistelemassa. Myönsi, että parempaa ku viime vuonna.",
+			"Kylällä puhutaan jo, että Altaan ohra puitiin vanhalla puimurilla yhdessä päivässä. Ei se ihan niin mennyt, mutta annetaan puhua.",
+			"Vieläki mietin sitä ohraa. Kuustoista prosenttia ja kirkas ku kulta."],
 	}
 	s.toinen = "kaisua"
 	s.legends = {"latoon": "altaan_heinatalkoot", "kuivuri": "altaan_sato", "kylvo": "altaan_kylvot"}

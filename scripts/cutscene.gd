@@ -3651,3 +3651,196 @@ func news_tape(stats: String, done: Callable) -> void:
 	flicker.kill()
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
+
+
+# --- Legendaariset hetket: maatila -------------------------------------------------------------------------------
+
+## Kaisuan / Altaan sato (kaisua.gd legend_scene "sato", main.gd _farm_legend): kuivurin pihalla isäntä ottaa
+## elevaattorin näyteluukusta kourallisen ohraa, nostaa sen nenälle ja haistaa, ja jyvät valuvat sormien välistä.
+## Nyökkäys, sitten isäntä kääntyy pelaajaan (lines[1]) ja kamera nousee kuivurin ylle kertosäkeen soidessa.
+## dryer = kuivurin juuri (kaisua_koneet.gd kuivuri: elevaattori x = 3,6, z = -1,2, ovi -Z-seinässä).
+## Hahmot ovat kopioita (oikea isäntä ja pelaaja piilossa hide_nodesissa).
+## ground: maailman piste -> sama piste tilan maan pinnalla (kaisua.gd _ground_g): hahmot seisovat maastolla, joka
+## ei kuivurin ympärillä ole tasainen (Kaisua mökin rinteessä).
+func maatila_sato(dryer: Node3D, ground: Callable, isanta_look: Dictionary, speaker: String, lines: Array, title: String, sub: String,
+		done: Callable) -> void:
+	_begin()
+	await _fade_to(1.0, 0.5)
+	for n in hide_nodes:
+		if is_instance_valid(n):
+			n.visible = false
+	var g := Node3D.new()
+	_props.add_child(g)
+	g.global_transform = dryer.global_transform
+	var tg := func(local: Vector3) -> Vector3: return g.to_global(local)
+	var on_ground := func(local: Vector3) -> Vector3: return g.to_local(ground.call(g.to_global(local)))
+	# Näyteluukku elevaattorin juuressa (luukku auki, kouru ulos).
+	var steel := Color(0.62, 0.62, 0.64)
+	B.mesh(g, B.boxm(Vector3(0.36, 0.3, 0.12)), Vector3(3.6, 1.05, -1.42), steel)
+	B.mesh(g, B.boxm(Vector3(0.3, 0.03, 0.22)), Vector3(3.6, 0.92, -1.56), steel.darkened(0.2))
+	var flap := B.mesh(g, B.boxm(Vector3(0.32, 0.26, 0.02)), Vector3(3.6, 1.22, -1.52), steel.lightened(0.1))
+	flap.rotation_degrees.x = -70.0
+	var isa := Looks.make(g, isanta_look)
+	isa.position = on_ground.call(Vector3(3.62, 0, -2.12))
+	_face(isa, Vector3(3.62, 0, -1.2))
+	isa.play("Idle", 0.0)
+	var hero := Looks.make(g, Looks.player())
+	Looks.add_cap(hero)
+	hero.position = on_ground.call(Vector3(4.75, 0, -3.45))  # suppilon ritilän (z > -2,4) ulkopuolella
+	_face(hero, isa.position)
+	hero.play("Idle", 0.0)
+	# Kourallinen ohraa kämmenellä: pieniä pitkulaisia jyviä keossa.
+	var handful := Node3D.new()
+	var grain_col := Color(0.86, 0.72, 0.42)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for i in 34:
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * 0.035
+		var gm := B.mesh(handful, B.capsule(0.0035, 0.011), Vector3(cos(a) * r, 0.006 + (0.035 - r) * 0.5, sin(a) * r),
+			grain_col.lerp(Color(0.7, 0.55, 0.3), rng.randf() * 0.5))
+		gm.rotation = Vector3(rng.randf() * PI, rng.randf() * PI, rng.randf() * PI)
+	handful.visible = false
+	isa.attach("hand_r", handful, Vector3(0, -0.035, 0.04))
+	# Jyvät valuvat sormien välistä.
+	var trickle := CPUParticles3D.new()
+	trickle.emitting = false
+	trickle.amount = 70
+	trickle.lifetime = 0.7
+	trickle.local_coords = false
+	trickle.direction = Vector3.DOWN
+	trickle.spread = 25.0
+	trickle.initial_velocity_min = 0.1
+	trickle.initial_velocity_max = 0.4
+	trickle.gravity = Vector3(0, -9.0, 0)
+	var tq := BoxMesh.new()
+	tq.size = Vector3(0.005, 0.009, 0.005)
+	var tm := StandardMaterial3D.new()
+	tm.albedo_color = grain_col
+	tq.material = tm
+	trickle.mesh = tq
+	isa.attach("hand_r", trickle, Vector3(0, -0.05, 0.04))
+	# Kuivuri käy: humina ja pöly elevaattorin päästä.
+	var hum := Sfx.loop_on(g, "kone_puinti", -16.0)
+	if hum != null:
+		hum.pitch_scale = 0.55
+	var dust := CPUParticles3D.new()
+	dust.position = Vector3(3.6, 9.6, -1.2)
+	dust.amount = 30
+	dust.lifetime = 3.0
+	dust.direction = Vector3(0.3, 1, 0)
+	dust.spread = 30.0
+	dust.initial_velocity_min = 0.3
+	dust.initial_velocity_max = 0.8
+	dust.gravity = Vector3(0.4, 0.1, 0)
+	dust.scale_amount_min = 1.0
+	dust.scale_amount_max = 2.2
+	var dq := QuadMesh.new()
+	dq.size = Vector2(0.5, 0.5)
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.85, 0.78, 0.6, 0.35)
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	dq.material = dm
+	dust.mesh = dq
+	g.add_child(dust)
+	var bubble := B.bubble(_props, Vector3.ZERO, Color.WHITE, 1.0, false)
+	bubble.no_depth_test = true
+	_cam.current = true
+	_cam.fov = 50.0
+	_fade_to(0.0, 0.8)
+	# 1. Yleiskuva: isäntä kurottaa näyteluukulle.
+	var t0 := _now_ms()
+	var reached := false
+	while _now_ms() - t0 < 4200:
+		var u := (_now_ms() - t0) / 4200.0
+		# Sivulta päädyn edestä: isäntä profiilissa elevaattorin luukulla, pelaaja etualalla oikealla.
+		_cam.global_position = tg.call(Vector3(lerpf(8.6, 7.4, u), lerpf(2.2, 1.9, u), lerpf(-6.0, -5.0, u)))
+		_cam.look_at(tg.call(Vector3(3.9, 1.25, -1.9)), Vector3.UP)
+		if not reached and _now_ms() - t0 > 1200:
+			reached = true
+			isa.play("Interact", 0.15)
+			Sfx.play_on(isa, "rattle_1", -12.0, 1.4)
+		if reached and not handful.visible and _now_ms() - t0 > 1200 + isa.anim_length("Interact") * 550.0:
+			handful.visible = true
+		await get_tree().process_frame
+	handful.visible = true
+	# 2. Lähikuva: isäntä kääntyy luukulta, koura nenälle, haistaa ja hieroo; jyvät valuvat.
+	isa.play("Idle", 0.3)
+	_face(isa, hero.position)
+	var head0: Vector3 = isa.bone_position("Head")
+	var t1 := _now_ms()
+	var spoke := false
+	while _now_ms() - t1 < 5600:
+		var s := (_now_ms() - t1) / 1000.0
+		var up := clampf(s / 0.9, 0.0, 1.0)
+		up = up * up * (3.0 - 2.0 * up)
+		var low := Vector3(0.12, 1.0, -0.28)
+		var nose := head0 + Vector3(0.0, 0.04, -0.13)  # Head-luu on pään tyvellä: nenä hieman ylempänä
+		var tgt := low.lerp(nose, up) + Vector3(0, sin(s * 7.0) * 0.006 * up, 0)
+		isa.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", tgt, tgt + Vector3(0.45, -0.3, 0.2))
+		# Pää painuu kouraan haistamaan, sitten nyökkäys.
+		var nod := 0.0
+		if s > 1.0 and s < 2.4:
+			nod = 0.22
+		elif s > 3.6:
+			nod = 0.18 * absf(sin((s - 3.6) * 5.0)) * clampf(5.6 - s, 0.0, 1.0)
+		_bone_turn(isa, "Head", 0.0, 0.0, nod)
+		if s > 2.2 and not trickle.emitting:
+			trickle.emitting = true
+		if s > 2.6 and not spoke:
+			spoke = true
+			bubble.position = isa.to_global(head0 + Vector3(-0.6, 0.12, 0))  # lähikuvassa pään vierellä, ei ruudun yli
+			bubble.text = "%s: %s" % [speaker, lines[0]]
+		var cp := isa.to_global(head0 + Vector3(0.6, -0.2, -1.15))  # edestä oikealta: kasvot ja koura
+		_cam.global_position = cp
+		_cam.look_at(isa.to_global(head0.lerp(tgt, 0.45)), Vector3.UP)
+		await get_tree().process_frame
+	trickle.emitting = false
+	handful.visible = false
+	isa.clear_ik()
+	isa.clear_overrides()
+	# 3. Kaksoiskuva: isäntä kääntyy pelaajaan, kertosäe alkaa.
+	Sfx.music_play(1.2, Sfx.MUSIC_CHORUS)
+	_face(isa, hero.position)
+	isa.play("Idle_Talking", 0.3)
+	bubble.position = isa.to_global(Vector3(0, 2.0, 0))
+	bubble.text = "%s: %s" % [speaker, lines[1]]
+	var t2 := _now_ms()
+	var second := false
+	while _now_ms() - t2 < 7000:
+		var s := (_now_ms() - t2) / 1000.0
+		if not second and s > 3.4 and lines.size() > 2:
+			second = true
+			bubble.text = "%s: %s" % [speaker, lines[2]]
+		var mid: Vector3 = (isa.position + hero.position) * 0.5
+		# Väljä kaksoiskuva: päät kuvan keskivaiheilla, kupla mahtuu niiden yläpuolelle.
+		_cam.global_position = tg.call(mid + Vector3(lerpf(-1.2, -0.9, s / 7.0), 1.55, lerpf(-4.6, -4.2, s / 7.0)))
+		_cam.look_at(tg.call(mid + Vector3(0, 1.75, 0)), Vector3.UP)
+		_bone_turn(hero, "Head", 0.0, 0.0, 0.16 * absf(sin(maxf(s - 4.6, 0.0) * 4.0)) if s > 4.6 and s < 6.2 else 0.0)
+		await get_tree().process_frame
+	bubble.text = ""
+	hero.clear_overrides()
+	isa.play("Idle", 0.4)
+	# 4. Kamera nousee kuivurin ja pellon ylle: hetken nimi ja tarina.
+	_title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35))
+	_title.add_theme_font_size_override("font_size", 78)
+	var t3 := _now_ms()
+	var named := false
+	while _now_ms() - t3 < 7500:
+		var u := (_now_ms() - t3) / 7500.0
+		u = u * u * (3.0 - 2.0 * u)
+		_cam.global_position = tg.call(Vector3(lerpf(8.0, 16.0, u), lerpf(2.0, 13.0, u), lerpf(-6.0, -20.0, u)))
+		_cam.look_at(tg.call(Vector3(2.0, lerpf(1.4, 2.5, u), -1.0)), Vector3.UP)
+		if not named and _now_ms() - t3 > 2600:
+			named = true
+			_title.text = title
+			_sub.text = sub
+		await get_tree().process_frame
+	if hum != null:
+		hum.queue_free()
+	_title.text = ""
+	_sub.text = ""
+	await _end(done)
+	_title.add_theme_font_size_override("font_size", 150)

@@ -8245,6 +8245,12 @@ func _start_piirakka() -> void:
 ## Onnellinen loppu: kirjaa kokoelmaan ja ilmoittaa (uusi loppu erikseen).
 func _ending(id: String) -> void:
 	var new: bool = endings.record(id, day)
+	if id in Endings.STAGED:
+		# Lavastettu hetki: kohtaus oli itse hetki, joten vain hillitty rivi päiväkirjasta.
+		_save_game()
+		if new:
+			_show_message("Päiväkirjaan (%s) uusi tarina: %s" % [Settings.action_key("journal"), Endings.name_of(id)], 3.5)
+		return
 	var kind := "loppu" if Endings.is_loppu(id) else "hetki"
 	Sfx.play("win_small", -6.0, 1.1)
 	_queue_message("%s: %s%s  ·  yhteensä %d" % ["ONNELLINEN LOPPU" if kind == "loppu" else "LEGENDAARINEN HETKI", Endings.name_of(id),
@@ -14810,6 +14816,12 @@ func _talk_choose(id: String) -> void:
 	if id.begins_with("paivi_kesa_"):
 		_kesaheila_choose(id)
 		return
+	if id == "isanta_sato":
+		var sk := _farm_by_talker(_talk_who)
+		_talk_box.close()
+		if sk != null:
+			_farm_legend(sk, "sato")
+		return
 	if id.begins_with("isanta_"):
 		var fk := _farm_by_talker(_talk_who)
 		if fk != null:
@@ -15694,6 +15706,24 @@ func _farm_logic(k: Node3D) -> bool:
 	if driving:
 		_mopo_label.text = k.status
 	return driving or hint != ""
+
+
+## Maatilan legendaarinen hetki lavastettuna (kaisua.gd legend_wait): "sato" = isäntä haistaa ohraa kuivurilla
+## (cutscene.gd maatila_sato). Lopuksi kaisua.gd legend_told kirjaa hetken (legend -> _ending: päiväkirjarivi).
+func _farm_legend(k: Node3D, kind: String) -> void:
+	var lid: String = k.tila.legend_wait
+	if lid == "" or kind != "sato":
+		return
+	_act_begin()
+	var hide: Array = [k.isanta, k._bubble, k.isanta_guide]
+	cutscene.hide_nodes.append_array(hide)
+	var lines: Array = k.site.texts.sato
+	cutscene.maatila_sato(k._kuivuri.root, func(p: Vector3) -> Vector3: return k._ground_g(p), k.site.isanta_look, k.site.isanta_name, lines,
+		Endings.name_of(lid).to_upper(), Endings.desc_of(lid), func() -> void:
+			for n in hide:
+				cutscene.hide_nodes.erase(n)
+			_act_end()
+			k.legend_told(lid))
 
 
 ## Keskustelun isäntä -> sen tila (isanta_kaisua: mökin Kaisua, isanta_altaantie: Altaan tila).
