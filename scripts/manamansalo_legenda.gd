@@ -1,6 +1,6 @@
 extends RefCounted
 ## Legenda: Manamansalon muistokirkko ja "kuolemansaari" (#250, P7). Oikea tausta (pyynnön mukaan, tarkistettava): Manamansalo on
-## Oulujärven suurin saari Vaalassa, ja sen sanotaan olleen metsästäjien hautausmaasaari. Kainuun ensimmäisen kirkon sanotaan
+## Oulujärven suurin saari Raahessa, ja sen sanotaan olleen metsästäjien hautausmaasaari. Kainuun ensimmäisen kirkon sanotaan
 ## rakennetun saarelle 1559. Nimen "kuolemansaari" tulkinta on epävarma: peli esittää sen vain oppaan tulkintana.
 ## Ketju: taksikuski kertoo (heard) -> opas kirkolla kertoo 1559-tarinan (opas) -> infotaulu hautausmaalla (kyltti) -> kirkon
 ## kivijalan jäänteet mäellä, kun molemmat on kuultu: legendan loppu (found), maine. Ei rahaa, tarina on palkkio.

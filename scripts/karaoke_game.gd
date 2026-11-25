@@ -36,7 +36,7 @@ const HIT_Y := 478.0
 const TOP_W := 250.0
 const BOT_W := 470.0
 
-## Kappale "Mopolla Vaalaan" (oma sävellys): rivit tavuina [tavu, sävel, kesto tavuina]; "-" = sana jatkuu.
+## Kappale "Mopolla Raaheen" (oma sävellys): rivit tavuina [tavu, sävel, kesto tavuina]; "-" = sana jatkuu.
 const SONG := [
 	[["Mo-", 4, 1], ["pol-", 4, 1], ["la", 5, 1], ["Vaa-", 7, 2], ["laan,", 7, 2], ["Sii-", 9, 1], ["ta-", 7, 1], ["riin", 5, 3]],
 	[["Jo-", 4, 1], ["ki", 5, 1], ["vir-", 7, 2], ["taa,", 5, 2], ["yö", 4, 2], ["on", 2, 1], ["nuo-", 4, 1], ["ri", 0, 3]],
@@ -62,7 +62,7 @@ var real := false  # aito (lyhennetty) versio: oikea soittoraita, ajoitetut sana
 # Nuotti: {t, dur, lane, pitch, text, line, wi, state ("odottaa"/"osuma"/"ohi"), q (laatu 0..1), held (pitoaika), hold (pidossa)}
 var _notes: Array = []
 var _t := -0.5
-var _title := "Mopolla Vaalaan"
+var _title := "Mopolla Raaheen"
 var _menu := false
 var _menu_i := 0
 var _menu_rects: Array[Rect2] = []

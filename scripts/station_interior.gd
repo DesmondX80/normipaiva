@@ -1,5 +1,5 @@
 extends Node3D
-## Rautatieaseman odotussali sisältä (Saloinen ja Vaala, sama tasku; enter() vaihtaa nimen): ruutulattia, ruskea
+## Rautatieaseman odotussali sisältä (Saloinen ja Raahe, sama tasku; enter() vaihtaa nimen): ruutulattia, ruskea
 ## paneloitu seinän alaosa ja vaaleanvihreä yläosa, selkä selkää vasten olevat puupenkit, suljettu lippuluukku,
 ## lähtevien junien taulu, kaakeliuuni, seinäkello, kahviautomaatti ja VR:n juliste. Loisteputket, yksi välkkyy.
 ## Penkeillä ja nurkissa kaksi juoppoa ja kaksi narkkaria, jotka pyytävät viinahörppyä ja kertovat palkaksi
@@ -109,7 +109,7 @@ func enter(town_name: String, from := "ovi") -> void:
 	walker.position = at + (Vector3(0, 0, -1.0) if from == "ovi" else Vector3(0, 0, 1.0))
 	walker.rotation.y = B.yaw_to(Vector3(0, 0, -1) if from == "ovi" else Vector3(0, 0, 1))
 	walker.activate()
-	say(_people[1], "No terve! Tervetuloa %s asemalle. Palvelu pelaa." % ("Saloisten" if town == "Saloinen" else "Vaalan"))
+	say(_people[1], "No terve! Tervetuloa %s asemalle. Palvelu pelaa." % ("Saloisten" if town == "Saloinen" else "Raahen"))
 
 
 func leave() -> void:

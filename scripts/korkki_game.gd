@@ -1,5 +1,5 @@
 extends Node3D
-## Korkkiläpsy (#290, pog-tyylinen) pelimaailmassa 3D:nä: Vaalan lavan pihalla teinien vieressä (main.gd
+## Korkkiläpsy (#290, pog-tyylinen) pelimaailmassa 3D:nä: Raahen lavan pihalla teinien vieressä (main.gd
 ## _start_korkkilapsy lisää tämän vaala-solmun lapseksi ja asettaa paikan). Pino oikeita 3D-korkkeja asfaltilla nurin
 ## päin, vastassa teini Jere kyykyssä ja pelaajan oma hahmo pinon ääressä (Looks-hahmot). Kamera pinon yläviistossa.
 ## Tähtäys A/D tai hiiri, voima ajoituksella (hyppy / klikkaus): kääntyneet korkit lyöjälle, liian kova lyönti lennättää
@@ -22,7 +22,7 @@ const JERE := {"shirt": Color(0.2, 0.55, 0.45), "pants": Color(0.2, 0.25, 0.42),
 var stack: Array = []  # [{key, up}] (main.gd täyttää ennen lisäystä)
 var drunk := 0.0
 var face := Vector3(0, 0, 1)
-var opp_name := "Jere"  # vastustaja (main.gd: Vaalassa Jere, kaukalolla kaukalon teini)
+var opp_name := "Jere"  # vastustaja (main.gd: Raahessa Jere, kaukalolla kaukalon teini)
 var opp_look: Dictionary = JERE
 var _caps: Array = []  # pinon korkit (sama järjestys kuin stack)
 var _tex := {}

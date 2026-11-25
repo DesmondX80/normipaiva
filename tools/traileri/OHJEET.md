@@ -56,12 +56,12 @@ sankari usein poissa kuvasta. Nämä ohjeet ovat sen korjaamiseksi.
 
 ## Normipäivän trailerin rakenne
 
-- **Prologi ilman musiikkia** (noin 45 s, pelin äänet): Päivin kielto, Pekan houkutus "Paapeliin pääsee, kunhan…".
+- **Prologi ilman musiikkia** (noin 45 s, pelin äänet): Päivin kielto, Pekan houkutus "Raaheen pääsee, kunhan…".
   Tunnari alkaa, kun tapahtumat lähtevät rullaamaan (pyörän selkään ja polkimille).
 - **Tunnari kokonaan** kappaleen osien mukaan: Saloinen (intro), tarina (säkeistö), sivutehtävät ja minipelit
-  (säkeistö, nousu), hahmot ja Puskaradio (tauko), Saloisten kaaos (kertosäe), Paapeli (silta), Vaala
+  (säkeistö, nousu), hahmot ja Puskaradio (tauko), Saloisten kaaos (kertosäe), Raahe (silta), Raahe
   (loppukertosäe), huipennus (laavu, LEGENDAARINEN NORMIPÄIVÄ), logo.
-- Paapeli ja Vaala aina mukana Saloisten lisäksi. Sivutehtävät ja minipelit mukaan.
+- Raahe ja Raahe aina mukana Saloisten lisäksi. Sivutehtävät ja minipelit mukaan.
 - Pois: Väinön jahti, WC, tiskaus, PA-laitteet, rännit.
 
 ## Työtapa

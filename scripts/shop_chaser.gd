@@ -16,7 +16,7 @@ const RUN_LINES := ["Mää oon juossu Raahen maratonin!", "Seis tai tulee kung f
 signal caught(direction: Vector3)
 
 var target_fn: Callable  # palauttaa pelaajan solmun
-var ground_fn: Callable  # (x, z) -> y maailmassa; oletuksena Saloisten maasto (Vaalassa Vaalan maasto)
+var ground_fn: Callable  # (x, z) -> y maailmassa; oletuksena Saloisten maasto (Raahessa Raahen maasto)
 var delay := 3.0  # etumatka sekunteina
 var mode := "wait"  # wait, chase, done
 

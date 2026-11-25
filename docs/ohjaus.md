@@ -13,7 +13,7 @@
 | T | syö ja juo: valikko mukana olevista eväistä (korvapuusti, lihapiirakka, suklaa, marjat ämpäristä) ja kaljoista |
 | Shift | juokse (jalan) / spurtti (pyörällä) |
 | E (kolmiomittauksen aikana) | Sytkäri: lue etäisyys tästä paikasta (vihje näkyy, kun muuta toimintoa ei ole) |
-| M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen; mökillä ja Vaalan matkalla Neittävä–Vaala-kartta: rulla tai Q/E zoomaa, WASD tai vetäminen siirtää) |
+| M | paperikartta (W/S vierittää, klikkaus asettaa kompassin kohteen; mökillä ja Raahen matkalla Neittävä–Raahe-kartta: rulla tai Q/E zoomaa, WASD tai vetäminen siirtää) |
 | B | matkaopas (kun sen on saanut taksikuskilta): retkikohteet, hinnat, kestot ja leimat; A/D tai nuolet selaavat, Esc / B sulkee |
 | I / Tab, O | reppu ja Normipäiväkirja ovat yksi vihko: I avaa sen reppusivulta, O päiväkirjan sivulta. Auki ollessa I / O vaihtaa sivua, saman sivun näppäin ja Esc sulkevat. Välilehti: klikkaus, 1–7 tai ←/→ (5 = Korkit, korkkikansio; 7 = Riskit, huumekaupan riskit) |
 | G | kellon kiihdytys päälle / pois (kello kulkee 8-kertaisella nopeudella, rannekellon yläreunassa nuolet; välikuvat ja minipelit sammuttavat) |
@@ -21,7 +21,7 @@
 | Hiiri | kamera (Esc vapauttaa hiiren valikkoon) |
 | Esc | valikko (myös päivän aloitus alusta, tallennus ja lataus); minipelissä Esc lopettaa pelin kuten F |
 
-| Muskeliveneessä (Vaalan satama) | |
+| Muskeliveneessä (Raahen satama) | |
 |---|---|
 | W / S | kaasu / peruutus (huippu n. 60 km/h) |
 | A / D | ohjaa |
@@ -106,6 +106,6 @@ Työpöydällä ohjaimia voi kokeilla käynnistämällä pelin `godot --path . -
 **Valikot:** kaikissa valikoissa (esinevalikko, keskusteluvalinnat, päävalikko ja taukovalikko, kappale- ja toivelistat) rivit on numeroitu, ja numeronäppäin 1-9 (esinevalikossa ja toivelistoissa 0 = kymmenes) valitsee rivin suoraan. W/S ja rulla selaavat, E valitsee.
 
 **Asetukset, Sisältö-välilehti:** "K-18-sisältö pois" (oletuksena pois päältä, eli kaikki sallittu) piilottaa
-Rasvanapin (makasiinin takaovi Saloisissa ja Vaalassa), Pentin BangBusin ja kolmiomittauksen (Joni ja Esa, Tero ja
+Rasvanapin (makasiinin takaovi Saloisissa ja Raahessa), Pentin BangBusin ja kolmiomittauksen (Joni ja Esa, Tero ja
 Timo, ovet). Ne katoavat myös päiväkirjan tehtävistä ja Loput-sivulta. Asetuksen saa takaisin milloin vain, ja tallennus
 säilyy. Testi `--ei-kuvia scene k18`.

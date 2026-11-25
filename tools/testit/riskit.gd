@@ -3,9 +3,9 @@ extends Node
 ## Odotukset välianimaation omilla ajastimilla, joten tahti pysyy. Hitaalla koneella (xvfb, ~1 ruutu/s) ruudun delta
 ## rajautuu ja WASTED-kierron kamera jää motkotuksen alkuun; --kiintea näyttää oikean kuvan, mutta ei mahdu aikarajaan.
 ## perus: osa 0:n koukut testiosalla (rikos_koe_osa.gd): puhe, tapahtumat (luukkuosto, myynti, otto), luukun vihje,
-##   tallennus edestakaisin, uusi päivä, päiväkirjan data, tappelun loppu sekä PIDÄTETTY (Saloinen) ja ELVYTETTY (Vaala).
+##   tallennus edestakaisin, uusi päivä, päiväkirjan data, tappelun loppu sekä PIDÄTETTY (Saloinen) ja ELVYTETTY (Raahe).
 ## paivakirja: Riskit-sivu 1280×720 ja välilehtien mitat (7 välilehteä mahtuu kirjaan).
-## elvytys_vaala: pelkkä ELVYTETTY Vaalassa ja Päivin puhelu (videota varten).
+## elvytys_vaala: pelkkä ELVYTETTY Raahessa ja Päivin puhelu (videota varten).
 ## Muut nimet: osan oma testi(arg) (rikos/<nimi>.gd). Viat "TESTI VIKA" -riveinä. main.gd palauttaa tallennuksen.
 
 const KoeOsa := preload("res://tools/testit/rikos_koe_osa.gd")
@@ -70,7 +70,7 @@ func run() -> void:
 		"paivi_tarina":
 			await load("res://tools/testit/paivi_tarina.gd").new().run(self)
 		"elvytys_vaala":
-			# Pelkkä ELVYTETTY Vaalassa ja Päivin puhelu (videoksi äänineen: aja.sh --video scene riskit --riski=elvytys_vaala).
+			# Pelkkä ELVYTETTY Raahessa ja Päivin puhelu (videoksi äänineen: aja.sh --video scene riskit --riski=elvytys_vaala).
 			main._start_mopo()
 			await _frames(30)
 			main._rikos_loppu("yliannos", "Otit liikaa. Olo meni liian kovaksi.")
@@ -176,7 +176,7 @@ func _perus() -> void:
 	await _until_free()
 	if not koe.oli("aamu"):
 		_vika("aamu ei kutsuttu uutena päivänä")
-	# ELVYTETTY Vaalassa: puhelin soi (wasted_phone).
+	# ELVYTETTY Raahessa: puhelin soi (wasted_phone).
 	main._start_mopo()
 	await _frames(30)
 	main._rikos_loppu("yliannos", "Testi: olo meni liian kovaksi.")

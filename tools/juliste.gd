@@ -1,5 +1,5 @@
 extends Node
-## Uusi juliste koko pelistä: Saloinen, mökki Neittävällä ja Vaala. Kuvat ovat oikeita pelikuvia testikohtauksista
+## Uusi juliste koko pelistä: Saloinen, mökki Neittävällä ja Raahe. Kuvat ovat oikeita pelikuvia testikohtauksista
 ## (--scene=... --nohud), ja tämä sommittelee ne GTA-sarjakuvaksi. Puuttuvat kuvat otetaan ajon alussa pelistä
 ## (yksi kohtaus kerrallaan, n. minuutti kappale); valmiit kuvat käytetään uudelleen.
 ## Ajo: godot --path . tools/juliste.tscn -- --out=/polku/juliste.png [--shots=/polku/kuvat]
@@ -30,9 +30,9 @@ const PANELS := [
 	["junamatka", "shot_vaala3.png", Vector2(0.5, 0.4), 1.35, 2, 0, -0.6, "JUNALLA", "Ravintolavaunussa Kossut"],
 	["mokkikiihdytys", "shot_ajo1.png", Vector2(0.45, 0.6), 1.25, 2, 1, 0.7, "KIIHDYTYS", "Tunturi-Jani, 150 m"],
 	["mokkinuoret", "shot_lava.png", Vector2(0.58, 0.62), 1.35, 2, 2, -0.8, "LAVA", "Oulujärven lavalle pummilla"],
-	["mokkisiitari", "shot_3.png", Vector2(0.32, 0.5), 1.0, 2, 3, 0.6, "SIITARI", "\"Mopolla Vaalaan\" karaokessa"],
+	["mokkisiitari", "shot_3.png", Vector2(0.32, 0.5), 1.0, 2, 3, 0.6, "SIITARI", "\"Mopolla Raaheen\" karaokessa"],
 ]
-const SECTIONS := ["SALOINEN", "MÖKKI · NEITTÄVÄ", "VAALA"]
+const SECTIONS := ["SALOINEN", "MÖKKI · NEITTÄVÄ", "RAAHE"]
 const HERO := ["bikeside", "shot.png", Vector2(0.45, 0.45), 1.0]
 const ENDINGS := [
 	["wasted", "shot_1.png", Vector2(0.5, 0.45), 1.12, Rect2(30, 1995, 700, 240), -0.6, "LOPPU A", RED, "Päivi nappasi kiinni"],
@@ -130,13 +130,13 @@ func _layout() -> void:
 	sub.position = Vector2(0, 222)
 	sub.size = Vector2(SIZE.x, 90)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sticker(root, "+ MÖKKI JA VAALA!", 34, RED, Color.WHITE, Vector2(1170, 238), -0.1)
+	_sticker(root, "+ MÖKKI JA RAAHE!", 34, RED, Color.WHITE, Vector2(1170, 238), -0.1)
 
 	# Pääkuva.
 	var hero := Rect2(30, 330, 1540, 650)
 	_frame(root, _crop(HERO[0], HERO[1], HERO[2], HERO[3], hero.size.x / hero.size.y), hero, -0.5)
 	_sticker(root, "UUTTA: TARINA · MÖKKI · MOPO · JUNA", 30, ORANGE, Color.WHITE, Vector2(62, 360), -0.07)
-	_sticker(root, "PAAPELIIN PÄÄSEE, KUNHAN…", 34, YELLOW, INK, Vector2(1010, 900), -0.04)
+	_sticker(root, "RAAHEIN PÄÄSEE, KUNHAN…", 34, YELLOW, INK, Vector2(1010, 900), -0.04)
 
 	for p in PANELS:
 		var r := Rect2(Vector2(COLS[p[5]], ROWS[p[4]]), CELL)
@@ -162,11 +162,11 @@ func _layout() -> void:
 	tai.size = Vector2(140, 70)
 	tai.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-	var tag := _text(root, "Kuutonen jemmaan. Naapureille hommat. Paapeliin ennen Päiviä.", 50, Color.WHITE, 12)
+	var tag := _text(root, "Kuutonen jemmaan. Naapureille hommat. Raaheen ennen Päiviä.", 50, Color.WHITE, 12)
 	tag.position = Vector2(0, 2262)
 	tag.size = Vector2(SIZE.x, 80)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var credit := _text(root, "Saloinen · Raahe · Neittävä · Vaala  ·  Tehty Godotilla  ·  Hahmot: Quaternius (CC0)", 26, Color(0.75, 0.72, 0.68), 5)
+	var credit := _text(root, "Saloinen · Raahe · Neittävä · Raahe  ·  Tehty Godotilla  ·  Hahmot: Quaternius (CC0)", 26, Color(0.75, 0.72, 0.68), 5)
 	credit.position = Vector2(0, 2342)
 	credit.size = Vector2(SIZE.x, 44)
 	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

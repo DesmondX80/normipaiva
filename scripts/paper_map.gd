@@ -5,8 +5,8 @@ extends Control
 ## kahden sormen nipistys zoomaa, W/A/S/D tai vetäminen siirtää, hyppy (välilyönti) keskittää pelaajaan, M tai Esc
 ## sulkee. Kyläkartalla klikkaus asettaa kompassin kohteen (tarttuu lähimpään merkkiin), klikkaus kohteen päälle tai
 ## oikea nappi poistaa sen.
-## Mökillä ja Vaalan mopomatkalla kartta on yksi iso Neittävä–Vaala-kartta mopomatkan kehyksessä (vaala.gd:
-## origo mökin osoitepisteessä, x itään, z etelään): mökin piha, tie Vaalaan ja Vaalan keskusta kohteineen.
+## Mökillä ja Raahen mopomatkalla kartta on yksi iso Neittävä–Raahe-kartta mopomatkan kehyksessä (vaala.gd:
+## origo mökin osoitepisteessä, x itään, z etelään): mökin piha, tie Raaheen ja Raahen keskusta kohteineen.
 
 const M := preload("res://scripts/map_data.gd")
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
@@ -15,7 +15,7 @@ const MAP_W := 600.0
 const INK := Color(0.22, 0.16, 0.1)
 const PAPER := Color(0.93, 0.88, 0.74)
 const VZOOM_MAX_KYLA := 2.0  # kyläkartan talot ovat merkkejä, ei pohjia: tätä lähemmäs ei kannata
-## Mopomatkan tilat (main.gd state), joissa näytetään Neittävä–Vaala-kartta.
+## Mopomatkan tilat (main.gd state), joissa näytetään Neittävä–Raahe-kartta.
 
 var world: Node3D
 var player: Node3D
@@ -38,7 +38,7 @@ var _vtree_pts := PackedVector2Array()  # puumerkit metsään (Saloisten tapaan)
 const VROAD_GRAVEL_HALF := 2.6
 const VROAD_OUT := Color(0.45, 0.25, 0.1)
 const VROAD_FILL := Color(0.98, 0.86, 0.4)
-## Näkymä (molemmat kartat): _vrect = kartan alue (kyläkartalla maailman x/z, Vaalassa kehyksen x/z), _vcenter
+## Näkymä (molemmat kartat): _vrect = kartan alue (kyläkartalla maailman x/z, Raahessa kehyksen x/z), _vcenter
 ## keskipiste samassa kehyksessä, _vzoom pikseliä metrille.
 var _vrect := Rect2()
 var _vbld_pts := PackedVector2Array()  # rakennusten kolmiot (kehyksen x/z), yksi piirtokutsu
@@ -121,7 +121,7 @@ func _fit_zoom() -> float:
 	return minf(_view.size.x / _vrect.size.x, _view.size.y / _vrect.size.y)
 
 
-## Näkymä pelaajan kohdalle (kyläkartalla maailman x/z, Vaalassa mökin tai mopon paikka kehyksessä).
+## Näkymä pelaajan kohdalle (kyläkartalla maailman x/z, Raahessa mökin tai mopon paikka kehyksessä).
 func _center_on_me() -> void:
 	if player != null:
 		_vcenter = Vector2(player.global_position.x, player.global_position.z)
@@ -151,7 +151,7 @@ var _hover_name := ""
 const DRAG_CLICK := 10.0
 var _drag_on := false
 var _dragged := 0.0
-## Kahden sormen nipistys (Vaalan kartta): sormien paikat indeksin mukaan.
+## Kahden sormen nipistys (Raahen kartta): sormien paikat indeksin mukaan.
 var _touches := {}
 var _pinch_d := 0.0
 
@@ -630,7 +630,7 @@ func _mask_outside(v: Control) -> void:
 		v.draw_rect(Rect2(a, b - a), INK, false, 1.5)
 
 
-# --- Neittävä–Vaala-kartta --------------------------------------------------------------------------------------
+# --- Neittävä–Raahe-kartta --------------------------------------------------------------------------------------
 
 
 
@@ -638,7 +638,7 @@ func _mask_outside(v: Control) -> void:
 
 
 
-## Koko alue näkyviin (mökki, tie ja Vaalan keskusta).
+## Koko alue näkyviin (mökki, tie ja Raahen keskusta).
 func _vfit() -> void:
 	_vzoom = minf(_view.size.x / _vrect.size.x, _view.size.y / _vrect.size.y)
 	_vcenter = _vrect.get_center()
@@ -740,7 +740,7 @@ func _draw_road_hover(v: Control) -> void:
 
 # --- Merkit (piirto joko tähän tai karttanäkymään) ----------------------------
 
-## Neittävä–Vaala-kartan kohteiden merkit.
+## Neittävä–Raahe-kartan kohteiden merkit.
 func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 	var font := ThemeDB.fallback_font
 	match kind:
@@ -953,7 +953,7 @@ func _pencil_ring_on(ci: CanvasItem, qm: Array) -> void:
 
 ## Kolmiomittauksen (#255) harppiympyrät: pyöristyksen vyöhyke haaleana punakynävarjostuksena (päällekkäin tummuu,
 ## joten leikkausalue erottuu), harpin viiva näytetyllä etäisyydellä, harpin kärjen jälki ja mittaajan nimi.
-## to_view: kartan koordinaatit (kylässä maailman x/z, Vaalassa kehys) näkymän pikseleiksi.
+## to_view: kartan koordinaatit (kylässä maailman x/z, Raahessa kehys) näkymän pikseleiksi.
 func _kolmio_rings_on(ci: CanvasItem, rings: Array, to_view: Callable) -> void:
 	var col := Color(0.6, 0.1, 0.12)
 	for r: Dictionary in rings:

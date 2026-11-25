@@ -1,6 +1,6 @@
 extends RefCounted
 ## Saloisten huumekauppa: Kinnapotin apteekin takaovi (apteekki_saloinen.gd, hoitaja), kaukalon iltateinit ja laavun
-## teinijengi (saloinen_teinit.gd, laavu_guard.gd). Myynti, paljastuminen ja jatkaminen ovat Vaalan funktioita
+## teinijengi (saloinen_teinit.gd, laavu_guard.gd). Myynti, paljastuminen ja jatkaminen ovat Raahen funktioita
 ## (main.gd _teini_myy, TEINI_KIINNI, _jatka_laake); tämä tiedosto on vain Saloisten tila.
 ##
 ## Hoitajan lääkelaukku (laakelaukku.gd): hoitaja jättää sen portaalle kolmannen luukkuoston jälkeen, kerran. Laukulla

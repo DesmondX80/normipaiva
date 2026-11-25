@@ -3,7 +3,7 @@ extends RefCounted
 ## main.gd tekee valikon ja matkan rekisteristä (`_taxi_retki`, `_enter_retki`, `_on_retki_exited`); kohde ei tunne main.gd:tä.
 ## Kohtauksen rajapinta (kuten raahe_interior.gd): signaalit `exited` ja `acted(kind)`, jäsenet `walker`, `hint`, `busy`,
 ## `spot`, `_enter_frame` ja funktiot `enter()`, `leave()`, `block_interact()`.
-## Kenttä: nimi (kohde), lahto ("taksi" = K-Marketin taksitolppa Saloisissa | "vaala_asema" = Vaalan asema),
+## Kenttä: nimi (kohde), lahto ("taksi" = K-Marketin taksitolppa Saloisissa | "vaala_asema" = Raahen asema),
 ## otsikko, sub ja lines (matkakohtaus: tekstit ja kuskin repliikit), perilla (viesti saapuessa), hop_min (matkan kesto, kello siirtyy sen verran sekä menossa että tullessa),
 ## hinta (meno-paluu, maksetaan lähtiessä), tasku (kohtauksen skripti).
 ## Matkaopas (matkaopas.gd, valinnaiset): opas (kohdesivun kuvaus, puuttuessa sub) ja kuultu (quests.gd-ehto, jolla kuvaus
@@ -64,7 +64,7 @@ const LISTA := {
 	},
 	"manamansalo": {
 		"nimi": "Manamansalon muistokirkolle", "lahto": "taksi", "otsikko": "MANAMANSALOON",
-		"sub": "Taksi ajaa Vaalan taakse, tie 8823:lle. Oulujärvi välkkyy puiden välistä.",
+		"sub": "Taksi ajaa Raahen taakse, tie 8823:lle. Oulujärvi välkkyy puiden välistä.",
 		"lines": ["Manamansaloon vai? Pitkä keikka, noin viisikymmentä kilometriä, sanotaan.", "Siellä on se vanha kirkko ja hautausmaa. Saarta sanotaan kuolemansaareksi.",
 			"En tiedä miksi. Opas tietää enemmän, tai sanoo tietävänsä."],
 		"perilla": "Manamansalo. Muistokirkko, hautausmaa ja laituri järven rannalla.",
@@ -166,12 +166,12 @@ const LISTA := {
 
 ## Kohteiden id:t annetusta lähtöpaikasta rekisterin järjestyksessä.
 ## Hinta ja kesto lähtöpaikan mukaan, sama laskutapa molemmista: matka km x 1,05 min (pyöristys 5 min, vähintään 10 min) ja 0,40 €/min,
-## meno-paluu. Saloisten ja Vaalan väli 150 min / 60 € on mittapuu. LISTA:n hop_min ja hinta ovat Saloisten tolpan luvut (tämän laskun
-## tulos); Vaalasta lasketaan VAALASTA_KM:stä. Raahen baari: RAAHE_KM.
+## meno-paluu. Saloisten ja Raahen väli 150 min / 60 € on mittapuu. LISTA:n hop_min ja hinta ovat Saloisten tolpan luvut (tämän laskun
+## tulos); Raahesta lasketaan RAAHESTA_KM:stä. Raahen baari: RAAHE_KM.
 const SALOISISTA_KM := {"lampi": 15, "hanhikivi": 35, "pakkahuone": 8, "rojuniemi": 10, "manamansalo": 150, "wanharaahe": 8,
 	"paltaniemi": 190, "vanhaherra": 8, "tietokonemuseo": 2, "kuhmo": 280, "hiidenportti": 245, "pyhakoski": 100, "kajaani": 200,
 	"kalajoki": 65, "raate": 300}
-const VAALASTA_KM := {"lampi": 145, "hanhikivi": 170, "pakkahuone": 140, "rojuniemi": 142, "manamansalo": 25, "wanharaahe": 140,
+const RAAHESTA_KM := {"lampi": 145, "hanhikivi": 170, "pakkahuone": 140, "rojuniemi": 142, "manamansalo": 25, "wanharaahe": 140,
 	"paltaniemi": 65, "vanhaherra": 140, "tietokonemuseo": 145, "kuhmo": 150, "hiidenportti": 110, "pyhakoski": 45, "kajaani": 75,
 	"kalajoki": 210, "raate": 130}
 const RAAHE_KM := {"saloinen": 8, "vaala": 143}
@@ -185,13 +185,13 @@ static func _laske(km: float) -> Dictionary:
 
 
 static func tarjous(id: String, vaalasta := false) -> Dictionary:
-	var km: Dictionary = VAALASTA_KM if vaalasta else SALOISISTA_KM
+	var km: Dictionary = RAAHESTA_KM if vaalasta else SALOISISTA_KM
 	if not km.has(id):
 		return {"hop_min": LISTA[id].hop_min, "hinta": LISTA[id].hinta}
 	return _laske(float(km[id]))
 
 
-## Raahen baarin taksi (Kapteenin Kulma): lähtöpaikasta Saloinen tai Vaala.
+## Raahen baarin taksi (Kapteenin Kulma): lähtöpaikasta Saloinen tai Raahe.
 static func raahe_tarjous(vaalasta := false) -> Dictionary:
 	return _laske(float(RAAHE_KM["vaala" if vaalasta else "saloinen"]))
 

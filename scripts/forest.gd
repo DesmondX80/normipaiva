@@ -1,5 +1,5 @@
 extends Node3D
-## Oikea metsä laserkeilauksesta (MML 2011) ja VMI:stä (Luke 2023): mökin ja Vaalan mopomatkan puut
+## Oikea metsä laserkeilauksesta (MML 2011) ja VMI:stä (Luke 2023): mökin ja Raahen mopomatkan puut
 ## (tools/kartta/tarkka.py -> assets/*/puut.bin, muoto ONP3). Puut ovat solmun paikallisessa kehyksessä.
 ##
 ## Piirto kuten Oulujärven norpissa: MultiMeshien instanssit ovat identiteettejä ja varjostin lukee puun paikan,

@@ -7,7 +7,7 @@ extends Label3D
 const LINE_PX := 46.0  # yhden rivin korkeus ruudulla (BUBBLE_FONT * BUBBLE_PIXEL * ruudun skaala)
 const MARGIN := 10.0
 
-## Kuplan näkyvyysraja kamerasta (m); 0 = ei rajaa. main.gd asettaa Vaalan matkan ajaksi: kaukaiset kuplat (kiinteä koko,
+## Kuplan näkyvyysraja kamerasta (m); 0 = ei rajaa. main.gd asettaa Raahen matkan ajaksi: kaukaiset kuplat (kiinteä koko,
 ## ei syvyystestiä) eivät saa leijua tyhjän maiseman päällä.
 static var far_limit := 0.0
 

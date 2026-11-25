@@ -277,18 +277,18 @@ func wasted(at: Vector3, reason: String, cause: String, home: Vector3, done: Cal
 	await _end(done)
 
 
-# --- Kuolema Vaalassa: herätys Gasthausissa tai Paapelissa, Päivi soittaa ---------------------------------------
+# --- Kuolema Raahessa: herätys Gasthausissa tai Raahessa, Päivi soittaa ---------------------------------------
 
 const PHONE_LINES := {
-	"car": ["Missä sää oot?! ...VAALASSA?!", "Auton alle! Mopolla! Taas!", "Mää sanoin, että se mopo on hengenvaarallinen!",
+	"car": ["Missä sää oot?! ...RAAHESSA?!", "Auton alle! Mopolla! Taas!", "Mää sanoin, että se mopo on hengenvaarallinen!",
 		"Ja kotiin siitä, heti kun pystyt!"],
 	"train": ["Junan alle! JUNAN!", "Minun piti parsia sinut kokoon palasista!", "Koko yö neulan ja lankarullan kanssa!",
 		"Ja kotiin siitä, heti kun pystyt!"],
-	"default": ["Missä sää oot?! ...VAALASSA?!", "Taas jotain kaljareissuja!", "Kuinka monta kertaa pitää sanoa!",
+	"default": ["Missä sää oot?! ...RAAHESSA?!", "Taas jotain kaljareissuja!", "Kuinka monta kertaa pitää sanoa!",
 		"Ja kotiin siitä, heti!"],
 	"yliannos": ["Santtu soitti. Santun piti elvyttää sut!", "Sää et hengittäny! Ymmärrätkö sää?",
 		"Mää en nukkunu koko yönä.", "HUUMEET ON VAARALLISIA. OIKEASTI."],
-	"pidatys": ["Vaalan poliisi soitti. Sut pidätettiin!", "Roivainen sano, että sää myit lääkkeitä torilla.",
+	"pidatys": ["Raahen poliisi soitti. Sut pidätettiin!", "Roivainen sano, että sää myit lääkkeitä torilla.",
 		"Sakot maksetaan sun rahoista.", "Ja kotiin siitä, heti kun pääset!"],
 }
 const PHONE_REPLIES := ["K-kyllä kulta...", "Kyllä kulta...", "Joo... kyllä kulta...", "Kyllä kulta. Anteeks."]
@@ -1064,7 +1064,7 @@ func rekka_to_raahe(done: Callable) -> void:
 	taxi_ride("RAAHEEN", "Rekka jyrisee kohti Raahea. Kyyti ilmaiseksi.", REKKA_LINES, done, true)
 
 
-## Taksimatka (title ja sub ruudulla, kuskin repliikit lines): Raaheen, Paapeliin tai Paapelista kotiin.
+## Taksimatka (title ja sub ruudulla, kuskin repliikit lines): Raaheen, Raaheen tai Raahesta kotiin.
 func taxi_ride(title: String, sub: String, lines: Array, done: Callable, truck := false) -> void:
 	_begin()
 	Sfx.music_play(0.8)
@@ -1421,13 +1421,13 @@ const TRAIN_TALK := [
 ]
 ## Junan puhujien äänet (Sfx.speak-ryhmä = assets/aanet/<ryhmä>/, tehdään tools/aanet/puheaani.py:llä).
 const TRAIN_VOICES := {"minä": "pelaaja", "marja": "marja", "liisa": "liisa", "helena": "helena"}
-const TRAIN_OUTSIDE_SHORT := 4.5  # Saloisista Vaalaan: ulkokuvien kesto (s)
+const TRAIN_OUTSIDE_SHORT := 4.5  # Saloisista Raaheen: ulkokuvien kesto (s)
 const TRAIN_NO_TREAT := "Tarjoaisin teille paukut, mutta lompakko on laiha. Ottakaa vaikka kahvit itse."
 
 
-## Junamatka Saloisten ja Vaalan asemien välillä kolmessa osassa: lähtö (Saloisista Raahen terästehtaan ohi,
-## Vaalasta Oulujoen ristikkosillan yli), ravintolavaunussa jutellaan mukavia naismatkustajien kanssa (kahvia ja
-## pullaa, maisema vilistää ikkunoissa) ja saapuminen (Vaalaan sillan yli, Saloisiin terästehtaan ohi).
+## Junamatka Saloisten ja Raahen asemien välillä kolmessa osassa: lähtö (Saloisista Raahen terästehtaan ohi,
+## Raahesta Oulujoen ristikkosillan yli), ravintolavaunussa jutellaan mukavia naismatkustajien kanssa (kahvia ja
+## pullaa, maisema vilistää ikkunoissa) ja saapuminen (Raaheen sillan yli, Saloisiin terästehtaan ohi).
 ## Taustalla soi rauhallinen junabiisi (Sfx.SONG_JUNA). done kutsutaan pimeällä.
 func train_ride(done: Callable, treat := true) -> void:
 	_begin()
@@ -1456,7 +1456,7 @@ func train_ride(done: Callable, treat := true) -> void:
 	var faded := false  # häivytys vasta, kun kamera on vaunussa (muuten näkyi hetken tyhjä tehdaskohtauksen paikka)
 	var lines: Array = TRAIN_TALK
 	# Erikoiskohtaus (riisuminen, flirtti, vihje Uiton saunalle) vain verkkopaidassa ja tarjotuilla paukuilla Saloisista
-	# Vaalaan. Muuten paukkujen tarjoaminen tuo vain käden reidelle; ilman paukkuja ei kättäkään.
+	# Raaheen. Muuten paukkujen tarjoaminen tuo vain käden reidelle; ilman paukkuja ei kättäkään.
 	var special := false
 	const LINE := 2.3
 	const SPEED := 24.0
@@ -1604,7 +1604,7 @@ func train_ride(done: Callable, treat := true) -> void:
 				if not hand.has("h0"):
 					hand.h0 = hl.position
 				var lean := smoothstep(0.0, 1.0, minf(1.0, hand.w * 0.6 + hand.slide * 0.6))
-				lean = 0.0  # Saloisista Vaalaan Helena istuu paikallaan: ei liu'u viereen eikä nojaa olalle
+				lean = 0.0  # Saloisista Raaheen Helena istuu paikallaan: ei liu'u viereen eikä nojaa olalle
 				var toward: Vector3 = hero.position - (hand.h0 as Vector3)
 				toward.y = 0.0
 				hl.position = (hand.h0 as Vector3) + toward.normalized() * float(hand.near) * lean
@@ -1727,7 +1727,7 @@ func _cut_train(parent: Node3D) -> Node3D:
 
 
 ## Ulkokuva junasta: "steel" = Raahen terästehdas (savuavat piiput, masuuni, ruostuneet hallit, saastunut maa ja
-## ruskea savusumu) tai "bridge" = Oulujoen teräsristikkosilta Vaalassa (kamera joen rannalta). Pimeästä pimeään.
+## ruskea savusumu) tai "bridge" = Oulujoen teräsristikkosilta Raahessa (kamera joen rannalta). Pimeästä pimeään.
 func _train_outside(kind: String, title: String, sub: String, secs := 6.5) -> void:
 	var root := Node3D.new()
 	root.position = TRAIN_POS + (Vector3(0, 0, 0) if kind == "steel" else Vector3(2000, 0, 0))
@@ -1907,8 +1907,8 @@ func _build_steel_land(r: Node3D) -> Array:
 	return puffs
 
 
-## Oulujoki Vaalassa: rannat koivikkoineen, leveä joki, teräsristikkosilta (train.gd build_truss) penkereineen ja
-## Vaalan talot ja kirkontorni joen takana.
+## Oulujoki Raahessa: rannat koivikkoineen, leveä joki, teräsristikkosilta (train.gd build_truss) penkereineen ja
+## Raahen talot ja kirkontorni joen takana.
 func _build_bridge_land(r: Node3D) -> void:
 	const RIVER := Vector2(-45.0, 25.0)  # joen z-väli
 	const WATER_Y := -4.5
@@ -1934,7 +1934,7 @@ func _build_bridge_land(r: Node3D) -> void:
 		else:
 			B.mesh(r, B.cyl(0.12, 0.16, hgt * 0.7, 6), Vector3(x, hgt * 0.35, z), Color(0.92, 0.92, 0.88))
 			B.mesh(r, B.sphere(hgt * 0.18, 7), Vector3(x, hgt * 0.75, z), Color(0.35, 0.55, 0.22))
-	# Vaala joen takana: talot ja kirkontorni.
+	# Raahe joen takana: talot ja kirkontorni.
 	for i in 8:
 		var p := Vector3(-120 + i * 30, 0, -110 - (i % 3) * 18)
 		B.box(r, Vector3(10, 6, 8), p + Vector3(0, 3, 0), [Color(0.85, 0.75, 0.4), Color(0.6, 0.15, 0.1), Color(0.9, 0.9, 0.86)][i % 3], false)
@@ -2644,7 +2644,7 @@ const NewsScreen := preload("res://scripts/news_screen.gd")
 var news_hero: Node3D  # testit: sankari sohvalla
 var news_view: SubViewport  # testit: lähetyksen ruutu
 const NEWS_HEADLINES := ["Markka vahvistui kolmatta päivää", "Hirvikolari Valtatiellä 8 – hirvi selvisi",
-	"Raahessa teräs kulkee, palkat ei", "Kesäillan valssi keräsi ennätysyleisön", "Mopopojat ojassa Vaalassa",
+	"Raahessa teräs kulkee, palkat ei", "Kesäillan valssi keräsi ennätysyleisön", "Mopopojat ojassa Raahessa",
 	"Kaljan hinta nousee taas", "Oulujärven hauet ennätyskoossa"]
 
 

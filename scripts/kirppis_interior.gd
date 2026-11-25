@@ -98,7 +98,7 @@ const PEOPLE := [
 ]
 const AMBIENT := {
 	"hilkka": ["Itte virkattu, joka silmukka.", "Näillä liinoilla on kaunis joulupöytä.", "Halvemmalla ei saa ku Prismasta, ja sielä on kiinalaista."],
-	"raili": ["Uuno Turhapuro, kaikki osat! Melkein kaikki.", "Posliinikoira vahtii taloa, ku isäntä on Paapelissa.",
+	"raili": ["Uuno Turhapuro, kaikki osat! Melkein kaikki.", "Posliinikoira vahtii taloa, ku isäntä on Raahessa.",
 		"Joka kolmas VHS toimii. Joka toinen melkein."],
 	"tauno": ["Ruuvit lajiteltu purkkiin. Melkein lajiteltu.", "Rautalangalla korjaa kaiken, mitä teippi ei korjaa.",
 		"Tää jakoavain on ollu mun isän. Ei oo myytävänä. Paitsi kympillä."],

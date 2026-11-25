@@ -1,5 +1,5 @@
 extends Node3D
-## Satunnainen juna Vaalan mopomatkan radalla (vaala.gd _build_train): radan OSM-pätkistä ketjutettua reittiä pitkin
+## Satunnainen juna Raahen mopomatkan radalla (vaala.gd _build_train): radan OSM-pätkistä ketjutettua reittiä pitkin
 ## päästä päähän. Juna lähtee satunnaisin välein siitä päästä, joka on kauempana kamerasta (ilmestyminen ei näy), ja
 ## katoaa toiseen päähän. Sr1-veturi ja neljä sinistä vaunua (yksi ravintolavaunu), 70-90 km/h. Jyrinä 3D-äänenä
 ## veturissa, vihellys ohittaessa kameran.
@@ -286,7 +286,7 @@ func _place() -> void:
 		var pf := _at(df)
 		var pr := _at(dr)
 		var mid := (pf + pr) / 2.0 + Vector3(0, RAIL_TOP, 0)
-		n.position = mid  # paikallinen kehys (Vaalan maailma voi olla siirretty)
+		n.position = mid  # paikallinen kehys (Raahen maailma voi olla siirretty)
 		if pf.distance_to(pr) > 0.1:
 			n.basis = Basis.looking_at(pf - pr, Vector3.UP)
 

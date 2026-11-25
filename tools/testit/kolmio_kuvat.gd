@@ -1,6 +1,6 @@
 extends Node
 ## Kolmiomittauksen (#255) piirretyt kohtaukset ja Sytkäri kuvina ilman pelimaailmaa: ovi Saloisissa (lahjat
-## ojennettu) ja Vaalassa, väärä ovi (mummo keppi ylhäällä, pieni poika), aamu kummassakin, Sytkärin kortti, mätsi ja
+## ojennettu) ja Raahessa, väärä ovi (mummo keppi ylhäällä, pieni poika), aamu kummassakin, Sytkärin kortti, mätsi ja
 ## mittaus kummallekin naiselle. Hahmot ovat 3D-hahmoja (Looks.make) kohtausten omissa lavastuksissa. Jokaisen
 ## kohtauksen hahmoille ja Jonin rinkalle ajetaan läpimenotarkistus (Asento.solids, "LÄPI … -> …" = VIKA).
 ## tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn
@@ -70,7 +70,7 @@ func _lapi(node: Node, nm: String) -> void:
 	print("KOLMIO läpimenot %s: %d hahmoa, %d läpimenoa" % [nm, list.size(), bad])
 
 
-## Lahjojen pitely lähikuvina (Vaalassa kaikki kolme kantavat): edestä, sivulta ja ylhäältä kunkin lahjan kohdalta.
+## Lahjojen pitely lähikuvina (Raahessa kaikki kolme kantavat): edestä, sivulta ja ylhäältä kunkin lahjan kohdalta.
 ## Ennen kuvia otteen rako numeroina (_rako), kädet vartalosta (_kasi_vartaloon) ja läpimenot (Asento.solids).
 ## Lopuksi lahjat kuistin pöydällä (kaikki ojennettu) edestä, sivulta ja ylhäältä.
 func _holders() -> void:

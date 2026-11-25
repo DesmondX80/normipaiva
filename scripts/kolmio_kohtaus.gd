@@ -209,18 +209,7 @@ const KIVA_AAMU := {
 		"loyly": [["Esa", "Pyyhe putos kolmannella heitolla, eikä kukaan ees kattonut. Se vähän harmitti."],
 			["Joni", "Sadan asteen lauteilla mun putteri kutistu tiiksi asti."]],
 		"karaoke": [["Esa", "Mää lauloin Mintulle rakkauslaulun hirven kiimasta. Ei kuulemma ollut romanttinen."],
-			["Joni", "Mun falsetti kuulosti siltä, ku pallo ois osunu nivusiin."]]},
-	"vaala": {
-		"tuppi": [["Hevari-Tero", "Valtio ei saa tietää, kuka meni tuppeen. Kalsarit on yksityisasia."],
-			["Sivikki-Timo", "Mun kalsarit on vieläki Katjan sohvalla. Sivikissä on lämmitys, ei haittaa."]],
-		"lettu": [["Hevari-Tero", "Kilpaa syödyt letut on verottomia. Se lukee laissa, jos lukee tarpeeks tarkkaan."],
-			["Sivikki-Timo", "Mää yrjösin vaan kerran, ja se oli Sivikin ulkopuolella. Ammattilainen."]],
-		"loyly": [["Hevari-Tero", "Saunassa kaikki on samanarvoisia. Paitsi Timo, sillä oli sukat jalassa."],
-			["Sivikki-Timo", "VTEC kesti sata kakskymmentä astetta. Mun munat ei."]],
-		"disko": [["Hevari-Tero", "Pihadisko ilman lupaa. Valtio kuuli bassot Muhokselle asti."],
-			["Sivikki-Timo", "Akku loppu kolmelta, mutta pyllistys jatku aamuun. Katja sano, että mää liikun ku hirvi."]],
-		"karaoke": [["Hevari-Tero", "Mun laulun sanoissa oli viesti verottajalle. Se meni perille."],
-			["Sivikki-Timo", "Katja lauloi mun kanssa duetton. Mää luulen, että se rakastaa mua."]]}}
+			["Joni", "Mun falsetti kuulosti siltä, ku pallo ois osunu nivusiin."]]}}
 
 
 func _morning_lines() -> Array:

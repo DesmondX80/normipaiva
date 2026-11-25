@@ -2,7 +2,7 @@
 
 Luonnos hyväksyttäväksi ennen koodia ([OHJEET.md](OHJEET.md) Työtapa, kohta 2). Pohjana ensimmäinen traileri
 ([PAPERILEIKKAUS.md](PAPERILEIKKAUS.md)), mutta sisältö on **uudet ominaisuudet**: huumekauppa ja sen riskit,
-auton varastus ja tähtijahti, Päivin motkotukset, kolmiomittaus lahjoineen sekä uusi Vaala.
+auton varastus ja tähtijahti, Päivin motkotukset, kolmiomittaus lahjoineen sekä uusi Raahe.
 
 **Minipeliä ei näytetä suoraan.** Rasvanapin pelitilanne (kontaten tökkiminen pimeässä, kermavaahto) ei ole kuvassa.
 Sen ympärys näytetään selkeästi: portsari ja luukku, treffiseura, lahjat ja flirtti. Illasta kerrotaan vihjailemalla
@@ -52,7 +52,7 @@ lavastusta. In = kohta pitkästä otosta.
 
 | # | Otos | Kuva | Kesto |
 |---|---|---|---|
-| 7 | **UUSI** `h_takaovi_koputus` | Vaalan apteekin takaovi, käsi koputtaa kolme kertaa iskulla (0:16 ja kaksi seuraavaa) | 1 t |
+| 7 | **UUSI** `h_takaovi_koputus` | Raahen apteekin takaovi, käsi koputtaa kolme kertaa iskulla (0:16 ja kaksi seuraavaa) | 1 t |
 | 8 | **UUSI** `h_luukku` | Kurkistusluukku aukeaa, Raili, vihreä lamppu, hinnat; samalla leikkaus **portsariin** (viikset, sotilaspuku, "Sano sana") makasiinin luukussa: sama koputus, sama gagi | 2 t |
 | 9 | **UUSI** `h_klaffipoyta` | Klaffipöytä torilla, 3×3-askartelu: Oksikodoni + Burana, reseptikirjan sivu aukeaa | 2 t |
 | 10 | **UUSI** `h_teinit_kaukalo` | Kaukalon iltateinit, myynti, rahat vaihtuvat | 1 t |
@@ -64,7 +64,7 @@ lavastusta. In = kohta pitkästä otosta.
 | 11 | **UUSI** `a_jahti_paivi` | Päivin Hyundai ajaa varastetun auton kannoilla, 5 tähteä vilkkuu, minikartalla jahtaaja | 2 t |
 | 12 | `f_poliisi` + **UUSI** `a_jahti_poliisi` | Poliisiauto liittyy, valot ja sireeni, tutka sinisenä pylpyränä | 2 t |
 | 13 | `f_traktori` | Traktori tiellä, auto väistää kiskojen yli | 1 t |
-| 14 | **UUSI** `a_jahti_roivainen` | Vaalassa Roivaisen poliisi-Saab ajaa Satamantien alikulusta | 2 t |
+| 14 | **UUSI** `a_jahti_roivainen` | Raahessa Roivaisen poliisi-Saab ajaa Satamantien alikulusta | 2 t |
 | 15 | **UUSI** `a_pako_onnistuu` | Auto piilossa ladossa, tähdet putoavat yksi kerrallaan 5 → 0 | 2 t |
 | 16 | `f_wasted` (HEP 0:44) | Päivi 6 metrin päässä, WASTED iskulle | 1 t |
 
@@ -90,7 +90,7 @@ Nimikortti (`teksti: nimi + rooli`), tavallisessa pelin paikassa.
 | 24 | **UUSI** `m_joni_esa` | Kaupan piha: Joni päkkirinkka selässä (golfpallot, termos), Esa harppi taskussa | 2 t |
 | 25 | **UUSI** `m_sytkari` | Puhelimen Sytkäri-mätsi: Minttu (punaiset kiharat), liekkilogo, "Match!" | 1 t |
 | 26 | **UUSI** `m_kartta_harppi` | Paperikartta (M): harpilla piirretyt ympyrät leikkaavat, naisen talo | 2 t |
-| 27 | **UUSI** `m_sivikki` | Timon punainen Sivikki, VTEC kytkeytyy, nurmikon yli Vaalantielle | 2 t |
+| 27 | **UUSI** `m_sivikki` | Timon punainen Sivikki, VTEC kytkeytyy, nurmikon yli Raahentielle | 2 t |
 
 ### 1:14–1:33 Silta: lahjat ja ilta (10 tahtia). Ei Rasvanappia
 
@@ -104,14 +104,14 @@ Nimikortti (`teksti: nimi + rooli`), tavallisessa pelin paikassa.
 | 32b | `kortti` | Musta kortti: **"Ihanaa iltapuuhaa."**, ei muuta | 1 t |
 | 33 | **UUSI** `m_puhelu` | Päivin puhelu kesken kaiken: "Missä sää oot?" "Kolmiomittaamassa." "No tuo maitoa tullessas." | 3 t |
 
-### 1:33–1:55 Välisoitto: aamu ja uusi Vaala (12 tahtia)
+### 1:33–1:55 Välisoitto: aamu ja uusi Raahe (12 tahtia)
 
 | # | Otos | Kuva | Kesto |
 |---|---|---|---|
 | 34 | **UUSI** `m_aamu` | Aamu: kahvit ja mansikkaletut naisen keittiössä (Kolmiomittaus Saloisissa) | 2 t |
-| 35 | `f_mopo_silta` | Mopolla Vaalaan, teksti **VAALA** | 2 t |
+| 35 | `f_mopo_silta` | Mopolla Raaheen, teksti **RAAHE** | 2 t |
 | 36 | **UUSI** `v_ymparyra` | Uusi liikenneympyrä ja K-Market Tervaportti droonilla | 2 t |
-| 37 | **UUSI** `v_satama` | Vaalan satama, muskelivene Oulujärvelle | 2 t |
+| 37 | **UUSI** `v_satama` | Raahen satama, muskelivene Oulujärvelle | 2 t |
 | 38 | `f_lava_tanssi` | Lavatanssit, parit valssiotteessa | 2 t |
 | 39 | **UUSI** `v_retki` | Retkien montaasi: Hiidenportin rotko, Kuhmon karhunkatselu, Kajaanin linna (3 pikaotosta) | 2 t |
 
@@ -122,8 +122,8 @@ Sanat "ei puhutakaan marketissa, ei päiville, ei kellekään": Päivin motkotuk
 | # | Otos | Kuva | Kesto |
 |---|---|---|---|
 | 40 | **UUSI** `p_motkotus_koti` | Kotipiha aamulla, pelaaja pää painuksissa, Päivi: "Ei päiville!" (`cutscene.wasted`) | 2 t |
-| 41 | **UUSI** `p_motkotus_huume` | Päivin puhelu Vaalan hotellihuoneeseen: "Santtu soitti. Santun piti elvyttää sut!" "HUUMEET ON VAARALLISIA. OIKEASTI." (`wasted_phone` yliannos) | 3 t |
-| 42 | **UUSI** `p_motkotus_pidatys` | "Vaalan poliisi soitti. Sut pidätettiin!", PIDÄTETTY-otsikko | 2 t |
+| 41 | **UUSI** `p_motkotus_huume` | Päivin puhelu Raahen hotellihuoneeseen: "Santtu soitti. Santun piti elvyttää sut!" "HUUMEET ON VAARALLISIA. OIKEASTI." (`wasted_phone` yliannos) | 3 t |
+| 42 | **UUSI** `p_motkotus_pidatys` | "Raahen poliisi soitti. Sut pidätettiin!", PIDÄTETTY-otsikko | 2 t |
 | 43 | **UUSI** `h_lamppu` | Apteekin takaoven vihreä lamppu palaa iltahämärässä (2:04 "ensi lauantaina taas lamppu palaa") | 1 t |
 
 ### 2:11–2:40 Kertosäe 3 ja 4: huipennus (16 tahtia)
@@ -132,7 +132,7 @@ Tiivistyvä leikkaus (2 t, sitten 1 t), kaikki ominaisuudet vielä kerran vauhdi
 
 | # | Otos | Kuva | Kesto |
 |---|---|---|---|
-| 44 | `a_jahti_roivainen` | Roivainen jahtaa Vaalassa | 2 t |
+| 44 | `a_jahti_roivainen` | Roivainen jahtaa Raahessa | 2 t |
 | 45 | **UUSI** `h_valeostaja` | Valeostaja torilla: "Sää oot kyttä!", virkamerkki | 1 t |
 | 46 | **UUSI** `h_ambulanssi` | Kaukalo, ambulanssi sireeni, teini nurmella, ELVYTETTY-otsikko | 2 t |
 | 47 | `f_kiihdytys` | Kiihdytys, ajan kiihdytys (G) | 1 t |
@@ -170,7 +170,7 @@ Sävy on pelin oma: lämmin sarjakuvasekoilu, ei kuvaa vakavasti eikä houkuttel
 
 ## Päätökset ja oletukset
 
-- **Treffiseura** on Sytkäri-sovelluksen (pelin oma parodia) Minttu Saloisissa ja Katja Vaalassa. Lahjojen (ruusut,
+- **Treffiseura** on Sytkäri-sovelluksen (pelin oma parodia) Minttu Saloisissa ja Katja Raahessa. Lahjojen (ruusut,
   mansikat, kermavaahto) jälkeen hän ehdottaa flirttaillen iltapuuhaa. Kirjoitusasu "iltapuuhaa".
 - **Portsari** on makasiinin luukun viiksekäs sotilaspukuinen mies; sisälle makasiiniin tai pimeään olohuoneeseen ei
   mennä.

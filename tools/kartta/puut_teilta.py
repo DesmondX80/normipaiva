@@ -1,6 +1,6 @@
 """Puut pois teiltä, poluilta ja radoilta valmiista puutiedostoista (ONP3, scripts/forest.gd).
 
-Leivonnat (mokki_puut.py, vaala_bake.py) karsivat puut päätieltä, mutta Vaalan sivuteille, kaduille, poluille ja
+Leivonnat (mokki_puut.py, vaala_bake.py) karsivat puut päätieltä, mutta Raahen sivuteille, kaduille, poluille ja
 radoille sekä mökin pihatielle jäi puita. Tämä lukee valmiin puut.bin:n, poistaa puut, joiden runko on
 piirretyn tien päällä tai alle MARGIN m sen reunasta, ja kirjoittaa tiedoston samassa muodossa (puiden
 lajit, latvukset ja satunnaisluvut säilyvät). Tienleveydet samat kuin pelin piirrossa (mokki.gd _build_waters_and_roads
@@ -20,8 +20,8 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MOKKI_TREES = os.path.join(ROOT, "assets", "mokki", "puut.bin")
 MOKKI_MAP = os.path.join(ROOT, "assets", "mokki", "kartta.json")
-VAALA_TREES = os.path.join(ROOT, "assets", "vaala", "puut.bin")
-VAALA_ROAD = os.path.join(ROOT, "assets", "vaala", "tie.json")
+RAAHE_TREES = os.path.join(ROOT, "assets", "vaala", "puut.bin")
+RAAHE_ROAD = os.path.join(ROOT, "assets", "vaala", "tie.json")
 
 MARGIN = 0.8  # rungon etäisyys tien reunasta vähintään (latvus saa ulottua tien ylle)
 SPECIES = 5
@@ -180,7 +180,7 @@ def site_tracks(k, to_local):
 
 
 def vaala_segments():
-    d = json.load(open(VAALA_ROAD, encoding="utf-8"))
+    d = json.load(open(RAAHE_ROAD, encoding="utf-8"))
     road = d["road"]  # [x, y, z, s, puolileveys, ...]
     segs = [((road[i][0], road[i][2]), (road[i + 1][0], road[i + 1][2]), road[i][4]) for i in range(len(road) - 1)]
     for br in d["branches"]:
@@ -232,8 +232,8 @@ def filter_mokki():
 
 
 def filter_vaala():
-    parkings = json.load(open(VAALA_ROAD, encoding="utf-8")).get("parkings", [])
-    filter_file(VAALA_TREES, vaala_segments(), "Vaala", parkings)
+    parkings = json.load(open(RAAHE_ROAD, encoding="utf-8")).get("parkings", [])
+    filter_file(RAAHE_TREES, vaala_segments(), "Raahe", parkings)
 
 
 def main():

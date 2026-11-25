@@ -524,7 +524,7 @@ static func vision_fan(radius: float, half_angle: float) -> ArrayMesh:
 	return st.commit()
 
 
-## Kotiviinin puusaavi (autotalli ja Paapeli): puinen jalusta, saavi vanteineen ja laudoituksineen, törmäys,
+## Kotiviinin puusaavi (autotalli ja Raahe): puinen jalusta, saavi vanteineen ja laudoituksineen, törmäys,
 ## viini ja käymisen ajan liina vesilukkoineen saavin sisällä (puureuna näkyy ylhäältä). Palauttaa [viini, liina].
 static func wine_vat(parent: Node3D, c: Vector3) -> Array:
 	var wood := Color(0.52, 0.34, 0.18)
@@ -649,7 +649,7 @@ class Batch:
 	static var disk := {}  # lisäysten tiiviste -> ArrayMesh
 	static var disk_new := 0
 	static var used := {}  # tällä käynnistyksellä käytetyt (vain ne tallennetaan: välimuisti ei kasva vanhoista)
-	## true vain kylän rakennuksen ajan (world.gd): muulloin koottuja meshejä ei pidetä tallessa. Ennen Vaalan
+	## true vain kylän rakennuksen ajan (world.gd): muulloin koottuja meshejä ei pidetä tallessa. Ennen Raahen
 	## jokainen uudelleenrakennus jätti eränsä tänne pysyvästi (muistivuoto).
 	static var record := false
 	const Terrain := preload("res://scripts/terrain.gd")

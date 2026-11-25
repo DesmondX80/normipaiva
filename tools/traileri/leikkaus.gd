@@ -37,7 +37,7 @@ const SHOTS := [
 		["sininen ristikkolehti", Color(0.1, 0.25, 0.75)], ["EI KALJAA!!!", Color(0.8, 0.1, 0.1)], ["– Päivi", Color(0.1, 0.1, 0.25)]]},
 	{"id": "p_hyundai_lahtee", "g": "ulko", "s": 6.0},
 	{"id": "i_pekka", "g": "ulko", "s": 6.0},
-	{"id": "t_kortti", "g": "kortit", "s": 3.0, "kortti": "PAAPELIIN PÄÄSEE,", "ala": "kunhan…"},
+	{"id": "t_kortti", "g": "kortit", "s": 3.0, "kortti": "RAAHEIN PÄÄSEE,", "ala": "kunhan…"},
 	{"id": "p_talli", "g": "ulko", "s": 5.0},
 	{"id": "i_talli", "g": "ulko", "s": 4.0},
 
@@ -88,16 +88,16 @@ const SHOTS := [
 	{"id": "f_wasted", "g": "wasted", "b": 8, "in": 1.0, "sfx": 1.0},
 	{"id": "s_kyyti", "g": "kyyti", "b": 8, "in": 4.0},
 
-	# --- Silta 140–152 s: PAAPELI ------------------------------------------------------------------------------------
-	{"id": "t_mokki_saapuu", "g": "mokki", "b": 8, "at": 140.0, "teksti": "PAAPELI"},
+	# --- Silta 140–152 s: RAAHE ------------------------------------------------------------------------------------
+	{"id": "t_mokki_saapuu", "g": "mokki", "b": 8, "at": 140.0, "teksti": "RAAHE"},
 	{"id": "s_sauna", "g": "sauna", "b": 11, "in": 6.0},
 	{"id": "f_uinti", "g": "uinti", "b": 11, "in": 12.8},
 
-	# --- Loppukertosäe 152–197,6 s: Paapeli ja VAALA, huipennus -------------------------------------------------------
+	# --- Loppukertosäe 152–197,6 s: Raahe ja RAAHE, huipennus -------------------------------------------------------
 	{"id": "m_kala", "g": "kala", "b": 8, "at": 151.955, "in": 5.0},
 	{"id": "f_pingis", "g": "pingis", "b": 8, "in": 0.5},
 	{"id": "s_mokkibileet", "g": "mokkibileet", "b": 10, "in": 3.0},
-	{"id": "f_mopo_silta", "g": "vaala", "b": 8, "in": 1.5, "teksti": "VAALA"},
+	{"id": "f_mopo_silta", "g": "vaala", "b": 8, "in": 1.5, "teksti": "RAAHE"},
 	{"id": "f_siitari", "g": "siitari", "b": 8, "in": 1.5},
 	{"id": "k_karaoke", "g": "karaoke", "b": 8, "in": 1.5},
 	{"id": "f_kiihdytys", "g": "kiihdytys", "b": 8, "in": 2.0},

@@ -2,19 +2,19 @@
 
 > **Juonipaljastuksia.** Tämä opas kertoo pelin kaikki paikat, tehtävät, salasanat ja legendojen ratkaisut. Peli itse ei paljasta mitään etukäteen (päiväkirja näyttää vain sen, mistä on kuultu).
 
-Kaikki, mitä Saloisissa, Paapelin mökillä, Vaalassa ja Raahessa voi tehdä. Ohjaus: [ohjaus.md](ohjaus.md),
+Kaikki, mitä Saloisissa, ja Raahessa voi tehdä. Ohjaus: [ohjaus.md](ohjaus.md),
 päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md).
 
 ## Mitä pelissä voi tehdä
 
-- **Tarina "Paapeliin pääsee, kunhan…":** ohjaa naapurilta toiselle, mutta kaikki muu pysyy vapaana. Ensin
+- **Tarina "Raaheen pääsee, kunhan…":** ohjaa naapurilta toiselle, mutta kaikki muu pysyy vapaana. Ensin
   kuutonen kotijemmoihin (eteinen, talli ja komposti yhteensä), sitten Pekka huikkaa pihalta ja antaa kolme tehtävää vapaassa järjestyksessä: 3 l sieniä
   Pekalle (Arto tietää paikat), 5 l puolukoita Artolle ja Sinikan takapihan nurmikko niin, ettei Päivi näe
   (jos näkee, Päivi suuttuu ja lähtee jahtiin, mutta leikkuuta voi jatkaa karkuun päästyä). Lopuksi Pekan
   autonavaimet ovat hukassa kodalla: Pekka kävi lintutornilla kaverin kyydillä niin kännissä, että ampui
-  luvallisia ja luvattomia lintuja osumatta yhteenkään. Avaimet Pekalle, niin Pekan kyyti Paapeliin aukeaa.
-  Tehtävät näkyvät repussa (R) sitä mukaa kuin niitä löytyy. Paapeliin ei pääse taksilla (taksi ajaa vain retkille ja
-  Raahen baariin). Paapeli on välietappi: tarina jatkuu myöhemmin.
+  luvallisia ja luvattomia lintuja osumatta yhteenkään. Avaimet Pekalle, niin Pekan kyyti Raaheen aukeaa.
+  Tehtävät näkyvät repussa (R) sitä mukaa kuin niitä löytyy. Raaheen ei pääse taksilla (taksi ajaa vain retkille ja
+  Raahen baariin). Raahe on välietappi: tarina jatkuu myöhemmin.
 
 - **Kauppareissu:** kuutonen, grillimakkara ja tulitikut K-Marketista. Kassalla harmaapäät laskevat kolikoita.
   Kauppa on homma muiden joukossa: ei valosädettä eikä pakollista reittiä. Kauppaan mennään oven edestä (E)
@@ -51,30 +51,30 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Testit `--scene=rasvanappi` ja `tools/testit/rasvanappi_kuvat.tscn`.
 - **Pentin BangBus (vain aikuisille, #299):** Pentti (keksitty keski-ikäinen viiksimies: avonainen nahkaliivi karvaisen rinnan päällä, pilottilasit,
   kultaketju) seisoo tuunatun pakettiautonsa vieressä perjantai- ja lauantai-iltaisin klo 19–23: Saloisissa K-Marketin
-  parkkipaikalla, Vaalassa Zabukin asiakasparkissa. Muina aikoina Pentti ajaa autollaan Saloisten liikenteessä.
+  parkkipaikalla, Raahessa Zabukin asiakasparkissa. Muina aikoina Pentti ajaa autollaan Saloisten liikenteessä.
   Auto on viininpunainen Hiace: kyljissä käsinmaalattu PENTIN BANGBUS -banderolli, keulassa liekit, katolla
   lisävalot, takaikkunassa ja ohjaamon takana punaiset samettiverhot ja peilissä pehmonopat. Pentti huutelee
   lähelle tulevalle. Juttelussa kaksimieliset repliikit autosta (eivät toistu samalla kerralla), "Mikä ihmeen
   BangBus?" (moraali kerran päivässä), kieltäytyminen tai kyyti. Kyyti on välikohtaus: auto keinuu parkkipaikalla,
   ikkunat huurtuvat ja radiosta soi humppa; mitään ei näytetä. Pelaaja herää aamulla klo 10.30 oudosta paikasta
-  (Saloisissa urheilukentän maalista, Oravajärven rannalta tai aseman laiturilta, Vaalassa Gasthausin pihalta):
+  (Saloisissa urheilukentän maalista, Oravajärven rannalta tai aseman laiturilta, Raahessa Gasthausin pihalta):
   moraali nousee, mutta vireys, kipu ja stressi kärsivät, ja lompakosta puuttuu 5–20 € ("Bensarahat. T: Pentti").
   Jos joku kylän hahmo on lähellä (25 m), hän näkee kyytiin nousun 60 %:n todennäköisyydellä: maine −3 ja Päivi
   kuulee asiasta aamulla. Päiväkirjaan sivutehtävä "Pentin kyydissä" ja ensimmäisestä kyydistä legendaarinen hetki.
   Toisella kerralla Pentti suunnittelee kiertuetta, ja joka kolmas kyyti on **Pentin kiertue** (onnellinen loppu):
   loppukohtauksessa BangBus ajaa yön maantietä Kajaanin, Kuhmon ja Suomussalmen kautta, Pentti ratissa ja pelaaja
-  etupenkillä. Herätys kotipihalta (Vaalassa Gasthausin pihalta) klo 11, kiertuekulut 20–40 €.
+  etupenkillä. Herätys kotipihalta (Raahessa Gasthausin pihalta) klo 11, kiertuekulut 20–40 €.
   Testit `--scene=bangbus` ja `--scene=bangbus_vaala`. Mainosjuliste: [kuvat/pentin_bangbus_juliste.png](kuvat/pentin_bangbus_juliste.png).
 - **Kolmiomittaus (Sytkäri-mätsi, vain aikuisille):** Saloisten kaupan pihassa seisovat Joni (tummatukkainen golfari,
   selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
-  (erämies, harppi taskussa), Vaalan aseman pihassa Hevari-Tero (valittaa valtiosta) ja Sivikki-Timo (punainen Honda
+  (erämies, harppi taskussa), Raahen aseman pihassa Hevari-Tero (valittaa valtiosta) ja Sivikki-Timo (punainen Honda
   Civic, VTEC). Juttele (E), niin puhelimeen tulee Sytkäri-mätsi (parodiadeittisovellus, liekkilogo): Minttu (punaiset
-  kiharat, pisamat, kesämekko) Saloisissa tai Katja (pitkät mustat suorat hiukset, nahkatakki, motoristi) Vaalassa;
+  kiharat, pisamat, kesämekko) Saloisissa tai Katja (pitkät mustat suorat hiukset, nahkatakki, motoristi) Raahessa;
   kumpikin vähintään yhtä hemaiseva kuin Sinikka. Ovi-, väärän oven ja aamukohtaukset ovat
   3D-lavastuksia omissa maailmoissaan (`kolmio_kohtaus.gd`), ja Sytkärin profiilikuvat on otettu 3D-hahmoista.
   Osoitetta ei kerrota, vain etäisyys. Kaveri mittaa lähtöpaikalta, ja toinen mittaa kauempaa: Saloisissa Esa
-  tekstaa kirkolta, Vaalassa Teron ja Timon kanssa jutellessa valitaan "Hypätään Sivikkiin", ja Timo ajaa porukan
-  aseman pihasta katuja pitkin Vaalantielle (maaston kautta vain, jos tietä ei ole) ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
+  tekstaa kirkolta, Raahessa Teron ja Timon kanssa jutellessa valitaan "Hypätään Sivikkiin", ja Timo ajaa porukan
+  aseman pihasta katuja pitkin Raahentielle (maaston kautta vain, jos tietä ei ole) ja tietä pitkin mittauspisteeseen (VTEC kytkeytyy, matkalla Timon ja Teron
   jutut, E hyppää perille) ja takaisin asemalle. Mittauksen ajan kaverit kulkevat jalan pelaajan perässä (Esa
   liittyy mukaan tekstattuaan, Tero ja Timo Sivikki-ajon jälkeen) ja seisovat takana ovella; pyörän tai mopon
   selässä he jäävät odottamaan ja tulevat perään, kun pelaaja jatkaa jalan. Sen jälkeen pelaaja mittaa lisää missä vain (E "Avaa Sytkäri", vähintään 35 m edellisistä mittauksista).
@@ -82,25 +82,25 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   jokainen mittaus on harpilla piirretty ympyrä ja haalea vyöhyke; vyöhykkeet tummuvat päällekkäin, ja leikkauksessa
   on naisen talo. Lähempää mitattu ympyrä on tarkempi. Väärällä ovella avaa joku muu (mummo kepin kanssa, Pannu-Sulo,
   verotoimiston Raimo...). Kolmiomittaajat tuovat kukin yhden lahjan kuin itämaan tietäjät (Saloisissa Esa mansikat,
-  Joni kermavaahdon ja pelaaja ruusut, Vaalassa Timo kermavaahdon, Tero ruusut ja pelaaja mansikat); oma lahja ostetaan
+  Joni kermavaahdon ja pelaaja ruusut, Raahessa Timo kermavaahdon, Tero ruusut ja pelaaja mansikat); oma lahja ostetaan
   kaupan tiskiltä kauppiaalta (9 €), ja ilman sitä ovi ei aukea ("Missäs ne ruusut on?"). Oikealla ovella pelataan
   erikoissääntöinen Rasvanappi naisen pimennetyssä olohuoneessa (TV-taso, piano, kirjahylly, takka, ruokapöytä,
   sohva, arkku, jalkalamppu, viherkasvi ja rahi samoilla paikoilla kuin makasiinin esteet; ikkunasta kuunvalo,
   eteisen ovesta valojuova): viisi pelaajaa (pelaaja, nainen, kaverit ja naisen
   ystävätär), kermavaahto margariinin tilalla, mansikka palkinnoksi oikeasta arvauksesta ja kaverien omat äänet
   (golfjutut, hyräily, valitus, VTEC). Kesken pelin Päivi soittaa: "Missä sää oot?" "Kolmiomittaamassa." "No tuo maitoa
-  tullessas." Aamulla kahvit ja mansikkaletut (onnellinen loppu **Kolmiomittaus Saloisissa** tai **Vaalassa**), ja
+  tullessas." Aamulla kahvit ja mansikkaletut (onnellinen loppu **Kolmiomittaus Saloisissa** tai **Raahessa**), ja
   seuraavana päivänä maito on vietävä kotiin, tai Päivi motkottaa. Yksi kolmiomittaus päivässä. Päiväkirjan Tehtävät-sivulle
-  tulee "Kolmiomittaus Saloisissa" tai "Vaalassa", kun kavereiden kanssa juttelee ensimmäisen kerran (ajatusviesti), ja se
+  tulee "Kolmiomittaus Saloisissa" tai "Raahessa", kun kavereiden kanssa juttelee ensimmäisen kerran (ajatusviesti), ja se
   leimataan tehdyksi aamulla; Saloisten tehtävällä on karttamerkintä kavereiden luo. Testit
   `--scene=kolmiomittaus` ja `--scene=kolmiomittaus_vaala` (`tools/testit/kolmiomittaus.gd`).
 - **Iltakivat (kolmiomittauksen toinen ilta ja siitä eteenpäin, vain aikuisille, vähän rivoja):** kohteen ensimmäinen
   ilta on aina Rasvanappi, sen jälkeen illat kiertävät (`kolmiomittaus.gd KIVAT`; Saloisissa räsytuppi, lettukisa,
-  karaoke ja löylykisa; Vaalassa räsytuppi, Sivikki-disko, löylykisa, lettukisa ja karaoke). Jokaisen voitto on
+  karaoke ja löylykisa; Raahessa räsytuppi, Sivikki-disko, löylykisa, lettukisa ja karaoke). Jokaisen voitto on
   legendaarinen hetki, ja aamun tilastorivi ja kaverien aamurepliikit kertovat illan kivasta (`kolmio_kohtaus.gd KIVA_AAMU`).
   Sivutehtävä **Kolmiomittauksen iltakivat** (päiväkirja, tulee tiedoksi ensimmäisen kolmiomittauksen jälkeen): koe kaikki
   kuusi (Rasvanappi, räsytuppi, lettukisa, löylykisa, Sivikki-disko ja karaoke; voittoa ei vaadita, luovutus ei kelpaa).
-  Edistyminen "koettu n / 6" ja puuttuvat kivat; disko vaatii Vaalan.
+  Edistyminen "koettu n / 6" ja puuttuvat kivat; disko vaatii Raahen.
   - **Räsytuppi** (`tuppi.gd`, `tuppi_game.gd`): tuppia pareittain naisen olohuoneen korttipöydässä (pelaaja ja nainen
     vastaan kaverit; rami tai nolo, maapakko, ässä korkein). Jaon hävinnyt pari riisuu: kengät, paita (naisella
     rintaliivit jäävät) ja housut; kalsareissa hävinnyt pari on pantu tuppeen. Legendaarinen hetki **Räsytuppi**.
@@ -110,7 +110,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   - **Löylykisa** (`loyly_game.gd`): oma sauna (lauteet, kiuas kivineen, höyry), pyyhkeet lanteilla. Nainen heittää
     löylyä tasaisin välein; hengitä ulos (E), kun rengas on vihreällä, niin tuska laskee. Paennut nousee lauteilta, ja
     pyyhe jää lauteille. Viimeinen lauteilla voittaa: **Löylykunkku**.
-  - **Sivikki-disko** (vain Vaala, `disko_game.gd`): Katjan pihalla Timon Civic ajovaloineen ja pohjavaloineen, stereoista
+  - **Sivikki-disko** (vain Raahe, `disko_game.gd`): Katjan pihalla Timon Civic ajovaloineen ja pohjavaloineen, stereoista
     oikea 90-luvun tanssibiisi (tempo mitattu). Liikkeet tulevat tahdissa neljälle kaistalle: lantio (A/D), kädet ylös (W)
     ja pyllistys (S, hahmo pyllistää kameraan). Katja valitsee parhaan tanssijan hitaille: **Sivikki-disko**.
   - **Karaoke** (`ilta_karaoke.gd`): mikrofoniteline olohuoneessa ja putkitelkkari sanoineen; jokainen laulaa oman rivon
@@ -177,8 +177,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   `scripts/retket.gd`: nimi, lähtöpaikka, matkan kesto, meno-paluu-hinta ja kohtaus). Kohde on oma taskukohtaus (`retki_*.gd`), jossa
   kävellään kuten Raahen baarissa. Ovelta (taksille) E vie takaisin **lähtöpaikkaan** samaan paikkaan, josta lähdettiin: päivä ei vaihdu,
   paluumatka on jo maksettu ja kello siirtyy matkan keston verran sekä menossa että tullessa. Yöllä sammutaan kuten muuallakin
-  (herätys kotona). Uusi kohde = yksi rivi rekisteriin ja yksi tiedosto; Vaalan aseman matkavalikko (`lahto: "vaala_asema"`)
-  generoidaan samasta rekisteristä, kun ensimmäinen Vaalan kohde tulee.
+  (herätys kotona). Uusi kohde = yksi rivi rekisteriin ja yksi tiedosto; Raahen aseman matkavalikko (`lahto: "vaala_asema"`)
+  generoidaan samasta rekisteristä, kun ensimmäinen Raahen kohde tulee.
 - **Matkaopas (B):** taksikuskilta saa kerran pehmeäkantisen taskuoppaan (taksivalikon valinta "Onko sulla mitään esitettä näistä
   retkipaikoista?"; tallentuu ensikertana `matkaopas`, näkyy repussa). Opas on aukeama (`scripts/matkaopas.gd`): kansilehti ja
   sisällys (käydyt rastitettu, klikkaus vie sivulle), sitten sivu jokaisesta rekisterin kohteesta. Nimi, lähtöpaikka, kesto ja
@@ -306,10 +306,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Valinta: Pirtin oppaalle (70 €, maine +12, loppu "Kuninkaan tapuli", Arton ja Pekan repliikit vaihtuvat) tai takaisin
   koloon suntion luona (maine +4, avain pysyvästi): tapuli on silloin jemma (24 kaljaa) ja kello varoittaa, kun poliisi
   on liikkeellä. Teinien bileiden jatkuminen tai loppuminen ei ole mukana. Testi `--scene=kuninkaantapuli` (headless).
-- **Vaalan nuorison hupihommat (#183):** (1) *Mopon viritys*: Saloisen autotallin virittämöstä (työkalulaatikko mopon vieressä,
+- **Raahen nuorison hupihommat (#183):** (1) *Mopon viritys*: Saloisen autotallin virittämöstä (työkalulaatikko mopon vieressä,
   E) ajokuntoiseen mopoon isompi sylinteri (14 €, +1,4 m/s), urheilupakoputki (9 €, +1,0) ja pienemmät rattaat (7 €, +0,8);
   kukin vie 30 min ja nostaa huippunopeutta (rajoittimella 15 → 18,2 m/s, ilman 21 → 24,2 m/s), ja ajossa mitataan huippunopeuden
-  ennätys. Lavan pihan teinien keskusteluvalinnat (Vaala, `nuoret`): (2) *Pullonkeräys* aamulla 6–11 (9–16 kpl, pantti 0,15 €/kpl,
+  ennätys. Lavan pihan teinien keskusteluvalinnat (Raahe, `nuoret`): (2) *Pullonkeräys* aamulla 6–11 (9–16 kpl, pantti 0,15 €/kpl,
   40 min). (3) *Liian nuoret portailla* illalla 18–23: uutta purukumia lapsille (1,50 €, maine +1), ettei tarvitse pestä vanhoja.
   (4) *Kasetin äänitys*: tyhjä kasetti 1 € ja 20 min radiosta; sen jälkeen oma kasetti teinien soittimeen kerran päivässä (65 %
   tykkää: maine +2, mielihyvä; muuten maine −1). (5) *Mopoletka* yöllä 23–03 toimivalla mopolla (bensaa −12 %, moraali ja
@@ -317,7 +317,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (fight.gd "jarkkari"; voitto maine +3, tappio −5 € ja maine −3). (7) *Uimakilpailu* iltapäivällä 12–18 kerran päivässä
   (`uinti_game.gd`): ponkkarihyppy (aika vihreälle) ja 100 m vuorotellen A ja D kahta nuorta vastaan; voitosta maine +4 ja
   ennätysaika. Kioskilla Zabukin luona illalla 18–23 *hengailu* (tunti, moraali, stressi, mielihyvä). Voimayhtiön *kesäduuni*:
-  Vaalan työkkärissä aamulla 8–12 rantojen siivous 4 h, 28 €. Testit `--scene=hupihommat`, `--scene=lavatappelu` ja
+  Raahen työkkärissä aamulla 8–12 rantojen siivous 4 h, 28 €. Testit `--scene=hupihommat`, `--scene=lavatappelu` ja
   `--scene=uintikisa`.
 - **Pieneläintuhkaamo Lemmikki Enkelit (#148):** kylän länsiosassa (OSM office=company) lämminhenkinen, rauhallinen paikka
   (pastellikyltti enkelinsiipineen, piippu, valkoinen aita). Rakennuksen edessä muistolehto: sorapolku, penkki, kynttilälyhdyt
@@ -353,7 +353,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Rojuniemessä (retki taksilla 4 €, 10 min, `retki_rojuniemi.gd`: tehdas, aita, vartijakoppi, peruskivi, laatta) -> vihje 2: opaskyltti ->
   laatta kiven edessä, kun molemmat on kuultu: kätkö aukeaa, löytäjäispalkkio 30 € ja maine +3, loppu "Peruskiven kapseli". Palkkio vain kerran
   (`found`-lippu). Näkyy päiväkirjassa. Tila `peruskivi_legenda.gd`. Testi `--scene=peruskivi`.
-- **Legenda: Manamansalon muistokirkko (#250 P7, tarkistettava):** Oulujärven suurin saari Vaalassa; sen sanotaan olleen metsästäjien hautausmaasaari ja
+- **Legenda: Manamansalon muistokirkko (#250 P7, tarkistettava):** Oulujärven suurin saari Raahessa; sen sanotaan olleen metsästäjien hautausmaasaari ja
   Kainuun ensimmäisen kirkon sanotaan rakennetun sinne 1559. Nimen "kuolemansaari" tulkinta on epävarma, ja peli esittää sen vain taksikuskin ja oppaan
   tulkintana. Ketju: taksikuski kertoo (valinta "Mikä se Manamansalon kuolemansaari oikein on?") -> vihje 1: opas kirkon edessä (retki taksilla 30 €, 60 min,
   `retki_manamansalo.gd`: muistokirkko, hautausmaa, laituri) -> vihje 2: hautausmaan infotaulu -> kirkon kivijalka mäellä: legendan loppu, kynttilä
@@ -399,7 +399,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Juhannusaattona (perjantai, `_juhannus()`) voitto on turnausvoitto: mielihyvä +6 ja maine +1 kerran (`kalajoki_legenda.gd`), ja kentälle ilmestyvät koivut ja siimalippu. Muina päivinä saa harjoitella ilman palkkiota. Turnauksen koko ja tiedot "sanotaan"-muodossa, tarkistettava. Testi `--scene=kalajoki`.
 - **Retki: Raatteen Portti, Suomussalmi (#250 P20, tarkistettava):** taksilla itään (valinta "Raatteen Portille", 30 €, 100 min, `retki_raate.gd`). Kunnioittava tarinaetappi talvisodan muistopaikalle: ei minipeliä eikä vitsejä. Kivipylväsportti Raatteentien päällä, muistokivi soihtuineen ja vanha vierailija puhekuplineen (kyltit fontti 60-72).
   Kolme kohtaa (vierailija/tie, portti, muistokivi), kaikki "sanotaan"-muodossa; aukioloa tai museota ei esitetä varmana. Kun kaikki on käyty: mielihyvä +3 ja maine +1 kerran (`raate_legenda.gd`). Näkyy päiväkirjassa ensimmäisen kohdan jälkeen. Testi `--scene=raate`.
-- **Valentin Vaala -elokuvapäivät (#250 P14, ohjelma ja päivät tarkistettava):** Vaalan Veturitalli (punatiilinen vaja OSM:n "Vanhan veturitallin" paikalla radan ja Satamantien välisellä aukiolla, etuseinä lähimmälle tielle päin, kyltti "VAALAN VETURITALLI") on auki esityksiin kolmena viimeisenä päivänä 28 päivän jaksossa (päivät 26-28) klo 13-17; muulloin ovella kerrotaan syy. Ovella banderolli. E ovella: mykkäelokuvan tyylinen sepiaesitys (ohjelma yleinen, ei väitettyjä elokuvanimiä) ja 78-levyn iskelmä (`iskelmat.gd`); kello +40 min, stressi -0,1, mielihyvä +4. Esc poistuu kesken. Hotelli Siitarin ulko-ovi on samassa päädyssä kuin baarin ulko-ovi (ulkona +ax, sisänäkymässä +X, z 3,4; hotellin sisätilat peilattu `siitari_interior.gd _hp`). Tiedostot `vaala.gd _build_veturitalli`, `vaala_esitys.gd`. Testi `--scene=valentinvaala`.
+- **Valentin Raahe -elokuvapäivät (#250 P14, ohjelma ja päivät tarkistettava):** Raahen Veturitalli (punatiilinen vaja OSM:n "Vanhan veturitallin" paikalla radan ja Satamantien välisellä aukiolla, etuseinä lähimmälle tielle päin, kyltti "RAAHEN VETURITALLI") on auki esityksiin kolmena viimeisenä päivänä 28 päivän jaksossa (päivät 26-28) klo 13-17; muulloin ovella kerrotaan syy. Ovella banderolli. E ovella: mykkäelokuvan tyylinen sepiaesitys (ohjelma yleinen, ei väitettyjä elokuvanimiä) ja 78-levyn iskelmä (`iskelmat.gd`); kello +40 min, stressi -0,1, mielihyvä +4. Esc poistuu kesken. Hotelli Siitarin ulko-ovi on samassa päädyssä kuin baarin ulko-ovi (ulkona +ax, sisänäkymässä +X, z 3,4; hotellin sisätilat peilattu `siitari_interior.gd _hp`). Tiedostot `vaala.gd _build_veturitalli`, `vaala_esitys.gd`. Testi `--scene=valentinvaala`.
 - **Saloisten koulukeskus, päiväkoti, kentät ja ulkopingis (#143):** keskustan koulukeskus ja päiväkoti (OSM-rakennukset)
   nimikylttineen, kaksi jalkapallokenttää rajaviivoineen ja maaleineen sekä koulun pihan ulkopingispöytä ("PIHAPINGIS").
   Pöydällä iltapäivisin ja iltaisin (14–21) E: haaste kylän nuorille samalla pingis_game.gd-minipelillä kuin Santun kanssa
@@ -422,7 +422,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Korjaamot:** P. Korpelan moottoriajoneuvohuolto (Volvo nostimella), Simo Niemelän liikkuva autosähkö
   (pakettiauto Pirtin lähellä), Heiskasen kaasu- ja sammutinhuolto sekä Huhtalan auto ja varaosat romuautoineen
   (auki 8–17). Pekan Volvo ei lähde joka kuudes päivä: Korpela korjaa sen kahdella kaljalla tai 25 €:lla, ja sen
-  päivän kyyti Paapeliin on ilmainen. Simo korjaa sähköpyörän oikosulun ja lataa akun pakusta, Heiskaselta kaasupullo
+  päivän kyyti Raaheen on ilmainen. Simo korjaa sähköpyörän oikosulun ja lataa akun pakusta, Heiskaselta kaasupullo
   Pannu-Sululle (ilmainen kanisteri) ja sammutin kotiin (Päivi ilahtuu), Huhtalan romuista varaosia, ja romuauton
   takakontti on uusi jemma. Testi `--scene=korjaamot`.
 - **Etelän erämaa:** Viitajärven laavu kartan lounaiskulmassa: tulitikuilla nuotio, makkara ja kalja tuovat
@@ -534,10 +534,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Mökki:** mökille pääsee naapurin Pekan kyydillä (taksia ei ole: se oli aiemmin oikotie, ja nyt Volvo pitää tarvittaessa korjauttaa Korpelalla): Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
   kyytiin kaljalla tai 10 eurolla (jalan E Pekan luona). Pekan auto odottaa mökin pihatien päässä, ja sillä
   pääsee kotipihaan ilmaiseksi (bensat maksettiin menomatkalla). Välikuvassa Pekan vihreä Volvo kaahaa kesäistä maantietä peltojen, säilörehupaalien ja männikön
-  halki, Pekka puhuu kyyhkyistä ratissa ja auto töräyttää Neittävän (kotimatkalla Saloisten) kyltin ohi. Mökki on Vaalan Neittävän kylällä,
+  halki, Pekka puhuu kyyhkyistä ratissa ja auto töräyttää Neittävän (kotimatkalla Saloisten) kyltin ohi. Mökki on Raahen Neittävän kylällä,
   noin 106 km linnuntietä itään Järvikujalta, ja välimatkat (esim. pyörään) näytetään sen mukaan. Mökillä
   pääpelin tehtävät eivät etene eivätkä näy HUD:ssa: aika seisoo, Päivi ja muut vaarat jäävät Saloisiin, eikä
-  pyörää varasteta sillä aikaa. Mökki on mallinnettu oikean paikan mukaan (Kaisuantie 62, Neittävä, Vaala): 1,9 × 1,9 km
+  pyörää varasteta sillä aikaa. Mökki on mallinnettu oikean paikan mukaan (Kaisuantie 62, Neittävä, Raahe): 1,9 × 1,9 km
   maisema OpenStreetMapista (Likanen, Syväjärvi, Ahveroinen, Tervalampi, Kiiskeroinen, Penikka ja muut lammet
   omilla pinnoillaan, Kaisuantie, Uutelanperäntie, Neittäväntie ja muut tiet, pellot, suo, purot ja noin sata
   naapurirakennusta) ja korkeudet koko alueelta Maanmittauslaitoksen 2 m korkeusmallista (kauempana 8 m ruudukkona,
@@ -593,24 +593,24 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Lauantaina iskelmä suututtaa Raahen jätkät, ja ysäri suututtaa aina hedelmäpelin miehen: riita pihalle Street
     Fighter -tappeluna (kerran päivässä) tai biisi pois. Häviäjä maksaa vitosen, voittajalle talo tarjoaa kaljan
     (`--scene=siitarijukeboksi`).
-  - **Mopolla Vaalaan:** mökin pihan mopolla (huippunopeus 60 km/h) ajetaan Hotelli-Ravintola Siitariin
-    (Uutelanperäntien sora Neittäväntielle, Vuolijoentie radan ali, Oulujoen silta, Vaalan keskusta 1:1: kirkko,
+  - **Mopolla Raaheen:** mökin pihan mopolla (huippunopeus 60 km/h) ajetaan Hotelli-Ravintola Siitariin
+    (Uutelanperäntien sora Neittäväntielle, Vuolijoentie radan ali, Oulujoen silta, Raahen keskusta 1:1: kirkko,
     rautatieasema, kaupat ja kunnantalo). Mopo pysyy teillä: metsään, pellolle ja pihoille ei köröttele, vaan tien
     reunassa mopo liukuu kuin reunakiveä vasten (sivutiet, parkit, tori ja ovien edustat ovat ajettavia; lavan aidan sisäpuoli on kävelyaluetta).
     Radan alikulku on ohikulkuvideon mukainen betonisilta pilaripareineen, ja penger laskee luiskana sillan alle.
     Rata ylittää Oulujoen tiesillan tasossa teräksisellä ristikkosillalla, ja radalla kulkee silloin tällöin juna
     (punavalkoinen Sr1-veturi ja neljä sinistä VR:n vaunua, yksi niistä ravintolavaunu), joka vihellyttää ohittaessaan.
-    Radalla ei kannata seisoa: liikkuva juna tappaa (Vaalassa ja Saloisissa), ja Päivi motkottaa: "Minun piti parsia
+    Radalla ei kannata seisoa: liikkuva juna tappaa (Raahessa ja Saloisissa), ja Päivi motkottaa: "Minun piti parsia
     sinut kokoon palasista!" Seisovan junan läpi ei kävellä eikä ajeta.
-    Vaalassa kuollessa herätään lähemmästä paikasta, Gasthausista tai Paapelista, ja aamulla Päivi soittaa: Santtu
+    Raahessa kuollessa herätään lähemmästä paikasta, Gasthausista tai Raahesta, ja aamulla Päivi soittaa: Santtu
     vastaa kännykkään pää painuksissa ("Kyllä kulta..."). Saloisissa kuollessa herätään aina kotona, ja Päivi motkottaa
     pihalla (`--scene=vaala_ajo --ajo=kuolema --kohta=gasthaus|mokki` ja `--ajo=kuolema_saloinen`).
-    Testi `--scene=vaala_ajo` (ilman ikkunaa `--headless`): autopilotti ajaa mopolla 60 km/h jokaisen Vaalan tien
+    Testi `--scene=vaala_ajo` (ilman ikkunaa `--headless`): autopilotti ajaa mopolla 60 km/h jokaisen Raahen tien
     (n. 190 tietä, 21 km) ja jokaiseen kohteeseen ja kirjaa jumit ja törmäykset (`--ajo=tiet|kohteet|juna|lava`).
-  - **Junalla Saloisten ja Vaalan välillä (10 € suuntaansa):** Vaalassa Vaalantien päästä torin kulmasta
+  - **Junalla Saloisten ja Raahen välillä (10 € suuntaansa):** Raahessa Raahentien päästä torin kulmasta
     suoraa asfalttia (Aseman piha) Siitarin ja Zabukin pohjoispuolelta rautatieasemalle (pelissä tuotu radan varteen
     noin 100 m Siitarista, laituri radan vieressä; todellisuudessa n. 300 m kauempana; junat eivät aja Oulujoen
-    ratasillalle, vaan Vaalan pään reitti alkaa sillan itäpuolelta); Saloisissa
+    ratasillalle, vaan Raahen pään reitti alkaa sillan itäpuolelta); Saloisissa
     asema on K-Marketin takana, ja rata jatkuu asemalta länteen Valtatien yli ja idässä kaartaa heti pohjoiseen
     talojen välistä ja koilliseen horisonttiin, ei kylän läpi (tiet tasoristeyksinä). Molemmat asemat ovat samaa
     vanhaa VR:n puuasematyyppiä (`station_build.gd`): keltainen pystylautaverhous valkoisin listoin, ristikkoikkunat,
@@ -625,10 +625,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     odotussalin laiturin puoleisesta ovesta tai aseman ympäri laiturille. Juna tulee kummallekin
     asemalle satunnaisesti n. tunnin välein pelin kellossa ja seisoo laiturilla puoli minuuttia: vain silloin
     pääsee kyytiin (E laiturilla). Muuten E = odota junaa, kello hyppää ja juna saapuu (testi `--scene=asema`). Matkalla juna ohittaa Saloisten
-    päässä savuavan Raahen terästehtaan ja ylittää Vaalan päässä Oulujoen ristikkosillan. Välikuvassa istutaan
+    päässä savuavan Raahen terästehtaan ja ylittää Raahen päässä Oulujoen ristikkosillan. Välikuvassa istutaan
     ravintolavaunussa tuopin kanssa, naisille tarjotaan Koskenkorvat (16 €, jos rahat riittävät) ja paukun
     jälkeen vieressä istuva Helena laskee kätensä polven päälle ja liu'uttaa sen reittä pitkin sisäreidelle (ilman tarjottuja paukkuja
-    ei kättä). Erikoiskohtaus (riisuminen, flirtti, Helena Uiton saunalle) laukeaa vain verkkopaidassa ja tarjotuilla paukuilla Saloisista Vaalaan;
+    ei kättä). Erikoiskohtaus (riisuminen, flirtti, Helena Uiton saunalle) laukeaa vain verkkopaidassa ja tarjotuilla paukuilla Saloisista Raaheen;
     riisunta kestää n. 8 s ja on viekotteleva mutta pidättyvä: Helena kallistaa päätään ja katsoo pelaajaa, siirtää hiuksensa olan yli,
     pyytää "Auttaisitko vetoketjun kanssa?" (olan yli vilkaisu, vetoketjun ääni), ja tuubimekon yläreuna liukuu hitaasti
     nauttien alas, pysähtyy hetkeksi ja jatkaa vyötärölle käsien kulkiessa kyljillä (kangasvasen ääni, lähikuva pöydän yli).
@@ -637,23 +637,23 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     alusvaatteet pysyvät päällä. Saunan (Uiton sauna) bikinit ovat edelleen punaiset (`helena_bikini()`). Riisunta ei ole
     K-18-asetuksen takana (vain Rasvanappi, BangBus ja kolmiomittaus ovat), eikä siinä ole alastomuutta. Testi:
     `aja.sh --kiintea scene asennot --asento=h` (vaiheet, asennot, läpimenot) ja `--kohta=pitsi` (alusvaatteet edestä, takaa, lähikuvat);
-    Vaalasta Saloisiin tarjoaminen tuo vain käden reidelle; taustalla soi hidas, rento
-    "Slow Stride" (`assets/music/slow_stride.ogg`, `Sfx.SONG_JUNA`). Junasta noustaan laiturille; Vaalaan tultaessa mopo odottaa
-    aseman edessä, ja Vaalasta
+    Raahesta Saloisiin tarjoaminen tuo vain käden reidelle; taustalla soi hidas, rento
+    "Slow Stride" (`assets/music/slow_stride.ogg`, `Sfx.SONG_JUNA`). Junasta noustaan laiturille; Raaheen tultaessa mopo odottaa
+    aseman edessä, ja Raahesta
     lähdettäessä se palaa mökin pihaan kuten muillakin paluureiteillä.
-  - **Minikartta** näkyy myös Vaalan matkalla (mopolla ja jalan) ja mökillä koko kävelyalueella Salmisille asti.
+  - **Minikartta** näkyy myös Raahen matkalla (mopolla ja jalan) ja mökillä koko kävelyalueella Salmisille asti.
     Salmisen uimarannalle, Ranta-Rosvolle ja Keskimmäisen laavulle (tynnyrisauna) vie soratie. Tynnyrisaunan löylyt
     ovat välianimaatio: kaarevat paneelit ja pieni kiuas, ja Santtu tulee kylmien kaljojen kanssa viereen lauteelle
     (testi `--scene=mokkitynnyri`). Salmisessa uidaan ja sukellellaan välianimaationa: kahlaus hiekkarannalta,
     rintauintia, sukellus hiekkapohjalle ahvenparven ja kaislojen sekaan ja pinnalle polskimaan (`--scene=mokkiuinti`).
     Laavun nuotiolla paistetaan makkara välianimaationa (makkara mukana), ja laiturilta lähdetään kalaan. Samat
-    toimivat mopomatkalla Vaalan maailman järviseudulla E:llä (tynnyrisauna, laavu, laituri, Salmisen ranta ja
+    toimivat mopomatkalla Raahen maailman järviseudulla E:llä (tynnyrisauna, laavu, laituri, Salmisen ranta ja
     viskikätkö; mopon selästä aloitettaessa hahmo nousee mopolta ja jatkaa jalan, testi `--scene=mokkijarvi_e`).
     Ranta-Rosvon jalustan takana on viskikätkö (viinakätköjen seitsemäs, avataan kuten muutkin). Mopomaailmassa
     järviseutu on tiivistetty puoleen Neittäväntien haaran pään ympäri (`tools/vaala_jarviseutu.py 0.5`, ilman
     lähdeaineiston välimuistia; leivonnan NL_C ja NL_S vastaavat sitä), joten Rosvolle, Salmiselle ja laavulle on
     lyhyt ajomatka. Järviin ja rannan matalikolle ei ajeta mopolla, ja uimaan lähtiessä mopo jää kuivalle
-    (`--scene=mokkiuinti_mopo`). Vaalan asfalttisivukaduilla ajetaan täyttä 60 km/h, soratiellä pientareen vauhtia. Mopo kaatuu kännissä myös sivuteillä
+    (`--scene=mokkiuinti_mopo`). Raahen asfalttisivukaduilla ajetaan täyttä 60 km/h, soratiellä pientareen vauhtia. Mopo kaatuu kännissä myös sivuteillä
     (asema, järviseutu): se nostetaan ajetulle tielle muutama metri taaemmas (`--scene=mokkikaatuminen`). Ranta-Rosvo ja
     Salmisen uimaranta (Taka-Salmisen länsiranta) ovat asfaltoidun Nuojuankoskentien varrella. Mopolla: risteyksessä,
     jossa Siitariin käännytään oikealle, vasemmalle kääntyvä asfaltti vie Rosvolle ja rannalle, ja samasta
@@ -662,10 +662,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     ja rakennusten pohjat maastotietokannasta, rakennusten korkeudet ja tienvarren metsä (noin 200 000 puuta)
     laserkeilauksesta ja puulajit Luken VMI:stä (`tools/vaala_bake.py`). Keskustassa on K-Market Tervaportti:
     sama kauppa kuin kylässä, ja vasemmalla seinällä Alkon hylly (Koskenkorva kätköviinaksi, T ottaa huikan).
-    Pelissä kauppa on Siitarin vieressä Vaalantien varressa (todellisuudessa n. 400 m kauempana), ja
+    Pelissä kauppa on Siitarin vieressä Raahentien varressa (todellisuudessa n. 400 m kauempana), ja
     pankkiautomaatti on kaupan seinällä. Jos rahat eivät riitä, kaljat ja Alkon pullot voi viedä ovesta
     juoksukaljoina maksamatta (kylän K-Marketissa samoin). Mopotie päättyy torille Siitarin viereen: torin päädyssä
-    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Gasthausin emännältä saa myös Kainuun ruokaa (kalakeitto 9,50 €, kukkoleipä 7 €, talkkuna 4 €, rieska 3,50 €; ruokalistakyltti HUONEET-kyltin alla), ja annos nollaa nälän. Zabukin pohjoispuolelta Vaalantie kääntyy asemalle. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
+    on Zabuki (olut ja hampurilaiset) ja Siitaria vastapäätä Gasthaus. Gasthausin emännältä saa myös Kainuun ruokaa (kalakeitto 9,50 €, kukkoleipä 7 €, talkkuna 4 €, rieska 3,50 €; ruokalistakyltti HUONEET-kyltin alla), ja annos nollaa nälän. Zabukin pohjoispuolelta Raahentie kääntyy asemalle. `tools/vaala_keskusta.py` siirtää kaupan ja poistaa
     laserpuut rakennusten, parkkien ja teiden päältä (latvusmallissa katotkin näkyivät puina). Niemellä, jossa Oulujoki alkaa Oulujärvestä (Vuolijoentieltä oikealle
     asfaltoitua Pahalahdentietä juuri ennen radan alikulkua; `tools/vaala_lava.py` tekee niemen, leveän joen ja
     järven 1:1 korkeusmallista), on Oulujärven lava 90-luvun asussaan (punamullatut seinät, luukut auki, bändi
@@ -680,56 +680,56 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     90-luvun biiseistä: se alkaa heti, ja diskopuolelta haetaan pari (testi `--scene=lavatoiveet`). Tanssien
     aikaan humppa kuuluu pihalle, salissa tanssitaan ja seinien penkeillä istutaan, ja pihalla on grillikioski
     jonoineen ja tupakkapaikka. Lavan ympärillä kasvaa koivikkoa ja katajaa paljaan niityn sijaan. Pelissä lava on
-    todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti. Oulujoen suun itärannalla on Vaalan satama (todellinen Venesatama, Sahanranta): pitkä pääsiltalaituri T-päällä ja sormilaituri,
-    rantakivetys, sorapihan parkki (Sahanrannantie-sorapätkä) ja kyltti "VAALAN SATAMA". Laiturilla on punavalkoinen muskelivene ja
+    todellista (1 500 m²) vähän pienempi. Oulujärvi jatkuu niemeltä kaakkoon kartan reunaan asti. Oulujoen suun itärannalla on Raahen satama (todellinen Venesatama, Sahanranta): pitkä pääsiltalaituri T-päällä ja sormilaituri,
+    rantakivetys, sorapihan parkki (Sahanrannantie-sorapätkä) ja kyltti "RAAHEN SATAMA". Laiturilla on punavalkoinen muskelivene ja
     kaksi soutuvenettä. Pelin ranta poikkeaa todellisesta, joten satama on haettu pelin rantaviivasta lähimpään sopivaan
     kohtaan lähemmäs asemaa: asemalta se on pelissä etelässä n. 470 m (oikeasti n. 700 m; `tools/vaala_satama.py`,
     hakukeskus `vaala_sahanranta.py`:ssä). Asema on siirretty 80 m radan suuntaan itään (todellisuudessa se on lännempänä), jotta Satamantie
     lähtee Aseman pihan taitteesta suoraan etelään tasoristeyksen yli aseman editse eikä kierrä aseman takaa; Veturitalli, Veturitallintie,
     Kätkötie ja narkkarin kätkö (`asema.katko`) siirtyivät mukana, ja aseman lähitalot lähimpään vapaaseen paikkaan.
-    **Satamantie** on kapea asfalttikatu (Saloisten "street": 5,5 m, ei piennarta eikä keskiviivaa): se lähtee Vaalantieltä vanhan K-Marketin paikan (nyt tyhjä piha) länsipuolelta,
+    **Satamantie** on kapea asfalttikatu (Saloisten "street": 5,5 m, ei piennarta eikä keskiviivaa): se lähtee Raahentieltä vanhan K-Marketin paikan (nyt tyhjä piha) länsipuolelta,
     ylittää radan tasoristeyksellä ja jatkaa Sahanrannantienä satamaan (parkkipaikka asfalttia) ja Uitontienä Uiton saunalle (Uitontie on soratie; Satamantie ja Sahanrannantie kapeaa asfalttia, kartalla ohut vaalea tie). Entinen soratie Zabukilta
     ja Aseman pihalta etelään on poistettu; Asemalle ajetaan liikenneympyrästä Aseman pihaa. Sataman ja Uiton pihat ovat edelleen soraa (`tools/vaala_satamatie.py`).
     **Sahanrannan täyte:** Satamantien, Sahanrannantien ja Uitontien varrella on pientaloja, aittoja ja rantamökkejä oikean Sahanrannan
     mitoin sekä puita ja lehtoja pihoilla ja rannoilla (`tools/vaala_sahanranta.py`, ajetaan kerran `vaala_suorat.py`:n jälkeen).
     **Taksihinnat (kaikki retket ja Raahen baari):** meno-paluun hinta ja kesto lasketaan lähtöpaikasta kaikkialla samalla tavalla: matka km x 1,05 min
-    (pyöristys 5 min, vähintään 10 min) ja 0,40 €/min (`retket.gd tarjous`, `raahe_tarjous`; Saloisten ja Vaalan väli 150 min / 60 € on mittapuu).
+    (pyöristys 5 min, vähintään 10 min) ja 0,40 €/min (`retket.gd tarjous`, `raahe_tarjous`; Saloisten ja Raahen väli 150 min / 60 € on mittapuu).
     Saloisten tolpalta esim. Raahen kohteet 4 € / 10 min, Teeriniemi 6 €, Hanhikivi 14 €, Kalajoki 28 €, Pyhäkoski 42 €, Kajaani 84 €, Hiidenportti
-    102 €, Kuhmo 118 €, Raate 126 € (295-315 min suuntaansa, yöllä sammuu perillä); Vaalasta ks. alla. Matkaopas näyttää molemmat lähtöpaikat.
-    **Vaalan K-Markettiin** (`vaala.gd _build_kmarket_yard`) on tehty merkitty parkkipaikka autoineen, kaupan penkin mummot ja rollaattorimummo
+    102 €, Kuhmo 118 €, Raate 126 € (295-315 min suuntaansa, yöllä sammuu perillä); Raahesta ks. alla. Matkaopas näyttää molemmat lähtöpaikat.
+    **Raahen K-Markettiin** (`vaala.gd _build_kmarket_yard`) on tehty merkitty parkkipaikka autoineen, kaupan penkin mummot ja rollaattorimummo
     kuten Saloisissa (suuttuvat mopon ohituksesta yli 5 m/s, kettukarkit horjauttavat mopoa, jalan karkit voi poimia, keppi päähän on kuolema;
-    kuolinviesti "Rollaattorimummo huitaisi kepillä päähän Vaalan K-Marketin pihalla") sekä taksitolppa (E): samat valinnat kuin Saloisissa
-    (kaikki retket, taksikuskin legendat, matkaopas; ei Raahen baaria eikä kyytiä Saloisiin, ja Saloisten tolpalta ei kyytiä Paapeliin), mutta **hinta ja kesto lähtöpaikan mukaan**: Vaalasta Raahen seudulle
-    150 min ja 60 € (kuten kotimatka Saloisiin), Manamansaloon 10 €, Pyhäkoskelle 18 €, Kajaaniin 32 €, Kalajoelle 88 € (matka km Vaalasta
+    kuolinviesti "Rollaattorimummo huitaisi kepillä päähän Raahen K-Marketin pihalla") sekä taksitolppa (E): samat valinnat kuin Saloisissa
+    (kaikki retket, taksikuskin legendat, matkaopas; ei Raahen baaria eikä kyytiä Saloisiin, ja Saloisten tolpalta ei kyytiä Raaheen), mutta **hinta ja kesto lähtöpaikan mukaan**: Raahesta Raahen seudulle
+    150 min ja 60 € (kuten kotimatka Saloisiin), Manamansaloon 10 €, Pyhäkoskelle 18 €, Kajaaniin 32 €, Kalajoelle 88 € (matka km Raahesta
     x 1,05 min ja 0,40 €/min; `retket.gd tarjous`). Retkeltä palataan samaan tolpalle jalan. Testi `--scene=kmarket_vaala`.
-    Vaalantie kääntyy siistillä ympyränkaarella (säde 18 m) Siitarin ja Zabukin pohjoispuolelta suoraan asemalle (Aseman piha); reitin U-mutka
+    Raahentie kääntyy siistillä ympyränkaarella (säde 18 m) Siitarin ja Zabukin pohjoispuolelta suoraan asemalle (Aseman piha); reitin U-mutka
     Zabukin pihan läpi ja liittymä torille on poistettu (`tools/vaala_asematie.py`, ajetaan kerran `vaala_risteys.py`:n jälkeen). Tori on
-    laajennettu Aseman pihan pohjoispuolelle Zabukin eteen (kojut vähintään 4,5 m reunasta, tori 9 m tien keskiviivasta). Siitarin eteen, terassin ja Vaalantien väliin,
+    laajennettu Aseman pihan pohjoispuolelle Zabukin eteen (kojut vähintään 4,5 m reunasta, tori 9 m tien keskiviivasta). Siitarin eteen, terassin ja Raahentien väliin,
     on tehty parkkipaikka ruutuviivoin, P-kyltein ja asiakkaiden autoin (`vaala.gd _siitari_lot`).
-    **Liikenneympyrä ja tori:** Vaalantie jatkuu Siitarin ohi 80 m ja sen päässä on liikenneympyrä (r 12 m, nurmisaareke). Tulosuunnasta oikealle lähtee
+    **Liikenneympyrä ja tori:** Raahentie jatkuu Siitarin ohi 80 m ja sen päässä on liikenneympyrä (r 12 m, nurmisaareke). Tulosuunnasta oikealle lähtee
     Aseman piha asemalle ja vasemmalle Torintie torille: tori ja Zabuki ovat tien vasemmalla puolella yli 120 m Siitarista. Tori on asfalttikenttä
-    (46 x 22 m), jonka takana on Vaalan matkakeskus (pitkä matala rakennus: tiilisokkeli, vaalea yläosa, sinitolppainen katos, "VAALA"-torni;
+    (46 x 22 m), jonka takana on Raahen matkakeskus (pitkä matala rakennus: tiilisokkeli, vaalea yläosa, sinitolppainen katos, "RAAHE"-torni;
     `vaala.gd _build_matkakeskus`) ja sen vasemmassa päässä Zabuki. Ratatien kierros on poistettu (`tools/vaala_torisiirto.py`).
-    **Zabukin parkkipaikka ja liittymät:** Zabukin tiskin eteen tulee asfalttipiha torin eteläpäästä parkkiin, merkitty asiakasparkki (12 paikkaa, ruutuviivat, P-kyltti, pari autoa) piha edessä Vaalantien puolella ja liittymät: kaksi Vaalantieltä parkkiin ja kaksi Torintieltä toriin ja pihaan (`vaala.gd _build_zabuki_lot`, `_road_link`; kaikki mopon ajoaluetta). Kuvat `--scene=vaalakierros` (`_zabuki_parkki`, `_zabuki_parkki_ylos`, `_torintie_liittyma`).
+    **Zabukin parkkipaikka ja liittymät:** Zabukin tiskin eteen tulee asfalttipiha torin eteläpäästä parkkiin, merkitty asiakasparkki (12 paikkaa, ruutuviivat, P-kyltti, pari autoa) piha edessä Raahentien puolella ja liittymät: kaksi Raahentieltä parkkiin ja kaksi Torintieltä toriin ja pihaan (`vaala.gd _build_zabuki_lot`, `_road_link`; kaikki mopon ajoaluetta). Kuvat `--scene=vaalakierros` (`_zabuki_parkki`, `_zabuki_parkki_ylos`, `_torintie_liittyma`).
     **Tori, matkakeskus ja Zabuki** on käännetty 90 astetta vastapäivään (tori ja matkakeskus yhtenä ryhmänä torin keskipisteen ympäri): tori on Torintien
     suuntainen ja sen itäreuna on 8 m tien keskiviivasta, ja matkakeskuksen julkisivu on itään torille ja tielle päin torin länsilaidalla. **Zabuki on
     matkakeskuksen sisällä** (ei omaa kioskia): tiskiluukku on rakennuksen eteläpäädyssä ympyrän puolella (markiisi, kyltit, baarijakkarat), ja taitettava
     klaffipöytä nojaa päätyseinään luukun vieressä (`vaala.gd _build_zabuki`). **Torintie** jatkuu ympyrästä torin ja matkakeskuksen ohi 180 m, ja
-    sen **vasemmalla puolella** on **Vaalan kirkko** julkisivu (torni) tielle päin ja pieni parkki tien ja kirkon välissä (`vaala_kirkko.gd`, tie.json
+    sen **vasemmalla puolella** on **Raahen kirkko** julkisivu (torni) tielle päin ja pieni parkki tien ja kirkon välissä (`vaala_kirkko.gd`, tie.json
     `keskusta.kirkko`): Saloisten kirkon malli, eli valkoinen puukirkko jyrkkine tummine kattoineen, korkeat kaarikattoiset ikkunat, alttarin pääty,
     kuparinvihreä tornin huippu kultaristeineen ja kello tornin seinässä, kivetty reitti ovelle, nimikyltti ja pieni hautausmaa aitoineen (ei sisätilaa).
     Vanha OSM-kirkko (Järvikyläntie 3) on edelleen paikallaan pohjoisempana.
-    **K-Market Tervaportti** on käännetty 90 astetta myötäpäivään: se on ympyrästä suoraan eteen jatkuvan kaksikaistaisen asfalttitien (Vaalantie,
+    **K-Market Tervaportti** on käännetty 90 astetta myötäpäivään: se on ympyrästä suoraan eteen jatkuvan kaksikaistaisen asfalttitien (Raahentie,
     8 m, piennar ja keskiviiva) kaakkoispuolella pitkä sivu tien suuntaan ja julkisivu (ovi, parkkipaikka, ruutuviivat, taksitolppa ja mummot kuten ennen)
     tielle luoteeseen. Tie jatkuu kaupan ohi 100 m (232 m ympyrästä). Kaupan kyltti "K-MARKET TERVAPORTTI" on rakennuksen tienpuoleisella seinällä (`vaala.gd _face_road` käyttää `door_to`:ta, kun päätie on yli 60 m:n päässä; ennen kyltti jäi origoon). Vanha paikka Siitarin vieressä on tyhjä piha; Satamantie lähtee edelleen
-    Vaalantieltä sen länsipuolelta. Siirrot poistivat neljä taloa (Vaalantie 18 ja kolme nimetöntä). Työkalu `tools/vaala_kirkkotie.py`; rakennuksen
+    Raahentieltä sen länsipuolelta. Siirrot poistivat neljä taloa (Raahentie 18 ja kolme nimetöntä). Työkalu `tools/vaala_kirkkotie.py`; rakennuksen
     `door_to` kertoo oven suunnan (`vaala.gd _door`). Testit `--scene=kmarket_vaala`, `--scene=vaalakierros` (`_tori`, `_matkakeskus`, `_zabuki`, `_kauppatie`,
     `_kauppa`, `_kauppatie_loppu`, `_kirkko*`, `_torintie`) ja `--scene=vaala_ajo --ajo=kohteet`.
-    **Kunnantalo** on Vaalantien jatkeen oikealla puolella Siitarin vieressä samansuuntaisesti tien kanssa (46 x 10 m: vasemmalla vaalea kaksikerroksinen
+    **Kunnantalo** on Raahentien jatkeen oikealla puolella Siitarin vieressä samansuuntaisesti tien kanssa (46 x 10 m: vasemmalla vaalea kaksikerroksinen
     siipi vaakunoineen ja puuovineen, oikealla keltainen siipi lasiosineen ja päätyovi, takana torni; edessä nurmikko, suihkulähde, valaisimet ja penkit;
     `vaala.gd _build_kunnantalo`, `tools/vaala_kunnantalo.py`; OSM:n Kunnanvirasto korvautuu). Rakennuksessa ei ole sisätilaa.
     **Satamantien alikulku:** Satamantie ei ylitä rataa tasoristeyksellä vaan painuu leikkaukseen ja kulkee betonikannen alta (kiskot pysyvät maan tasolla;
-    kuten Vaalaan tultaessa, kilpi "4,6 m"; `tools/vaala_alikulku.py`, `vaala.gd _under_structure`).
+    kuten Raaheen tultaessa, kilpi "4,6 m"; `tools/vaala_alikulku.py`, `vaala.gd _under_structure`).
     **Apteekki** on Satamantien varressa radan jälkeen oikealla (`tools/vaala_apteekki.py`, `vaala.gd _build_apteekki`): vaalea liiketila, vihreä APTEEKKI-kyltti,
     edessä asfalttiparkki. Paperikartalla (vihreä risti, selitteessä) ja minikartalla (A) apteekki on merkitty. Sisälle pääsee (auki ma–su 9–17, `apteekki_interior.gd`): tiskillä farmaseutti. Ilman reseptiä saa vain Panadolia (4,90 €) ja Buranaa
     (5,50 €); Panacod (9,80 €) on reseptivapaa; kolmiolääke (▲ Tramal 12,40 €) vaatii reseptin, jonka kuluttaa yksi ostos (`main.gd APTEEKKI_MENU`, `reseptit`). Reseptin
@@ -740,7 +740,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     **Takaovi:** apteekin takaseinässä on teräsovi kurkistusluukkuineen kuten rasvanapin makasiinissa (`makasiini.gd _build_door`, ovi
     "apteekki_taka", HENKILÖKUNTA-kyltti, vihreä lamppu). Koputus (E) avaa luukun, ja farmaseutti myy Oksikodonia (249 €) ja Pervitiiniä
     (199 €) ilman reseptiä kymmenkertaiseen hintaan (`main.gd APTEEKKI_TAKA`, `APTEEKKI_TAKA_MULT`, `_apteekki_taka`). Ovi on auki aina. Testi `--scene=apteekki`.
-    **Jatkaminen (klaffipöytä):** taitettava klaffipöytä nojaa seinää vasten näkyvillä, kahdessa paikassa: Vaalassa matkakeskuksen päätyseinällä Zabukin luukun vieressä ja Saloisissa Reipparin kioskin päätyseinällä (E poimii, kerran, sama pöytä). Se pystytetään repusta tai T:llä:
+    **Jatkaminen (klaffipöytä):** taitettava klaffipöytä nojaa seinää vasten näkyvillä, kahdessa paikassa: Raahessa matkakeskuksen päätyseinällä Zabukin luukun vieressä ja Saloisissa Reipparin kioskin päätyseinällä (E poimii, kerran, sama pöytä). Se pystytetään repusta tai T:llä:
     Minecraft-tyylinen 3×3-askartelu (`klaffipoyta.gd`, reseptit `reseptit.gd`). Esine klikataan repusta kouraan ja ruutuun, ja kun muoto täsmää
     reseptiin (paikalla ruudukossa ei ole väliä), tulos klikataan pois. Neljä reseptiä: Oksikodoni + Burana (pystyyn), Pervitiini + Panadol (vaakaan,
     peilikin kelpaa) → 2 annosta, teho puolet; Pervitiini + Sokeri (vinoon) ja Oksikodoni + Turbohiiva (vastavinoon) → 4 annosta, teho neljännes.
@@ -748,19 +748,19 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     enintään 4; `main.gd LAAKE_JATKO_MAX`, `_jatka_laake`, avain `id~n`). Heikompi pervitiini ei korvaa voimassa olevaa vahvempaa (`perv_mult`).
     **Reseptikirja** on klaffipöydän levyllä ruudukon alla (ei päiväkirjan välilehteä): resepti avautuu, kun repussa on sekä huume että sen jatke, tai kun sen on
     askarrellut; avaamattomat näkyvät ???. Kortissa on 3×3-kuvio (D = huume, A = jatke) ja tulos.
-    **Huumekauppa teineille (Vaala):** lavan pihan teineiltä ja bileporukalta sekä torin mopopojilta ("Myy ...") oksikodonin ja pervitiinin saa myydä samaan
+    **Huumekauppa teineille (Raahe):** lavan pihan teineiltä ja bileporukalta sekä torin mopopojilta ("Myy ...") oksikodonin ja pervitiinin saa myydä samaan
     hintaan kuin takaovella (249 / 199 €), teho ei vaikuta hintaan. Jatkettu annos voi paljastua: teini huomaa todennäköisyydellä 0 / 10 / 30 / 60 / 90 % jatkoasteen mukaan (ei koskaan varmaa), ja syntyy tappelu
     (`fight.gd teini_diili`: 150 hp, kova isku, aggressiivinen). Voitto: teini pakenee, tavarat jäävät, maine +2. Häviö: teini ryöstää kaikki lääkkeet ja rahat,
     tunti kuluu, maine −5 (`main.gd _teini_myy`, `_start_teini_fight`, `_teini_fight_end`).
     **Huumekauppa Saloisissa:** Kinnapotin hallien vieressä Valtatien varressa (noin 30 m tiestä länteen) on pieni uusi apteekki
     (`apteekki_saloinen.gd`, paikka haetaan OSM-datasta ehdokkaista ja tulostetaan `APTEEKKI_S paikka`). Apteekki on merkitty kyläkartalle (vihreä risti, selitteessä) ja minikartalle (A); sijainti luetaan maailmasta. Etuovi on ketjulla lukossa ja AVOINNA-kyltti
-    roikkuu vinossa (E etuovella: vain vihje). Takaseinässä on sama teräsovi kurkistusluukkuineen kuin Vaalassa (HENKILÖKUNTA-kyltti, vihreä lamppu),
+    roikkuu vinossa (E etuovella: vain vihje). Takaseinässä on sama teräsovi kurkistusluukkuineen kuin Raahessa (HENKILÖKUNTA-kyltti, vihreä lamppu),
     ja koputus (E) avaa luukun: eläkkeellä oleva sairaanhoitaja **Hoitaja Raili** (valkoinen takki, harmaa permanentti, pyöreät lasit) myy
-    Oksikodonia (249 €) ja Pervitiiniä (199 €) ilman reseptiä samoin hinnoin kuin Vaalan takaovi (`main.gd _hs_door_logic`, `_hs_hatch`, `_hs_osta`).
+    Oksikodonia (249 €) ja Pervitiiniä (199 €) ilman reseptiä samoin hinnoin kuin Raahen takaovi (`main.gd _hs_door_logic`, `_hs_hatch`, `_hs_osta`).
     Ostajina ovat **kaukalon iltateinit** (klo 20–01 kaukalon itälaidan ulkopuolella kaiuttimen ja tölkkien äärellä, `saloinen_teinit.gd`) ja
     **laavun teinijengi**: kun repussa on myytävää, jengin pomo tulee juttelemaan eikä haasta tappeluun (`laavu_guard.gd peaceful`); laavun voi
-    silti haastaa erikseen. Myynti, hinnat ja paljastuminen ovat Vaalan (`_teini_myy`, `_teini_tulos`); paljastuessa tappelu K-Marketin lavasteessa
-    (`fight.gd teini_diili`). Voiton jälkeen ryhmä ei osta enää samana päivänä (laavun jengi pakenee metsään), häviö kuten Vaalassa.
+    silti haastaa erikseen. Myynti, hinnat ja paljastuminen ovat Raahen (`_teini_myy`, `_teini_tulos`); paljastuessa tappelu K-Marketin lavasteessa
+    (`fight.gd teini_diili`). Voiton jälkeen ryhmä ei osta enää samana päivänä (laavun jengi pakenee metsään), häviö kuten Raahessa.
     **Hoitajan lääkelaukku:** kolmannen luukkuoston jälkeen hoitaja jättää vanhan nahkaisen lääkelaukkunsa takaoven portaalle (kerran, E poimii).
     Se avataan repusta tai T:llä ja toimii kuten klaffipöytä (3×3, samat neljä reseptiä, jatkoaste enintään 4; `laakelaukku.gd`), mutta laukulla
     jatketut annokset ovat puhtaampia: niiden paljastumisporras on yhtä alempi (90 → 60, 60 → 30, 30 → 10, 10 → 0 %; `huume_saloinen.gd porras`,
@@ -768,20 +768,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     `hs_ensimyynti` ja `hs_laukku`.
     **Huumekaupan riskit** (`scripts/rikos/`): jokainen riski on oma osansa (`osa.gd`-pohja, ei `class_name`), jonka `main.gd` lataa
     nimen mukaan (`RIKOS_OSAT`: velka, valeostaja, epäluulo, yliannos, huijari, autovarkaus) ja jolta se kysyy puheessa (tervehdys,
-    valinnat, valinta), logiikassa (Saloisissa ja Vaalassa), uutena päivänä (Päivin lapun lisärivi), tallennuksessa (osa omaan
+    valinnat, valinta), logiikassa (Saloisissa ja Raahessa), uutena päivänä (Päivin lapun lisärivi), tallennuksessa (osa omaan
     `rikos_<nimi>`-osioon) ja päiväkirjassa. Tapahtumat kulkevat `_rikos_event`-kautta: luukkuosto, myynti (key, paikka) ja otto (key, teho).
     Osa voi pitää Saloisten apteekin luukun kiinni (vihje takaovella) ja aloittaa diilitappelun (`_rikos_fight`, osa kertoo lopputuloksen).
     **Riskit-sivu** on päiväkirjan seitsemäs välilehti (näppäin 7): osiot otsikkoineen, mittareineen ja riveineen; tyhjänä "Ei velkoja,
     ei vihjeitä, ei huolia. Vielä." **Pidätys** (`_rikos_loppu("pidatys", syy)`): otsikko PIDÄTETTY, lääkkeet takavarikkoon, puolet rahoista
-    ja maine −10; Saloisissa Päivi motkottaa pihalla, Vaalassa soittaa aamulla. **Yliannos** (`_rikos_loppu("yliannos", syy)`): otsikko
-    ELVYTETTY, Päivi: "Mun piti elvyttää sut." ja lopuksi "HUUMEET ON VAARALLISIA. OIKEASTI." (Vaalassa Santun piti elvyttää, Päivi soittaa).
-    **Velka** (V1, `rikos/velka.gd`): Vaalan torin mopopojat antavat annoksen myyntiin luotolla ("Ota luotolla": oksikodoni tai
+    ja maine −10; Saloisissa Päivi motkottaa pihalla, Raahessa soittaa aamulla. **Yliannos** (`_rikos_loppu("yliannos", syy)`): otsikko
+    ELVYTETTY, Päivi: "Mun piti elvyttää sut." ja lopuksi "HUUMEET ON VAARALLISIA. OIKEASTI." (Raahessa Santun piti elvyttää, Päivi soittaa).
+    **Velka** (V1, `rikos/velka.gd`): Raahen torin mopopojat antavat annoksen myyntiin luotolla ("Ota luotolla": oksikodoni tai
     pervitiini, 0,8 × teinien myyntihinta, enintään 2 annosta saman velan aikana, velkakatto 1000 €). Velka kasvaa joka aamu 15 %
     (tasaeuroihin) ja näkyy Riskit-sivulla mittarina, eräpäivänä ja luottoannoksina. "Maksa velka" mopopojille onnistuu vain, jos rahat
-    riittävät (muuten valinta näkyy harmaana syineen). Kolmannen aamun jälkeen mopopojat perivät seuraavalla Vaalan-käynnillä
+    riittävät (muuten valinta näkyy harmaana syineen). Kolmannen aamun jälkeen mopopojat perivät seuraavalla Raahen-käynnillä
     (3 s ulkona, ei kisan, ratsian eikä välianimaation aikana): diilitappelu. Voitto kuittaa velan (maine +2); häviö vie rahaa velan
     verran ja lyhentää velkaa saman verran (maine −5), ja seuraava perintä on taas kolmen aamun päästä. Tila osiossa `rikos_velka`.
-    **Valeostaja** (V2, `rikos/valeostaja.gd`): Vaalan-päivänä, kun repussa on myytävää, torille tulee 20 %:n todennäköisyydellä
+    **Valeostaja** (V2, `rikos/valeostaja.gd`): Raahen-päivänä, kun repussa on myytävää, torille tulee 20 %:n todennäköisyydellä
     uusi aikuinen ostaja (arvonta kerran päivässä, paikalla klo 9–21, yöksi pois; seisoo torilla kojujen vieressä vähintään 2 m irti
     kalusteista). Puolet on aitoja (nuhjuinen harmaa huppari, sänki, likaiset tennarit; maksaa 1,25 × teinihinnan), puolet
     siviilipukuisia poliiseja: tumma softshell-takki, siistit farkut, korvassa nappi, josta läpikuultava kierrejohto kauluksen alle,
@@ -827,7 +827,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     vauhtierolla). **Saloisissa jahtaa Päivi** kuin poliisi: hän tietää paikan (radiolla), ajaa 1,0–1,5 × jahtinopeudella tähtien
     mukaan (oma kerroin `wife_car.gd heat_mult`, koska päivän tilat kirjoittavat `speed_mult`:n yli), lähtee yölläkin kotipihasta,
     4–5 tähdellä turvapaikat eivät suojaa ja mukaan tulee poliisiauto. Kuminauha 4–5 tähdellä: yli 120 m päässä oleva jahtaaja
-    siirtyy näkymättömiin lähempään tieverkon solmuun kameran taakse. **Vaalassa jahtaa konstaapeli Roivainen** poliisi-Saabilla
+    siirtyy näkymättömiin lähempään tieverkon solmuun kameran taakse. **Raahessa jahtaa konstaapeli Roivainen** poliisi-Saabilla
     (`rikos/roivainen_auto.gd`): tietä pitkin, alle 40 m:ssä suoraan kohti. Pako: kun yksikään jahtaaja ei näe (45 m, näköyhteys)
     tähdet × 4 s, tähti putoaa 8 s välein; kahdesta tähdestä pääsee karkuun 24 s:ssa ja viidestä 60 s:ssa. Kiinni: Päivi riittää, kun hänen autonsa on 6 m:n päässä varastetusta autosta (WASTED autossa istuessakin); Päivi motkottaa (päivä päättyy kuten
     Päivin kiinniotossa, kotihommien hyvitykset eivät päde), Roivainen tai poliisi pidättää (PIDÄTETTY, `_rikos_loppu`). Jahti jatkuu
@@ -835,7 +835,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     lataus ja uusi päivä nollaavat jahdin ja vievät hylätyt autot.
     **Tienpinta kaikkialla kuten Saloisissa** (`vaala.gd _ribbon`, `_conform`): asfaltti on kaksikaistainen 8 m tie (kuten Saloisten maantie) maastoon sovitettuna nauhana
     (mutkissa kiekot, kolmiot leikattu maastoruudukon viivoilla, ei kiiloja eikä maata läpi) harmaine pientareineen (1,2 m) ja valkoisine
-    katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Paapelin
+    katkoviivoineen (3 m / 6 m); päätiellä (leveys 7,2 m) sillat jäävät kannen korkeudelle. **Sora** on kaikkialla Keskimmäisentien ja Raahen
     soratien mallia (2,6 m, hiekan värit): Pahalahdentie (lavan tie), Salmisentie, mökin päätie ja järviseudun tiet.
     Parkit samoin. Sivutiet, järviseudun tiet ja parkit käyttävät samaa (`_side_style`, `_surf_mat`); mopon ajoalue lasketaan samasta tyylistä. Siitarin ja K-Marketin pihoilla on vain muutama auto (`LOT_MAX_CARS`). Salmisten (Etu- ja Taka-Salminen, Pyöriäinen) rannoille
     kasvaa lisää koivuja, mäntyjä, kuusia ja pensaita teiden ulkopuolelle (`vaala.gd _build_salminen_trees`).
@@ -853,14 +853,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Salmisen uintianimaatiolla (kahlaus, uinti, sukellus; saunan jälkeen vilvoittelu antaa lisää). Todellinen paikka: Oulujärven
     Melontakeskus Sahanrannassa Uitontien päässä (1930-luvun uiton maja, sauna ja makasiinit, entisestä uiton venevajasta tehty kanoottitalli;
     tarkemmat rakennuskuvat puuttuvat, joten mallit ovat tulkintoja). Testi `--scene=sahanranta`.
-    Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä. Satamaan vie Satamantie (soratie kuten Paapelin soratiet, haarautuu Aseman pihasta 840, -818 ja menee tasoristeyksellä radan yli) ja Sahanrannantie (sora). Vaalan tiet ovat suoria ja vievät kohteisiin: pääreitti, Neittäväntie (järviseudulle), Vaalantie ja Aseman piha, Veturitallintie, Satamantie, Sahanrannantie ja Pahalahdentie (lavalle). Muut OSM-tiet, jalkakäytävät, pyörätiet ja umpikujat on poistettu (`tools/vaala_suorat.py`; testi `--scene=vaala_ajo --ajo=yhteys` tarkistaa, että kaikki tiet ovat ajettavissa mökiltä).
+    Satama näkyy paperikartalla ankkurina ja minikartalla V-merkkinä. Satamaan vie Satamantie (soratie kuten Raahen soratiet, haarautuu Aseman pihasta 840, -818 ja menee tasoristeyksellä radan yli) ja Sahanrannantie (sora). Raahen tiet ovat suoria ja vievät kohteisiin: pääreitti, Neittäväntie (järviseudulle), Raahentie ja Aseman piha, Veturitallintie, Satamantie, Sahanrannantie ja Pahalahdentie (lavalle). Muut OSM-tiet, jalkakäytävät, pyörätiet ja umpikujat on poistettu (`tools/vaala_suorat.py`; testi `--scene=vaala_ajo --ajo=yhteys` tarkistaa, että kaikki tiet ovat ajettavissa mökiltä).
     **Muskelivene:** E laiturin juuressa ("Muskeliveneellä Oulujärvelle") ajaa veneen vesille: W/S kaasu (huippu n. 60 km/h,
     selvästi soutuvenettä nopeampi), A/D ohjaus, moottoriääni, keulan nousu, vanavesi, roiskeet ja kallistus käännöksessä.
     Vene pysyy vedessä (ei läpi rannasta, laitureista tai lavan aidasta) ja pysähtyy kartan reunalle kaakossa. Mopo jää
     parkkiin, tilat ja kello kulkevat kuten muuten, humala heiluttaa ohjausta. E laiturin vieressä hiljaa palaa laiturin
     kärkeen (ensimmäisellä kerralla kokemus, kerran päivässä stressi -0,1). Testi `--scene=satama`. **Lavalle veneellä:** myös Oulujärven lavan pihan järvenpuoleisella rannalla on laituri ja muskelivene (ovi "lavalaituri", E). Ajon voi päättää kumpaan tahansa laituriin (E laiturin vieressä); lavan laituriin noustaessa ei ole leimaa, joten tulija on pummilla ja portsari vahtii (`--scene=vaala_ajo --ajo=venelava` tarkistaa veneen reitin).
   - **Juhannus ja Kesäillan valssi:** juhannusaattona (perjantai) lavan niemen rannassa aidan ulkopuolella palaa
-    juhannuskokko klo 21–03 juhlaväen keskellä (E: moraali ja mielihyvä). Lavalla soittaa isompi Vaalan Tähtiorkesteri
+    juhannuskokko klo 21–03 juhlaväen keskellä (E: moraali ja mielihyvä). Lavalla soittaa isompi Raahen Tähtiorkesteri
     (valkoiset takit, trumpetti ja taustalaulajat), koivunoksat koristavat lavaa, ja tanssilattia on tupaten täynnä.
     TV-ryhmä kuvaa Kesäillan valssia tanssilattian laidalla (kamera jalustalla, äänimies ja valot). Jos humppa onnistuu
     (vähintään 50 %), se menee suorana lähetykseen, ja lavalta lähtiessä välikuvassa Päivi katsoo Kesäillan valssia
@@ -875,7 +875,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     huikka kiertävästä kossu-vissypullosta (kolme päivässä), kalja porukalle (maine nousee ja saa vinkin
     pummireitistä ja portsarin tavoista, jolloin portsari huomaa hitaammin) ja jutut lamasta, EU:sta, Dingosta ja mopojen virityksistä
     (`--scene=mokkinuoret`). **Mopojen kiihdytys:** Zabukin pihan mopopojat haastavat 150 metrin kiihdytykseen
-    Vaalantien suoralla (Tunturi-Jani 5 € tai viritetyllä mopolla ajava Pakoputki-Pete 20 €): kolme punaista ja
+    Raahentien suoralla (Tunturi-Jani 5 € tai viritetyllä mopolla ajava Pakoputki-Pete 20 €): kolme punaista ja
     vihreä, W kaasu (ennen vihreää = vilppilähtö), välilyönti vaihtaa ylös kierrosmittarin vihreällä alueella
     (aikaisin moottori tukehtuu, rajoittimella aika valuu, kännissä vihreä alue heiluu). Voitto tuplaa panoksen
     ja nostaa mainetta (`--scene=mokkikiihdytys`).
@@ -884,7 +884,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     osumalinjalle, ja nuotti painetaan tahtiin (täydellinen ±0,08 s, hyvä ±0,15 s, ok ±0,25 s). Pitkät nuotit pidetään pohjassa
     loppuun asti (bonus). Putki kasvattaa kerrointa (×1–×4), huti, väärä näppäys tai liian aikainen irrotus katkaisee sen, ja
     vasemmalla näkyy yleisömittari. Sanat ovat alhaalla, laulettava sana tai tavu hakasulkeissa. Kännissä nuotit nykivät ja
-    painallukset viivästyvät. Tulos = osumien laatu ja pitojen bonus / täydet pisteet. Kappaleet: paikan oma ("Mopolla Vaalaan",
+    painallukset viivästyvät. Tulos = osumien laatu ja pitojen bonus / täydet pisteet. Kappaleet: paikan oma ("Mopolla Raaheen",
     "Ruukin valot": sävelkorkeus määrää raidan, melodia syntetisoidaan ja osuma laulaa nuotin) tai **Normipäivä Saloisissa
     (lyhennetty aito versio)**: tunnari oikealla soittoraidalla (`assets/music/normipaiva_lyhyt.mp3`, laulu erotettu, n. 56 s:
     ensimmäinen verso ja kertosäe sekä loppukertosäe, ristiinhäivytetty) ja trailerin karaokeen ajoitetuilla sanoilla
@@ -907,17 +907,17 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     yli 1,2 ‰ = törkeä rattijuopumus (sakko 250 €). Ratsian
     ohittaminen pysähtymättä = sakko postissa ja maine laskee (`--scene=mokkiratsia`). Taustat: Oulujärven lava (Yle, Kaleva, Wikipedia) ja Oulujoen
     voimalaitoskylien muistelmat (ponkkarit, kioskit, tanssipaikkojen portailla odottelevat nuoret).
-  - **Vaalan poliisiasema ja Janttu:** Oulujoen sillan Vaalan puoleisessa päässä, Vaalasta lähtiessä tien oikealla
+  - **Raahen poliisiasema ja Janttu:** Oulujoen sillan Raahen puoleisessa päässä, Raahesta lähtiessä tien oikealla
     puolella, on 70-luvun tiilinen poliisiasema (POLIISI-kyltti katoksessa, nimikyltti, lipputanko ja poliisiauto
     pihassa). Konstaapeli Roivainen on asemalla aina, kun ei ole ratsiassa. 20 % matkoista hänellä on tutka tien
     reunassa: yli 47 km/h (40 + toleranssi) pysäyttää, ja sakoista jutellaan (rikesakko 50 €, yli 20 km/h ylinopeudesta
     100 €; selittely joskus varoitus, muuten +20 €; ohi ajaminen 120 € postissa). Vastapäätä puistonpenkin päällä
     makaa kilipäissään Janttu (pipo, Alkon kassi tyynynä, kossupullo ja tölkit penkin alla, Zzz). Vain jalan (ei ajaessa) voi tarjota kaljaa, pontikkaa tai
     Koskenkorvaa (hereillä ollessaan hän ei ota uutta): Janttu herää ja kertoo, missä Roivainen ratsaa tänään tai mittaako hän tutkalla. Testi `--scene=poliisi`.
-  - **Lama Vaalassa:** Siitarin lounaispuolella on työvoimatoimisto, jonka ovella jonottaa kuusi ihmistä ("Sahalta
+  - **Lama Raahessa:** Siitarin lounaispuolella on työvoimatoimisto, jonka ovella jonottaa kuusi ihmistä ("Sahalta
     lähti viiskymmentä miestä kerralla") ja ilmoitustaululla lukee "AVOIMET TYÖPAIKAT –". Jonoon pääsee kerran
     päivässä (puoli tuntia), ja virkailija antaa lomakkeen tai kurssiesitteen. Muiden liiketilojen ikkunoissa on lappuja
-    "LIIKE LOPETTAA", "LOPPUUNMYYNTI" ja "TILA VUOKRATTAVANA". Pankkiautomaatti (Vaalassa ja Saloisissa) voi hylätä
+    "LIIKE LOPETTAA", "LOPPUUNMYYNTI" ja "TILA VUOKRATTAVANA". Pankkiautomaatti (Raahessa ja Saloisissa) voi hylätä
     kortin, jolloin uusi yritys onnistuu, tai pankki on laskenut nostorajaa ja koneesta tulee vain 10 €. Päivin aamulapussa
     on välillä motkotusta rahasta (`--scene=mokkilama`). Keskustassa laserpuita on harvennettu, jotta taajama erottuu.
   - **Aukioloajat:** K-Marketit 7–21, Alkon hylly 9–18, Siitarin baari 11–02 (hotellin vastaanotto aina auki),
@@ -932,7 +932,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     vahingot maksetaan, 40 €) (`--scene=mokkihotelli`).
     Moposta voi nousta jalan F:llä kuten pyörältä (hiljaa ajaen; mopo jää parkkiin tyhjänä) ja kävellä; **ovet, pankkiautomaatti, lava ja Siitari toimivat vain jalan**: mopon selässä
     vihje kehottaa nousemaan mopolta (F). F mopon vieressä nostaa takaisin selkään. Veteen ei kahlata.
-    Paperikartta (M) on mökillä ja Vaalan matkalla yksi iso Neittävä–Vaala-kartta: mökin piha, mopotie ja Vaalan
+    Paperikartta (M) on mökillä ja Raahen matkalla yksi iso Neittävä–Raahe-kartta: mökin piha, mopotie ja Raahen
     keskusta (Siitari, K-Market Tervaportti, pankkiautomaatti, apteekki, Oulujärven lava, kirkko, rautatieasema ja muut
     nimetyt talot). Tiet on piirretty mittatarkasti: leveys metreinä (asfaltti 8 m, kapea katu 5,5 m, päätie 7,2 m) zoomin mukaan,
     kaksikaistaisilla teillä katkoviiva, liikenneympyrä renkaana ja keskisaarekkeena (`paper_map.gd _draw_vaala_roads`), ja kartalla
@@ -1035,7 +1035,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 - **Vaatekaapit ja asut:** pelaaja on vaaleahiuksinen ja pukinpartainen, ja hänellä on kello, rannekoru ja tatuointi
   vasemmassa olkavarressa. Oletuksena tuulipuku, Karhu-lippis ja peililasiset pilottilasit. Kodin makuuhuoneen
   vaatekaapista vaihdetaan repaleiseen verkkopaitaan, ruskeisiin henkseleihin ja tummiin työhousuihin (rispaantuneet
-  repeämät, vyö, nokiset tahrat iholla ja tuprukka vaalea tukka, viitteenä Uuno kyntämässä; `character.gdshader` net_shirt, grime), Paapelin makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Kodin
+  repeämät, vyö, nokiset tahrat iholla ja tuprukka vaalea tukka, viitteenä Uuno kyntämässä; `character.gdshader` net_shirt, grime), Raahen makuuhuoneen kaapista työhousuihin, flanelliin ja Karjala-lippikseen. Kodin
   kaapista saa myös Stetson-cowboyhatun lippiksen tilalle (ruskea huopa, keskiura, kaareva lieri, nauha ja hopeinen
   koristelaatta); se pysyy päässä asusta riippumatta, kunnes lippis vaihdetaan takaisin. Kirppikseltä ostettu
   hiihtohaalari tulee kodin kaappiin neljänneksi asuksi. Pentin kiertueen jälkeen aamulla kassissa on Pentin nahkaliivi
@@ -1043,7 +1043,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   avonainen ruskea nahkaliivi paljaan karvaisen rinnan päällä, farkut mustalla vyöllä ja cowboybootsit, kuten Pentillä
   mutta ilman viiksiä ja ketjua (`looks.gd OUTFITS`, main.gd has_liivi). Kaikki asut rinnakkain:
   `tools/testit/aja.sh tscn tools/testit/pelaaja_asut.tscn`. Ensimmäisestä kaupasta ostetusta kutosesta (K-Market,
-  Vaalan K-Market tai kauppa-auto, ei juoksukaljoista) jää Karhu-kutosen pahvikoppa, ja pää pujotetaan heti sen sivun
+  Raahen K-Market tai kauppa-auto, ei juoksukaljoista) jää Karhu-kutosen pahvikoppa, ja pää pujotetaan heti sen sivun
   aukosta: koppa seisoo pystyssä päässä, edessä kansi pullonkaulojen rei'illä, sivuilla tuima karhu kyljellään
   päälaki eteenpäin ja takana pohja. Alareuna sovitetaan pään muotoon (ylimäärä pullistuu eteen ja taakse). Painatus on oma
   piirros (`tools/karhu_koppa.gd` -> `assets/karhu_koppa.png`). Koppa vaihdetaan kodin kaapilla, ja Päivi
@@ -1112,8 +1112,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
 
 ## Maiseman täyttö: talot (K1–K8)
 
-Saloisten ja Vaalan nimettömät OSM-rakennukset saavat oman mallin (`scripts/rakennukset.gd`), jonka tyypin, värit ja mitat
-valitsee `scripts/taytto.gd` pohjasta. Täyttö on vain Saloisissa (`world.gd _build_houses`) ja Vaalassa (`vaala.gd`), ei Raahessa:
+Saloisten ja Raahen nimettömät OSM-rakennukset saavat oman mallin (`scripts/rakennukset.gd`), jonka tyypin, värit ja mitat
+valitsee `scripts/taytto.gd` pohjasta. Täyttö on vain Saloisissa (`world.gd _build_houses`) ja Raahessa (`vaala.gd`), ei Raahessa:
 Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy silti pienenä osuutena kummassakin kylässä.
 
 - **K1** rintamamiestalo (1½ krs, avoräystäät) | **K2** matala omakotitalo (70-80-luku, osa tasakattoisia, peiterima- tai tiilenvärinen)
@@ -1127,7 +1127,7 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
   5 m, talo vähintään 9 m). Jaetuissa taloissa on pieni heitto kulmassa ja paikassa, ja vierekkäisillä eri tyyppi tai väri.
 - **Pysyy vanhana mallina:** koulu, päiväkoti, kirjasto, hotelli, sairaala, julkiset rakennukset ja kirkko (`Taytto.keep_old`),
   yli 3 kerroksiset, L- ja U-muotoiset pohjat (pohjan ala alle 0,75 suunnatusta laatikosta ja ala vähintään 260 m²), nimetyt
-  kohteet ja omat mallit (`OWN_BUILDINGS`), Saloisten `FILL_KEEP`-lista sekä Vaalassa Katjan talo (`KATJA_ID`) ja muut tunnetut
+  kohteet ja omat mallit (`OWN_BUILDINGS`), Saloisten `FILL_KEEP`-lista sekä Raahessa Katjan talo (`KATJA_ID`) ja muut tunnetut
   kohteet. Katjan oven `house_doors`-pituus pysyy 25,4 m:ssä, joten Katja pysyy pisimmän ovipituuden kohteena.
 - **Sokkeli:** rinteessä K8:n rungon alla korkeusero saa olla enintään 1,5 m (`FILL_DROP_MAX`): halli lyhennetään, ja jos ei vielä
   riitä, ylärinteen puoli uppoaa maahan.
@@ -1141,7 +1141,7 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
 - **Korkkikansio:** päiväkirjan Korkit-välilehti (5): vasemmalla kaljat, oikealla limut, merkin rivillä tavallinen,
   kesäkorkki (aurinkorengas) ja virhepainos (logo ylösalaisin, väärä väri). Puuttuva: katkoviiva ja vihje. Täysi
   merkki palkitaan kerran (moraali, maine +2, tähti).
-- **Limukorkit ja muut lähteet:** pullonkeräyksestä (Vaala) jää talteen 1–3 korkkia, kaljoja ja limuja. Kirppiksellä
+- **Limukorkit ja muut lähteet:** pullonkeräyksestä (Raahe) jää talteen 1–3 korkkia, kaljoja ja limuja. Kirppiksellä
   Veksin korkkilaatikosta saa satunnaisen korkin 0,10 €:lla (kun kansio on aloitettu). Pelissä ei juoda limua, joten
   limukorkit tulevat näistä.
 - **Korkki-Raimo** (kirppiksen salissa, keltainen paita): vaihtaa kaksi tuplaa puuttuvaan korkkiin (ei virhepainoksia),
@@ -1151,12 +1151,12 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
   kultakorkkisen kaljan?"): hän heitti korkin saunan jälkeen talonsa päädyn kivikkoon (`neighbor_yards.pekka[3]`).
   Siellä [E] nostaa korkin kerran: maine +3, kansion kansilehteen kultainen korkki. Raimo ostaa sen 200 €:lla, jos
   haluaa. Päiväkirjassa "Kultainen MM-korkki" (karttalinkki Pekan pihaan, kun Pekka on kertonut).
-- **Korkkiläpsy** (`korkki_game.gd`): pelataan pelimaailmassa 3D:nä Vaalan lavan pihalla teinien vieressä illalla
+- **Korkkiläpsy** (`korkki_game.gd`): pelataan pelimaailmassa 3D:nä Raahen lavan pihalla teinien vieressä illalla
   18–23 kerran päivässä (kansio aloitettu, 3 tuplaa). Pino oikeita 3D-korkkeja (rihlattu kylki, kannessa kansion logo
   tekstuurina, nurjalla puolella tiiviste), vastassa teini Jere kyykyssä ja pelaajan oma hahmo pinon vieressä
   (Looks-hahmot), tinanappi-lyöjä. Kamera rajataan laskemalla (pino alakolmannekseen, Jeren pää yläosaan). Tähtäys A/D
   tai hiiri, voima ajoituksella; kääntyneet korkit lentävät pyörien lyöjän eteen, liian kova lyönti lennättää ne
-  maahan. Ruudun päällä voimamittari, tilanne ja näppäinhatut asetusten näppäimistä. Testi `scene korkit` (Vaala ladataan,
+  maahan. Ruudun päällä voimamittari, tilanne ja näppäinhatut asetusten näppäimistä. Testi `scene korkit` (Raahe ladataan,
   kuvat tähtäyksestä ja lyönnistä).
 - **Juhannuskorkit** (ennen kesäkorkki) arpoutuvat vain juhannuksena (`_juhannus()`); muulloin arpa antaa tavallisen.
 - **Voittokorkki:** joka 25. kaljakorkin alla lukee "VOITIT PULLON", ja kassalla se vaihdetaan: kalja +1.
@@ -1173,8 +1173,8 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
 
 ## Normipäiväkirja: tarina, tehtävät, onnelliset loput ja legendaariset hetket (O)
 
-- **Tarina** etenee luvuittain: 1. Paapeliin pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Paapelin
-  isäntä (Santun hommat ja savusaunan korjaus), 3. Mopolla Vaalaan (Siitari, Oulujärven lava, kiihdytys), 4. Junalla
+- **Tarina** etenee luvuittain: 1. Raaheen pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Raahen
+  isäntä (Santun hommat ja savusaunan korjaus), 3. Mopolla Raaheen (Siitari, Oulujärven lava, kiihdytys), 4. Junalla
   kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Lapinraunion aarnivalkea, Kertunkankaan rauta, Tekojärven Ukko) sekä rinnakkainen 6. Päivi epäilee (aikuisille, ks. yllä). Seuraavaan
   vaiheeseen vihjataan puheissa: Santtu, Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka
   ja Tauno kertovat, mitä seuraavaksi.
@@ -1184,14 +1184,14 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
   piilokuvat, kapteenin taskukello, Kuhmon karhukuva, Hiidenportti, Pyhäkosken tarinat, Kajaanin linna ja Raatteen
   Portti, Kalajoen rantafutis) tulevat tiedoksi perillä ensimmäisestä kohdasta, edistyminen otsikon perässä (esim. tarinat 1 / 3).
   Lisäksi Teeriniemen kalalampi (saalis), Kapteenin Kulman pubivisa (kaikki oikein), ponkkarin uimakisa (voitto),
-  Valentin Vaalan elokuvapäivät (Veturitallin ovelta) ja Hanttihommat (keikkatyö, kesäduuni, työkkäri, pullonkeräys ja
+  Valentin Raahen elokuvapäivät (Veturitallin ovelta) ja Hanttihommat (keikkatyö, kesäduuni, työkkäri, pullonkeräys ja
   kioskihengailu, kokeiltu X / 5) ja Kylän tekemisiä (juoksulenkki, lintutorni, rönttöset, hedelmäpeli, pajatso,
   muskelivene ja juhannuskokko, kokeiltu X / 7). Salaiset (Rasvanappi, rakaleiman kopio, Nyrkit puhuu: tappelun voitto) tulevat
   päiväkirjaan vasta, kun ne on kerran tehty.
 - **→ näytä kartalla** tehtävän alla asettaa kompassin (lyijykynärengas kartalla). Toisten paikkakuntien tehtävät
   (Raahe, Hanhikivi, Pakkahuone, Peruskivi, Manamansalo ja retkien legendat) osoittavat K-Marketin taksitolpalle,
   eikä niille piirretä omaa rengasta. Linkitöntä tehtävää ei voi näyttää: kohde liikkuu (Väinö, pallo, Pentti) tai se
-  on mökillä tai Vaalassa, joka ei ole Saloisten kartalla.
+  on mökillä tai Raahessa, joka ei ole Saloisten kartalla.
 - **Jemmat**-välilehti: kaikki löydetyt jemmapaikat täyttöpalkkeineen (kaljat / tila), kotijemma tavoitteeseen
   nähden tölkkiriveinä, ulkojemmat ja yhteensä sekä riskit: Päivi voi löytää liian täyden
   kotijemman, ja teinit voivat pölliä ulkojemmasta. Reppu (I) näyttää myös tyhjät löydetyt jemmat. Testi `--scene=jemmat`.
@@ -1200,8 +1200,8 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
 - **Onnelliset loput** (päivä päättyy loppukohtaukseen): juhlat autotallissa, viinibileet, laavulla kaljoilla,
   legendaarinen normipäivä, mökkibileet, erämaan laavu (Viitajärven laavu auringonlaskussa), Kymppiuutiset nauhalta
   (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa), Mirkun
-  teltassa sekä kolmiomittaus Saloisissa ja Vaalassa. Ilmoitus "ONNELLINEN LOPPU".
-- **Legendaariset hetket** (saavutukset, peli jatkuu): Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit,
+  teltassa sekä kolmiomittaus Saloisissa ja Raahessa. Ilmoitus "ONNELLINEN LOPPU".
+- **Legendaariset hetket** (saavutukset, peli jatkuu): Raaheen Pekan kyydillä, savusaunan löylyt, lavatanssit,
   karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
   Drakkar Noir ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".

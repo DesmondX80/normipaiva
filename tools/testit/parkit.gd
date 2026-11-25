@@ -1,7 +1,7 @@
 extends Node
 ## Pysäköidyt autot eivät saa olla toistensa sisällä (#bugi Zabukin parkissa): B.parked_car-autojen pohjat (1,8 × 4,2 m,
-## lepoasennon suorakaiteet xz-tasossa) tarkistetaan pareittain Saloisissa (main.world) ja Vaalassa (mopo_trip.vaala),
-## Vaalassa myös Pentin pakettiauton paikkaa (vaala.gd pentti_spot, 1,8 × 4,7 m) vasten. Päällekkäisyys (SAT, 5 cm
+## lepoasennon suorakaiteet xz-tasossa) tarkistetaan pareittain Saloisissa (main.world) ja Raahessa (mopo_trip.vaala),
+## Raahessa myös Pentin pakettiauton paikkaa (vaala.gd pentti_spot, 1,8 × 4,7 m) vasten. Päällekkäisyys (SAT, 5 cm
 ## toleranssi) = TESTI VIKA. Kuvat Zabukin parkista. Ajo: tools/testit/aja.sh scene parkit
 
 var main: Node3D
@@ -78,13 +78,13 @@ func run() -> void:
 	for i in 40:
 		await get_tree().process_frame
 	var vl: Node3D = main.mopo_trip.vaala
-	var autot := _autot(vl, "Vaala")
+	var autot := _autot(vl, "Raahe")
 	if vl.pentti_spot != Vector3.INF:
 		var ps: Vector3 = vl.to_global(vl.pentti_spot)
 		var g := Transform3D(vl.global_basis * Basis(Vector3.UP, vl.pentti_yaw), ps)
 		var fw: Vector3 = -g.basis.z
 		autot.append([Vector2(ps.x, ps.z), atan2(-fw.x, -fw.z), Vector2(0.9, 2.35), "Pentin paikka %s" % Vector2(ps.x, ps.z).round()])
-	_tarkista(autot, "Vaala")
+	_tarkista(autot, "Raahe")
 	# Kuva Zabukin parkista ylhäältä viistosti.
 	if vl._zabuki != Vector3.INF:
 		var f: Vector2 = vl._zabuki_face

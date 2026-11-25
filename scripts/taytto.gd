@@ -1,7 +1,7 @@
 extends RefCounted
-## Maiseman täytetalojen valinta (Saloinen world.gd ja Vaala vaala.gd): tyyppi K1–K5 (scripts/rakennukset.gd),
+## Maiseman täytetalojen valinta (Saloinen world.gd ja Raahe vaala.gd): tyyppi K1–K5 (scripts/rakennukset.gd),
 ## värit ja mitat nimettömän rakennuksen pohjasta, tyypistä ja ympäristöstä. Yhteinen rekisteri molemmille kylille;
-## kutsuja antaa rakennuksesta siemennetyn rng:n (Saloinen hash(b.c), Vaala id), joten valinta ei riipu
+## kutsuja antaa rakennuksesta siemennetyn rng:n (Saloinen hash(b.c), Raahe id), joten valinta ei riipu
 ## rakennusjärjestyksestä eikä world._rng:stä.
 ##
 ## keep_old(b) -> bool: pohja jää vanhaksi malliksi (koulu, kirkko, hotelli ym. KEEP_T, lv >= 4, L- tai U-muoto
@@ -15,7 +15,7 @@ extends RefCounted
 ##   Talon kehys pohjan kehyksessä: local_xf(o) = Transform3D(Basis(UP, rot), Vector3(dx, 0, dz)).
 ## pick(alue, b, ctx, rng) -> {tyyppi, l, d, wall, roof, trim, flat, carport, rima, gate_gap, seed, rot, dx, dz, piha, v, krs, n}
 ##   alue: "saloinen" tai "vaala".
-##   b: {l (pitkä sivu, m), d (lyhyt sivu, m), t (OSM building-tyyppi tai Vaalan kind, "" = tuntematon), lv (kerroksia),
+##   b: {l (pitkä sivu, m), d (lyhyt sivu, m), t (OSM building-tyyppi tai Raahen kind, "" = tuntematon), lv (kerroksia),
 ##      r (monikulmion ala / suunnatun laatikon ala; puuttuu = 1)}.
 ##      Pohjan pitkä sivu on paikallisella X:llä ja julkisivu -Z:ssä (world.gd _osm_fit).
 ##   ctx: {pelto: bool (pellon laidassa), ranta: bool (rantamökki, julkisivu rantaan), gap: float (etupiha tielle,
@@ -27,7 +27,7 @@ extends RefCounted
 ##   carport ja gate_gap ovat toiveita: kutsuja nollaa ne, jos katos tai aita osuisi tiehen tai toiseen pohjaan.
 
 const TYPES := ["K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8"]
-## Jakaumat (01-suunnitelma.md "Täytön säännöt"; K5 2–5 % myös Saloisiin ja Vaalaan, 00-ohjeet.md). Painot valitaan
+## Jakaumat (01-suunnitelma.md "Täytön säännöt"; K5 2–5 % myös Saloisiin ja Raaheen, 00-ohjeet.md). Painot valitaan
 ## kelvollisten tyyppien joukosta: K3 ja K4 tulevat pääosin pohjan koosta ja ympäristöstä, painot jakavat päätalot.
 const DIST := {
 	"saloinen": {"K1": 40.0, "K2": 40.0, "K3": 12.0, "K4": 6.0, "K5": 3.0},  # K5 3,0 -> 3–4 % (mitattu, 03-toteutus-E.md)
@@ -150,7 +150,7 @@ static func _small_ok(alue: String, b: Dictionary, ctx: Dictionary) -> Dictionar
 	var w: Dictionary = DIST.get(alue, DIST.saloinen)
 	if area < 45.0:
 		return {"K4": 1.0} if ctx.get("pelto", false) and small >= 4.0 else {"K3": 1.0}
-	if t == "cabin":  # mökki: rannalla rantamökki, iso mökki K1 (Vaalan kind shed, 04-sopivuus.md e)
+	if t == "cabin":  # mökki: rannalla rantamökki, iso mökki K1 (Raahen kind shed, 04-sopivuus.md e)
 		return {"K1": 1.0} if area >= 60.0 and not ctx.get("ranta", false) else {"K3": 1.0}
 	if ctx.get("ranta", false) and area < 80.0:
 		return {"K3": 1.0}

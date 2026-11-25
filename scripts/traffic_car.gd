@@ -1,6 +1,6 @@
 extends CharacterBody3D
 ## Liikenteen auto: ajaa oikeaa kaistaa joko kylän tieverkossa (setup_graph, satunnaiset käännökset risteyksissä)
-## tai Vaalan mopomatkan tiellä (setup_line, tien näytteitä pitkin). Jarruttaa, kun pelaaja on edessä, mutta
+## tai Raahen mopomatkan tiellä (setup_line, tien näytteitä pitkin). Jarruttaa, kun pelaaja on edessä, mutta
 ## pysähtymismatka on pitkä: eteen hyppäävä jää alle (hit-signaali, kun auto osuu kovassa vauhdissa).
 ## Hiljaa liikkuva auto vain tönäisee pelaajan kumoon (stun), eikä siihen kuole.
 ## Pitää välimatkan edellä samaan suuntaan ajavaan (ryhmä "liikenne", myös Päivin auto): jonot eivät ajele

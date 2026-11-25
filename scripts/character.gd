@@ -1291,7 +1291,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], _source_lods(kind, mesh, s, src_count),
 			(fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) | (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 			| (Mesh.ARRAY_CUSTOM_RGBA8_UNORM << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT))
-	_meshes[key] = weakref(out)  # heikko: Vaalan hahmojen vartalot vapautuvat Vaalan mukana (levyvälimuisti lataa)
+	_meshes[key] = weakref(out)  # heikko: Raahen hahmojen vartalot vapautuvat Raahen mukana (levyvälimuisti lataa)
 	if kind != "female" and shape.get("belly", 0.0) > 0.0:
 		_hem_front(out)  # metatieto tallentuu välimuistiin
 	DirAccess.make_dir_recursive_absolute(MESH_CACHE)

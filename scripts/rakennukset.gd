@@ -1,5 +1,5 @@
 extends RefCounted
-## Maiseman täytetalot (Saloinen ja Vaala): kahdeksan tunnistettavaa tyyppiä esikuvien mukaan
+## Maiseman täytetalot (Saloinen ja Raahe): kahdeksan tunnistettavaa tyyppiä esikuvien mukaan
 ## (.claude/tyo/rakennukset-maisema/01-esikuvat.md ja 02-arkkitehtuuri.md Korjaus 2; docs/pelin-sisalto.md).
 ##   K1 rintamamiestalo, K2 matala 70–80-luvun omakotitalo, K3 aitta, K4 lato, K5 Raahen keltainen puutalo,
 ##   K6 rivitalo, K7 kerrostalo, K8 halli (kone, teollisuus, liike, suoja). K6–K8 venyvät pohjan pituuteen
@@ -315,7 +315,7 @@ static func _stones(r: B.Batch, xf: Transform3D, ln: float, w: float, top: float
 
 ## K3 aitta (myös rantamökki/sauna suurempana): harja Z:n suuntainen, ovi -Z-päädyssä, ei ikkunoita, kulmakivien
 ## päällä (alin hirsikerros ja ilmaa alla), harja 28–33°, pystyrimat, punamulta valkoisin nurkkalaudoin tai
-## harmaantunut lauta. Paltamon rantayleiskaava ja Vaalan Alilan aitta (01-esikuvat.md 3). Ei piippua (arkkitehti).
+## harmaantunut lauta. Paltamon rantayleiskaava ja Raahen Alilan aitta (01-esikuvat.md 3). Ei piippua (arkkitehti).
 static func _k3(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = p.seed
@@ -646,7 +646,7 @@ static func _k6(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dict
 ## ja kellarin ikkunat korkeassa sokkelissa; takana (+Z) kaksi parveketta porrasta ja kerrosta kohden (laatta,
 ## umpikaide ja parvekeovi). Parvekkeet kuuluvat pohjaan: rungon syvyys d - 1,4. Tasakatto otsalautoineen tai
 ## (flat = false) loiva harjakatto 10–14°. liike: pohjakerroksen julkisivussa näyteikkunat. Kahri ja Pyykönen 1984
-## (runkosyvyys), Vaalan 534430539 ja Vaalantien liike- ja asuinrakennukset (02-arkkitehtuuri.md Korjaus 2).
+## (runkosyvyys), Raahen 534430539 ja Raahentien liike- ja asuinrakennukset (02-arkkitehtuuri.md Korjaus 2).
 ## p: l, d, wall, roof, trim, seed; n, krs, flat, liike, drop.
 static func _k7(p: Dictionary, r: B.Batch, sm: B.Batch, xf: Transform3D) -> Dictionary:
 	var rng := RandomNumberGenerator.new()

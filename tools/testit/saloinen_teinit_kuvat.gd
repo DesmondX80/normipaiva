@@ -108,7 +108,7 @@ func _run() -> void:
 			ok_t = false
 			print("TESTI VIKA kellonaika %d -> %s" % [pair[0], Teinit.on_time(pair[0])])
 	print("TEINIT kellonaika ", "OK" if ok_t else "VIKA")
-	# Repliikeissä ei Vaalaa/Siitaria.
+	# Repliikeissä ei Raahea/Siitaria.
 	var bad_w := 0
 	for k in ["KAUKALO_HELLO", "KAUKALO_CHAT", "KAUKALO_EI_KAMAA", "KAUKALO_HYVA", "KAUKALO_MIETO", "KAUKALO_EI_OSTA",
 			"LAAVU_HELLO", "LAAVU_CHAT", "LAAVU_HYVA", "LAAVU_MIETO", "LAAVU_EI_OSTA", "PEACE",
@@ -118,7 +118,7 @@ func _run() -> void:
 			if (line as String).to_lower().contains("vaala") or (line as String).to_lower().contains("siitari"):
 				bad_w += 1
 				print("TESTI VIKA repliikki ", k, ": ", line)
-	print("TEINIT repliikit Vaala/Siitari: ", bad_w)
+	print("TEINIT repliikit Raahe/Siitari: ", bad_w)
 	# Läpimenot ja jalkojen rako maahan.
 	var bad := 0
 	for ch: Node3D in t.teens:

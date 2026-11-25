@@ -13,7 +13,7 @@ const PLAYER := {
 	"stripes": true, "stripe_color": Color(0.96, 0.96, 0.98), "triple_stripe": true,
 	"belly": 0.75, "sag": 1.0, "bulk": 0.1, "shoulders": -0.55,
 }
-## Pelaajan asut (vaatekaappi kotona ja Paapelin makuuhuoneessa, main.gd tallentaa valinnan): tuulipuku ja
+## Pelaajan asut (vaatekaappi kotona ja Raahen makuuhuoneessa, main.gd tallentaa valinnan): tuulipuku ja
 ## Karhu-lippis on oletus. Hiihtohaalari ostetaan kirppikseltä Railin vaatetangosta (main.gd has_haalari). Nahkaliivin antaa Pentti kiertueen
 ## jälkeen (main.gd has_liivi, rikos/pentti.gd _kiertue_aamu). Kaikissa vaaleat hiukset, pukinparta, kello, rannekoru ja tatuointi vasemmassa olkavarressa.
 const OUTFITS := {
@@ -267,7 +267,7 @@ const PENTTI := {
 	"pentti": true,
 }
 
-## Kolmiomittaus (#255): Saloisten Joni ja Esa, Vaalan Hevari-Tero ja Sivikki-Timo sekä Sytkäri-mätsit Minttu ja Katja.
+## Kolmiomittaus (#255): Saloisten Joni ja Esa, Raahen Hevari-Tero ja Sivikki-Timo sekä Sytkäri-mätsit Minttu ja Katja.
 ## Joni: tummatukkainen golfari (valkoinen pikee, vaaleat chinot), selässä Sandels-päkkirinkka (add_sandels_rinkka).
 const JONI := {
 	"shirt": Color(0.95, 0.95, 0.92), "pants": Color(0.82, 0.75, 0.58), "shoes": Color(0.92, 0.92, 0.9),
@@ -1580,7 +1580,7 @@ static func _letti_mesh(grid: Array) -> ArrayMesh:
 ## Pelaajan lippis päähän.
 const CAP_NAVY := Color(0.035, 0.035, 0.04)  # musta kuten Karhu-lippiksissä
 const CAP_PIPING := Color(1.0, 0.82, 0.1)  # keltainen kerrosraita lipan reunassa
-const KARJALA_RED := Color(0.6, 0.05, 0.06)  # Karjala-lippis (Paapelin työvaatteet): punainen, valkoinen reunus
+const KARJALA_RED := Color(0.6, 0.05, 0.06)  # Karjala-lippis (Raahen työvaatteet): punainen, valkoinen reunus
 const CAP_OFFSET := Vector3(0, 0.15, 0.005)  # lippiksen origo pääluun lepopaikasta (hahmon avaruudessa)
 const CAP_C := Vector3(0, -0.035, -0.015)  # kallon keskipiste lippiksen avaruudessa
 const CAP_RIM_FRONT := -0.004  # reunan korkeus otsalla

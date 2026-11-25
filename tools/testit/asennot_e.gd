@@ -4,7 +4,6 @@ extends Node
 
 const Asento := preload("res://tools/testit/asento.gd")
 const Looks := preload("res://scripts/looks.gd")
-const Muskelivene := preload("res://scripts/muskelivene.gd")
 
 var main: Node3D
 var _cam: Camera3D
@@ -74,14 +73,6 @@ func run() -> void:
 	await _wait()
 	await _node_again(bike, "pyora_varas")
 	bike.set_thief({})
-	# Muskelivene.
-	var boat := Node3D.new()
-	boat.position = far + Vector3(600, 0, 0)
-	main.add_child(boat)
-	Muskelivene.build(boat, true)
-	await _wait()
-	await _node_again(boat, "muskelivene")
-	boat.queue_free()
 	# Traktori: pelaaja lähelle, jotta maasto latautuu.
 	var tr3: Node3D = main.tractor
 	tr3.set_physics_process(false)

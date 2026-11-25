@@ -1,5 +1,5 @@
 extends Node
-## Asentojen tarkistus, osa F (Vaala ja mökki): lavan ulkopöytä, lavan yleisö, nuotiopiiri, pihabileet, Santtu kannolla ja laiturilla.
+## Asentojen tarkistus, osa F (Raahe ja mökki): lavan ulkopöytä, lavan yleisö, nuotiopiiri, pihabileet, Santtu kannolla ja laiturilla.
 ## "$(tools/testit/godot.sh)" --path . --resolution 1280x720 -- --shot=x.png --nohud --scene=asennot --asento=f
 
 const Asento := preload("res://tools/testit/asento.gd")
@@ -64,7 +64,7 @@ func run() -> void:
 	main.mokki.puuhat.debug_start("onki")
 	await _wait(20)
 	await _node(main.mokki, "mokki_laituri")
-	# Vaala: kaikki istujat (lavan ulkopöytä, yleisö, nuotio, pihabileet); piilotetut ryhmät näkyviin.
+	# Raahe: kaikki istujat (lavan ulkopöytä, yleisö, nuotio, pihabileet); piilotetut ryhmät näkyviin.
 	main._ensure_mopo_trip()
 	main.mopo_trip.ensure_built()
 	var vl: Node3D = main.mopo_trip.vaala

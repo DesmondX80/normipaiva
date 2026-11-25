@@ -18,7 +18,7 @@ const RING_R := 0.85  # teinien etäisyys ringin keskeltä (hartiat eivät osu t
 const AIKA := [20 * 60, 25 * 60]  # 20:00–01:00 minuutteina vuorokauden alusta (yli puolenyön +24 h)
 const FACE_R := 9.0  # tätä lähempänä teinit kääntyvät pelaajaan
 
-## Omat lookit, eri kuin Looks.TEENS (laavun jengi) ja Vaalan pihan nuoret: tuulipuku, huppari ja lippis, college.
+## Omat lookit, eri kuin Looks.TEENS (laavun jengi) ja Raahen pihan nuoret: tuulipuku, huppari ja lippis, college.
 const LOOKS := [
 	{"shirt": Color(0.2, 0.22, 0.26), "pants": Color(0.18, 0.18, 0.2), "shoes": Color(0.95, 0.95, 0.95),
 		"hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.4, 0.22), "height": 1.78, "bulk": -0.6, "shoulders": -0.5,

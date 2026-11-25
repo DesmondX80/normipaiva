@@ -1793,7 +1793,7 @@ func _build_tokola() -> void:
 	_add_house(hp)
 
 
-## Taitettava klaffipöytä nojaa Reipparin oikeaa päätyseinää (+X), näkyvillä kioskin vieressä (kuten Vaalassa Zabukin luukun vieressä):
+## Taitettava klaffipöytä nojaa Reipparin oikeaa päätyseinää (+X), näkyvillä kioskin vieressä (kuten Raahessa Zabukin luukun vieressä):
 ## main.gd poimii sen kerran (_klaffi_found), sen jälkeen pöytä on repun lääkesivulla. Paikallinen -Z osoittaa seinään.
 func _build_klaffi_prop(root: Node3D, l: float) -> void:
 	klaffi_prop = Node3D.new()

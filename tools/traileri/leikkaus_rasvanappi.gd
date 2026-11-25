@@ -61,9 +61,9 @@ const SHOTS := [
 	{"id": "m_kortti", "g": "kortit", "b": 4, "kortti": "Ihanaa iltapuuhaa."},
 	{"id": "m_puhelu", "g": "kolmio_aamu", "b": 6},
 
-	# --- 1:33 Välisoitto: aamu ja uusi Vaala (12 tahtia) ----------------------------------------------------------
+	# --- 1:33 Välisoitto: aamu ja uusi Raahe (12 tahtia) ----------------------------------------------------------
 	{"id": "m_aamu", "g": "kolmio_aamu", "b": 8, "at": 93.11},
-	{"id": "f_mopo_silta", "g": "vaala", "b": 8, "in": 1.5, "teksti": "VAALA"},
+	{"id": "f_mopo_silta", "g": "vaala", "b": 8, "in": 1.5, "teksti": "RAAHE"},
 	{"id": "v_ymparyra", "g": "vaala2", "b": 8},
 	{"id": "v_satama", "g": "vaala3", "b": 8},
 	{"id": "f_lava_tanssi", "g": "lavatanssi", "b": 6, "in": 4.0},

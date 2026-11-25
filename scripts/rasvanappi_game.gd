@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Rasvanappi aseman makasiinin takahuoneessa Saloisissa ja Vaalassa (vain aikuisille, makasiini.gd).
+## Rasvanappi aseman makasiinin takahuoneessa Saloisissa ja Raahessa (vain aikuisille, makasiini.gd).
 ## 1. Takaovella koputetaan, kurkistusluukku aukeaa ja portsari kysyy salasanan (väärä = luukku kiinni). Kohtaus on
 ##    3D:nä makasiinin oikealla takaovella (makasiini.gd _build_door): kamera oven edessä, portsari eteiskomerossa
 ##    luukun takana, oikealla salasanalla ovi aukeaa.

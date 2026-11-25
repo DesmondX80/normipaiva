@@ -1,6 +1,6 @@
 extends Node
-## Latausaika: Saloinen (main.tscn -> mokki valmis) ja Vaala (_start_mopo), vaihekohtaiset luvut tulevat
-## --ajastus-tulosteista (AJASTUS main/maailma, VAALA vaiheet). Tulostaa rivit "LATAUS Saloinen N ms" ja "LATAUS Vaala N ms".
+## Latausaika: Saloinen (main.tscn -> mokki valmis) ja Raahe (_start_mopo), vaihekohtaiset luvut tulevat
+## --ajastus-tulosteista (AJASTUS main/maailma, RAAHE vaiheet). Tulostaa rivit "LATAUS Saloinen N ms" ja "LATAUS Raahe N ms".
 ## tools/testit/aja.sh --kiintea tscn tools/testit/lataus.tscn <kansio> -- --ajastus
 ## Tuottaa yhden kuvan (lataus.png tulostekansioon); logiikkaa varten myös `aja.sh --ei-kuvia tscn ...` käy.
 ## Kylmä aloitus: poista $HOME/.local/share/godot/app_userdata/Normipäivä/cache ennen ajoa (aja.sh:n HOME on eristetty).
@@ -24,18 +24,18 @@ func _run(t0: int) -> void:
 	main.clock_min = 12 * 60
 	var tl := Time.get_ticks_msec()
 	main._ensure_mopo_trip()
-	print("LATAUS Vaala _ensure_mopo_trip %d ms" % (Time.get_ticks_msec() - tl))
+	print("LATAUS Raahe _ensure_mopo_trip %d ms" % (Time.get_ticks_msec() - tl))
 	var ts := Time.get_ticks_msec()
 	main._start_mopo()
-	print("LATAUS Vaala _start_mopo (ensure_built ym.) %d ms" % (Time.get_ticks_msec() - ts))
+	print("LATAUS Raahe _start_mopo (ensure_built ym.) %d ms" % (Time.get_ticks_msec() - ts))
 	ts = Time.get_ticks_msec()
 	for n in 5:
 		await get_tree().process_frame
-	print("LATAUS Vaala 5 ruutua %d ms" % (Time.get_ticks_msec() - ts))
+	print("LATAUS Raahe 5 ruutua %d ms" % (Time.get_ticks_msec() - ts))
 	if "--avaintesti" in OS.get_cmdline_user_args():
 		_key_test(main.mopo_trip.vaala)
-	print("LATAUS Vaala %d ms" % (Time.get_ticks_msec() - tl))
-	# Yksi kuva Vaalan ensiruudusta: aja.sh vaatii kuvan (tai --ei-kuvia), ja kuva paljastaa rikkinäisen latauksen.
+	print("LATAUS Raahe %d ms" % (Time.get_ticks_msec() - tl))
+	# Yksi kuva Raahen ensiruudusta: aja.sh vaatii kuvan (tai --ei-kuvia), ja kuva paljastaa rikkinäisen latauksen.
 	for a in OS.get_cmdline_user_args():
 		if not a.begins_with("--"):
 			await RenderingServer.frame_post_draw
@@ -78,7 +78,7 @@ func _key_test(vl: Node3D) -> void:
 	var sr: Array = vl.data.side_roads
 	var sdi := 0
 	for i in sr.size():
-		if sr[i].kind != "rail" and sr[i].pts.size() >= 2 and sr[i].name != "Vaalan tori":
+		if sr[i].kind != "rail" and sr[i].pts.size() >= 2 and sr[i].name != "Raahen tori":
 			sdi = i
 			break
 	var sp0: Array = (sr[sdi].pts[0] as Array).duplicate()

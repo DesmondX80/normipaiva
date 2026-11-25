@@ -1,4 +1,4 @@
-"""Tarkka mallinnus mökille ja Vaalan mopomatkalle (sama aineisto ja tekniikka kuin Oulujärven norpissa):
+"""Tarkka mallinnus mökille ja Raahen mopomatkalle (sama aineisto ja tekniikka kuin Oulujärven norpissa):
 
 - MML:n korkeusmalli 2 m (Kapsi), mosaiikki mielivaltaisista 6 x 6 km lehdistä
 - MML:n maastotietokanta (Kapsi, shp): pellot, suot, vedet, rakennukset tyyppeineen, tiet päällysteineen, kivet

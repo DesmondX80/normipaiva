@@ -15,8 +15,8 @@ Rakenne: prologi ilman musiikkia → tunnari kokonaan kappaleen osien mukaan →
 | P2 | musta | Hiljaisuus | | 1,5 s | |
 | P3 | `avaus_lappu` | Aamu. Päivin lappu, "EI KALJAA!!!" alleviivataan | Kortti | 6 s | Lappu |
 | P4 | **UUSI** `p_hyundai_lahtee` | Päivin Hyundai peruuttaa pihasta töihin, ikkunasta näkyy pelaaja | Matala sivukuva pihasta | 6 s | |
-| P5 | `i_pekka` | Pekka aidan takana | Kahden hahmon kuva sivulta | 6 s | Kupla: "Paapeliin pääsee, kunhan…" |
-| P6 | `t_kortti` | Musta kortti | | 3 s | PAAPELIIN PÄÄSEE, / kunhan… |
+| P5 | `i_pekka` | Pekka aidan takana | Kahden hahmon kuva sivulta | 6 s | Kupla: "Raaheen pääsee, kunhan…" |
+| P6 | `t_kortti` | Musta kortti | | 3 s | RAAHEIN PÄÄSEE, / kunhan… |
 | P7 | **UUSI** `p_talli` | Tallin ovi aukeaa, pelaaja nostaa pyörän esiin | Tallin sisältä ulos, vastavalo | 5 s | |
 | P8 | `i_talli` | Pyörän selkään ja polkimille | Matala sankarikuva edestä | 4 s, **tunnari alkaa leikkauksessa** | |
 
@@ -80,28 +80,28 @@ Rakenne: prologi ilman musiikkia → tunnari kokonaan kappaleen osien mukaan →
 | 34 | `f_wasted` | WASTED, musiikki katkeaa hetkeksi (sfx 1.0) | | 8 b | 1 |
 | 35 | `s_kyyti` | Pekan Volvo maantiellä | Välianimaatio, vain alku | 8 b | 1 |
 
-## Silta 140–152 s: PAAPELI
+## Silta 140–152 s: RAAHE
 
 | # | Otos | Kuva | Kamera | Kesto | In | Teksti |
 |---|---|---|---|---|---|---|
-| 36 | `t_mokki_saapuu` | Puiden latvojen yli mökin pihaan | Laskeutuva ajo | 8 b | 0 | PAAPELI |
+| 36 | `t_mokki_saapuu` | Puiden latvojen yli mökin pihaan | Laskeutuva ajo | 8 b | 0 | RAAHE |
 | 37 | `s_sauna` | Savusauna, löyly kiukaalle | Välianimaatio | 11 b | 2 | |
 | 38 | `f_uinti` | Sukellus: vedenalainen kuva, kalaparvi ja valokiilat | Välianimaatio | 11 b | 3 | |
 
-## Loppukertosäe 152–197,6 s: Paapeli ja VAALA, huipennus
+## Loppukertosäe 152–197,6 s: Raahe ja RAAHE, huipennus
 
 | # | Otos | Kuva | Kamera | Kesto | In | Teksti |
 |---|---|---|---|---|---|---|
 | 39 | `m_kala` | Soutuvene Likasella | Kiertävä veneen vierestä | 8 b | 2 | |
 | 40 | `f_pingis` | Pihapingis, lyönti | Lähikuva | 8 b | 3 | |
 | 41 | `s_mokkibileet` | MÖKKIBILEET!, kokko | Välianimaatio | 10 b | 1 | |
-| 43 | `f_mopo_silta` | Mopolla Vaalan tiellä | Sivuseuranta | 8 b | 1 | VAALA |
+| 43 | `f_mopo_silta` | Mopolla Raahen tiellä | Sivuseuranta | 8 b | 1 | RAAHE |
 | 44 | `f_siitari` | Siitarin tanssilattia | Alaviisto | 8 b | 1 | |
 | 45 | `k_karaoke` | Karaoke Siitarissa | Laulajan edestä | 8 b | 1 | |
 | 46 | `f_kiihdytys` | Kiihdytys Zabukin pihalta | Kilpailun kamera | 8 b | 1 | |
 | 47 | `f_lava_tanssi` | Kesäillan valssi lavalla | Kiertää paria | 10 b | 2 | |
 | 48 | `s_paivi_tv` | Päivi näkee tanssin telkkarista: "SE ON SE! Mun mies!" | Välianimaatio | 14 b | 2 | |
-| 49 | `f_nuoret` | Nuorten nuotio Vaalassa | Matala | 8 b | 0 | |
+| 49 | `f_nuoret` | Nuorten nuotio Raahessa | Matala | 8 b | 0 | |
 | 42 | `m_juna` | Paluujuna Saloisiin: ravintolavaunussa Helenan käsi lähtee reidelle (pelin paluumatka) | Välianimaatio | 10 b | 0 | |
 | 50 | `f_auringonlasku` | Laavu auringonlaskussa: LEGENDAARINEN NORMIPÄIVÄ! | Välianimaatio | 12 b | 0 | |
 
@@ -109,7 +109,7 @@ Rakenne: prologi ilman musiikkia → tunnari kokonaan kappaleen osien mukaan →
 
 | # | Otos | Kesto | Teksti |
 |---|---|---|---|
-| 51 | `loppu_logo` | 7 s | NORMIPÄIVÄ · Saloisissa + Mökki ja Vaala |
+| 51 | `loppu_logo` | 7 s | NORMIPÄIVÄ · Saloisissa + Mökki ja Raahe |
 
 ## Toteutettavaa ennen renderöintiä
 

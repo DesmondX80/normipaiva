@@ -1,6 +1,6 @@
 # Karttadata: mistä se tulee ja miten aluetta laajennetaan
 
-Pelin kylä (Saloinen, Raahe) ja mökki (Kaisuantie 62, Vaala) on tehty oikeasta kartta-aineistosta. Kaikki lähteet
+Pelin kylä (Saloinen, Raahe) ja mökki (Kaisuantie 62, Raahe) on tehty oikeasta kartta-aineistosta. Kaikki lähteet
 ovat avoimia; tällä sivulla kerrotaan, mistä data haetaan ja millä työkaluilla se muunnetaan peliin, jos aluetta
 laajennetaan tai uusia alueita lisätään.
 
@@ -102,24 +102,24 @@ Vanha `tools/mokki_kartta.py` (Overpass ja EU-DEM 25 m) on vielä repossa, mutta
 | `kyla_osm.ps1`, `kyla.ps1`, `mokki.ps1` | `kyla_osm.py`, `kyla.py`, `mokki.py` | ajoskriptit |
 | `tarkista_alueet.gd` | | aluemonikulmioiden kolmioituvuus (Godot) |
 
-## Tarkka mallinnus: mökin metsä ja Vaalan mopomatka (tarkka.py)
+## Tarkka mallinnus: mökin metsä ja Raahen mopomatka (tarkka.py)
 
-Mökin ympäristö ja Vaalan mopomatka käyttävät samaa aineistoa kuin Oulujärven norpat:
+Mökin ympäristö ja Raahen mopomatka käyttävät samaa aineistoa kuin Oulujärven norpat:
 
 | Mitä | Lähde |
 |------|-------|
 | Puut: paikka, pituus, latvuksen säde | MML:n laserkeilaus 2011 (Funet, `mml/laserkeilaus/2008_latest/2011/`): latvusmallin paikalliset maksimit; latvuston aukot täydennetään vain laserin näkemään latvustoon |
 | Puulajit | Luken monilähteinen VMI 2023 (16 m), HTTP-aluepyynnöillä vain tarvittavat laatat |
 | Rakennusten korkeudet | laserpisteet pohjapiirroksen sisältä (pienissä harja, isoissa katon taso) |
-| Vaalan korkeudet | MML:n 2 m korkeusmalli (tie, sivut, keskusta ja kaukomaasto; ennen EU-DEM 25 m) |
-| Vaalan pellot, suot, vedet ja rakennukset | maastotietokanta; keskustan rakennuksille OSM:n nimet, tyypit ja tunnisteet |
+| Raahen korkeudet | MML:n 2 m korkeusmalli (tie, sivut, keskusta ja kaukomaasto; ennen EU-DEM 25 m) |
+| Raahen pellot, suot, vedet ja rakennukset | maastotietokanta; keskustan rakennuksille OSM:n nimet, tyypit ja tunnisteet |
 
 Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kartta/requirements.txt`.
 
 - **Mökki**: `venv/bin/python tools/kartta/mokki_puut.py --cache <välimuisti>` → `assets/mokki/puut.bin`
   (puut mökin paikallisessa kehyksessä, maanpinta kuten `mokki.gd`:n `h()`) ja `assets/mokki/rakennukset.json`
   (naapurirakennusten harjakorkeudet OSM-tunnisteittain).
-- **Vaala**: `venv/bin/python tools/vaala_bake.py --cache <välimuisti>` (tarkka aineisto `tools/kartta/vaala_tarkka.py`)
+- **Raahe**: `venv/bin/python tools/vaala_bake.py --cache <välimuisti>` (tarkka aineisto `tools/kartta/vaala_tarkka.py`)
   → `assets/vaala/tie.json`, `maasto.bin` ja `puut.bin`. Puut siirretään tien suhteen pelin kehykseen kuten muutkin
   kohteet, tiivistetyllä välillä harvennettuna tiivistyksen suhteessa (metsän tiheys säilyy). Kaukomaaston metsä
   (650 m tiestä) on laserin valtapuita. Soratie mökiltä Neittäväntielle on tiivistetty `GRAVEL_K`-kertaisesti.
@@ -157,7 +157,7 @@ Python-riippuvuudet: `python3 -m venv venv && venv/bin/pip install -r tools/kart
   Sen jälkeen `tools/vaala_silta_jarvi.py` suoristaa Oulujoen sillan (tiivistyskaistan sauma taittoi sen keskeltä)
   ja tasaa sen korkeuden penkereineen sekä täyttää Oulujärven kaukomaaston luoteiskulmaan, ja
   `tools/vaala_keskusta.py` siirtää K-Marketin ja Gasthausin Siitarin ympärille ja torin tien päähän Siitarin
-  pihalenkin kohdalle (`TORI_U`, `TORI_V`), Zabuki torin itäpäätyyn, sekä liikenneympyrän Vaalantielle Zabukin
+  pihalenkin kohdalle (`TORI_U`, `TORI_V`), Zabuki torin itäpäätyyn, sekä liikenneympyrän Raahentielle Zabukin
   jälkeen (`RB_U`, `RB_R`) ja rautatieaseman todellisen asemarakennuksen paikalle (`STATION_ID`): laituri radan ja
   aseman väliin radan suuntaisesti, ovi kadun puolelle ja asfaltoitu ajotie Ratatieltä/Asematieltä
   (`--scene=mokkiasema`, junamatka `--scene=junamatka`).
@@ -171,4 +171,4 @@ Lähdeaineisto ladataan välimuistiin (n. 600 Mt: 9 laserlehteä, korkeusmallile
 R4334R). Korkeusmallin lehtijako alkaa idässä 308 000:sta (lehdet 2000 mod 6000), pohjoisessa 6 570 000:sta.
 Puut piirtää `scripts/forest.gd` (kolme tarkkuustasoa, paikat varjostimessa datatekstuurista, rungot törmäävät
 kameran lähellä). Tarkistuskuvat: `godot --path . -s tools/testit/tarkka_kuvat.gd -- <kansio>` (mökki) ja
-`godot --path . -- --shot=<kansio>/v.png --scene=mokkivaala` (Vaala).
+`godot --path . -- --shot=<kansio>/v.png --scene=mokkivaala` (Raahe).

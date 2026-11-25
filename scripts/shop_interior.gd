@@ -15,7 +15,7 @@ const BEER_PRICE := 12.90
 const EXTRAS := {"makkara": ["grillimakkara", 3.50], "tikut": ["tulitikut", 1.20]}
 ## Karkkiteline kassan lähellä (heräteostos): suklaalevy.
 const CANDY_SPOT := Vector3(5.2, 0, 7.2)
-## Alkon hylly vasemmalla seinällä (vain Vaalan K-Market Tervaportissa, vaala = true): viina kätköviinaksi.
+## Alkon hylly vasemmalla seinällä (vain Raahen K-Market Tervaportissa, vaala = true): viina kätköviinaksi.
 const ALKO_SPOT := Vector3(-10.4, 0, -2.0)
 const ALKO := ["Koskenkorva 0,5 l", 21.90]
 const ALKO_MAX := 2
@@ -80,9 +80,9 @@ var bag := {}  # Päivin hyllyn tuotteet: tuote -> väri
 var _sel := {}  # lokeron valittu väri: tuote -> värin indeksi
 var _items := {}  # tuote -> väri -> MeshInstance3D (valittu nostetaan esiin)
 var money := 20.0  # main päivittää ennen sisääntuloa
-## Vaalan K-Market Tervaportti: Alkon hylly näkyvissä, eikä Saloisten naapuri (Anna-Liisa) tule kauppaan.
+## Raahen K-Market Tervaportti: Alkon hylly näkyvissä, eikä Saloisten naapuri (Anna-Liisa) tule kauppaan.
 var vaala := false
-var alko := true  # Vaalassa: Alkon hylly (Tervaportti)
+var alko := true  # Raahessa: Alkon hylly (Tervaportti)
 var _alko: Node3D
 
 var walker: CharacterBody3D

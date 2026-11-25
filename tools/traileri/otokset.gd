@@ -94,7 +94,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var w := _foot(main, pp + f * 1.7, -f)
 			pk.rotation.y = B.yaw_to(w.global_position - pp)
 			pk._body.play("Idle_Talking", 0.2)
-			d.bubble(pk, "Pekka: Paapeliin pääsee, kunhan...", 3.2)
+			d.bubble(pk, "Pekka: Raaheen pääsee, kunhan...", 3.2)
 			return {"cam": _two_shot(main, pp, w.global_position, -1.0), "fov": 40.0, "dof": 7.0, "done": func() -> void: _release(pk)}
 
 		# --- Tarina ------------------------------------------------------------------------------------------------
@@ -820,7 +820,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 				if absf(t - 1.0) < 0.02 and hg._reload_t <= 0.0:
 					hg._shoot()}
 
-		# --- Vaala (mopomatka) ---------------------------------------------------------------------------------------
+		# --- Raahe (mopomatka) ---------------------------------------------------------------------------------------
 		"f_mopo_silta":
 			_time(main, 20, 0)
 			var mt: Node3D = _vaala(main)
@@ -909,7 +909,7 @@ static func setup(main: Node3D, id: String, d: Node) -> Dictionary:
 			var pp: Vector3 = mt.to_global(vl.party_pos)
 			var look := pp + Vector3(0, 0.8, 0)
 			return {"cam": dolly(pp + Vector3(3.4, 1.3, 2.6), pp + Vector3(2.6, 1.15, 2.0), look, look + Vector3(0, 0.15, 0)), "fov": 48.0, "dof": 6.0}
-		"m_juna":  # paluumatka illalla Vaalasta Saloisiin: kuvaus alkaa ravintolavaunussa, kun Helenan käsi lähtee reidelle
+		"m_juna":  # paluumatka illalla Raahesta Saloisiin: kuvaus alkaa ravintolavaunussa, kun Helenan käsi lähtee reidelle
 			_time(main, 21, 0)
 			_vaala(main)
 			for i in 5:
@@ -1322,7 +1322,7 @@ static func _mokki(main: Node3D) -> Node3D:
 	return main.mokki
 
 
-## Mopomatka Vaalaan käynnissä (main._start_mopo); palauttaa mopo_tripin.
+## Mopomatka Raaheen käynnissä (main._start_mopo); palauttaa mopo_tripin.
 static func _vaala(main: Node3D) -> Node3D:
 	if not main._in_vaala:
 		main.mokki.ensure_built()

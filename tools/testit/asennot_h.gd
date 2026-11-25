@@ -1,6 +1,6 @@
 extends Node
 ## Junan erikoiskohtauksen riisunta (Helenan mustat pitsialusvaatteet ja viekoitteleva riisunta): ajaa oikean välianimaation
-## (verkkopaita, tarjotut paukut, Saloisista Vaalaan), kuvaa pelikameralta riisunnan vaiheet (STRIP_LEN s) ja tulostaa
+## (verkkopaita, tarjotut paukut, Saloisista Raaheen), kuvaa pelikameralta riisunnan vaiheet (STRIP_LEN s) ja tulostaa
 ## RISSUNTA-rivit (Helenan käsien ja pelaajan käden raot, läpimenot).
 ## aja.sh --kiintea scene asennot --asento=h
 

@@ -1,4 +1,4 @@
-## Vanha tavaramakasiini aseman takana (Saloinen world.gd, Vaala vaala.gd): punamultalaudoitus haalistunut ja
+## Vanha tavaramakasiini aseman takana (Saloinen world.gd, Raahe vaala.gd): punamultalaudoitus haalistunut ja
 ## lohkeillut, ikkunat lankutettu, huopakatto, kivijalka ja lastauslaituri radan puolella, kadun puolella ketjulla
 ## lukitut liukuovet. Länsipäädyssä portaiden päällä teräksinen takaovi kurkistusluukkuineen ja punainen lamppu
 ## häkissä: siellä pelataan rasvanappia (main.gd _makasiini_logic, rasvanappi_game.gd).

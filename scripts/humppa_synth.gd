@@ -16,7 +16,7 @@ const CACHE_MAX := 3
 ## Toivelista: nimi, tempo (iskua/min), sävellaji (puolisävelaskelia A:sta), siemen.
 const SONGS := [
 	{"title": "Humppa Oulujärven rannalla", "bpm": 132, "key": 3, "seed": 11},
-	{"title": "Vaalan valot", "bpm": 124, "key": 5, "seed": 23},
+	{"title": "Raahen valot", "bpm": 124, "key": 5, "seed": 23},
 	{"title": "Mopolla lavalle", "bpm": 138, "key": 0, "seed": 37},
 	{"title": "Kainuun kesäyö", "bpm": 118, "key": 8, "seed": 41},
 	{"title": "Letkis Pahalahden niemellä", "bpm": 128, "key": 10, "seed": 53},

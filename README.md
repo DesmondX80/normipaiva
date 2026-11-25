@@ -23,7 +23,7 @@ Loki: `%APPDATA%\Godot\app_userdata\Normipäivä\logs\godot.log`.
 
 - Saloisten kylä OpenStreetMapista: kauppareissu pyörällä, Päivin kauppalista värikynillä ja kaljajemmat.
 - Vaarat: Päivin punainen Hyundai, naapurin Anna-Liisa, juntti ja mummot kettukarkkeineen.
-- Tarina "Paapeliin pääsee, kunhan…" ja sen jatko: Paapelin mökki, mopolla Vaalaan ja junalla kotiin.
+- Tarina "Raaheen pääsee, kunhan…" ja sen jatko: Raahen mökki, mopolla Raaheen ja junalla kotiin.
 - Kymmeniä minipelejä: marjat, nurmikko, sahaus, kalastus, kädenvääntö, tanssit, bingo, Street Fighter -tappelut…
 - Kylän legendat, sivutehtävät ja onnelliset loput Normipäiväkirjassa (O).
 

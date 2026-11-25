@@ -1,7 +1,7 @@
 extends SceneTree
 ## Kuvat mökiltä tarkan mallinnuksen (laserpuut, rakennusten korkeudet) tarkistukseen:
 ## godot --path . -s tools/testit/tarkka_kuvat.gd -- <kansio>
-## Vaalan mopomatkan kuvat: godot --path . -- --shot=<kansio>/v.png --scene=mokkivaala
+## Raahen mopomatkan kuvat: godot --path . -- --shot=<kansio>/v.png --scene=mokkivaala
 
 var main: Node3D
 var out := "user://tarkka"

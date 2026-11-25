@@ -105,7 +105,7 @@ func _build(shot: Dictionary, size: Vector2) -> Array:
 	return anims
 
 
-## Loppulogo: NORMIPÄIVÄ auringonlaskun liukuvärillä, SALOISISSA harvennettuna alla, sitten "+ MÖKKI JA VAALA" ja PIAN.
+## Loppulogo: NORMIPÄIVÄ auringonlaskun liukuvärillä, SALOISISSA harvennettuna alla, sitten "+ MÖKKI JA RAAHE" ja PIAN.
 func _logo(size: Vector2, u: float) -> Array:
 	var glow := ColorRect.new()
 	glow.size = size
@@ -127,7 +127,7 @@ void fragment() {
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.size = Vector2(size.x, 80 * u)
 	sub.position = Vector2(0, size.y * 0.5 + 40 * u)
-	var plus := Teksti.label(root_c, "+ MÖKKI JA VAALA", int(36 * u), Teksti.YELLOW, Teksti.font(), 0)
+	var plus := Teksti.label(root_c, "+ MÖKKI JA RAAHE", int(36 * u), Teksti.YELLOW, Teksti.font(), 0)
 	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	plus.size = Vector2(size.x, 60 * u)
 	plus.position = Vector2(0, size.y * 0.5 + 130 * u)

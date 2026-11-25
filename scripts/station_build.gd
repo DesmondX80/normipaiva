@@ -1,5 +1,5 @@
 extends RefCounted
-## Suomalainen puinen rautatieasema (Saloinen ja Vaala, world.gd ja vaala.gd): keltainen pystylautaverhous
+## Suomalainen puinen rautatieasema (Saloinen ja Raahe, world.gd ja vaala.gd): keltainen pystylautaverhous
 ## valkoisine vyö- ja nurkkalistoineen, ristikkoikkunat valkoisin puittein, punainen saumattu peltikatto, tiiliset
 ## piiput ja kolme kolmiokattolyhtyä kadun puoleisella lappeella. Kadun puolella sisäänkäyntikatos portaineen ja
 ## pariovi, päädyssä pieni lippa, laiturin puolella pitkä katos pilareineen, ovi laiturille, kello ja penkki.

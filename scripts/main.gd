@@ -1,6 +1,6 @@
 extends Node3D
 ## Normipäivä Saloisissa: rakentaa maailman, pyörittää pelin tilaa ja HUDin.
-## Tilat: ulkona (kylässä, mökillä ja Vaalassa) tai sisätila (in_shop, in_home, …), cutscene, fight ja minigame.
+## Tilat: ulkona (kylässä, mökillä ja Raahessa) tai sisätila (in_shop, in_home, …), cutscene, fight ja minigame.
 
 const B := preload("res://scripts/build.gd")
 const Pose := preload("res://scripts/pose.gd")
@@ -22,9 +22,9 @@ const ChopGame := preload("res://scripts/chop_game.gd")
 const SawGame := preload("res://scripts/saw_game.gd")
 const BarGame := preload("res://scripts/bar_game.gd")
 const PingisGame := preload("res://scripts/pingis_game.gd")
-## Rasvanappi aseman takana makasiinissa Saloisissa ja Vaalassa (vain aikuisille): salasana luukulle ja peli pimeässä.
+## Rasvanappi aseman takana makasiinissa Saloisissa ja Raahessa (vain aikuisille): salasana luukulle ja peli pimeässä.
 const RasvanappiGame := preload("res://scripts/rasvanappi_game.gd")
-## Kolmiomittaus (#255): Sytkäri-mätsin osoite kavereiden kanssa Saloisissa ja Vaalassa (kolmiomittaus.gd).
+## Kolmiomittaus (#255): Sytkäri-mätsin osoite kavereiden kanssa Saloisissa ja Raahessa (kolmiomittaus.gd).
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
 const Sytkari := preload("res://scripts/sytkari.gd")
 const KolmioKohtaus := preload("res://scripts/kolmio_kohtaus.gd")
@@ -124,7 +124,7 @@ const PERV_MIN := 30.0  # peliminuuttia
 ## yksi annos + yksi jatke antaa kaksi annosta, joiden vaikutus on puolet (T-valikko "Jatka").
 const LAAKE_JATKE := {"opiaatti": "burana", "perv": "panadol"}
 const LAAKE_JATKO_MAX := 4
-## Huumekauppa teineille (lavan pihalla ja torin mopopojille, vain Vaalassa): hinta sama kuin takaovella, teho ei vaikuta hintaan.
+## Huumekauppa teineille (lavan pihalla ja torin mopopojille, vain Raahessa): hinta sama kuin takaovella, teho ei vaikuta hintaan.
 ## Jatkettu annos voi paljastua: teini huomaa todennäköisyydellä TEINI_KIINNI[jatkoaste] ja syntyy tappelu (_start_teini_fight);
 ## häviö vie kaikki lääkkeet ja rahat. Paljastuminen ei ole koskaan varma, huonoimmallakaan (90 %).
 const TEINI_KIINNI := [0.0, 0.1, 0.3, 0.6, 0.9]
@@ -134,7 +134,6 @@ var klaffipoyta := false  # taitettava klaffipöytä löydetty (Reipparin seinä
 var craft_known := {}  # opitut jatkoreseptit: reseptin id -> true (klaffipöydän reseptikirja)
 var perv_mult := PERV_MULT  # käytössä olevan pervitiiniannoksen kerroin (jatkettu on heikompi)
 var perv_until := -1.0  # pervitiinin vaikutus päättyy (day * 1440 + clock_min)
-const Muskelivene := preload("res://scripts/muskelivene.gd")
 const LaavuGuard := preload("res://scripts/laavu_guard.gd")
 const PaperMap := preload("res://scripts/paper_map.gd")
 const Villager := preload("res://scripts/villager.gd")
@@ -452,7 +451,7 @@ const OPEN_HOURS := {
 	"kauppa": Vector2(7 * 60, 21 * 60),   # K-Market
 	"alko": Vector2(9 * 60, 18 * 60),     # Alkon hylly Tervaportissa
 	"raahe": Vector2(14 * 60, 2 * 60),    # Kapteenin Kulma ja Kellari
-	"apteekki": Vector2(9 * 60, 17 * 60), # Vaalan apteekki
+	"apteekki": Vector2(9 * 60, 17 * 60), # Raahen apteekki
 }
 const OPEN_NAMES := {"kauppa": "K-Market", "alko": "Alko", "raahe": "Kapteenin Kulma", "apteekki": "Apteekki"}
 const CLOSE_GRACE := 15.0
@@ -512,7 +511,7 @@ var drone_broken_day := -1
 var drone_photos: Array = []
 var pontikka_found := false
 var _drone: Node3D
-## Pankkiautomaatti: 20 € kerran päivässä (Saloisissa K-Marketin takana, Vaalassa K-Market Tervaportin seinällä Siitarin vieressä).
+## Pankkiautomaatti: 20 € kerran päivässä (Saloisissa K-Marketin takana, Raahessa K-Market Tervaportin seinällä Siitarin vieressä).
 var atm_day := 0
 var _atm_node: Node3D
 var _drone_parked: Node3D
@@ -599,7 +598,7 @@ var stash_used: Array = []
 ## Pyörä jää sinne, minne sen jättää (myös yön yli ja pelikerrasta toiseen): tallennettu paikka ja suunta.
 var _bike_saved = null  # [Vector3, float] tai null
 ## Pelaajan paikka tallennukseen: viimeisin kohta, jossa liikuttiin vapaasti ulkona Saloisissa maan pinnalla
-## ([paikka, kulma, pyörällä]). Sisätiloissa, minipeleissä, mökillä ja Vaalassa jää viimeisin ulkopaikka, joten
+## ([paikka, kulma, pyörällä]). Sisätiloissa, minipeleissä, mökillä ja Raahessa jää viimeisin ulkopaikka, joten
 ## lataus jatkaa oven edestä. _resume_saved on tallennuksesta luettu paikka, johon peli jatkuu käynnistettäessä.
 var _resume_spot: Array = []
 var _resume_saved: Array = []
@@ -7697,7 +7696,7 @@ func quest_flag(name: String) -> bool:
 		"ebike_built":
 			return ebike.built()
 		"asema_all":
-			return asema_katkot.get("saloinen", 0) == 2 and asema_katkot.get("vaala", 0) == 2
+			return asema_katkot.get("saloinen", 0) == 2
 	if name.begins_with("paivi_"):
 		var po: Object = rikos_osa("paivi")  # luku 6 (#326): rikos/paivi.gd flag
 		return po != null and po.flag(name)
@@ -7713,10 +7712,10 @@ func quest_progress(key: String) -> String:
 			return "valmis" if ebike.built() else "osat %d / %d" % [ebike.parts.size(), EBike.PARTS.size()]
 		"asemakatkot":
 			var n := 0
-			for t in ["saloinen", "vaala"]:
+			for t in ["saloinen"]:
 				if asema_katkot.get(t, 0) == 2:
 					n += 1
-			return "%d / 2" % n
+			return "%d / 1" % n
 		"tietokonemuseo":
 			return "voittoja %d, ennätys %d" % [tietokonemuseo.voitot, tietokonemuseo.parhaat] if tietokonemuseo.voitot > 0 else ""
 		"wanharaahe":
@@ -7793,7 +7792,7 @@ func journal_data() -> Dictionary:
 
 ## Muiden paikkakuntien tehtävät: "näytä kartalla" osoittaa K-Marketin taksitolpalle (retket.gd, lähtö taksilla). Kartalle
 ## niistä ei piirretä omia renkaita (kaikki samassa paikassa), vain kompassi.
-const TEKEMISET := ["juoksulenkki", "lintutorni", "ronttonen", "hedelmapeli", "pajatso", "muskelivene", "juhannuskokko"]  # quests.gd tekemiset
+const TEKEMISET := ["juoksulenkki", "lintutorni", "ronttonen", "hedelmapeli", "pajatso", "juhannuskokko"]  # quests.gd tekemiset
 const HANTTIHOMMAT := ["keikkatyo", "kesaduuni", "tyokkari", "pullonkeraus", "kioski_hengailu"]  # quests.gd hanttihommat
 const TAXI_QUESTS := ["kalajoki", "kalalampi", "pubivisa", "hanhikiven_rajakivi", "pakkahuoneen_veistos", "peruskiven_kapseli", "manamansalon_kirkko", "tietokonemuseo",
 	"wanharaahe", "kuvakirkko", "vanhaherra", "karhut", "hiidenportti", "pyhakoski", "messenius", "raate"]
@@ -8183,7 +8182,7 @@ func _on_home_slept() -> void:
 ## Vessanpönttö (koti, mökin pesuhuone, mökin huussi): ensin kysytään ykkönen vai kakkonen (esinevalikko), sitten
 ## minipeli (wc_game.gd) ja lopuksi tulos (_wc_result).
 var _wc_where := ""
-## Juoksukaljat: kauppias perässä (shop_chaser.gd). Saloisissa taksiin ehtii juuri ja juuri, Vaalassa ei taksia.
+## Juoksukaljat: kauppias perässä (shop_chaser.gd). Saloisissa taksiin ehtii juuri ja juuri, Raahessa ei taksia.
 var _shop_chaser: Node3D = null
 var _chase_loot := {}  # maksamatta viedyt: {"kalja": bool, "cart": [...], "bag": {...}} (kauppias ottaa takaisin)
 var _wc_game: CanvasLayer  # käynnissä oleva minipeli (testit)
@@ -9757,7 +9756,7 @@ var _korkki_rng := RandomNumberGenerator.new()
 const KORKKI_VIRHE_HINTA := 15.0  # Korkki-Raimo ostaa tupla-virhepainoksen
 
 
-## Korkkiläpsy (#290, korkki_game.gd): Vaalan lavan pihan teinit illalla 18–23 kerran päivässä. Kumpikin panee 3 tuplaa
+## Korkkiläpsy (#290, korkki_game.gd): Raahen lavan pihan teinit illalla 18–23 kerran päivässä. Kumpikin panee 3 tuplaa
 ## (pelaajalta vain tuplat, teiniltä muiden pitäjien korkkeja), voitetut korkit kansioon.
 const KorkkiGame := preload("res://scripts/korkki_game.gd")
 var _lapsy_day := -1
@@ -10374,7 +10373,7 @@ func _roll_vaino() -> void:
 ## Väinö karkuteillä: Pekan huuto, kiinniotto jalan (nuuhkiessa tai makkaralla houkuteltuna) ja palautus.
 func _vaino_logic() -> void:
 	if _vaino_at >= 0.0 and clock_min >= _vaino_at:
-		var late := clock_min > _vaino_at + 60.0  # karkuaika meni ohi poissa (mökki, Vaala): Väinö pysyi kotona
+		var late := clock_min > _vaino_at + 60.0  # karkuaika meni ohi poissa (mökki, Raahe): Väinö pysyi kotona
 		_vaino_at = -1.0
 		if not late:
 			_vaino_escape()
@@ -10531,7 +10530,7 @@ func _on_taxi_choice(id: String) -> void:
 		_taxi_retki(id.trim_prefix("retki_"))
 
 
-# --- Juna Saloisten ja Vaalan asemien välillä -------------------------------------------------------------------
+# --- Juna Saloisten ja Raahen asemien välillä -------------------------------------------------------------------
 
 const TRAIN_FARE := 10.0  # suuntaansa
 const TRAIN_ROUND := 16.0  # ravintolavaunussa oma tuoppi ja kolme Koskenkorvaa naisille (jos rahat riittävät)
@@ -10642,7 +10641,7 @@ func _headphones_keys() -> void:
 		_show_message("♫ %s" % headphones.title, 1.8)
 
 
-## Vaatekaappi (koti: tuulipuku tai farkut ja verkkopaita; Paapeli: työvaatteet tai tuulipuku): valikko asuista.
+## Vaatekaappi (koti: tuulipuku tai farkut ja verkkopaita; Raahe: työvaatteet tai tuulipuku): valikko asuista.
 func _open_wardrobe(ids: Array, title: String) -> void:
 	_interior_busy(true)
 	_active_walker().controls_enabled = false
@@ -10681,7 +10680,7 @@ func _on_wardrobe(id: String) -> void:
 	Sfx.play("cloth", -2.0)
 	_show_message({"tuulipuku": "Tuulipuku päälle ja Karhu-lippis päähän. Normipäivän univormu.",
 		"farkut": "Repaleinen verkkopaita, henkselit ja työhousut. Tukka pystyssä, naama noessa. Kyntömiehen asu.",
-		"tyovaatteet": "Työhousut, flanelli ja Karjala-lippis. Nyt kelpaa tehdä Paapelin hommia.",
+		"tyovaatteet": "Työhousut, flanelli ja Karjala-lippis. Nyt kelpaa tehdä Raahen hommia.",
 		"hiihtohaalari": "Neonpinkki hiihtohaalari, kuukengät ja otsapanta. Kasari palasi, ja koko kylä näkee sen.",
 		"nahkaliivi": "Pentin nahkaliivi paljaalle rinnalle, farkut ja bootsit. Penkit on lämpimät, sanoo liivi."}[id], 3.5)
 	_save_game()
@@ -10823,7 +10822,7 @@ func _phone_keys() -> void:
 
 
 ## Saloisten asema K-Marketin takana (world.gd _build_station): kaupan puoleisesta ovesta odotussaliin, laiturilta
-## jalan E junalla Vaalaan, kun juna on laiturilla. Radan varressa narkkarin rahakätkö, kun paikka on kuultu.
+## jalan E junalla Raaheen, kun juna on laiturilla. Radan varressa narkkarin rahakätkö, kun paikka on kuultu.
 func _station_logic() -> void:
 	if _hint.text != "" or world.station_pos == Vector3.ZERO:
 		return
@@ -10855,7 +10854,7 @@ func _station_logic() -> void:
 var _rasva_game: CanvasLayer
 
 
-## Aseman takana makasiinin takaovi (makasiini.gd): koputus avaa kurkistusluukun (rasvanappi_game.gd). Vaalassa
+## Aseman takana makasiinin takaovi (makasiini.gd): koputus avaa kurkistusluukun (rasvanappi_game.gd). Raahessa
 ## sama makasiini on aseman vieressä (vaala.gd _build_makasiini, ovi "makasiini" _on_vaala_door).
 func _makasiini_logic() -> void:
 	if _hint.text != "" or world.makasiini_door == Vector3.ZERO or _rasva_game != null or Settings.get_v("k18_pois"):
@@ -10904,7 +10903,7 @@ func _rasvanappi_result(r: Dictionary) -> void:
 # lisää missä vain (E, kun muuta toimintoa ei ole). Ympyrät näkyvät paperikartalla (paper_map.gd kolmio_rings), ja
 # leikkauksessa on naisen talo. Väärällä ovella avaa joku muu. Oma lahja ostetaan kaupan tiskiltä (kauppias), ilman
 # sitä ovi ei aukea. Oikealla ovella erikoissääntöinen Rasvanappi ja aamu. Saloisissa Joni ja Esa kaupan pihassa,
-# Vaalassa Tero ja Timo Sivikin vieressä aseman pihassa. Tila: kolmiomittaus.gd, Sytkäri: sytkari.gd, ovet ja aamu:
+# Raahessa Tero ja Timo Sivikin vieressä aseman pihassa. Tila: kolmiomittaus.gd, Sytkäri: sytkari.gd, ovet ja aamu:
 # kolmio_kohtaus.gd.
 
 const Vehicles := preload("res://scripts/vehicles.gd")
@@ -10922,7 +10921,7 @@ var _kolmio_ui: CanvasLayer  # Sytkäri tai kohtaus auki
 var _kolmio_anchor: Node3D  # Rasvanapin halli tämän yläpuolelle
 
 
-## Paperikartalle (paper_map.gd): käynnissä olevan mittauksen ympyrät (kylässä maailman x/z, Vaalassa vaala.gd x/z).
+## Paperikartalle (paper_map.gd): käynnissä olevan mittauksen ympyrät (kylässä maailman x/z, Raahessa vaala.gd x/z).
 ## Kylän kartta kysyy "saloinen": kesäheilan mittauksen aikana sen ympyrät (_kolmio_sal_site).
 func kolmio_rings(site: String) -> Array:
 	if site == "saloinen":
@@ -10970,7 +10969,7 @@ func _kolmio_house_door(f: Dictionary) -> Vector2:
 	return (f.c as Vector2) + Vector2(q.x, q.z)
 
 
-## Ovet kohteittain: Saloisissa OSM-taloista, Vaalassa _kolmio_vaala_setup. Kodin (luku 6) kohde on pelaajan oma
+## Ovet kohteittain: Saloisissa OSM-taloista, Raahessa _kolmio_vaala_setup. Kodin (luku 6) kohde on pelaajan oma
 ## etuovi (koputus _home_door_logicissa, ettei ovi vie sisään), väärät ovet ovat Saloisten väärät ovet.
 func _kolmio_door_list(site: String) -> Array:
 	if site == "koti" and not _kolmio_doors.has("koti") and world != null and home_door != Vector3.ZERO:
@@ -10999,7 +10998,7 @@ func _kolmio_target(site: String) -> Vector2:
 	return Vector2.INF
 
 
-## Pelaajan paikka kohteen kehyksessä (Saloisissa maailma, Vaalassa vaala.gd).
+## Pelaajan paikka kohteen kehyksessä (Saloisissa maailma, Raahessa vaala.gd).
 func _kolmio_me(site: String) -> Vector2:
 	var p := player.global_position
 	return Vector2(p.x, p.z)
@@ -11048,7 +11047,7 @@ func _kolmio_logic() -> void:
 
 ## K-18-sisältö pois (asetus k18_pois): hahmot piiloon ja pysähdyksiin; palauttaa true, kun piilossa. Asetuksen
 ## vaihtuessa takaisin hahmot palaavat näkyviin (kolmiomittauksen Esan poissaolon hoitaa _kolmio_logic itse).
-const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "kolmio_vaala", "iltakivat"]  # päiväkirjan tehtävät
+const K18_SIDE := ["rasvanappi", "pentti", "kolmio_saloinen", "iltakivat"]  # päiväkirjan tehtävät
 const K18_LOPUT := ["minttu", "katja", "pentin_kyyti", "pentin_kiertue", "kulissit", "avoin_pelikortti", "kesaheila", "rasytuppi", "lettukunkku", "loylykunkku",
 	"karaokekunkku"]  # onnelliset loput ja legendaariset hetket
 func _k18_hide(npcs: Array) -> bool:
@@ -11166,7 +11165,7 @@ func _kolmio_options(who: String, o: Array) -> void:
 			o.append(_opt("kolmio_aloita", text, why == "", why, s.stage == ""))
 
 
-## Kaupan tiskiltä oma lahja (kauppias, sama sisätila Saloisissa ja Vaalassa).
+## Kaupan tiskiltä oma lahja (kauppias, sama sisätila Saloisissa ja Raahessa).
 func _kolmio_gift_option(o: Array) -> void:
 	var site := "saloinen"
 	var s: Dictionary = kolmio.st(site)
@@ -11228,7 +11227,7 @@ func _kolmio_phone(site: String, mode: String, dist: String, note := "") -> void
 	_kolmio_ui = ui
 
 
-## Puhelin esillä: ohjaus pois. Saloisissa kuten välikuvassa, Vaalassa vain kävelijä pysähtyy (näkyy puhelimen takana).
+## Puhelin esillä: ohjaus pois. Saloisissa kuten välikuvassa, Raahessa vain kävelijä pysähtyy (näkyy puhelimen takana).
 ## Sulkeva E ei saa samalla ruudulla käynnistää muuta toimintoa (_talk_end_frame).
 func _kolmio_hold(on: bool) -> void:
 	_talk_end_frame = Engine.get_process_frames()
@@ -11360,8 +11359,8 @@ func _kolmio_rasvanappi(site: String) -> void:
 ## Räsytuppi naisen olohuoneessa (toisesta kolmiomittauksesta alkaen samassa kohteessa): pelaaja ja nainen vastaan
 ## kaverit; ilta päättyy, kun pari on pantu tuppeen, ja aamu tulee kuten Rasvanapin jälkeen. Ensimmäinen voitto on
 ## legendaarinen hetki "rasytuppi".
-const TUPPI_KAVERIT := {"saloinen": [["joni", "Joni"], ["esa", "Esa"]], "vaala": [["tero", "Tero"], ["timo", "Timo"]]}
-const TUPPI_NAINEN := {"saloinen": "minttu", "vaala": "katja"}
+const TUPPI_KAVERIT := {"saloinen": [["joni", "Joni"], ["esa", "Esa"]]}
+const TUPPI_NAINEN := {"saloinen": "minttu"}
 func _kolmio_tuppi(site: String) -> void:
 	var info: Dictionary = Kolmio.SITES[site]
 	_kolmio_new_anchor(site)
@@ -11477,7 +11476,6 @@ const KESA_POISSA := 7  # "Suuttua": Päivi äidillään 7 pelipäivää (aamua)
 ## Pelaajan synnit oikeista teoista: [ensikerta tai "loppu:<id>" tai "jalki:<id>", tunnustus].
 const KESA_SYNNIT := [
 	["kolmio_saloinen", "kolmiomittasin Mintun oven Saloisissa"],
-	["kolmio_vaala", "kolmiomittasin Katjan rivitalon Vaalassa"],
 	["rasvanappi", "pelasin Rasvanappia makasiinissa"],
 	["pentti_kyyti", "istuin Pentin BangBusissa"],
 	["korkki", "keräsin korkkikansion"],
@@ -11805,7 +11803,7 @@ func _on_asema_give(id: String) -> void:
 			" Kätkö on jo kerrottu." if asema_katkot.get(_asema_town, 0) == 1 else ""], 2.5)
 
 
-## Kätkön paikka maailmassa (Vaalassa mopomatkan kehyksestä) ja asema, josta se on kerrottu.
+## Kätkön paikka maailmassa (Raahessa mopomatkan kehyksestä) ja asema, josta se on kerrottu.
 func _cache_pos(town: String) -> Vector3:
 	return world.cache_pos
 
@@ -11854,7 +11852,7 @@ func _take_cache(town: String) -> void:
 	_save_game()
 
 
-## Kartan kätkömerkit: [asema, paikka (Saloisissa maailman x/z, Vaalassa Vaalan kehyksen x/z)] kerrotuille kätköille.
+## Kartan kätkömerkit: [asema, paikka (Saloisissa maailman x/z, Raahessa Raahen kehyksen x/z)] kerrotuille kätköille.
 func cache_markers() -> Array:
 	var out := []
 	if asema_katkot.get("saloinen", 0) == 1 and world.cache_pos != Vector3.INF:
@@ -12054,7 +12052,7 @@ func _retki_return() -> void:
 	if false:
 		walker_out.global_position = _retki_from
 		walker_out.velocity = Vector3.ZERO
-		_act_end()  # takaisin Vaalan tolpalle jalan (mopo parkissa)
+		_act_end()  # takaisin Raahen tolpalle jalan (mopo parkissa)
 		_retki_id = ""
 		_save_game()
 		return
@@ -12842,7 +12840,7 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("anna_", "Anna jotain", false, "ei mitään annettavaa, pallo pitää ensin löytää"))
 		"taksi":
 			chat = false
-			# Hinta ja kesto lähtöpaikan mukaan: Vaalan tolpalta kaikki Raahen seudun kohteet ovat pitkän matkan päässä.
+			# Hinta ja kesto lähtöpaikan mukaan: Raahen tolpalta kaikki Raahen seudun kohteet ovat pitkän matkan päässä.
 			var raahe_offer := Retket.raahe_tarjous(false)
 			var raahe_hop: float = raahe_offer.hop_min
 			var raahe_fare: float = raahe_offer.hinta
@@ -13298,7 +13296,7 @@ func _talk_chat_line() -> String:
 		"korpela":
 			return ["Pekan Volvo käy täällä useammin ku Pekka kirkossa.", "Raahen jätkät tuo tänne kaikki rämät. Ja maksaa makkaralla."].pick_random()
 		"simo":
-			return ["Mää korjaan kaikki sähköt Raahesta Vaalaan. Pakettiautossa on kaikki.", "Johdoissa on aina vika. Aina."].pick_random()
+			return ["Mää korjaan kaikki sähköt Saloisista Raaheen. Pakettiautossa on kaikki.", "Johdoissa on aina vika. Aina."].pick_random()
 		"heiskanen":
 			return ["Pannu-Sulo ostaa multa kaasua. En kysy mihin.", "Joka kotiin sammutin. Varsinkin jos on sauna ja kaljaa."].pick_random()
 		"huhtala":
@@ -13609,13 +13607,13 @@ func _atm_use() -> void:
 	_save_game()
 
 
-# --- Mopomatka Vaalaan -----------------------------------------------------------------------------------------
+# --- Mopomatka Raaheen -----------------------------------------------------------------------------------------
 
 
 
 ## Mopomatkan maailma (vaala.gd, ~1,2 s) valmiiksi, kun mökille saavutaan ruudun ollessa pimeänä: selkään noustessa
 ## matka alkaa heti ilman latausta.
-## Raahen baari (raahe_interior.gd): vapautetaan Vaalassa ja mökillä (_unload_far_places), luodaan tarvittaessa.
+## Raahen baari (raahe_interior.gd): vapautetaan Raahessa ja mökillä (_unload_far_places), luodaan tarvittaessa.
 func _ensure_raahe() -> void:
 	if raahe_int != null:
 		return
@@ -13797,7 +13795,7 @@ func _swim(where: String, _from: Vector3) -> void:
 
 
 
-## Järviseudun välianimaatiot ja minipelit mökillä jalan tai mopomatkalla (Vaalan maailma): pelaaja pysähtyy,
+## Järviseudun välianimaatiot ja minipelit mökillä jalan tai mopomatkalla (Raahen maailma): pelaaja pysähtyy,
 ## vaarat tai mopomatka tauolle ja HUD piiloon; lopuksi takaisin samaan tilaan.
 var _act_prev := ""
 
@@ -14411,7 +14409,7 @@ func _start_laakelaukku() -> void:
 	_klaffi_game = g
 
 
-## Klaffipöytä Saloisissa: Reipparin päätyseinällä (world.gd klaffi_prop), sama pöytä kuin Zabukin luukun vieressä Vaalassa.
+## Klaffipöytä Saloisissa: Reipparin päätyseinällä (world.gd klaffi_prop), sama pöytä kuin Zabukin luukun vieressä Raahessa.
 func _klaffi_saloinen() -> void:
 	if world == null or world.klaffi_prop == null:
 		return
@@ -14759,8 +14757,8 @@ func _teini_riski(key: String) -> float:
 
 
 ## Annoksen myynti: sama hinta heikkoudesta riippumatta, mutta jatkettu annos paljastuu todennäköisyydellä _teini_riski
-## (roll: testissä kiinteä arpa, muuten satunnainen). fight: paljastuksen tappelu (tyhjä = Vaalan _start_teini_fight);
-## caught: paljastusrepliikki ja lines: [hyvän kaman repliikit, miedon repliikit] (tyhjä = Vaalan omat).
+## (roll: testissä kiinteä arpa, muuten satunnainen). fight: paljastuksen tappelu (tyhjä = Raahen _start_teini_fight);
+## caught: paljastusrepliikki ja lines: [hyvän kaman repliikit, miedon repliikit] (tyhjä = Raahen omat).
 func _teini_myy(key: String, roll := -1.0, fight := Callable(), caught := "", lines: Array = []) -> void:
 	if laake.get(key, 0) <= 0:
 		return
@@ -14816,7 +14814,7 @@ func _teini_fight_end(won: bool, bags_used: int, thrown: int) -> void:
 	_show_message(_teini_tulos(won), 4.0 if won else 5.0)
 
 
-## Diilitappelun lopputulos (Vaala ja Saloinen): voitto antaa maineen, häviö vie rahat ja lääkkeet ja tunnin. Palauttaa viestin.
+## Diilitappelun lopputulos (Raahe ja Saloinen): voitto antaa maineen, häviö vie rahat ja lääkkeet ja tunnin. Palauttaa viestin.
 func _teini_tulos(won: bool) -> String:
 	if won:
 		tilat.add("moraali", 0.15)
@@ -14907,7 +14905,7 @@ func _rikos_riskit() -> Array:
 
 
 ## Huumekaupan riski päättää päivän: cause "pidatys" (PIDÄTETTY) tai "yliannos" (ELVYTETTY), reason näkyy otsikon alla.
-## Pidätys takavarikoi lääkkeet ja puolet rahoista ja vie mainetta. Vaalassa herätys kuten mopon kuolemassa (Päivi soittaa),
+## Pidätys takavarikoi lääkkeet ja puolet rahoista ja vie mainetta. Raahessa herätys kuten mopon kuolemassa (Päivi soittaa),
 ## Saloisissa _lose (Päivi motkottaa pihalla).
 func _rikos_loppu(cause: String, reason: String) -> void:
 	if state == "cutscene" or trailer_safe:
@@ -14924,7 +14922,7 @@ func _rikos_loppu(cause: String, reason: String) -> void:
 
 # --- Huumekauppa Saloisissa (huume_saloinen.gd) ------------------------------------------------------------------
 # Ostajat: kaukalon iltateinit (saloinen_teinit.gd, klo 20–01) ja laavun teinijengi (laavu_guard.gd peaceful, kun repussa
-# on myytävää). Myynti, riski ja lopputulos ovat Vaalan (_teini_myynti_valinnat, _teini_myy, _teini_tulos); paljastus
+# on myytävää). Myynti, riski ja lopputulos ovat Raahen (_teini_myynti_valinnat, _teini_myy, _teini_tulos); paljastus
 # vie tappeluun K-Marketin lavasteessa (fight.gd "teini_diili", _fight_source "teini_saloinen").
 const HS_TALKERS := ["kaukalo_teinit", "laavu_teinit"]
 const HS_TALK_R := 3.2  # puheväli ringin keskeltä tai laavun pomosta
@@ -14950,7 +14948,7 @@ func _huume_saloinen_logic() -> void:
 
 
 ## Apteekin takaovi (apteekki_saloinen.gd, ovi Makasiini._build_door): E koputuspisteessä avaa luukun ja hoitaja
-## myy Vaalan takaluukun hinnoin (_on_apteekki taka). Ovi on aina auki; luukku sulkeutuu keskustelun päättyessä
+## myy Raahen takaluukun hinnoin (_on_apteekki taka). Ovi on aina auki; luukku sulkeutuu keskustelun päättyessä
 ## (_talk_end). Lukitulla etuovella vain vihje.
 const HS_KNOCK_R := 1.3
 const HS_FRONT_R := 1.8
@@ -14998,7 +14996,7 @@ func _hs_hatch(open: bool) -> void:
 		_hs_tween.tween_callback(func() -> void: fill.visible = false)
 
 
-## Luukkuosto: Vaalan takaluukun hinta ja kirjaus (_on_apteekki taka), hoitajan omat repliikit.
+## Luukkuosto: Raahen takaluukun hinta ja kirjaus (_on_apteekki taka), hoitajan omat repliikit.
 func _hs_osta(id: String) -> void:
 	var m0 := money
 	var ar := _on_apteekki(id, true)
@@ -15137,7 +15135,7 @@ func _hs_fight_start() -> void:
 	_start_fight("teini_diili", "teini_saloinen", d.normalized() if d.length() > 0.1 else Vector3.RIGHT)
 
 
-## Diilitappelun loppu Saloisissa: voitto -> ryhmä ei osta tänään; häviö kuten Vaalassa (ryöstö ja tunti).
+## Diilitappelun loppu Saloisissa: voitto -> ryhmä ei osta tänään; häviö kuten Raahessa (ryöstö ja tunti).
 func _hs_fight_end(won: bool, note: String) -> void:
 	if _rikos_fight != null:  # huumekaupan riskin tappelu: osa kertoo lopputuloksen
 		var rf: Object = _rikos_fight
@@ -15233,7 +15231,7 @@ func _on_fight_finished(won: bool, bags_used: int, thrown := 0) -> void:
 
 
 ## Juoksukaljat: kauppias lähtee perään kaupan ovelta. Saloisissa (taxi = true) etumatka riittää juuri ja juuri
-## taksille, kun juoksee suoraan; Vaalassa taksia ei ole, joten edessä on aina tappelu.
+## taksille, kun juoksee suoraan; Raahessa taksia ei ole, joten edessä on aina tappelu.
 func _start_shop_chase(door: Vector3, taxi: bool) -> void:
 	if is_instance_valid(_shop_chaser):
 		_shop_chaser.queue_free()
@@ -15257,7 +15255,7 @@ func _chasing() -> bool:
 
 
 ## Tappelu kauppiaan kanssa ohi: voitolla kaljat jäävät (heitetyt menivät), tappiolla kauppias vie loput kaljat
-## (Vaalassa myös juostut Koskenkorvat) takaisin hyllyyn, eikä kuutosta ole haettu.
+## (Raahessa myös juostut Koskenkorvat) takaisin hyllyyn, eikä kuutosta ole haettu.
 ## Kauppias otti varastetut takaisin (paitsi kaljat ja viinat, jotka käsitellään erikseen). Palauttaa nimet.
 func _reclaim_loot() -> PackedStringArray:
 	var out := PackedStringArray()
@@ -15301,7 +15299,7 @@ func _kauppias_fight_end(won: bool, note: String) -> void:
 		tilat.add("kokemus", 0.1)
 		_show_message("K.O.! Kauppias laahusti kassalle. Tavarat jäi sulle!%s" % note, 3.5)
 		_chase_loot = {}
-		# Kauppias soittaa poliisit: Saloisissa poliisiauto, Vaalassa nimismies jalan.
+		# Kauppias soittaa poliisit: Saloisissa poliisiauto, Raahessa nimismies jalan.
 	else:
 		if is_instance_valid(c):
 			c.gloat()
@@ -15729,11 +15727,11 @@ func _load_game() -> void:
 	story.load_from(cfg)
 	if not cfg.get_value("tarina", "luku4_avaimet", false):
 		# Ennen erillisiä avaimia "asema" ja "juna" kuittasivat kumman tahansa aseman ja suunnan: luku 3:n tehneillä
-		# ne olivat todennäköisesti Vaalan matkalta, joten siirretään kerran uusille avaimille.
+		# ne olivat todennäköisesti Raahen matkalta, joten siirretään kerran uusille avaimille.
 		if "mopokisa_voitto" in tilat.firsts:
 			for k in ["asema", "juna"]:
 				if k in tilat.firsts:
-					tilat.first(k + ("_vaala" if k == "asema" else "_saloinen"), 0.0)
+					tilat.first(k + "_saloinen", 0.0)
 	ebike.load_from(cfg)
 	oma_mopo.load_from(cfg)
 	tokola.load_from(cfg)
@@ -15854,7 +15852,7 @@ func _save_game() -> void:
 	cfg.set_value("tanaan", "vaino", vaino_tila)
 	cfg.set_value("tanaan", "vaino_karkaa", _vaino_at)
 	cfg.set_value("peli", "kaljarauha", _kaljarauha)  # koskee seuraavaa aamua
-	# Mökillä tai Vaalassa tallennettu peli jatkuu mökin pihasta (_resume_at_mokki), Santun hommat samana päivänä.
+	# Mökillä tai Raahessa tallennettu peli jatkuu mökin pihasta (_resume_at_mokki), Santun hommat samana päivänä.
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
 	cfg.set_value("peli", "kahvipoyta_paiva", _kahvipoyta_day)
@@ -16131,7 +16129,7 @@ func _nearest_safe() -> Vector3:
 
 
 ## Uusi päivä turvapaikasta: vaarat ja kauppa nollautuvat, jemma, rahat ja laavun valtaus säilyvät.
-## where = "gasthaus": herätys Vaalan Gasthausista. Saloisten asiat odottavat kuten mökillä, mutta Santun hommia
+## where = "gasthaus": herätys Raahen Gasthausista. Saloisten asiat odottavat kuten mökillä, mutta Santun hommia
 ## ei arvota eikä lappua kirjoita Santtu.
 func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	_clock_fast = false
@@ -16191,7 +16189,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		wine_lock_day = -1
 		_morning_info.append("Se viinilupaus... mikä lupaus? Autotallin saavi odottaa taas.")
 	if false:
-		_morning_info.append("Santtu ja sinä lupasitte jotain Paapelin viinistä... Ei muista kumpikaan. Saavi odottaa.")
+		_morning_info.append("Santtu ja sinä lupasitte jotain Raahen viinistä... Ei muista kumpikaan. Saavi odottaa.")
 	_beasts_today = 0
 	_beast_forest_t = 0.0
 	_bike_tuned = false
@@ -16337,7 +16335,7 @@ const MORNING_HEAD := {
 	"laavulta": ["Missä sää taas yöllä olit?!", "Laavulla nukuit taas, vai?"],
 	"mokilta": ["Tuu jo kotiin sieltä mökiltä!", "Huomenta, mökkiläinen."],
 	"mokki": ["Huomenta! Kahvit on keitetty.", "Huomenta mökille!", "Aamu! Sauna lämpiää illalla."],
-	"gasthaus": ["Hyvää huomenta! Aamukahvi kuuluu hintaan.", "Huomenta Vaalasta! Kiitos yöpymisestä."],
+	"gasthaus": ["Hyvää huomenta! Aamukahvi kuuluu hintaan.", "Huomenta Raahesta! Kiitos yöpymisestä."],
 }
 ## Aamun pelitiedot (jemmat, varoitukset, teinit, pyörän paikka), joita lapun kirjoittaja ei tietäisi tai kirjoittaisi:
 ## näytetään ruudun viesteinä lapun rinnalla (_flush_morning_info).
@@ -17438,7 +17436,7 @@ func _wife_rhythm(t: float) -> void:
 				wife.reset_to(wife.farthest_node_from(player.global_position))
 			wife.visible = true
 			wife.process_mode = Node.PROCESS_MODE_INHERIT
-			if prev == "koti" and state == "ulkona": # Vaalaan Päivi ei tule
+			if prev == "koti" and state == "ulkona": # Raaheen Päivi ei tule
 				_queue_message("Päivi lähti liikkeelle. Punainen Hyundai on teillä!", 3.0)
 
 
@@ -17681,7 +17679,7 @@ func _maybe_screenshot() -> void:
 			get_tree().quit()
 			return
 		"parkit":
-			# Pysäköidyt autot eivät ole toistensa sisällä Saloisissa eikä Vaalassa (tools/testit/parkit.gd).
+			# Pysäköidyt autot eivät ole toistensa sisällä Saloisissa eikä Raahessa (tools/testit/parkit.gd).
 			var saved_pk := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			var pk: Node = load("res://tools/testit/parkit.gd").new()
 			pk.main = self
@@ -18333,7 +18331,7 @@ func _maybe_screenshot() -> void:
 			await rikos_osa("autovarkaus").testi_kahdesti(3)
 			get_tree().quit()
 		"kolmio_juttu":
-			# Teron ja Timon juttelu Vaalan aseman pihalla: jalan kulkija heidän vieressään, vihje ja E (ei kuvia, toimii headlessina).
+			# Teron ja Timon juttelu Raahen aseman pihalla: jalan kulkija heidän vieressään, vihje ja E (ei kuvia, toimii headlessina).
 			for i in 5:
 				await get_tree().process_frame
 			for nm in [0, 1]:
@@ -18344,7 +18342,7 @@ func _maybe_screenshot() -> void:
 					var near_d := INF
 			get_tree().quit()
 		"apteekki":
-			# Vaalan apteekki: ulkokuva, sisälle, tiski ja valikko; ostot ilman reseptiä ja reseptillä.
+			# Raahen apteekki: ulkokuva, sisälle, tiski ja valikko; ostot ilman reseptiä ja reseptillä.
 			for i in 30:
 				await get_tree().process_frame
 			var aocc := Camera3D.new()
@@ -18389,8 +18387,8 @@ func _maybe_screenshot() -> void:
 			clock_min += PERV_MIN + 1.0
 			_stat_effects()
 			reseptit = 1
-			asema_katkot["vaala"] = 1
-			_take_cache("vaala")
+			asema_katkot["saloinen"] = 1
+			_take_cache("saloinen")
 			print("APTEEKKI kätkön jälkeen reseptit ", reseptit, ", viesti: ", _msg.text)
 			# Jatkaminen: oksikodoni + Burana, pervitiini + Panadol; teho puolittuu, annokset tuplaantuvat.
 			laake = {"opiaatti": 1, "burana": 2, "perv": 1, "panadol": 2}
@@ -18782,19 +18780,19 @@ func _maybe_screenshot() -> void:
 			for i in 30:
 				await get_tree().process_frame
 			await snap.call("_pyora.png")
-			# Paapelin vaatekaappi: työvaatteet ja Karjala-lippis.
+			# Raahen vaatekaappi: työvaatteet ja Karjala-lippis.
 			for i in 5:
 				await get_tree().process_frame
-			print("KAAPPI Paapeli vihje '%s'" % _hint.text)
+			print("KAAPPI Raahe vihje '%s'" % _hint.text)
 			Input.action_press("interact")
 			await get_tree().process_frame
 			await get_tree().process_frame
 			Input.action_release("interact")
 			await get_tree().process_frame
-			print("KAAPPI Paapeli valinnat %s" % [_item_menu._items])
+			print("KAAPPI Raahe valinnat %s" % [_item_menu._items])
 			_item_menu.visible = false
 			_item_menu.chosen.emit("tyovaatteet")
-			print("KAAPPI Paapeli asu %s, viesti '%s'" % [Looks.outfit, _msg.text])
+			print("KAAPPI Raahe asu %s, viesti '%s'" % [Looks.outfit, _msg.text])
 			await snap.call("_paapeli.png")
 			Looks.outfit = "tuulipuku"
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -19104,7 +19102,7 @@ func _maybe_screenshot() -> void:
 			get_tree().quit()
 		"asema":
 			# Asemat: Saloisten asema ulkoa (katu ja laituri), odotussali, hörppy juopolle -> kätkö kartalle, kätkön
-			# tyhjennys, laiturille ja junan vihje; sama Vaalassa. Tallennus palautetaan lopuksi.
+			# tyhjennys, laiturille ja junan vihje; sama Raahessa. Tallennus palautetaan lopuksi.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
 			var view := [null, null]  # kameran paikka ja kohde (null = pelin oma kamera)
 			var snap := func(name: String) -> void:
@@ -19169,28 +19167,6 @@ func _maybe_screenshot() -> void:
 			await snap.call("_katko.png")
 			_take_cache("saloinen")
 			print("ASEMA kätkö tyhjennetty: rahaa %.2f, tila %s" % [money, asema_katkot])
-			# Vaala: asema ulkoa, odotussali, hörppy, kätkö ja laituri.
-			await snap.call("_vaala_katu.png")
-			await snap.call("_vaala_laituri.png")
-			await snap.call("_vaala_sali.png")
-			_on_asema_acted("hlo2")
-			_item_menu.visible = false
-			_item_menu.chosen.emit("viina")
-			print("VAALA kätkö %s, viesti '%s', merkit %s" % [asema_katkot, _msg.text, cache_markers()])
-			_on_asema_exited("laituri")
-			for i in 15:
-				await get_tree().process_frame
-			await snap.call("_vaala_laituri_jalan.png")
-			var vc: Vector3 = _cache_pos("vaala")
-			walker_out.global_position = vc + Vector3(1.0, 0.5, 0)
-			for i in 15:
-				await get_tree().process_frame
-			look.call(vc + Vector3(5, 3, 5), vc)
-			await snap.call("_vaala_katko.png")
-			_paper.toggle()
-			await snap.call("_vaala_kartta.png")
-			_paper.toggle()
-			print("VAALA kätkö tyhjennetty: rahaa %.2f, tila %s" % [money, asema_katkot])
 			var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 			f.store_buffer(saved)
 			f.close()
@@ -22067,7 +22043,7 @@ func _maybe_screenshot() -> void:
 			get_viewport().get_texture().get_image().save_png(path.replace(".png", "_raimo.png"))
 			get_tree().quit()
 		"paivakirja":
-			# Normipäiväkirja (#132): alussa vain luku 1 ja itsestäänselvät tehtävät, Paapelin loppu avaa luvun 2,
+			# Normipäiväkirja (#132): alussa vain luku 1 ja itsestäänselvät tehtävät, Raahen loppu avaa luvun 2,
 			# Santun vihje tervehdyksessä, sivutehtävät ilmestyvät, loppujen kirjaus (erilaiset ja yhteensä) ja kuvat
 			# kolmesta välilehdestä. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(SAVE_PATH)
@@ -22103,7 +22079,7 @@ func _maybe_screenshot() -> void:
 			# (Saloisten paikat ja taksitolppa).
 			for k in ["pyhakoski_voimala", "kuvakirkko_suntio", "wanharaahe_patsas", "karhut_opas", "olavi_legenda",
 					"kuningas_legenda", "kanttori_legenda", "pingis_ulkopoyta", "hanhikivi_legenda", "kalajoki_sarkat", "kalalupa",
-					"pubivisa", "uintikilpailu", "vvaala_ovi", "keikkatyo", "tyokkari", "rasvanappi", "rakaleima", "tappelu_juntti",
+					"pubivisa", "uintikilpailu", "keikkatyo", "tyokkari", "rasvanappi", "rakaleima", "tappelu_juntti",
 					"lintutorni", "pajatso", "ronttonen"]:
 				tilat.first(k)
 			pyhakoski.voimala = true
@@ -22120,7 +22096,7 @@ func _maybe_screenshot() -> void:
 					print("TESTI VIKA tehtävällä %s ei ole näytä kartalla -linkkiä" % id)
 				else:
 					print("PK %s: %s (%s)" % [id, by[id].title, by[id].progress])
-			for id in ["tekemiset", "uintikisa", "vvaala", "hanttihommat", "rasvanappi", "rakaleima", "tappelut"]:
+			for id in ["tekemiset", "uintikisa", "hanttihommat", "rasvanappi", "rakaleima", "tappelut"]:
 				if not by.has(id):
 					print("TESTI VIKA päiväkirjasta puuttuu tehtävä ", id)
 				else:
@@ -25545,7 +25521,7 @@ func _maybe_screenshot() -> void:
 					await get_tree().process_frame
 				print("VALIAJAT %s %.1f s" % [nm, (Time.get_ticks_msec() - tv0) / 1000.0])
 		"paivin_puhelu":
-			# Päivi soittaa aamulla Vaalaan (cutscene.wasted_phone): käden ja puhelimen asento edestä, oikealta ja ylhäältä
+			# Päivi soittaa aamulla Raaheen (cutscene.wasted_phone): käden ja puhelimen asento edestä, oikealta ja ylhäältä
 			# kesken puhelun; kuvat _edesta, _oikealta, _ylhaalta ja _lahikuva.
 			var saved_pu := FileAccess.get_file_as_bytes(SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			var wake_pu := player.global_position
@@ -26707,7 +26683,7 @@ func _maybe_screenshot() -> void:
 			_talk_box.close()
 		"laavut":
 			# Kaikki laavut ja nuotiopaikat iltapäivän valossa, nuotiot palamassa: Antinsuonkangas, Viitajärvi,
-			# Kiilinlammen grillikatos, Haapajärven kota, Keskimmäisen laavu (mökki) ja Vaalan laavu. Kuvat _laavu_*.
+			# Kiilinlammen grillikatos, Haapajärven kota, Keskimmäisen laavu (mökki) ja Raahen laavu. Kuvat _laavu_*.
 			var cam := Camera3D.new()
 			add_child(cam)
 			cam.fov = 55.0

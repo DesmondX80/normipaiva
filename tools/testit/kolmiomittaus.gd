@@ -2,7 +2,7 @@ extends Node
 ## Kolmiomittaus (#255, scripts/kolmiomittaus.gd): logiikka, hahmot, Sytkäri, paperikartan ympyrät, ovet, erikoissääntöinen
 ## Rasvanappi, aamu ja maito. main.gd palauttaa tallennuksen.
 ## Ajo: tools/testit/aja.sh scene kolmiomittaus   (Saloinen: Joni, Esa ja Minttu)
-##      tools/testit/aja.sh scene kolmiomittaus_vaala   (Vaala: Hevari-Tero, Sivikki-Timo, Sivikki ja Katja)
+##      tools/testit/aja.sh scene kolmiomittaus_vaala   (Raahe: Hevari-Tero, Sivikki-Timo, Sivikki ja Katja)
 ## Kuvat: _kaverit, _hahmo_<nimi>_edesta/_sivulta/_takaa, _rinkka_* (rajattu), _sytkari_mätsi, _sytkari_matka,
 ## _kartta, _vaara_ovi, _ovi_ilman_lahjaa, _ovi_lahjat, _rasva_esittely, _rasva_pimea, _rasva_puhelu, _rasva_loppu, _aamu.
 
@@ -176,7 +176,7 @@ func _wait_ui(max_frames := 120) -> void:
 
 ## Kohtausta eteenpäin E:llä, kunnes se sulkeutuu (tai raja tulee vastaan).
 func _advance_ui(shot_at := -1, suffix := "") -> void:
-	for i in 30:  # Vaalan ovikohtaus on 9 riviä, ja jokainen vie kaksi painallusta
+	for i in 30:  # Raahen ovikohtaus on 9 riviä, ja jokainen vie kaksi painallusta
 		if main._kolmio_ui == null:
 			return
 		if "_line" in main._kolmio_ui:
@@ -526,7 +526,7 @@ func _sivikki() -> void:
 		_vika("Sivikki-ajo ei alkanut")
 		return
 	await _snap("_sivikki_lahto")
-	main._kolmio_drive.d = 80.0  # nurmikolla aseman pihan ja Vaalantien välissä
+	main._kolmio_drive.d = 80.0  # nurmikolla aseman pihan ja Raahentien välissä
 	await _frames(30)
 	await _snap("_sivikki_nurmikko")
 	main._kolmio_drive.d = main._kolmio_drive.len * 0.5
@@ -570,9 +570,9 @@ func _run_vaala() -> void:
 	main._kolmio_vaala_setup()
 	var vl: Node3D = mt.vaala
 	var doors: Array = main._kolmio_door_list("vaala")
-	print("KOLMIO Vaala talot %d, ovet %s, kaverit %d" % [vl.house_doors.size(), doors, main._kolmio_vaala_npcs.size()])
+	print("KOLMIO Raahe talot %d, ovet %s, kaverit %d" % [vl.house_doors.size(), doors, main._kolmio_vaala_npcs.size()])
 	if doors.size() < 3 or main._kolmio_vaala_npcs.size() != 2:
-		_vika("Vaalan ovet tai kaverit puuttuvat")
+		_vika("Raahen ovet tai kaverit puuttuvat")
 		return
 	var t: Vector2 = main._kolmio_target("vaala")
 	var st: Vector2 = main._kolmio_vaala_spots.start
@@ -600,7 +600,7 @@ func _run_vaala() -> void:
 	mt.on_foot.global_position = mt.to_global(kd.pos) + Vector3(0, 0.5, 0)
 	mt.on_foot.activate_camera()
 	await _frames(15)
-	print("KOLMIO Vaalan kaverien vihje '%s'" % mt.hint)
+	print("KOLMIO Raahen kaverien vihje '%s'" % mt.hint)
 	_quest_reset("vaala")
 	main._on_vaala_door("kolmio_kaverit")
 	await _frames(5)
@@ -615,7 +615,7 @@ func _run_vaala() -> void:
 	await _frames(70)
 	await _snap("_sytkari_matka")
 	await _close_phone()
-	print("KOLMIO Vaalan ympyrät %s" % [main.kolmio.st("vaala").rings])
+	print("KOLMIO Raahen ympyrät %s" % [main.kolmio.st("vaala").rings])
 	if not main.kolmio.inside("vaala", t):
 		_vika("Katjan ovi ei ole leikkauksessa")
 	main._paper.toggle()
@@ -624,13 +624,13 @@ func _run_vaala() -> void:
 	main._paper._vzoom = 1.5
 	await _snap("_kartta")
 	# Hahmon merkki on kävelijän paikalla (ei parkissa olevan mopon): kolmiomittauksen ympyröiden leikkauspiste luetaan siitä.
-	# Kävelijä mittauspaikkaan, merkin paikka kartan kehyksessä vs. kävelijän paikka Vaalan kehyksessä, ja lähikuva.
+	# Kävelijä mittauspaikkaan, merkin paikka kartan kehyksessä vs. kävelijän paikka Raahen kehyksessä, ja lähikuva.
 	var wk: Node3D = mt.on_foot
 	wk.global_position = vl.to_global(Vector3(me.x, vl.h(me.x, me.y) + 0.4, me.y))
 	await _frames(5)
 	var marker: Array = main._paper._vaala_me()
 	var merr: float = (marker[0] as Vector2).distance_to(me)
-	print("KOLMIO Vaalan kartan merkki %s, kävelijä %s, ero %.2f m" % [marker[0], me, merr])
+	print("KOLMIO Raahen kartan merkki %s, kävelijä %s, ero %.2f m" % [marker[0], me, merr])
 	if merr > 0.5:
 		_vika("kartan hahmomerkki ei ole kävelijän paikalla (ero %.1f m)" % merr)
 	main._paper._vcenter = me
@@ -643,7 +643,7 @@ func _run_vaala() -> void:
 	var kt := Vector3(t.x, vl.h(t.x, t.y), t.y)
 	var cam_k := _cam_at(kc.to_global(kt + Vector3(0, 110, 70)), kc.to_global(kt))
 	await _snap("_katja_ylhaalta")
-	# Katutason kuvat Rekkatiellä ja Vaalantien jatkeella (rivin suunta U ja sitä vasten N, vaala_kadut.py) sekä lähin talo ovelta.
+	# Katutason kuvat Rekkatiellä ja Raahentien jatkeella (rivin suunta U ja sitä vasten N, vaala_kadut.py) sekä lähin talo ovelta.
 	var su := Vector2(0.9525, -0.3047)
 	var sn := Vector2(0.3047, 0.9525)
 	var shots := [["_katu_rekkatie", Vector2(1225, -527), Vector2(1340, -523)], ["_katu_vaalantie", Vector2(1305, -682), Vector2(1430, -684)],

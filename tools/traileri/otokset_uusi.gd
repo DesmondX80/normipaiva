@@ -440,7 +440,7 @@ static func _kolmio(main: Node3D, d: Node, id: String) -> Dictionary:
 			var tk := func(t: float) -> void:
 				main._paper._vzoom = lerpf(0.45, 1.3, clampf(t / 3.0, 0.0, 1.0))
 			return {"tick": tk, "warm": 10, "hud": false}
-		"m_sivikki":  # Vaala: Timon punainen Sivikki, VTEC kytkeytyy (pelin oma ajo)
+		"m_sivikki":  # Raahe: Timon punainen Sivikki, VTEC kytkeytyy (pelin oma ajo)
 			O._time(main, 15, 30)
 			O._vaala(main)
 			main._mopo_dismount()  # ajo alkaa jalan seisovasta pelaajasta (mopo_trip.on_foot)
@@ -520,7 +520,7 @@ static func _motkotus(main: Node3D, d: Node, id: String) -> Dictionary:
 	return {"lose": true, "tick": tick, "settle": false, "cs_bubbles": true}
 
 
-# --- Vaala: uudet paikat, retket, valeostaja ja Roivaisen jahti ---------------------------------------------------------------
+# --- Raahe: uudet paikat, retket, valeostaja ja Roivaisen jahti ---------------------------------------------------------------
 
 static func _vaala_shot(main: Node3D, d: Node, id: String) -> Dictionary:
 	var O := _o()
@@ -582,7 +582,7 @@ static func _vaala_shot(main: Node3D, d: Node, id: String) -> Dictionary:
 			var sdv := f.cross(up)
 			return {"cam": O.dolly(np + f * 3.4 + sdv * 1.5 + up * 1.6, np + f * 2.6 + sdv * 1.1 + up * 1.6, np + up * 1.45, np + up * 1.5, 3.0),
 				"fov": 38.0, "warm": 24}
-		"a_jahti_roivainen":  # varastettu auto ja Roivaisen poliisi-Saab Vaalan tiellä, viisi tähteä
+		"a_jahti_roivainen":  # varastettu auto ja Roivaisen poliisi-Saab Raahen tiellä, viisi tähteä
 			O._time(main, 16, 0)
 			var os = main.rikos_osa("autovarkaus")
 			os.paikka = "vaala"
@@ -652,7 +652,7 @@ static func _makasiini_shot(main: Node3D, d: Node, id: String) -> Dictionary:
 	return {}
 
 
-# --- Junamatka Vaalaan: verkkopaita ja 40 € taskussa (pelin erikoiskohtaus) ---------------------------------------------------------
+# --- Junamatka Raaheen: verkkopaita ja 40 € taskussa (pelin erikoiskohtaus) ---------------------------------------------------------
 
 ## Ajon alku ruutuina (30 fps) kustakin otoksesta: lähtö ulkokuvassa, ravintolavaunu, tarjoilu, Helenan riisunnan alku.
 const JUNA_ALKU := {"m_juna_lahto": 0, "m_juna_vaalaan": 400, "m_juna_tarjoilu": 560, "m_juna_helena": 760}
@@ -728,7 +728,7 @@ static func _mummo(main: Node3D, d: Node) -> Dictionary:
 	return {"lose": true, "settle": false, "cs_bubbles": true, "cam": cam, "fov": 46.0, "warm": 6}
 
 
-# --- Vaalan K-Marketin rollaattorimummo: kuolema keppiin, Päivin puhelu (pelin oma wasted_phone) ---------------------------------
+# --- Raahen K-Marketin rollaattorimummo: kuolema keppiin, Päivin puhelu (pelin oma wasted_phone) ---------------------------------
 
 static func _vaala_mummo(main: Node3D, d: Node) -> Dictionary:
 	var O := _o()
@@ -742,7 +742,7 @@ static func _vaala_mummo(main: Node3D, d: Node) -> Dictionary:
 	var front: Vector3 = st.global_transform * Vector3(0.1, 0, 1.25)
 	main.walker_out.global_position = front + Vector3(0, 0.3, 0)
 	main.walker_out.rotation.y = B.yaw_to(st.global_position - front)
-	# Vaalan penkin ja rollaattorimummon vasen (-X) puoli on seinää: kamera oikealta.
+	# Raahen penkin ja rollaattorimummon vasen (-X) puoli on seinää: kamera oikealta.
 	var e0: Vector3 = st.global_transform * Vector3(3.2, 1.6, 0.8)
 	var e1: Vector3 = st.global_transform * Vector3(2.4, 1.5, 0.9)
 	var l0: Vector3 = st.global_transform * Vector3(0, 1.2, 0.7)
