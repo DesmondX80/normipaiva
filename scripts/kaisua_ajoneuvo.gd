@@ -113,6 +113,27 @@ func _ready() -> void:
 	_engine.pitch_scale = 0.7 if kind == "puimuri" else 0.85
 	_engine.stream_paused = true
 	_smoke = _particles(Vector3(0.6, 3.8, 2.9) if kind == "puimuri" else Vector3(0.17, 2.32, -1.5), Color(0.2, 0.2, 0.2, 0.5), 0.35, Vector3.UP, 1.2)
+	# Pakokaasu laajenee ja vaalenee noustessaan (pöllähdys), tuuli vie sitä hieman taakse.
+	var grow := Curve.new()
+	grow.max_value = 3.0  # ennen pisteitä: pisteet rajataan arvoalueeseen
+	grow.add_point(Vector2(0, 0.5))
+	grow.add_point(Vector2(1, 3.0))
+	_smoke.scale_amount_curve = grow
+	# Hiukkasbillboard: tavallinen billboard ohittaa hiukkasen koon (kasvukäyrä ei näkyisi).
+	(_smoke.mesh.material as StandardMaterial3D).billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	# Väri ja peittävyys tulevat liukumasta; materiaalin oma väri (0,2 harmaa, alfa 0,5) kertoisi ne melkein näkymättömiksi.
+	(_smoke.mesh.material as StandardMaterial3D).albedo_color = Color.WHITE
+	_smoke.scale_amount_min = 0.9  # 0,4 m:n neliö: pöllähdys alkaa noin 0,2 m:stä ja kasvaa yli metriin
+	_smoke.scale_amount_max = 1.5
+	_smoke.amount = 32
+	_smoke.lifetime = 1.6
+	_smoke.damping_min = 0.4
+	_smoke.damping_max = 0.8
+	var sg := Gradient.new()
+	sg.set_color(0, Color(0.14, 0.14, 0.14, 0.85))
+	sg.set_color(1, Color(0.6, 0.6, 0.6, 0.0))
+	sg.add_point(0.35, Color(0.32, 0.32, 0.32, 0.6))
+	_smoke.color_ramp = sg
 	_dust = _particles(Vector3(0, 0.3, 2.0), Color(0.45, 0.36, 0.25, 0.45), 0.9, Vector3(0, 0.4, 1), 2.2)
 	if kind == "puimuri":
 		_chaff = _particles(Vector3(0, 1.4, 4.5), Color(0.85, 0.75, 0.45, 0.8), 0.25, Vector3(0, -0.2, 1), 1.6)
@@ -385,8 +406,10 @@ func _animate(delta: float, throttle: float) -> void:
 		var base := 0.7 if kind == "puimuri" else 0.85
 		_engine.pitch_scale = base + absf(speed) * 0.06 + _load * 0.25
 		_engine.volume_db = -9.0 + _load * 5.0
-		_smoke.amount = 24
+		# Ei amount-asetusta joka ruutu: CPUParticles3D.amount käynnistää hiukkaset alusta (savu jäi paikalleen
+		# yhdeksi pisteeksi). Kuorma näkyy nopeutena ja tummuutena.
 		_smoke.initial_velocity_max = 1.0 + _load * 2.0
+		_smoke.color_ramp.set_color(0, Color(0.14, 0.14, 0.14, 0.7 + _load * 0.25))
 
 
 ## Työkoneen ääni: soitin vaihtuu koneen mukana, voimakkuus häivytetään (laskettu kone hiljenee 0,4 s:ssa).

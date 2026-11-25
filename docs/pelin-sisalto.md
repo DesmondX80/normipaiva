@@ -613,7 +613,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
       kääritty paali putoaa perästä noin 650 m² nurmesta) ja paalit latoon piikillä. Nurmi kasvaa sängestä
       niittokypsäksi kolmessa päivässä.
     - **Vilja:** puinti (säiliö 2 200 kg), purku purkuputkella viljakärryyn tai suoraan kuivurin suppilolle ja kärryn
-      kippaus suppiloon. Kevättyöt: kyntö nelisiipisellä kääntöauralla (sänki kääntyy palteiksi ja vaoiksi; äes ei
+      kippaus suppiloon. Suppilolle opastetaan samoin merkein kuin kytkennässä (`kaisua.gd _pit_guide_combine`,
+      `_pit_guide_trailer`): rengas ja nuoli suppilon päällä ja pieni rengas puimurin purkuputken pään tai kärryn perän
+      kohdalla, vihjeenä matka metreinä; vihreä, kun E purkaa tai kippaa. Pakokaasu nousee pöllähdyksinä, jotka
+      laajenevat ja vaalenevat, ja tummuu kuormassa. Kevättyöt: kyntö nelisiipisellä kääntöauralla (sänki kääntyy palteiksi ja vaoiksi; äes ei
       pure sänkeen), äestys ja kylvö (siemen konevajan säkeistä, säiliö 300 kg); ohra kasvaa orakselle, vihreäksi ja
       puintikypsäksi päivä kerrallaan.
     - **Kivien keruu:** kynnöstä nousee kiviä (noin yksi 300 m²:ltä). Jalan E nostaa kiven käteen (juoksu ei onnistu),
