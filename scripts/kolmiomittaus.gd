@@ -231,6 +231,14 @@ const TUPPI_LINES := {
 		"tuppeen": ["Te tupessa! Minttu nauraa kyyneleet silmissä, ja Joni ottaa kuvan kertakäyttökameralla.",
 			"Pantu tuppeen kalsareissa. Esa: \"Erämies ei koskaan unohda tätä näkyä.\""],
 		"loppu": ["Hihii. No niin, nukkumaan. Kaikki samaan sänkyyn vai?", "Kerma ja mansikat aamulla, pojat."],
+		# Legendaarinen hetki (tuppi_game.gd _leg_*): rivit = [paikka, repliikki] nousussa ja kuvassa.
+		"legenda": {"isku": "Viimeinen tikki. Minttu lyö pata-ässän pöytään niin, että kaljapullot hyppää.",
+			"rivit": [[1, "Hcp nolla… ja vaatteita nolla."], [3, "Erämies seisoo. Erämies ei häpeä. Hmm. Vähän häpeää."],
+				[2, "Hihii, hymyä pojat! Tää teipataan keittiön ikkunaan!"]],
+			"kuvateksti": "Saloinen. Pantu tuppeen.",
+			"sub": "Joni ja Esa pantiin tuppeen kalsareissa. Mintun polaroid teipattiin keittiön ikkunaan, ja siellä se on vieläkin."},
+		"muisto": ["Hihii, se polaroid on vieläki mun keittiön ikkunassa. Pysyykö housut tänään jalassa, pojat?",
+			"Viimeks Joni ja Esa seiso tossa kalsareissa. Mää katon sitä kuvaa joka aamu kahvin kanssa."],
 	},
 	"vaala": {
 		"alku": ["Räsytuppi. Häviäjä maksaa veroa vaatteina.", "Tero: Valtio vie paidan, vie ny sitte."],
@@ -252,6 +260,13 @@ const TUPPI_LINES := {
 		"tuppeen": ["Te tupessa! Katja soittaa rekan torvea, ja Tero kirjaa teidät verottajan listalle.",
 			"Pantu tuppeen kalsareissa. Timo: \"Tää oli kovempi ku VTEC.\""],
 		"loppu": ["No niin. Mansikat aamulla, pojat.", "Katja: Rekkakuski nukkuu missä vaan."],
+		"legenda": {"isku": "Viimeinen tikki. Katja lyö pata-ässän pöytään ku perävaunun kytkimen, ja kaljapullot hyppää.",
+			"rivit": [[1, "Tää ei oo veronalasta tuloa. Tää on ryöstö."], [3, "Kalsareissa lukee Honda. Se ei oo mainos, se on elämäntapa."],
+				[2, "Hymyä, pojat! Tää teipataan keittiön ikkunaan, että koko Vaala näkee!"]],
+			"kuvateksti": "Vaala. Pantu tuppeen.",
+			"sub": "Tero ja Timo pantiin tuppeen kalsareissa. Katjan polaroid teipattiin keittiön ikkunaan, ja koko Vaala on nähny sen."},
+		"muisto": ["Se polaroid on vieläki mun keittiön ikkunassa. Timo, Honda-kalsarit tänäänki?",
+			"Viimeks Tero ja Timo seiso tossa kalsareissa. Postinkantaja kysy siitä kuvasta."],
 	},
 }
 

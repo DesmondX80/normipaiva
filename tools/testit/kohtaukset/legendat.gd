@@ -10,11 +10,14 @@ extends Node
 ##   Pentti ovelta ja nousu parkkipaikan ylle; hetki kirjataan aamulla (päiväkirjarivi), toinen kyyti ilman huipennusta.
 ## mokki_savusauna_eka: korjatun savusaunan ensimmäiset löylyt (sauna_relax first) ja laiturilta Likaseen
 ##   (savusauna_jarvi): kuvat löylystä, juoksusta, hypystä, uijista ja noususta; toiset löylyt eivät toista kohtausta.
+## tuppi_eka: räsytupin ensimmäinen voitto Saloisissa (tuppi_game.gd _leg_*): viimeinen jako pakotetaan kavereiden
+##   tappioksi, kuvat ässän iskusta, kalsarikavereista, polaroidista (salama, kehitys) ja otsikosta; aamulla kuva
+##   keittiön ikkunassa. Toinen ilta: nainen muistelee polaroidia, voitto ilman huipennusta lasketaan hiljaa.
 
 const Main := preload("res://scripts/main.gd")
 const Kuva := preload("res://tools/testit/kuva.gd")
 
-const KOHTAUKSET := ["mokki_paapeli", "mokki_savusauna_eka", "pentti_eka"]
+const KOHTAUKSET := ["mokki_paapeli", "mokki_savusauna_eka", "pentti_eka", "tuppi_eka"]
 
 var main: Main
 var _viat := 0
@@ -31,6 +34,8 @@ func aja(scene: String, path: String, _nohud: bool) -> int:
 			await _savusauna(path)
 		"pentti_eka":
 			await _pentti(path)
+		"tuppi_eka":
+			await _tuppi(path)
 	FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 	return 1
 
@@ -169,3 +174,102 @@ func _pentti(path: String) -> void:
 	_check(not seen_phase, "Pentti: toisella kyydillä ei huipennusta")
 	await _frames(60)
 	_check(int(main.endings.counts.get("pentin_kyyti", 0)) == 2, "Pentti: toinen kyyti laskettiin hiljaa")
+
+
+## Räsytuppi kesken illan: kaverit kalsareissa ja viimeinen jako päättyy heidän tappioonsa (tuppi_game.gd "jako").
+func _tuppi_win(g: CanvasLayer) -> void:
+	g.game.rasy[1] = 3
+	g._result = {"haviaja": 1, "voittaja": 0, "tuppeen": true, "ryosto": false, "pisteet": 2}
+	g.auto = true
+	g._phase = "jako"
+	g._t = 0.0
+
+
+func _tuppi_wait(g: CanvasLayer, phase: String, sec: float) -> bool:
+	for i in 20000:
+		if not is_instance_valid(g):
+			return false
+		if g._phase == phase and g._t >= sec:
+			return true
+		await _frames(1)
+	return false
+
+
+func _tuppi(path: String) -> void:
+	const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+	var k18: Variant = Settings.get_v("k18_pois")
+	Settings.set_v("k18_pois", false)
+	main.kolmio = Kolmio.new()
+	main.endings.counts.erase("rasytuppi")
+	DirAccess.remove_absolute(main.TUPPI_KUVA % "saloinen")
+	await _frames(10)
+	var s: Dictionary = main.kolmio.st("saloinen")
+	s.done_day = maxi(0, main.day - 1)
+	s.illat = 1
+	main._kolmio_kiva("saloinen", "tuppi")
+	await _frames(20)
+	var g: CanvasLayer = main._rasva_game
+	_check(g != null and g.legend and not g.recall, "Tuppi: ensimmäinen ilta, legenda odottaa")
+	_tuppi_win(g)
+	var shots := [["isku", "isku", 0.3], ["lyonti", "isku", 0.75], ["nousu", "nousu", 1.4], ["nousu2", "nousu", 3.4],
+		["kuva", "kuva", 1.2]]
+	for st: Array in shots:
+		if await _tuppi_wait(g, st[1], st[2]):
+			await _shot(path, st[0])
+		else:
+			print("LEGENDA kuva %s jäi ottamatta" % st[0])
+	for i in 2000:
+		if not is_instance_valid(g) or g._photo != null:
+			break
+		await _frames(1)
+	_check(is_instance_valid(g) and g._photo != null, "Tuppi: polaroid otettiin")
+	if is_instance_valid(g):
+		var t0: float = g._t
+		while is_instance_valid(g) and g._phase == "kuva" and g._t < t0 + 0.25:
+			await _frames(1)
+		await _shot(path, "salama")
+		while is_instance_valid(g) and g._phase == "kuva" and g._t < t0 + 3.4:
+			await _frames(1)
+		await _shot(path, "kehitys")
+		if await _tuppi_wait(g, "otsikko", 2.6):
+			await _shot(path, "otsikko")
+	for i in 3000:
+		if main._kolmio_ui != null:
+			break
+		await _frames(1)
+	await _frames(30)
+	var ui: CanvasLayer = main._kolmio_ui
+	print("LEGENDA tuppi aamu: kerrat %d, viesti '%s'" % [int(main.endings.counts.get("rasytuppi", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("rasytuppi", 0)) == 1, "Tuppi: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Tuppi: päiväkirjarivi")
+	_check(ui != null and ui.photo != null, "Tuppi: polaroid aamussa")
+	if ui != null:
+		ui.auto = false
+		ui._line = 1
+		ui._view.queue_redraw()
+		await _frames(10)
+		await _shot(path, "aamu")
+		ui._finish()
+	await _frames(60)
+	# Toinen ilta: muisto, voitto ilman huipennusta.
+	main.kolmio.st("saloinen").done_day = maxi(0, main.day - 1)
+	main._kolmio_kiva("saloinen", "tuppi")
+	await _frames(20)
+	g = main._rasva_game
+	_check(g != null and not g.legend and g.recall, "Tuppi: toinen ilta ilman legendaa")
+	_check(g != null and (String(g._bubbles[2]).contains("polaroid") or String(g._bubbles[2]).contains("kuva")), "Tuppi: nainen muistelee polaroidia")
+	await _shot(path, "muisto")
+	_tuppi_win(g)
+	var seen := false
+	while is_instance_valid(g) and main._rasva_game == g:
+		if g._phase in ["isku", "nousu", "kuva", "otsikko"]:
+			seen = true
+		await _frames(1)
+	await _frames(30)
+	_check(not seen, "Tuppi: toisella voitolla ei huipennusta")
+	_check(main._kolmio_ui != null and main._kolmio_ui.photo != null and not main._kolmio_ui.photo_new, "Tuppi: polaroid yhä ikkunassa toisena aamuna")
+	_check(int(main.endings.counts.get("rasytuppi", 0)) == 2, "Tuppi: toinen voitto laskettiin hiljaa")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(30)
+	Settings.set_v("k18_pois", k18)

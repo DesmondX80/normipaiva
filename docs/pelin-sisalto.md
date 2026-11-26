@@ -109,7 +109,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Edistyminen "koettu n / 6" ja puuttuvat kivat; disko vaatii Vaalan.
   - **Räsytuppi** (`tuppi.gd`, `tuppi_game.gd`): tuppia pareittain naisen olohuoneen korttipöydässä (pelaaja ja nainen
     vastaan kaverit; rami tai nolo, maapakko, ässä korkein). Jaon hävinnyt pari riisuu: kengät, paita (naisella
-    rintaliivit jäävät) ja housut; kalsareissa hävinnyt pari on pantu tuppeen. Legendaarinen hetki **Räsytuppi**.
+    rintaliivit jäävät) ja housut; kalsareissa hävinnyt pari on pantu tuppeen. Legendaarinen hetki **Räsytuppi** on
+    lavastettu ensimmäiseen voittoon (`tuppi_game.gd _leg_*`): nainen lyö viimeisen pata-ässän pöytään niin, että
+    pullot hyppäävät, kaverit nousevat kalsareissa ikkunan eteen ja pelaaja tanssii, nainen ottaa polaroidin
+    (vastakuva kavereiden välistä, salama, kuva naisen silmin) ja kuva kehittyy ruudulla kuvatekstin kanssa ennen
+    otsikkoa. Polaroid tallentuu (`user://rasytuppi_<kohde>.png`) ja on teipattuna keittiön ikkunaan aamuisin.
+    Myöhemmät voitot lasketaan hiljaa, ja illan alussa nainen muistelee kuvaa (`TUPPI_LINES muisto`).
   - **Lettukisa** (`lettu_game.gd`): minuutissa eniten kermalettuja. Haukku (E) täyttää suuta ja suu tyhjenee
     pureskellessa; liian iso suullinen = kerma nenästä ja yskintä. Letut ovat kolmesta palasta, haarukka nousee suulle,
     ja nainen tuo lisää lettuja pannulta. Legendaarinen hetki **Lettukunkku**.
