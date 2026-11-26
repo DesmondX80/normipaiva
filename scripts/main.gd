@@ -3946,6 +3946,9 @@ func _pohjoiset_options(who: String, o: Array) -> void:
 			o.append(_opt("kahvi", "Kahvi (%s €)" % _eur(SEO_KAHVI), money >= SEO_KAHVI, "rahat ei riitä"))
 			o.append(_opt("munkki", "Munkki (%s €, reppuun)" % _eur(SEO_MUNKKI), money >= SEO_MUNKKI, "rahat ei riitä"))
 			var rekka_shut := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))  # kuten taksi: baari auki perillä
+			o.append(_opt("rekka", "Kysy rekkakuskilta kyytiä Raaheen", _between(clock_min, Vector2(6 * 60, 23 * 60))
+				and rekka_shut == "", "baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0)
+				if rekka_shut != "" and _between(clock_min, Vector2(6 * 60, 23 * 60)) else "kuski nukkuu ohjaamossa (6–23)", true))
 		"aplus":
 			if _weekday() < 5 and _between(clock_min, APLUS_LOUNAS):
 				o.append(_opt("lounas", "Lounas: lihapullat, muusi ja kotikalja (%s €)" % _eur(APLUS_LOUNAS_HINTA),
@@ -11249,6 +11252,7 @@ func _kolmio_remote(site: String) -> void:
 	var info: Dictionary = Kolmio.SITES[site]
 	var r: Dictionary = kolmio.measure(site, _kolmio_remote_point(site), _kolmio_target(site), info.remote)
 	Sfx.play("bell", -10.0, 2.8)
+	_queue_message("%s tekstaa %s: \"%s päässä. Harpilla kartalle.\" (kartta M)" % [info.remote, info.remote_place, Kolmio.dist_text(r.m)], 4.5)
 	_save_game()
 
 
@@ -12761,6 +12765,8 @@ func _talk_options(who := "") -> Array:
 				"baari on kiinni perillä, aukeaa klo %d" % int(OPEN_HOURS.raahe.x / 60.0) if shut != "" else "rahat ei riitä"))
 			for rid in Retket.lahdosta("taksi"):
 				var r: Dictionary = Retket.LISTA[rid]
+				var offer := Retket.tarjous(rid)
+				o.append(_opt("retki_" + rid, "%s (%s €, meno-paluu)%s" % [r.nimi, _eur(offer.hinta), _late_note(offer.hop_min)], money >= offer.hinta, "rahat ei riitä"))
 			if not pakkahuone.heard:
 				o.append(_opt("pakkahuone_kerro", "Mikä se Pakkahuone oikein on?", true, "", true))
 			if not peruskivi.heard:

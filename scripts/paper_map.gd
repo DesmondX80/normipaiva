@@ -31,6 +31,7 @@ var _vland: Control  # maanpeite kartan alla (show_behind_parent), oma materiaal
 ## keskipiste samassa kehyksessä, _vzoom pikseliä metrille.
 var _vrect := Rect2()
 var _vzoom := 0.3
+const VZOOM_MAX := 2.0  # px/m: kyläkartan talot ovat merkkejä, ei pohjia: tätä lähemmäs ei kannata
 const ZOOM_OPEN := 0.6  # kyläkartta avattaessa (px/m), pelaaja keskellä
 var _vcenter := Vector2.ZERO
 
@@ -81,7 +82,10 @@ func toggle() -> void:
 		size = get_viewport_rect().size
 		_layout()
 		if _tree_pts.is_empty() and world != null:
-			pass
+			for i in range(0, world._trees.size(), 7):
+				var t: Array = world._trees[i]
+				if t[3]:
+					_tree_pts.append(t[0])
 		var lo := M.w2(M.MAP_MIN)
 		_vrect = Rect2(lo, M.w2(M.SIZE) - lo).abs()
 		_vzoom = maxf(ZOOM_OPEN, _fit_zoom())
@@ -97,7 +101,10 @@ func _clamped(c: Vector2) -> Vector2:
 	var half := _view.size / 2.0 / _vzoom
 	var out := c
 	for ax in 2:
-		out[ax] = clampf(c[ax], _vrect.position[ax] + half[ax], _vrect.end[ax] - half[ax])
+		if _vrect.size[ax] <= half[ax] * 2.0:
+			out[ax] = _vrect.get_center()[ax]
+		else:
+			out[ax] = clampf(c[ax], _vrect.position[ax] + half[ax], _vrect.end[ax] - half[ax])
 	return out
 
 
@@ -177,6 +184,13 @@ func _gui_input(event: InputEvent) -> void:
 			if _dragged >= DRAG_CLICK:
 				_vcenter = _clamped(_vcenter - event.relative / _vzoom)
 				_view.queue_redraw()
+		_hover_px = event.position - _view.position
+		var nm := _place_at(_hover_px)
+		if nm == "":
+			nm = _road_at(_hover_px)
+		if nm != _hover_name or nm != "":
+			_hover_name = nm
+			_view.queue_redraw()
 	elif event is InputEventMouseButton:
 		var local: Vector2 = event.position - _view.position
 		match event.button_index:
@@ -185,12 +199,16 @@ func _gui_input(event: InputEvent) -> void:
 					_drag_on = true
 					_dragged = 0.0
 				else:
+					if _drag_on and _dragged < DRAG_CLICK:
+						_click(local)  # napautus: kompassin kohde
 					_drag_on = false
 			MOUSE_BUTTON_RIGHT:
-				pass
+				if event.pressed:
+					clear_target()
 			MOUSE_BUTTON_WHEEL_UP:
 				if event.pressed:
 					_vzoom_by(1.2, local)
+			MOUSE_BUTTON_WHEEL_DOWN:
 				if event.pressed:
 					_vzoom_by(1.0 / 1.2, local)
 		_view.queue_redraw()
@@ -199,6 +217,24 @@ func _gui_input(event: InputEvent) -> void:
 	elif event is InputEventPanGesture:
 		_vcenter = _clamped(_vcenter + event.delta * 8.0 / _vzoom)
 		_view.queue_redraw()
+
+
+## Lähimmän nimetyn tien nimi, jos hiiri on alle 7 px päässä siitä (karttanäkymän px).
+func _road_at(local: Vector2) -> String:
+	if not Rect2(Vector2.ZERO, _view.size).has_point(local):
+		return ""
+	var best := 7.0
+	var name := ""
+	for r in M.ROADS:
+		if r.name == "":
+			continue
+		var pts: Array = r.pts
+		for i in pts.size() - 1:
+			var d := local.distance_to(Geometry2D.get_closest_point_to_segment(local, _px(pts[i]), _px(pts[i + 1])))
+			if d < best:
+				best = d
+				name = r.name
+	return name
 
 
 func clear_target() -> void:
@@ -289,6 +325,7 @@ func _make_paper() -> ImageTexture:
 	n.frequency = 0.012
 	n.fractal_octaves = 5
 	var fine := FastNoiseLite.new()
+	fine.frequency = 0.25
 	var img := Image.create(512, 512, false, Image.FORMAT_RGB8)
 	for y in 512:
 		for x in 512:
@@ -330,6 +367,16 @@ func _draw() -> void:
 		if cand * _vzoom <= 100.0:
 			m = cand
 	_scale_bar(side + Vector2(10, 180), m, _vzoom)
+	# Puhtaalla paperilla kartan vasemman alakulman alla: montako kylän kiinnostavaa paikkaa on käyty.
+	var pls := _public_places()
+	var seen := pls.filter(func(q: Array) -> bool: return q[2]).size()
+	var firsts: Array = game.tilat.firsts if game != null and game.tilat != null else []
+	for n in NEIGHBORS:  # naapurit mukaan laskuriin: käyty = juteltu
+		pls.append(n)
+		if n[2] in firsts:
+			seen += 1
+	draw_string(font, Vector2(_view.position.x - 9, _view.position.y + _view.size.y + 30), "Kylää kierretty %d / %d" % [seen, pls.size()],
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 15, INK)
 	var end_y := 0.0
 	end_y = _legend(side + Vector2(10, 250))
 	# Ohjeet heti selitteen alle (ei päällekkäin), näppäimet asetuksista.
@@ -337,6 +384,7 @@ func _draw() -> void:
 	var help := ["Rulla / %s %s: zoomaa · %s%s%s%s / vedä: siirrä" % [k.call("bell"), k.call("interact"), k.call("forward"),
 		k.call("left"), k.call("back"), k.call("right")],
 		"%s: keskitä itseesi · %s sulje" % [k.call("jump"), k.call("map")]]
+	help.push_front("Klikkaa: kompassin kohde · oikea: poista")
 	var hy := maxf(end_y + 24.0, r.end.y - 12.0 - help.size() * 16.0)
 	for line in help:
 		draw_string(font, Vector2(side.x + 10, hy), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK.lightened(0.3))
@@ -345,24 +393,82 @@ func _draw() -> void:
 
 func _compass(c: Vector2) -> void:
 	var col := INK
+	for k in 8:
+		var a := TAU * k / 8.0 - PI / 2.0
+		var len := 52.0 if k % 2 == 0 else 30.0
+		var tip := c + Vector2(cos(a), sin(a)) * len
+		var l := c + Vector2(cos(a - 0.35), sin(a - 0.35)) * 10.0
+		var rr := c + Vector2(cos(a + 0.35), sin(a + 0.35)) * 10.0
+		draw_colored_polygon(PackedVector2Array([c, l, tip]), col if k % 2 == 0 else col.lightened(0.4))
+		draw_colored_polygon(PackedVector2Array([c, tip, rr]), Color(0.75, 0.15, 0.1) if k == 0 else col.lightened(0.55))
 	draw_arc(c, 36.0, 0, TAU, 40, col, 1.5)
 	draw_string(ThemeDB.fallback_font, c + Vector2(-7, -58), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.75, 0.15, 0.1))
 
 
 func _scale_bar(p: Vector2, meters: float, k: float) -> void:
 	var font := ThemeDB.fallback_font
+	var seg := meters * k
 	for i in 2:
-		pass
+		draw_rect(Rect2(p + Vector2(i * seg, 0), Vector2(seg, 8)), INK if i == 0 else PAPER.darkened(0.05))
+	draw_rect(Rect2(p, Vector2(seg * 2, 8)), INK, false, 1.0)
 	draw_string(font, p + Vector2(-2, 26), "0", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	draw_string(font, p + Vector2(seg - 14, 26), "%d" % int(meters), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	draw_string(font, p + Vector2(seg * 2 - 20, 26), "%d m" % int(meters * 2.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 
 
 func _legend(p: Vector2) -> float:
 	var font := ThemeDB.fallback_font
+	draw_string(font, p, "SELITE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+	var items := [
+		["road", "Maantie"], ["street", "Katu"], ["path", "Polku"], ["forest", "Metsä"], ["field", "Pelto"],
+		["bog", "Suo, räme"], ["water", "Vesi"], ["home", "Koti"], ["shop", "K-Market"], ["apteekki", "Apteekki (Kinnapotti)"], ["laavu", "Laavu"], ["berry", "Marjapaikka"], ["mushroom", "Sienipaikka"], ["stash", "Kaljajemma"], ["target", "Kompassin kohde"], ["you", "Olet tässä"],
+	]
 	var y := p.y
+	for i in items.size():
+		y = p.y + 20 + i * 17.0
+		var sym := Vector2(p.x + 14, y)
+		match items[i][0]:
+			"road":
+				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), Color(0.45, 0.25, 0.1), 6.0)
+				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), Color(0.98, 0.86, 0.4), 3.0)
+			"street":
+				draw_line(sym - Vector2(12, 0), sym + Vector2(12, 0), INK, 2.0)
+			"path":
+				draw_dashed_line(sym - Vector2(12, 0), sym + Vector2(12, 0), INK, 1.5, 4.0)
+			"forest":
+				draw_rect(Rect2(sym - Vector2(12, 7), Vector2(24, 14)), Color(0.66, 0.76, 0.52))
+				draw_circle(sym, 2.0, Color(0.3, 0.45, 0.25))
+			"field":
+				draw_rect(Rect2(sym - Vector2(12, 7), Vector2(24, 14)), Color(0.93, 0.82, 0.5))
+			"bog":
+				draw_rect(Rect2(sym - Vector2(12, 7), Vector2(24, 14)), Color(0.78, 0.84, 0.82))
+				draw_line(sym - Vector2(8, 0), sym + Vector2(8, 0), Color(0.3, 0.5, 0.7), 1.0)
+			"water":
+				draw_rect(Rect2(sym - Vector2(12, 7), Vector2(24, 14)), Color(0.55, 0.72, 0.86))
+			"home":
+				_house_icon(sym, Color(0.8, 0.15, 0.1))
+			"shop":
+				draw_circle(sym, 7.0, Color(1.0, 0.45, 0.0))
+				draw_string(font, sym + Vector2(-4, 5), "K", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
+			"apteekki":
+				_poi_icon_on(self, sym, "apteekki")
+			"laavu":
+				_laavu_icon(sym)
+			"berry":
+				for o in [Vector2(-3, 0), Vector2(3, 0), Vector2(0, -4)]:
+					draw_circle(sym + o, 2.6, Color(0.8, 0.08, 0.1))
+			"mushroom":
+				draw_rect(Rect2(sym + Vector2(-1, -1), Vector2(2, 5)), Color(0.9, 0.86, 0.75))
+				draw_colored_polygon(PackedVector2Array([sym + Vector2(-5, -1), sym + Vector2(0, -6), sym + Vector2(5, -1)]), Color(0.95, 0.65, 0.1))
+			"stash":
+				_stash_icon_on(self, sym)
+			"target":
+				_target_icon_on(self, sym)
+			"you":
+				_you_icon(sym, 0.0)
+		draw_string(font, Vector2(p.x + 36, y + 5), items[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
 	return y
 
-
-# --- Karttasisältö -----------------------------------------------------------
 
 func _draw_map() -> void:
 	var v := _view
@@ -417,6 +523,21 @@ func _draw_map() -> void:
 
 	# Tiet: ensin ääriviivat, sitten täyttö; leveys kasvaa zoomatessa.
 	var rw := clampf(_vzoom / 0.4, 1.0, 3.0)
+	for pass_i in 2:
+		for r in M.ROADS:
+			var pts := _pts(r.pts)
+			match r.type:
+				"highway":
+					v.draw_polyline(pts, Color(0.45, 0.2, 0.08) if pass_i == 0 else Color(0.95, 0.55, 0.2), (8.0 if pass_i == 0 else 5.0) * rw)
+				"road":
+					v.draw_polyline(pts, Color(0.45, 0.25, 0.1) if pass_i == 0 else Color(0.98, 0.86, 0.4), (6.0 if pass_i == 0 else 3.5) * rw)
+				"street":
+					if pass_i == 1:
+						v.draw_polyline(pts, INK.lightened(0.15), 2.0 * rw)
+				"path":
+					if pass_i == 1:
+						for i in pts.size() - 1:
+							v.draw_dashed_line(pts[i], pts[i + 1], INK, 1.5, clampf(5.0 * _vzoom / 0.4, 2.0, 15.0))  # katkot venyvät kartan mukana
 	_rail_on(v, _pts(Array(M.railway())), clampf(3.0 * rw, 2.5, 6.0))  # Saloisten rata asemalta horisonttiin
 	# Talot pieninä mustina neliöinä.
 	if world != null:
@@ -610,6 +731,7 @@ func _mask_outside(v: Control) -> void:
 func _vzoom_by(f: float, at: Vector2) -> void:
 	var fit := _fit_zoom()
 	var before := (at - _view.size / 2.0) / _vzoom + _vcenter
+	_vzoom = clampf(_vzoom * f, fit, VZOOM_MAX)
 	_vcenter = before - (at - _view.size / 2.0) / _vzoom
 	_vcenter = _clamped(_vcenter)
 	_view.queue_redraw()
@@ -910,3 +1032,15 @@ func _you_icon_on(ci: CanvasItem, p: Vector2, ang: float) -> void:
 	var r := f.orthogonal()
 	ci.draw_circle(p, 11.0, Color(0.85, 0.1, 0.1, 0.25))
 	ci.draw_colored_polygon(PackedVector2Array([p + f * 10.0, p - f * 6.0 + r * 6.0, p - f * 2.0, p - f * 6.0 - r * 6.0]), Color(0.85, 0.1, 0.1))
+
+
+func _house_icon(p: Vector2, col: Color) -> void:
+	_house_icon_on(self, p, col)
+
+
+func _laavu_icon(p: Vector2) -> void:
+	_laavu_icon_on(self, p)
+
+
+func _you_icon(p: Vector2, ang: float) -> void:
+	_you_icon_on(self, p, ang)
