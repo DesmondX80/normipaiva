@@ -31,6 +31,8 @@ var gifts: Array = []  # [[antaja, lahja], ...]
 var missing := ""  # pelaajan puuttuva lahja ("" = kaikki mukana)
 var resident := {}  # väärä ovi: kolmiomittaus.gd WRONG_DOORS
 var stats := ""  # aamun tilastorivi
+var photo: Texture2D  # räsytupin legendan polaroid (tuppi_game.gd _snap_take): teipattu keittiön ikkunaan
+var photo_new := false  # polaroid otettiin tänä yönä: kertoja mainitsee sen
 var kiva := "rasvanappi"  # illan iltakiva (aamun repliikit): rasvanappi, tuppi, lettu, loyly, disko, karaoke
 var lines: Array = []  # [puhuja, teksti]; rakennetaan _ready:ssä
 var auto := true  # rivit etenevät itsestään 6,5 s välein (testi pysäyttää)
@@ -169,6 +171,8 @@ func _ready() -> void:
 			_build_porch()
 		"aamu":
 			lines = _morning_lines()
+			if photo_new:
+				lines.insert(1, ["", "Yön polaroid on teipattu keittiön ikkunaan: kaverit kalsareissa, ja %s kikattaa sille kahvia kaataessaan." % woman])
 			_build_kitchen()
 	_line_t = 0.0
 	_apply(0.0)
@@ -701,6 +705,8 @@ func _build_kitchen() -> void:
 			[Vector3(0.08, 1.2, 0.14), Vector3(-0.9, 1.6, -1.55)], [Vector3(0.08, 1.2, 0.14), Vector3(0.9, 1.6, -1.55)],
 			[Vector3(0.05, 1.2, 0.1), Vector3(0, 1.6, -1.55)]]:
 		B.mesh(_stage, B.boxm(part[0]), part[1], white)
+	if photo != null:
+		_window_photo()
 	# Pöytä ja kattaus.
 	var top := Vector3(0, 0.76, 0.75)
 	B.mesh(_stage, B.boxm(Vector3(2.6, 0.05, 0.9)), top, Color(0.7, 0.5, 0.3))
@@ -774,6 +780,30 @@ func _build_kitchen() -> void:
 	_pancake.position = Vector3(0, 0.05, -0.32)
 	pan.add_child(_pancake)
 	B.mesh(_pancake, B.cyl(0.1, 0.1, 0.012, 18), Vector3.ZERO, Color(0.95, 0.72, 0.38))
+
+
+## Räsytupin polaroid teipattuna ikkunalasiin naisen pään oikealle puolelle (lasi z = -1,69, kehys edessä).
+func _window_photo() -> void:
+	var pol := Node3D.new()
+	_stage.add_child(pol)
+	pol.position = Vector3(0.48, 1.86, -1.68)
+	pol.rotation.z = 0.06
+	B.mesh(pol, B.boxm(Vector3(0.26, 0.31, 0.004)), Vector3.ZERO, Color(0.97, 0.96, 0.92))
+	var q := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.225, 0.225)
+	q.mesh = qm
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = photo
+	m.emission_enabled = true  # ikkunan vastavalossa kuva näkyy silti
+	m.emission_texture = photo
+	m.emission_energy_multiplier = 0.35
+	q.material_override = m
+	q.position = Vector3(0, 0.025, 0.003)
+	pol.add_child(q)
+	for sx in [-1.0, 1.0]:  # teipinpalat yläkulmissa
+		var t := B.mesh(pol, B.boxm(Vector3(0.08, 0.025, 0.002)), Vector3(sx * 0.11, 0.15, 0.004), Color(0.95, 0.92, 0.75))
+		t.rotation.z = sx * -0.6
 
 
 func _draw_text(s: Vector2, k: float) -> void:

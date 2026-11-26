@@ -12901,9 +12901,11 @@ func _kolmio_rasvanappi(site: String) -> void:
 
 ## Räsytuppi naisen olohuoneessa (toisesta kolmiomittauksesta alkaen samassa kohteessa): pelaaja ja nainen vastaan
 ## kaverit; ilta päättyy, kun pari on pantu tuppeen, ja aamu tulee kuten Rasvanapin jälkeen. Ensimmäinen voitto on
-## legendaarinen hetki "rasytuppi".
+## lavastettu legendaarinen hetki "rasytuppi" (ässä pöytään, kaverit kalsareissa, polaroid; kuva aamulla ikkunassa),
+## myöhemmät voitot lasketaan hiljaa ja nainen muistelee kuvaa illan alussa.
 const TUPPI_KAVERIT := {"saloinen": [["joni", "Joni"], ["esa", "Esa"]], "vaala": [["tero", "Tero"], ["timo", "Timo"]]}
 const TUPPI_NAINEN := {"saloinen": "minttu", "vaala": "katja"}
+const TUPPI_KUVA := "user://rasytuppi_%s.png"  # legendan polaroid (keittiön ikkuna aamuisin)
 func _kolmio_tuppi(site: String) -> void:
 	var info: Dictionary = Kolmio.SITES[site]
 	_kolmio_new_anchor(site)
@@ -12914,6 +12916,8 @@ func _kolmio_tuppi(site: String) -> void:
 	g.sun = _sun
 	g.style = (Kolmio.RASVA_RULES[site] as Dictionary).get("style", {})
 	g.lines = Kolmio.TUPPI_LINES[site]
+	g.legend = int(endings.counts.get("rasytuppi", 0)) == 0  # ensimmäinen voitto lavastetaan (tuppi_game.gd _leg_begin)
+	g.recall = not g.legend
 	g.seats = [{"id": "pelaaja", "name": "Sinä", "look": Looks.player()},
 		{"id": k[0][0], "name": k[0][1], "look": RasvanappiGame.real_look(k[0][0])},
 		{"id": TUPPI_NAINEN[site], "name": info.woman, "look": RasvanappiGame.real_look(TUPPI_NAINEN[site])},
@@ -12921,6 +12925,11 @@ func _kolmio_tuppi(site: String) -> void:
 	g.finished.connect(func(r: Dictionary) -> void:
 		if r.get("voitto", false):
 			_ending("rasytuppi")
+		var kuva: Texture2D = r.get("kuva", null)
+		if kuva != null:  # polaroid talteen: se on naisen keittiön ikkunassa myöhempinäkin aamuina
+			var img := kuva.get_image()
+			img.resize(256, 256)
+			img.save_png(TUPPI_KUVA % site)
 		r["kiva"] = "tuppi"
 		_kolmio_morning(site, r))
 	add_child(g)
@@ -12983,6 +12992,12 @@ func _kolmio_morning(site: String, r: Dictionary) -> void:
 	ui.friends = info.friends
 	ui.stats = stats
 	ui.kiva = String(r.get("kiva", "rasvanappi"))
+	ui.photo = r.get("kuva", null)  # räsytupin legendan polaroid keittiön ikkunaan
+	ui.photo_new = ui.photo != null
+	if ui.photo == null and FileAccess.file_exists(TUPPI_KUVA % site):
+		var img := Image.load_from_file(TUPPI_KUVA % site)
+		if img != null:
+			ui.photo = ImageTexture.create_from_image(img)
 	ui.finished.connect(func(_r: Dictionary) -> void:
 		_kolmio_ui = null
 		var intro := "Aamu %s keittiössä. Päivi tekstasi yöllä: \"MAITOA.\" Osta maitoa kaupasta ennen kuin menet kotiin.\n" % info.gen

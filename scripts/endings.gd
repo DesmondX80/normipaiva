@@ -46,7 +46,7 @@ const ENDINGS := [
 	# Luku 6 (#326): kesäheila -96 -huipennuksen loput (main.gd _kesaheila_*) ja legendaarinen hetki kummassakin.
 	["kulissit", "Kulissit kunnossa", "Kesäheila -96 oli Päivi. Naurettiin yhdessä, ja aamulla kerma ja mansikat syötiin keittiössä."],
 	["avoin_pelikortti", "Avoin pelikortti", "Kaikki kortit pöytään: sinun syntisi ja Päivin Zabukin tanssit. Kukaan ei lähtenyt."],
-	["rasytuppi", "Räsytuppi", "Kaverit pantiin tuppeen kalsareissa naisen olohuoneessa. Kortit jäivät pöydälle, kalsarit päälle."],
+	["rasytuppi", "Räsytuppi", "Viimeinen ässä pöytään, ja kaverit pantiin tuppeen kalsareissa naisen olohuoneessa. Nainen otti polaroidin, ja kuva teipattiin keittiön ikkunaan."],
 	["lettukunkku", "Lettukunkku", "Eniten kermalettuja minuutissa naisen pöydässä. Voittaja nuoli vatkaimen."],
 	["loylykunkku", "Löylykunkku", "Viimeisenä lauteilla, kun kaverit pakenivat pyyhkeet kourassa. Pyyhe putosi, ego ei."],
 	["sivikkidisko", "Sivikki-disko", "Pihadisko Sivikin bassojen tahtiin. Katja tanssi sinun kanssasi, ja Timon akku loppui."],
@@ -68,7 +68,7 @@ const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet"
 
 ## Legendaariset hetket, jotka koetaan lavastettuna kohtauksena (cutscene.gd): ei erillistä ilmoitusta, vaan kohtauksen
 ## jälkeen hillitty rivi päiväkirjan uudesta tarinasta. Muut hetket näyttävät vielä vanhan ilmoituksen.
-const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti"]
+const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti", "rasytuppi"]
 
 ## [id, nimi, kuvaus] -> kuvaus.
 static func desc_of(id: String) -> String:
