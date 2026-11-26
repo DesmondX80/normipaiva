@@ -30,7 +30,7 @@ static var outfit := "tuulipuku"
 ## "koppa" = Karhu-kutosen pahvikoppa (ensimmäisestä kaupasta ostetusta kutosesta).
 static var hat := ""
 ## Pelaajan kumisaappaat (#274, main.gd _set_boots): "" = asun omat kengät, "jalassa" = kumisaappaat jalassa (yksi pari,
-## joka odottaa kodin ja mökin matolla, kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
+## joka odottaa kodin matolla, kumisaappaat.gd). Hiihtohaalarissa pidetään aina kuukengät.
 static var boots := ""
 ## Hahmoeditorin valinnat (hahmoeditori.gd, pelin alussa): rivin id -> vaihtoehdon id, puuttuva rivi = oletus (rivin
 ## ensimmäinen vaihtoehto, sama ulkonäkö kuin ennen editoria). main.gd tallentaa (pelaaja/hahmo). Valinnat pätevät

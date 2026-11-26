@@ -4,9 +4,7 @@ extends Node3D
 ## vakiovieraat Raimo ja Veikko, jotka tulevat ulos katsomaan ja kommentoivat.
 ## Aliluokka asettaa _init():ssä eye, watcher_spots, watch_at, help_text ja lines ja toteuttaa koukut
 ## _start, _tick, _action, _alt_action, _mouse_moved, _can_quit, _gust_comment_ok ja _cleanup.
-## kota.gd:n lapsi: kaikki koordinaatit ovat tämän solmun paikallisia. Isäntä (kota) voi olla myös mökki
-## (mokki.gd), jolloin katsojana on Santtu: isäntä tarjoaa silloin watcher_node(), watcher_bubble() ja
-## watcher_say() (kodalla raimo/veikko, _bubbles ja say()).
+## kota.gd:n lapsi: kaikki koordinaatit ovat tämän solmun paikallisia.
 
 signal finished
 
@@ -315,16 +313,12 @@ func _build_leaves() -> void:
 
 # --- Katsojat ja kommentit --------------------------------------------------------------
 
-## Katsojan hahmo, puhekupla ja puhe isännän mukaan (kota: Raimo ja Veikko, mökki: Santtu).
+## Katsojan hahmo (Raimo ja Veikko).
 func _watcher(who: String) -> Node3D:
-	if kota.has_method("watcher_node"):
-		return kota.watcher_node(who)
 	return kota.raimo if who == "raimo" else kota.veikko
 
 
 func _watcher_bubble(who: String) -> Label3D:
-	if kota.has_method("watcher_bubble"):
-		return kota.watcher_bubble(who)
 	return kota._bubbles[who]
 
 
@@ -336,13 +330,10 @@ func _place_bubble(b: Label3D, p: Vector3) -> void:
 
 
 func _watcher_say(who: String, text: String, seconds: float) -> void:
-	if kota.has_method("watcher_say"):
-		kota.watcher_say(who, text, seconds)
-	else:
-		kota.say(who, text, seconds)
+	kota.say(who, text, seconds)
 
 
-## Katsojat (kodalla Raimo ja Veikko, mökillä Santtu) tulevat seisomaan katsomaan (paikat aliluokalta).
+## Katsojat (Raimo ja Veikko) tulevat seisomaan katsomaan (paikat aliluokalta).
 func _setup_watchers() -> void:
 	for who in watcher_spots:
 		_talk_t[who] = 0.0

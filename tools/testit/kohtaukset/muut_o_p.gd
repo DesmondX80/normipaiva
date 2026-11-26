@@ -336,7 +336,6 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			print("PK alku: ", summary.call())
 			main.story.step = "valmis"
 			main._ending("paapeli")
-			main.tilat.first("mokki")
 			print("PK paapeli: ", summary.call())
 			main.tilat.first("santtu")
 			print("PK santtu tervehtii: '%s'" % main._talk_hello("santtu"))
@@ -354,7 +353,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			for k in ["pyhakoski_voimala", "kuvakirkko_suntio", "wanharaahe_patsas", "karhut_opas", "olavi_legenda",
 					"kuningas_legenda", "kanttori_legenda", "pingis_ulkopoyta", "hanhikivi_legenda", "kalajoki_sarkat", "kalalupa",
 					"pubivisa", "uintikilpailu", "keikkatyo", "tyokkari", "rasvanappi", "rakaleima", "tappelu_juntti",
-					"lintutorni", "pajatso", "ronttonen"]:
+					"lintutorni", "pajatso"]:
 				main.tilat.first(k)
 			main.pyhakoski.voimala = true
 			main.wanharaahe.kuvat = ["patsas"]
@@ -724,7 +723,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.get_tree().quit()
 		"pedot":
 			# Metsän pedot: karhu ja paikallaan seisominen (luopuu), karhu ja juoksu (raatelee, iso haava, eväät),
-			# susi ja huuto kasvokkain (pakenee), Santun hoito, mökin metsän tunnistus. Kuva karhusta.
+			# susi ja huuto kasvokkain (pakenee). Kuva karhusta.
 			if main.player == main.bike:
 				main._toggle_mount()
 			var spot := Vector3.INF
@@ -804,16 +803,6 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			Input.action_release("interact")
 			await main.get_tree().process_frame
 			print("PEDOT susi huuto: vaihe %s viesti '%s' haava %s" % [main._beast.phase if is_instance_valid(main._beast) else "-", main._msg.text, main.bitten])
-			# 4) Santun hoito karhun haavaan.
-			main.bitten = true
-			main.wound_big = true
-			main.walker_out.hurt = true
-			main.walker_out.hurt_speed = Main.BEAR_HURT_SPEED
-			print("PEDOT Santtu: haava %s iso %s ontuu %.2f viesti '%s'" % [main.bitten, main.wound_big, main.walker_out.hurt_speed, main._msg.text])
-			# 5) Mökin metsä: osuus metsää mökin ympärillä.
-			var n_forest := 0
-			for k in 40:
-					n_forest += 1
 		"pitkalappu":
 			# Pitkä lappu: kaikki päivän muistutukset kerralla; lapun pitää mahtua kokonaan ruudulle.
 			var many := ["Laitoin 12,00 € kauppaa varten.", "Eilen ei tullu kaupasta mitään, vaikka oli lista!",
@@ -821,7 +810,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				Main.LAWN_NAG_PAIVI[2], Main.LAWN_NAG_ANNALIISA[0], "Pyörä ei oo pihassa. Mihin sää sen taas jätit?",
 				Main.HANGOVER_NOTE.paivi, Main.STAT_TIPS.paivi.vireys[0],
 				Main.STAT_TIPS.paivi.stressi[1], Main.STAT_TIPS.paivi.keskittyminen[0]]
-			main._day_note(Main.MORNING_HEAD.mokilta[0], "
+			main._day_note(Main.MORNING_HEAD.laavulta[0], "
 ".join(many))
 			await main.get_tree().create_timer(1.2).timeout
 			var rect: Rect2 = main._note._paper.get_global_rect()

@@ -122,7 +122,7 @@ func has_music() -> bool:
 	return false
 
 
-## Tunnusmusiikki silmukkana (esim. mökin PA-kaiuttimille), null jos tiedostoa ei ole.
+## Tunnusmusiikki silmukkana , null jos tiedostoa ei ole.
 func music_stream() -> AudioStream:
 	for f in MUSIC_FILES:
 		if ResourceLoader.exists(f):

@@ -360,7 +360,7 @@ func _build_bike() -> void:
 	_bike.visible = false
 
 
-## Oma mopo (#155) keskellä tallia keula ovelle päin: sama malli kuin mökin mopolla. Satula ja ajovalo puuttuvat,
+## Oma mopo (#155) keskellä tallia keula ovelle päin. Satula ja ajovalo puuttuvat,
 ## kunnes ne on asennettu (set_mopo).
 func _build_mopo() -> void:
 	_mopo = Node3D.new()

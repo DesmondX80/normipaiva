@@ -1,6 +1,6 @@
 extends Node3D
 ## Korkkiläpsy (#290, pog-tyylinen) pelimaailmassa 3D:nä: Raahen lavan pihalla teinien vieressä (main.gd
-## _start_korkkilapsy lisää tämän vaala-solmun lapseksi ja asettaa paikan). Pino oikeita 3D-korkkeja asfaltilla nurin
+## _start_korkkilapsy_kaukalo lisää tämän solmun lapseksi ja asettaa paikan). Pino oikeita 3D-korkkeja asfaltilla nurin
 ## päin, vastassa teini Jere kyykyssä ja pelaajan oma hahmo pinon ääressä (Looks-hahmot). Kamera pinon yläviistossa.
 ## Tähtäys A/D tai hiiri, voima ajoituksella (hyppy / klikkaus): kääntyneet korkit lyöjälle, liian kova lyönti lennättää
 ## korkit asfaltille. Ruudun päällä vain voimamittari, tilanne ja näppäinhatut (hint_bar.gd, näppäimet asetuksista).

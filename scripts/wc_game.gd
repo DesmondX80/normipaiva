@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Vessanpönttö (kodin WC, mökin pesuhuone, mökin huussi): ykkönen tai kakkonen omana minipelinään.
+## Vessanpönttö (kodin WC): ykkönen tai kakkonen omana minipelinään.
 ## Ykkönen: pidä suihku pöntössä (WASD / nuolet tai hiiri). Tähtäin vaeltaa itsestään, humalassa enemmän; ohi
 ## menneet tipat jäävät lattialle. Kakkonen: ponnista (E / välilyönti), kun mittarin neula on vihreällä, kolme
 ## kertaa; punaisella sattuu. Sitten paperia (E repäisee arkin, välilyönti valmis): liian vähän on säästeliäs,

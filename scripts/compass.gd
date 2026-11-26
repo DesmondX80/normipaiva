@@ -1,7 +1,7 @@
 extends Control
 ## Kompassinauha ruudun yläreunassa: ilmansuunnat liikkuvat kameran suunnan mukaan (P ylös kartalla = -Z).
 ## Paperikartalta valittu kohde näkyy nauhalla omassa suunnassaan, näkökentän ulkopuolella reunalla nuolena.
-## Ei etäisyyttä metreinä, vain "lähellä", kun kohde on lähellä. Mökillä lähin viinakätkö näkyy geokätkön
+## Ei etäisyyttä metreinä, vain "lähellä", kun kohde on lähellä.  Lähin viinakätkö näkyy geokätkön
 ## tapaan keltaisena merkkinä, jonka alla matka metreinä (main.gd _viina_logic).
 
 const SPAN := 180.0  # asteita nauhan reunasta reunaan
@@ -12,7 +12,7 @@ const CACHE_COL := Color(1.0, 0.75, 0.1)
 
 var player: Node3D
 var paper: Control  # paper_map.gd: has_target, target (maailman x/z)
-var show_target := true  # mökillä kylän kohteita ei näytetä
+var show_target := true
 var has_cache := false
 var cache := Vector2.ZERO  # viinakätkö (maailman x/z)
 var cache_text := ""  # merkin alla; tyhjä = matka metreinä (mopomatkalla kohteen nimi ja todellinen matka)

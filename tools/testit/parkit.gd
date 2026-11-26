@@ -1,7 +1,7 @@
 extends Node
 ## Pysäköidyt autot eivät saa olla toistensa sisällä (#bugi Zabukin parkissa): B.parked_car-autojen pohjat (1,8 × 4,2 m,
 ## lepoasennon suorakaiteet xz-tasossa) tarkistetaan pareittain Saloisissa (main.world),
-## Raahessa myös Pentin pakettiauton paikkaa (vaala.gd pentti_spot, 1,8 × 4,7 m) vasten. Päällekkäisyys (SAT, 5 cm
+## Päällekkäisyys (SAT, 5 cm
 ## toleranssi) = TESTI VIKA. Kuvat Zabukin parkista. Ajo: tools/testit/aja.sh scene parkit
 
 var main: Node3D

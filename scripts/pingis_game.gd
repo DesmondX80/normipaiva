@@ -472,7 +472,7 @@ func _update_camera(delta: float) -> void:
 
 # --- Näyttämö ja HUD ------------------------------------------------------------------------
 
-## Mökin nurmi iltapäivällä: keskiraja köytenä maassa, mäntyjä, tumma pystylautamökki ja järvi taustalla.
+## Koulun piha iltapäivällä: keskiraja köytenä maassa ja koulun taustakulissi.
 func _build_stage() -> void:
 	var grass := B.shader_mat("res://shaders/ground.gdshader", {
 		"color_a": Color(0.3, 0.42, 0.18), "color_b": Color(0.45, 0.52, 0.26)})

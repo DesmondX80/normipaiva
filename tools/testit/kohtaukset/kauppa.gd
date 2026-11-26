@@ -265,8 +265,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await wait.call(0.3)
 			await snap_my.call("_myynti_pihi.png")
 			print("MY liian kova: pihi %d, vaihe %s, rivi '%s'" % [mg._greedy, mg._phase, mg._line])
-			# 2. Mökkiläinen: hyväksytään tarjous.
-			force.call("mokki", "savukala", 1, 7.0, 9.0, 5.0)
+			# 2. Anna-Liisa: hyväksytään tarjous.
+			force.call("annaliisa", "savukala", 1, 7.0, 9.0, 5.0)
 			var inc0: float = mg._income
 			mg._accept(5.0)
 			await wait.call(0.3)
@@ -485,7 +485,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.food = {}
 			main.beers = 0
 			main.pontikka = 0
-			main.story.step = "valmis"  # kyyti mökille auki: tilityksen vaikutus kyytiin näkyy
+			main.story.step = "valmis"  # kyyti auki: tilityksen vaikutus kyytiin näkyy
 			main.laatikko = Main.PekanLaatikko.new()
 			main.tilat.firsts.erase("oma_kirppispoyta")
 			main.tilat.firsts.erase("pekan_laatikko_tilitetty")
@@ -555,6 +555,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			check.call(is_equal_approx(main.money, money_before + 36.0), "rahaa +36 € (koko myynti, Pekan osuus tilitetään erikseen)")
 			check.call(main._msg.text.contains("Pekan osuus %s €" % main._eur(18.0)), "viesti '%s'" % main._msg.text)
 			# 6. Saman päivän tilitys: maine +2 ja seuraava kyyti ilmainen.
+			main.clock_min = 15 * 60.0  # Kapteenin Kulma auki (14–02): sulkeminen ei peitä kyydin syytä
 			var o3: Array = pekka_opts.call()
 			check.call("laatikko_tilita:true" in o3, "tilitys tarjolla %s" % [o3])
 			var m0: float = main.money

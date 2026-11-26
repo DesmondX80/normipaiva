@@ -1,5 +1,5 @@
 extends Node3D
-## Satunnainen juna Raahen mopomatkan radalla (vaala.gd _build_train): radan OSM-pätkistä ketjutettua reittiä pitkin
+## Satunnainen juna radalla: radan OSM-pätkistä ketjutettua reittiä pitkin
 ## päästä päähän. Juna lähtee satunnaisin välein siitä päästä, joka on kauempana kamerasta (ilmestyminen ei näy), ja
 ## katoaa toiseen päähän. Sr1-veturi ja neljä sinistä vaunua (yksi ravintolavaunu), 70-90 km/h. Jyrinä 3D-äänenä
 ## veturissa, vihellys ohittaessa kameran.
@@ -407,7 +407,7 @@ static func build_coach(n: Node3D, ln := 26.4, dining := false) -> void:
 		txt.rotation.y = sx * PI / 2.0
 
 
-# --- Teräsristikkosilta (Oulujoen ratasilta; vaala.gd ja junamatkan välikuva) ---------------------------------
+# --- Teräsristikkosilta (Oulujoen ratasilta; junamatkan välikuva) ---------------------------------
 
 ## Valokuvan mukainen läpiajettava teräsristikko: jänteet n. 28 m, yläpaarre puolisuunnikas (vinot päätysauvat,
 ## keskellä korkeampi), vinosauvat ja pystysauvat, yläsiteet ristiin, kannen poikkipalkit ja huoltokäytävän

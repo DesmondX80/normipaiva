@@ -2,7 +2,7 @@ extends Node3D
 ## Kalastus rannalta Saloisissa (Oravajärvi ja Haapajärven tekojärvi): pelaaja seisoo rannalla vapa kädessä.
 ## Onki: lyhyt heitto (pidä E, päästä), koho kellumaan, nykäisyssä E heti, ja pikku väsytys. Yksi mato per heitto.
 ## Virveli: pitkä heitto, sitten pidä E kelataksesi uistinta rantaa kohti: kala iskee kelatessa. Väsytys kuten
-## mökin kalastuksessa (fish_game.gd): kireys vihreällä, liian kireä katkeaa, löysällä kala karkaa. F lopettaa.
+## kalastuksessa (fish_game.gd): kireys vihreällä, liian kireä katkeaa, löysällä kala karkaa. F lopettaa.
 ## Legenda "Tekojärven Ukko" (ukko_legenda.gd): ukko_snap = jokin valtava katkaisee siiman (vihje), ukko_ready =
 ## Ukon lusikalla iltaisin Kaitasaaren kärjestä nousee itse Ukko: pitkä ja raskas väsytys, joka vetää kohti vettä.
 ## Maailman koordinaatit (main.gd:n lapsi). finished(catch): [{"nom", "name", "kg"}, ...].

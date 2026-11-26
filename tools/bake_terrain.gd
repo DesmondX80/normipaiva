@@ -103,8 +103,7 @@ func _flatten_water(hs: PackedFloat32Array, nx: int, nz: int, lo: Vector2) -> vo
 		var j1 := mini(nz, int((bmax.y - lo.y) / T.CELL) + 2)
 		var i0 := maxi(0, int((bmin.x - lo.x) / T.CELL))
 		var i1 := mini(nx, int((bmax.x - lo.x) / T.CELL) + 2)
-		# Pinta: korkeusmallin tasoitettu vedenpinta eli alin kohta järven sisällä (kuten mökillä,
-		# tools/kartta/mokki.ps1); pienelle lammelle, jonka sisään ei osu ruudukon pisteitä, rantaviivan alin kohta.
+		# Pinta: korkeusmallin tasoitettu vedenpinta eli alin kohta järven sisällä; pienelle lammelle, jonka sisään ei osu ruudukon pisteitä, rantaviivan alin kohta.
 		var level := INF
 		for j in range(j0, j1):
 			for i in range(i0, i1):

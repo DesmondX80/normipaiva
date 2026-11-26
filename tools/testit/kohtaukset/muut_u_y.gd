@@ -63,7 +63,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.get_tree().quit()
 		"yo":
 			# Yön raja: ilta-ilmoitus klo 22, raja klo 2, kahvi ja viina siirtävät (enintään klo 4), sammuminen ulkona,
-			# kotona ja mökillä.
+			# kotona.
 			if main.player == main.bike:
 				main._toggle_mount()
 			var run := func(label: String, start: float, coffee: int, humala: float, home := false) -> void:

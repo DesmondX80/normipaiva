@@ -1,7 +1,7 @@
 extends CharacterBody3D
 ## Nimismies jalan: ilmestyy metsätieltä ja juoksee pelaajan perään (main.gd _nimismies_raid). Pelaaja pääsee
 ## karkuun juoksemalla kauas (GIVE_UP_D) tai pitämällä etumatkan GIVE_UP_T sekuntia; kiinni (CATCH_D) = sakko ja
-## pontikat takavarikkoon (caught). Maan korkeus säteellä (mökin maasto).
+## pontikat takavarikkoon (caught).
 
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")

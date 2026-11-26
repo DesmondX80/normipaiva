@@ -140,7 +140,6 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			print("KOTAOPASTE reunalla: '%s'" % main._msg.text)
 		"karttaveto":
 			# Paperikartta kosketuksella: veto vierittää (ei aseta kohdetta), napautus asettaa kohteen;
-			# mökillä kahden sormen nipistys zoomaa.
 			if main.player == main.bike:
 				main._toggle_mount()
 			main._paper.toggle()

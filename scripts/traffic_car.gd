@@ -179,7 +179,7 @@ func _drive_graph(delta: float) -> void:
 		else Terrain.h(global_position.x, global_position.z)
 
 
-## Viivalla: näytteiden väli on vakio (vaala.gd STEP 2 m), joten matka / 2 = näytteitä.
+## Viivalla: näytteiden väli on vakio (2 m), joten matka / 2 = näytteitä.
 func _place_on_line(dist: float) -> void:
 	_t += _dir * dist / 2.0
 	if _t < 1.0 or _t > _line.size() - 2.0:

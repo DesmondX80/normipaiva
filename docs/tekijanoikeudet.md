@@ -25,8 +25,6 @@
 - Seuraintalon tanssibiisit (`assets/music/tanssit/`): "Pihalla tavataan" ja "Rasvanappi", sanat tehty tätä peliä
   varten, musiikki tehty pelin tekijän Suno-tunnuksilla. Sunon alkuperäinen MP3 (stereo, 48 kHz) ilman uudelleenkoodausta, vain kansikuva ja tiedot poistettu; iskut mitattu
   `tools/tanssibiisi.py`:llä.
-- Mökin ympäristö (`assets/mokki/kartta.json`): © OpenStreetMap-tekijät (ODbL) ja korkeudet Maanmittauslaitoksen
-  korkeusmalli 2 m (CC BY 4.0, lehti R4333D, 2023; Kapsin peilistä).
   (`assets/music/normipaiva.mp3`; voimakkuus Asetukset → Ääni → Musiikki).
   Karaokeversion soittoraita (`assets/music/normipaiva_lyhyt.mp3`: lyhennetty ja ristiinhäivytetty
   `normipaiva_soitto.mp3`, laulu erotettu Demucsilla) ja ajoitetut sanat (`assets/music/normipaiva_sanat_lyhyt.json`,

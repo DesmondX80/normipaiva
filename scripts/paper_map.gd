@@ -307,7 +307,7 @@ func _pts(arr: Array) -> PackedVector2Array:
 	return out
 
 
-## Mopomatkan kehyksen (x itään, z etelään, origo mökin osoitepisteessä) piste näkymän pikseleiksi.
+## Mopomatkan kehyksen (x itään, z etelään, origo Raahen osoitepisteessä) piste näkymän pikseleiksi.
 ## Siirto pyöristetään kokonaisiin pikseleihin: vieritettäessä kaikki viivat ja merkit liikkuvat samassa tahdissa
 ## (murtopikselisiirrossa ohuet viivat hyppivät pikselistä toiseen eri hetkinä ja kartta näyttää nykivän).
 func _vpx(p: Vector2) -> Vector2:

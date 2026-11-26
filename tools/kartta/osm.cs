@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 
-// OpenStreetMap-ote -> kylän kartta (scripts/map_osm.gd) tai mökin kohteet (kartta.json). Kylässä solmut muunnetaan
+// OpenStreetMap-ote -> kylän kartta (scripts/map_osm.gd). Kylässä solmut muunnetaan
 // ETRS-TM35FIN:iin (Tm35.Fwd) ja siitä kartan pikseleiksi kehyksen yhdenmuotoisuusmuunnoksella (J_K, J_PATO, ks. kehys.ps1).
 // Python-versio: kartta.py (Osm).
 public static class Osm {
@@ -24,7 +24,7 @@ public static class Osm {
     // Kartan kehys: px = J_K + R(-rot) * ((E, -N) - J_K) / sc
     static double jkE, jkN, sc, rot;
     public static void Frame(double e, double n, double scale, double rotation) { jkE = e; jkN = n; sc = scale; rot = rotation; }
-    // Mökin kehys (Local): metrit osoitepisteestä, x itään ja z etelään, 111 320 m/aste (kuten tools/mokki_kartta.py).
+    // Paikallinen kehys (Local): metrit osoitepisteestä, x itään ja z etelään, 111 320 m/aste.
     public static bool Local = false;
     public static double LLat0 = 64.5054523, LLon0 = 26.6672225;
     static double[] ToLocal(double lat, double lon) {
@@ -366,58 +366,6 @@ public static class Osm {
         log.AppendLine("rakennuksia " + nb);
         File.WriteAllText(outPath, sb.ToString(), new UTF8Encoding(false));
         return log.ToString();
-    }
-
-    // --- Mökki: kohteet kartta.json-muodossa (kuten tools/mokki_kartta.py, lisäksi metsät) ---------------
-    static string MokkiKind(Dictionary<string, string> t) {
-        string v;
-        if ((t.TryGetValue("natural", out v) && v == "water") || (t.TryGetValue("landuse", out v) && v == "reservoir")) return "water";
-        if (t.TryGetValue("landuse", out v) && (v == "farmland" || v == "meadow" || v == "grass")) return "field";
-        if (t.TryGetValue("natural", out v) && v == "wetland") return "bog";
-        if (t.TryGetValue("natural", out v) && v == "sand") return "sand";
-        if ((t.TryGetValue("landuse", out v) && v == "forest") || (t.TryGetValue("natural", out v) && (v == "wood" || v == "scrub" || v == "heath"))) return "forest";
-        if (t.ContainsKey("highway")) return "road";
-        if (t.ContainsKey("building")) return "building";
-        if (t.ContainsKey("waterway")) return "stream";
-        return null;
-    }
-
-    static string Js(string s) {
-        var b = new StringBuilder("\"");
-        foreach (char c in s ?? "") { if (c == '"' || c == '\\') b.Append('\\'); if (c >= ' ') b.Append(c); }
-        return b.Append('"').ToString();
-    }
-
-    // Kohteet JSON-taulukkona. level(xs, zs) antaa vesistön pinnan (m), se lisätään vesikohteisiin kenttään "level".
-    public static string MokkiFeatures(Func<double[], double[], double> level, out int count) {
-        var items = new List<string>();
-        Action<string, Dictionary<string, string>, string, List<double[]>> add = (kind, tags, id, p) => {
-            if (p.Count < 2) return;
-            string ftype = null;
-            foreach (var k in new[] { "highway", "building", "waterway", "natural" }) { string v; if (tags.TryGetValue(k, out v)) { ftype = v; break; } }
-            ftype = ftype ?? "";
-            if (ftype == "yes" && kind != "building") ftype = "";
-            string name; tags.TryGetValue("name", out name);
-            var sb = new StringBuilder();
-            sb.Append("{\"kind\":" + Js(kind) + ",\"name\":" + Js(name ?? "") + ",\"type\":" + Js(ftype) + ",\"id\":" + Js(id) + ",\"pts\":[");
-            sb.Append(string.Join(",", p.Select(q => "[" + Math.Round(q[0], 1).ToString(IC) + "," + Math.Round(q[1], 1).ToString(IC) + "]")));
-            sb.Append("]");
-            if (kind == "water") sb.Append(",\"level\":" + Math.Round(level(p.Select(q => q[0]).ToArray(), p.Select(q => q[1]).ToArray()), 2).ToString(IC));
-            sb.Append("}");
-            items.Add(sb.ToString());
-        };
-        foreach (var w in way.Values) {
-            string kind = MokkiKind(w.Tag); if (kind == null) continue;
-            add(kind, w.Tag, w.Id, Pts(w.Nd));
-        }
-        foreach (var r in rels) {
-            if (!r.Tag.ContainsKey("type") || r.Tag["type"] != "multipolygon") continue;
-            string kind = MokkiKind(r.Tag); if (kind == null) continue;
-            int k = 0;
-            foreach (var ring in Rings(r)) add(kind, r.Tag, "r" + r.Id + "_" + (k++), Pts(ring));
-        }
-        count = items.Count;
-        return "[" + string.Join(",", items) + "]";
     }
 
     // Apuri: nimettyjen kohteiden (solmut ja alueet) keskipisteet pikseleinä, esim. kaupat ja paikannimet.

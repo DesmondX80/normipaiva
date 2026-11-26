@@ -1,5 +1,5 @@
 """Karttatyökalujen Python-versio (vain standardikirjasto). Vastaa C#-apureita tm35.cs, tiff.cs, mosaic.cs,
-osm.cs ja mokki_dem.cs sekä kehys.ps1:tä; ajoskriptit kyla.py, kyla_osm.py ja mokki.py tuottavat samat tiedostot
+osm.cs sekä kehys.ps1:tä; ajoskriptit kyla.py ja kyla_osm.py tuottavat samat tiedostot
 kuin PowerShell-versiot (ks. LUEMINUT.md).
 """
 import math
@@ -225,54 +225,9 @@ class Mosaic:
         return r
 
 
-# --- Mökin korkeudet (mokki_dem.cs) ---------------------------------------------------------------------------
+# --- Karttakehyksen vakiot (Osm local-tila) -------------------------------------------------------------------
 
 LAT0, LON0, M_PER_DEG = 64.5054523, 26.6672225, 111320.0
-
-
-class MokkiDem:
-    def __init__(self, mosaic):
-        self.m = mosaic
-
-    def at(self, x, z):
-        lat = LAT0 - z / M_PER_DEG
-        lon = LON0 + x / (math.cos(LAT0 * math.pi / 180.0) * M_PER_DEG)
-        e, n = tm35(lat, lon)
-        return self.m.at(e, n)
-
-    def grid(self, x0, z0, step, n, nz=None):
-        return [self.at(x0 + i * step, z0 + j * step) for j in range(nz or n) for i in range(n)]
-
-    @staticmethod
-    def _inside(xs, zs, x, z):
-        c = False
-        j = len(xs) - 1
-        for i in range(len(xs)):
-            if (zs[i] > z) != (zs[j] > z) and x < (xs[j] - xs[i]) * (z - zs[i]) / (zs[j] - zs[i]) + xs[i]:
-                c = not c
-            j = i
-        return c
-
-    def level(self, xs, zs):
-        """Vesistön pinta: mallin alin kohta järven sisällä 2 m välein, pienelle lammelle rantaviivan alin kohta."""
-        x0, x1, z0, z1 = min(xs), max(xs), min(zs), max(zs)
-        best = math.inf
-        z = math.ceil(z0 / 2) * 2
-        while z <= z1:
-            x = math.ceil(x0 / 2) * 2
-            while x <= x1:
-                if self._inside(xs, zs, x, z):
-                    v = self.at(x, z)
-                    if v == v:
-                        best = min(best, v)
-                x += 2
-            z += 2
-        if best == math.inf:
-            for x, z in zip(xs, zs):
-                v = self.at(x, z)
-                if v == v:
-                    best = min(best, v)
-        return best
 
 
 # --- OpenStreetMap (osm.cs) -----------------------------------------------------------------------------------
@@ -438,7 +393,7 @@ def _js(s):
 
 
 class Osm:
-    """OSM-ote (XML). local=True: mökin kehys (metrit osoitepisteestä), muuten kylän karttapikselit."""
+    """OSM-ote (XML). local=True: paikallinen kehys (metrit osoitepisteestä), muuten kylän karttapikselit."""
 
     def __init__(self, path, local=False):
         self.node, self.node_tag, self.way, self.rels, self.node_use = {}, {}, {}, [], {}
@@ -725,58 +680,3 @@ class Osm:
         with open(out_path, "w", encoding="utf-8", newline="") as fh:
             fh.write("".join(sb))
         return "\n".join(log)
-
-    @staticmethod
-    def _mokki_kind(t):
-        if t.get("natural") == "water" or t.get("landuse") == "reservoir":
-            return "water"
-        if t.get("landuse") in ("farmland", "meadow", "grass"):
-            return "field"
-        if t.get("natural") == "wetland":
-            return "bog"
-        if t.get("natural") == "sand":
-            return "sand"
-        if t.get("landuse") == "forest" or t.get("natural") in ("wood", "scrub", "heath"):
-            return "forest"
-        if "highway" in t:
-            return "road"
-        if "building" in t:
-            return "building"
-        if "waterway" in t:
-            return "stream"
-        return None
-
-    def mokki_features(self, level):
-        """Mökin kohteet kartta.json-muodossa (JSON-taulukko merkkijonona), level(xs, zs) -> vesistön pinta."""
-        items = []
-
-        def add(kind, tags, fid, p):
-            if len(p) < 2:
-                return
-            ftype = ""
-            for k in ("highway", "building", "waterway", "natural"):
-                if k in tags:
-                    ftype = tags[k]
-                    break
-            if ftype == "yes" and kind != "building":
-                ftype = ""
-            s = '{"kind":%s,"name":%s,"type":%s,"id":%s,"pts":[' % (_js(kind), _js(tags.get("name", "")), _js(ftype), _js(fid))
-            s += ",".join("[%s,%s]" % (fmt(round(q[0], 1)), fmt(round(q[1], 1))) for q in p)
-            s += "]"
-            if kind == "water":
-                s += ',"level":' + fmt(round(level([q[0] for q in p], [q[1] for q in p]), 2))
-            items.append(s + "}")
-
-        for w in self.way.values():
-            kind = self._mokki_kind(w["tag"])
-            if kind is not None:
-                add(kind, w["tag"], w["id"], self.pts(w["nd"]))
-        for r in self.rels:
-            if r["tag"].get("type") != "multipolygon":
-                continue
-            kind = self._mokki_kind(r["tag"])
-            if kind is None:
-                continue
-            for k, ring in enumerate(self.rings(r)):
-                add(kind, r["tag"], "r%s_%d" % (r["id"], k), self.pts(ring))
-        return "[" + ",".join(items) + "]", len(items)

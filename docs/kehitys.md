@@ -42,7 +42,7 @@ jakavat pelaajan tallennuksen ja user://-kansion, joten vain yksi saa olla käyn
 
 ## Testikohtaukset
 
-Testikohtaukset (noin 340) ovat tiedostoissa `tools/testit/kohtaukset/<ryhmä>.gd` (mökki, ajoneuvot, kartta ja kota, kauppa, kolmio ja Vaala sekä muut aakkosjärjestyksessä). Jokaisessa on `KOHTAUKSET`-lista ja `aja(scene, path, nohud)`, jonka `match scene:` sisältää kohtaukset; `main` on pelin päänäkymä (`main.walker_out`, `main._toggle_mount()`) ja `Main.VAKIO` sen vakiot. `main.gd:n _maybe_screenshot` lukee argumentit, valitsee ryhmän `KOHTAUSRYHMAT`-listasta ja ottaa lopuksi yhteisen kuvan; `aja` palauttaa 2, jos kohtaus lopetti itse (ennen `return`). Uusi kohtaus lisätään sopivaan ryhmään: haara `match`iin ja nimi `KOHTAUKSET`-listaan. Kohtausta ei löydy: `grep -l '"nimi"' tools/testit/kohtaukset/*.gd`. Kaikkien ryhmien ja testiskriptien (`tools/testit/*.gd`) käännöstarkistus: `aja.sh scene kohtaustarkistus` (logiikkakohtaus pelin sisällä, jotta autoloadit ovat olemassa; tulostaa `KOHTAUSTARKISTUS <ryhmä>: OK` ja lopuksi rikkinäisten testiskriptien määrän). Aja se aina, kun muutat testitiedostoja mekaanisesti: esim. perivä testi (`extends "res://tools/testit/kolmio_kuvat.gd"`) ei saa määritellä uudelleen yläluokan vakiota. Siirto tehtiin skriptillä, joka lisäsi `main.`-etuliitteet; pelin jäsentä ei voi käyttää ilman etuliitettä (käännösvirhe), ja `$Solmu` kirjoitetaan `main.get_node("Solmu")`. Ajo:
+Testikohtaukset (noin 340) ovat tiedostoissa `tools/testit/kohtaukset/<ryhmä>.gd` (ajoneuvot, kartta ja kota, kauppa, kolmio ja Päivi sekä muut aakkosjärjestyksessä). Jokaisessa on `KOHTAUKSET`-lista ja `aja(scene, path, nohud)`, jonka `match scene:` sisältää kohtaukset; `main` on pelin päänäkymä (`main.walker_out`, `main._toggle_mount()`) ja `Main.VAKIO` sen vakiot. `main.gd:n _maybe_screenshot` lukee argumentit, valitsee ryhmän `KOHTAUSRYHMAT`-listasta ja ottaa lopuksi yhteisen kuvan; `aja` palauttaa 2, jos kohtaus lopetti itse (ennen `return`). Uusi kohtaus lisätään sopivaan ryhmään: haara `match`iin ja nimi `KOHTAUKSET`-listaan. Kohtausta ei löydy: `grep -l '"nimi"' tools/testit/kohtaukset/*.gd`. Kaikkien ryhmien ja testiskriptien (`tools/testit/*.gd`) käännöstarkistus: `aja.sh scene kohtaustarkistus` (logiikkakohtaus pelin sisällä, jotta autoloadit ovat olemassa; tulostaa `KOHTAUSTARKISTUS <ryhmä>: OK` ja lopuksi rikkinäisten testiskriptien määrän). Aja se aina, kun muutat testitiedostoja mekaanisesti: esim. perivä testi (`extends "res://tools/testit/kolmio_kuvat.gd"`) ei saa määritellä uudelleen yläluokan vakiota. Siirto tehtiin skriptillä, joka lisäsi `main.`-etuliitteet; pelin jäsentä ei voi käyttää ilman etuliitettä (käännösvirhe), ja `$Solmu` kirjoitetaan `main.get_node("Solmu")`. Ajo:
 
 ```bash
 godot --path . -- --shot=/polku/kuva.png --scene=<nimi> [--nohud]
@@ -67,7 +67,6 @@ hahmot jäävät lataamatta (`Failed loading resource ... .s3tc.ctex`, `instanti
 `--scene=pekanlaatikko`: Pekan vintin romut (`pekan_laatikko.gd`): laatikko vasta oman kirppispöydän jälkeen ja vain kerran, romut pöydälle, keräilijän, Anna-Liisan ja mummon repliikit, Pekan osuus (puolet romujen tuloista), saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt tilitys (kyyti kiinni, vihainen tervehdys) ja tallennus; rivit `PL OK` tai `TESTI VIKA`, kuvat `_pekka_laatikko`, `_keraaja`, `_poyta_lahi` (pöytä 2 × suurennettuna), `_annaliisa_taulu`, `_yhteenveto`, `_tilitys`, `_myohassa`.
 `--scene=honganpalo_maasto`: Honganpalon koulu ja kenttä maaston pinnalla (kentän rako maahan yhdeksästä pisteestä, `TESTI VIKA` yli 0,15 m; kuvat `_hongan_*` kentästä sivulta, päädystä ja ylhäältä, koulusta edestä ja takaa sekä pihasta). Kentän alla maasto on tasoitettu leivonnassa (`tools/bake_terrain.gd`, `_flatten_site`).
 `--scene=lansi_maasto`: kylän länsiosa maaston pinnalla (kirkon, kellotapulin ja Pirtin pohjan kulmat suhteessa keskipisteeseen, josta `_lift_node` nostaa; maaston korkeus länsireunalla kirkon kohdalla, ei nollia; kuvat `_lansi_*` kirkosta, tapulista, hautausmaasta, Pirtistä ja länsireunasta). Korkeusmalli ja maastoruudukko alkavat px x -550:stä (`tools/kartta/kyla.py`, `tools/bake_terrain.gd`).
-`--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).
 `--scene=kalalampi`: retkirunko ja Teeriniemen kalalampi (taksivalikko, matka, lupa, onkiminen, paluu ja kello; kuvat `_alue`, `_tiski`, `_ranta`, `_koho`, `_kirjolohi`, `_taimen`; `--shot=`).
 `--scene=matkaopas`: matkaopas B (`tools/testit/matkaopas.gd`: ei opasta, saaminen taksikuskilta kerran ja tallennus, tyhjä opas, osa kuultu, kaikki käyty: hinnat = taksivalikko ja leimat latauksen jälkeen, uusi rekisteririvi, Esc sekä O ja M oppaan kanssa; kuvat `_ei_opasta`, `_saatu`, `_tyhja_<aukeama>`, `_osa_<aukeama>`, `_kaikki_<aukeama>`, `_vertailu`, `_rajaus_sivu`, `_rajaus_leima`, `_rajaus_sisallys`; `--shot=`).
 `--scene=hanhikivi`: Hanhikiven rajakivi (taksikuski, kapteeni ja kyltti vihjeinä, loppu kivellä, tallennus, paluu; kuvat `_alue`, `_kivi`, `_kyltti`, `_onkija`; `--shot=`).
@@ -84,7 +83,7 @@ hahmot jäävät lataamatta (`Failed loading resource ... .s3tc.ctex`, `instanti
 `--scene=kalajoki`: Kalajoen Hiekkasärkät ja rantapallo (taksivalinta, järjestäjä, peli juhannuksena, turnausvoitto antaa palkkion kerran; kuvat `_alue`, `_peli`, `_loppu`; `--shot=`).
 `--scene=raate`: Raatteen Portti (taksivalinta, vierailija, portti, muistokivi, kolmen kohdan palkinto kerran; kuva `_alue`; `--shot=`).
 `--scene=kajaani`: Kajaanin linna ja Messenius (taksivalinta, rauniot, tervavene-kohtaus, Messenius, kolmen palkinto kerran; kuva `_alue`; `--shot=`).
-`--scene=kolmio_juttu` (headless): jalan kulkija Teron ja Timon vieressä 1,5–4,5 m:n päässä, vihjeen on oltava "Juttele Teron ja Timon kanssa" eikä aseman odotussalin (juttelupisteen säde 7). `--scene=kolmiomittaus` / `--scene=kolmiomittaus_vaala`: kolmiomittaus (#255, `tools/testit/kolmiomittaus.gd`): pyöristys ja ympyrät (oikea etäisyys aina vyöhykkeellä, kohde leikkauksessa), lisämittaus pienentää aluetta (viiden mittauksen leikkaus 10 m:n ruudukolla alle puolet kolmen alueesta, kulmat kohteesta tulostetaan), tallennus, kaverit ja hahmot kolmesta suunnasta (`_hahmo_*`, Jonin rinkka rajattuna `_rinkka_*`), Sytkäri (`_sytkari_matsi`, `_sytkari_matka`), etämittaus, kaverit pelaajan perässä (`_kaverit_mukana`), Sivikki-ajo (`_sivikki_*`; reitti aseman pihasta tielle suosii teitä ja kiertää rakennukset (painotettu haku: maasto 5 × kalliimpi), `_kolmio_sivikki_route`, ja Civicin kokoinen laatikko reitillä ei saa osua esteisiin: TESTI VIKA läpimenoista), paperikartta (`_kartta`), väärä ovi, ovi ilman lahjaa, lahjan osto kauppiaalta, ovi lahjoineen, erikoisrasvanappi (`_rasva_esittely`, `_rasva_pimea`, `_rasva_puhelu`, `_rasva_loppu`), aamu (`_aamu`), päivän vaihto, loppu ja maito. Kohtaukset ilman pelimaailmaa: `tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn` (ovet, väärä ovi kepin
+`--scene=kolmio_juttu` (headless): jalan kulkija Teron ja Timon vieressä 1,5–4,5 m:n päässä, vihjeen on oltava "Juttele Teron ja Timon kanssa" eikä aseman odotussalin (juttelupisteen säde 7). `--scene=kolmiomittaus`: kolmiomittaus (#255, `tools/testit/kolmiomittaus.gd`): pyöristys ja ympyrät (oikea etäisyys aina vyöhykkeellä, kohde leikkauksessa), lisämittaus pienentää aluetta (viiden mittauksen leikkaus 10 m:n ruudukolla alle puolet kolmen alueesta, kulmat kohteesta tulostetaan), tallennus, kaverit ja hahmot kolmesta suunnasta (`_hahmo_*`, Jonin rinkka rajattuna `_rinkka_*`), Sytkäri (`_sytkari_matsi`, `_sytkari_matka`), etämittaus, kaverit pelaajan perässä (`_kaverit_mukana`), paperikartta (`_kartta`), väärä ovi, ovi ilman lahjaa, lahjan osto kauppiaalta, ovi lahjoineen, erikoisrasvanappi (`_rasva_esittely`, `_rasva_pimea`, `_rasva_puhelu`, `_rasva_loppu`), aamu (`_aamu`), päivän vaihto, loppu ja maito. Kohtaukset ilman pelimaailmaa: `tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn` (ovet, väärä ovi kepin
 molemmissa asennoissa, aamu, Sytkäri, lahjojen pitely lähikuvina edestä, sivulta ja ylhäältä, lahjat kuistin pöydällä,
 rinkka, Mintun kiharat, mummo ja naisen olohuone viidestä suunnasta); jokaisen kohtauksen hahmoille ja Jonin rinkalle
 ajetaan läpimenotarkistus (`Asento.solids`). Numeroina: otteen rako (`KOLMIO rako`: käden pinta lahjan kylkeen nyrkin ala-,
@@ -115,7 +114,7 @@ säännöt ja tekoäly 30 jaolla, laittomat kortit ja tikkimäärät = TESTI VIK
 (räsytupin vaiheet, riisuminen, pöydän kortti vähintään 40 px ja läpimenot), `tools/testit/aja.sh scene kolmio_tuppi`
 (räsytuppi pelimaailmassa ovelta aamuun, legenda ja sivutehtävän "iltakivat" edistyminen), `tools/testit/aja.sh scene kolmio_iltakivat` (lettukisa, löylykisa, disko ja karaoke
 pelimaailmassa peräkkäin ovelta aamuun, sivutehtävän kirjaus jokaisesta) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
-[lettu,loyly,disko,karaoke]` (lettukisa, löylykisa, Sivikki-disko ja karaoke tekoälyllä molemmissa kohteissa: alku,
+[lettu,loyly,karaoke]` (lettukisa, löylykisa ja karaoke tekoälyllä: alku,
 toiminta, lähikuva, loppu, toiminnan kohteen koko pikseleinä `test_target`, läpimenot `Asento.views` ja tulos). Diskon
 biisien tempot (`disko_game.gd BIISIT`) mitattiin iskuenergian autokorrelaatiolla 30 s:n jaksoissa; vain biisit, joiden
 iskuvaihe pysyy samana jaksosta toiseen (30–120 s), ovat listalla. Yhteiset palat (olohuone, istuminen, puhekupla
@@ -152,7 +151,7 @@ Lada 2105 (`vehicles.gd lada()`, #283; Suomessa Lada 1500 S): `tools/testit/aja.
 Saab rinnakkain samoista kulmista ja katon kulmat lähikuvina; mittaa 1,62 × 1,446 × 4,145 ±5 %, akselivälin 2,424 ja pyörän
 alimman pisteen 0 ± 0,01). Liikenne ja pysäköidyt autot arpovat mallin (`Vehicles.MALLIT`, `henkiloauto()`), ja kaapattu ja
 hylätty auto perii sen (`traffic_car.gd malli`).
-Timon punainen Honda Civic 3-ovinen (`vehicles.gd civic()`, kolmiomittauksen Sivikki): `tools/testit/aja.sh tscn
+Timon punainen Honda Civic 3-ovinen (`vehicles.gd civic()`): `tools/testit/aja.sh tscn
 tools/testit/civic_kuvat.tscn` (Civic ja Saab rinnakkain ja katon kulmat lähikuvina; mittaa 1,666 × 1,331 × 3,965 ±5 %,
 akselivälin 2,50 ja pyörän alimman pisteen 0 ± 0,01).
 Volvo 240 sedan ja 245 farmari (`vehicles.gd volvo(..., farmari)`; liikenteessä molemmat, Pekan vihreä farmari
@@ -176,8 +175,8 @@ Kuskit ovat myös kaapatussa autossa (pelaajan hahmo, mopomatkan kyytiläinen et
 `tools/testit/aja.sh tscn tools/testit/hiace_kuvat.tscn` (matala, korkea ja ambulanssi; mittaa 1,69 × 1,93/2,20 × 4,60 ±5 %,
 akselivälin 2,56).
 Pentin BangBus (#299, `scripts/rikos/pentti.gd`, osa-rajapinnalla vaikka ei ole huumekauppaa; auto `Vehicles.pentin_auto`,
-hahmo `Looks.PENTTI`, kyyti `cutscene.gd pentti_ride`, Raahen paikka `vaala.gd pentti_spot`): `tools/testit/aja.sh scene bangbus`
-ja `scene bangbus_vaala` tarkistavat aikataulun (to ei, pe 18 ei, pe 20 kyllä), liikenteen Pentin piilotuksen, valinnat, päiväkirjan,
+hahmo `Looks.PENTTI`, kyyti `cutscene.gd pentti_ride`): `tools/testit/aja.sh scene bangbus`
+tarkistaa aikataulun (to ei, pe 18 ei, pe 20 kyllä), liikenteen Pentin piilotuksen, valinnat, päiväkirjan,
 repliikkipakan, kyydin (päivä vaihtuu, raha ja maine laskevat, legendaarinen hetki vain ensimmäisestä, herätyspaikka), toisen kyydin
 kiertuevihjeen ja kolmannen kyydin kiertueen (`cutscene.gd pentti_tour`, onnellinen loppu `pentin_kiertue`, herätys kotipihalta),
 Päivin aamurivin ja tallennuksen; kuvat auto viistosti, kyljet, perä, ohjaamo, Pentti, juttelu, kyyti, aamu, kiertue ja kiertueen aamu.
@@ -207,7 +206,7 @@ ruudussa jää mainilta näkemättä, jos testisolmu ajetaan mainin jälkeen. Ru
 `--scene=riskit --riski=<nimi> [--arg=...]` (rivit `RISKIT`, `tools/testit/riskit.gd`): huumekaupan riskit. `perus`: osa 0:n
 koukut testiosalla (`tools/testit/rikos_koe_osa.gd`): puhe, tapahtumat, luukun vihje, tallennus edestakaisin, päiväkirjan data,
 tappelun loppu, PIDÄTETTY Saloisissa (menetykset, kuvat `_pidatetty`, `_pidatys_paivi0–2`), uusi päivä ja ELVYTETTY Raahessa
-(`_elvytetty_vaala`, `_elvytetty_puhelin0–2`). Hitaalla koneella WASTED-kierron kamera jää motkotuksen alkuun (ruudun delta
+(`_elvytetty_puhelin0–2`). Hitaalla koneella WASTED-kierron kamera jää motkotuksen alkuun (ruudun delta
 rajautuu); oikea kuva `--kiintea`-valinnalla, mutta se ei mahdu aikarajaan. `paivakirja`: Riskit-sivu 1280×720 ja välilehtien
 mitat (`_riskit`, `_riskit_tyhja`). Muut nimet ajavat osan oman `testi(arg)`-funktion (`scripts/rikos/<nimi>.gd`).
 `velka` (rivit `VELKA`): luotto (kaksi, kolmas estetty syyn kanssa), maksu ilman rahaa (estetty, ei muuta tilaa), Riskit-data,
@@ -230,13 +229,12 @@ ambulanssi takaa ja kyljistä; naloksonisuihke pystyssä ja kyljellään).
 valinnat ja tervehdysten vihjeet, väärä raha (myynti, tallennus, paljastus luukkuostossa), ryöstö ja pako, "Rahat ensin", kieltäytyminen,
 väärä päivä ja Riskit-sivu (kuvat `_huijari_pelikamera`, `_automaatti_edesta`, `_automaatti_paadysta`, `_automaatti_ylha`, `_naytto`,
 `_huijari`, `_keskustelu`, `_pako`, `_riskit`).
-`--scene=autovarkaus_kahdesti` (headless): auto ajaa oikeasti, jalankulkija pysäyttää sen, kävely ovelle, E kaappaa, viisi tähteä heti (Päivi 1,5 ×, poliisi), F ja uudelleen kolme kertaa; toisella kierroksella pyörä on oven vieressä ja pelaaja siirretään jalan ilman F:ää (autossa-lipun itsekorjaus). `autovarkaus` (rivit `AUTOVARKAUS`, `--arg=saloinen|vaala`): liikenneauton pysähtyminen jalankulkijan eteen, vihje ja odotus ovella,
+`--scene=autovarkaus_kahdesti` (headless): auto ajaa oikeasti, jalankulkija pysäyttää sen, kävely ovelle, E kaappaa, viisi tähteä heti (Päivi 1,5 ×, poliisi), F ja uudelleen kolme kertaa; toisella kierroksella pyörä on oven vieressä ja pelaaja siirretään jalan ilman F:ää (autossa-lipun itsekorjaus). `autovarkaus` (rivit `AUTOVARKAUS`): liikenneauton pysähtyminen jalankulkijan eteen, vihje ja odotus ovella,
 kaappaus E:llä (kuski, tähti, pyörän kotipaikka, liikenneauto siirtyy muualle), auton huippunopeus pisimmällä suoralla vs. Päivin
 jahtinopeus × 1,5, tähdet ajosta, seinä- ja liikennekolarista, 4 tähteä (Päivi turvapaikkojen ohi, poliisi, kuminauha), pako 2 tähdestä
 (24 s), nousu (hylätty auto, pyörä kotona) ja Päivin kiinniotto autossa; Raahe: kaappaus mopomatkalla, Roivaisen lähestyminen ja
 pidätys (mopo kotona). Kuvat `_autovarkaus_pysahtyi`, `_ovella`, `_kaappaus`, `_kuski_soittaa`, `_auto_edesta/_sivulta/_ylhaalta`,
-`_jahti`, `_poliisi`, `_hylatty`, `_kiinni`, `_vaala_ovella`, `_vaala_kaappaus`, `_vaala_roivainen(_peli)`, `_roivainen_sivulta`,
-`_vaala_kiinni`. Ajetaan ilman `--kiintea`-valintaa: tähtien ajat kulkevat pelin ajassa, ja hitaalla koneella kiinteä tahti ei mahdu aikarajaan.
+`_jahti`, `_poliisi`, `_hylatty`, `_kiinni`, `_roivainen_sivulta`. Ajetaan ilman `--kiintea`-valintaa: tähtien ajat kulkevat pelin ajassa, ja hitaalla koneella kiinteä tahti ei mahdu aikarajaan.
 
 ### Maiseman täytetalot
 
@@ -494,7 +492,7 @@ nousee kärjessä `spring` (5 mm). Lähikuvat `<nimi>_edesta_lahi`, `_vino_lahi`
 ja `_vino_lahi_varjoton` (varjokartan sahalaita valon rajalla ei ole muotovika). Suu: kuoren yläreuna `collar` (12 mm) lahkeen alimman
 kärjen alla, ja suun yläpuolinen jalkaterä (meta `"suu"`) jää lahkeen värisenä näkyviin (`skin_outside` ohittaa sen). Kuvat:
 `<nimi>_paalta` (ylhäältä ilman vartaloa), `vertailu_karki` ja `vertailu_asut` (pelaaja, hiihtohaalari, Minttu helmassa).
-**Kumisaappaat ja `Looks.boots` (#274):** `scripts/kumisaappaat.gd` rakentaa kodin eteisen ja mökin (punaisen uunin vieressä) saapaspari-esineen umpinaisista paloista ja loftatusta jalkaosasta (pitkä matala kärki) vaalealle kuramatolle (`build`, maton koko parametrina, vihje `hint`; korkeus 0,375 m mitattu pelin saappaasta). `Looks.boots` (`""` tai `"jalassa"`) on staattinen muuttuja, jonka kirjoittaa vain `main.gd` (`_toggle_boots`/`_set_boots`, kuten hattu); `Looks.player()` asettaa sen ollessa asetettuna `shoe: kumisaapas` paitsi hiihtohaalarissa. Tallennus `pelaaja/saappaat`. Sisätilat lähettävät `acted("saappaat")`, ja E avaa valikon (`_toggle_boots`/`_on_boots_menu`: jalkaan, reppuun, tähän). Saappaat ovat yksi pari, joka odottaa kummallakin matolla: repussa `Saappaat.bag = "repussa"` (`kumisaappaat.gd`, tallennus `pelaaja/saappaat_repussa`), ja matoilla pari näkyy vain, kun se ei ole jalassa eikä repussa (`Saappaat.at_mat`). Vanhat tallennukset (`"koti"`/`"mokki"`) luetaan jalassa olevaksi. Repusta ja T:llä `_bag_boots` (repun tavara `kumisaappaat`, `use: saappaat`). Testit: `aja.sh scene saappaat`, `kengat.tscn` (jakauma), `hahmot_kontakti`/`tanssi_kontakti` argumentilla `saappaat`.
+**Kumisaappaat ja `Looks.boots` (#274):** `scripts/kumisaappaat.gd` rakentaa kodin eteisen saapaspari-esineen umpinaisista paloista ja loftatusta jalkaosasta (pitkä matala kärki) vaalealle kuramatolle (`build`, maton koko parametrina, vihje `hint`; korkeus 0,375 m mitattu pelin saappaasta). `Looks.boots` (`""` tai `"jalassa"`) on staattinen muuttuja, jonka kirjoittaa vain `main.gd` (`_toggle_boots`/`_set_boots`, kuten hattu); `Looks.player()` asettaa sen ollessa asetettuna `shoe: kumisaapas` paitsi hiihtohaalarissa. Tallennus `pelaaja/saappaat`. Sisätilat lähettävät `acted("saappaat")`, ja E avaa valikon (`_toggle_boots`/`_on_boots_menu`: jalkaan, reppuun, tähän). Saappaat ovat yksi pari, joka odottaa kummallakin matolla: repussa `Saappaat.bag = "repussa"` (`kumisaappaat.gd`, tallennus `pelaaja/saappaat_repussa`), ja matoilla pari näkyy vain, kun se ei ole jalassa eikä repussa (`Saappaat.at_mat`). Vanhat tallennukset (`"koti"`) luetaan jalassa olevaksi. Repusta ja T:llä `_bag_boots` (repun tavara `kumisaappaat`, `use: saappaat`). Testit: `aja.sh scene saappaat`, `kengat.tscn` (jakauma), `hahmot_kontakti`/`tanssi_kontakti` argumentilla `saappaat`.
 **Släbärit ja villasukat (`slabari`, `style` 8, `Looks.feet`):** yksi kenkä, jossa villasukka on umpinainen kuori
 jalan ympärillä (`sock`: päällinen rakennetaan kuten lenkkarissa, tiukka `margin` 3 mm, pyöreä kärki `toe_n` 2,2) ja
 sen varsi nousee puoleen sääreen lahkeen päälle (`shaft`: pehmeä `rigid: false` eli painot iholta, löysä `pad` 11 mm ja `flare` 6 mm, alareuna 3 cm jalkaosan sisään `soft_lap`, muuten jalkapöydän edessä jäi rako, josta näkyi lahkeen värinen jalkaterä,
@@ -517,17 +515,16 @@ sandaalilla 22 mm) ja `aja.sh scene slabarit` (osto, vaatekaappi, haalari, saapp
 maalasi sukan ihon pintaan (varpaat erottuivat möykkyinä); sukka kenkänä on pehmeä ja yhtenäinen.
 
 **Hahmot tien pinnalle (`Character.ground_lift`):** tiet, pientareet, polut ja asfalttipihat piirretään maaston
-yläpuolelle (Saloinen `world.gd LAYER`: polku 1,2 cm, piennar 1,7, piha 2,1, katu 2,5, tie 2,9, valtatie 3,3 cm;
-Vaala `vaala.gd LIFT_*`: asfaltti 4,5 cm, sora ja piennar 3–4 cm), ettei pinta välky maaston kanssa, mutta hahmot ja
+yläpuolelle (Saloinen `world.gd LAYER`: polku 1,2 cm, piennar 1,7, piha 2,1, katu 2,5, tie 2,9, valtatie 3,3 cm), ettei pinta välky maaston kanssa, mutta hahmot ja
 fysiikka kulkevat maastossa: ilman nostoa jokaisen kengän pohja jäi asfaltin sisään. `main.gd _ground_lift` antaa
-näkyvän pinnan noston hahmon kohdalla (`world.surface_lift` tieruudukosta ja pihoista, Vaalassa `vaala.surface_lift`
-`drive_code`:sta Vaalan koordinaateissa; hahmot yli 0,3 m maaston yläpuolella eli sisätilat ja lavasteet saavat 0), ja
+näkyvän pinnan noston hahmon kohdalla (`world.surface_lift` tieruudukosta ja pihoista;
+hahmot yli 0,3 m maaston yläpuolella eli sisätilat ja lavasteet saavat 0), ja
 `character.gd _follow_ground` nostaa seisovan tai kävelevän hahmon mallin sen verran (vain kun SOLE-nosto > 0, eli ei
 istuessa, ajaessa eikä uidessa). Muutos liukuu 0,3 m/s (ei nykäystä tien reunalla), ajasta riippuen (hidas kone ei jätä
 nostoa kesken). Fysiikka ja kävelijän paikka pysyvät ennallaan. Testi `aja.sh scene slabarit` (rivi `kengän alin
 näkyvällä pinnalla`: släbärit ja lenkkarit asfaltilla ±5 mm).
 
-**Satunnaisten joukkojen kengät (#274):** `Shoes.random_type(rng, age, female)` arpoo tyypin iän ja sukupuolen mukaan (vanha `kavelykenka`; nainen 40 % `sandaali`, muuten `lenkkari`; aikuinen mies 40 % `tyokenka`, muuten `lenkkari`; nuori mies `lenkkari`). Arpa on `hash(rng.state)`, joten rng:tä ei kuluteta ja joukkojen asettelu pysyy ennallaan; sama siemen antaa samat kengät (`vaala.gd _build_lava_crowd`, `lava_game.gd`).
+**Satunnaisten joukkojen kengät (#274):** `Shoes.random_type(rng, age, female)` arpoo tyypin iän ja sukupuolen mukaan (vanha `kavelykenka`; nainen 40 % `sandaali`, muuten `lenkkari`; aikuinen mies 40 % `tyokenka`, muuten `lenkkari`; nuori mies `lenkkari`). Arpa on `hash(rng.state)`, joten rng:tä ei kuluteta ja joukkojen asettelu pysyy ennallaan; sama siemen antaa samat kengät (`lava_game.gd`).
 **Tanssijoiden kengät:** Hilkka ja Anna-Liisa `kavelykenka`, Sinikka `sandaali`. Eri tyypin pohjat eroavat enintään 3,3 mm (`KENKA ... pohja`: lenkkari ja kumisaapas 23,0, kävelykenkä 19,7-23,0, sandaali 21,5-22,5 mm), mikä ei rikkoisi otetta (raja 5 mm). `tanssi_kontakti --kiintea`: 7 löytöä sekä mainissa että muutoksen jälkeen (myös `saappaat`). Kun tulee uusia kenkätyyppejä, tarkista tanssijoiden korkeusero.
 **Ruutuaika:** `kengat.tscn` `RUUTU`-rivi on ohjelmistorenderöinnin luku. Kenkien GPU-ruutuaikaa (lava, seuraintalo; tavoite alle 16,7 ms) ei ole mitattu: pilviympäristössä ei ole näytönohjainta, joten mittaus on testaamatta ja jää käyttäjän koneelle.
 
@@ -565,10 +562,6 @@ lopetus ja kuvat).
 
 ## Latausaika (lataus-testi)
 
-
-## Raahen reitin vyöhyke (150 m)
-
-`vaala.gd`: `RAAHE_RAJA_M = 150`; `route_dist`/`route_nearest` (50 m ruudukko reitin jänteistä: tiet, haarat, sivutiet ja radat, parkit, keskusta, lava, satama, Uitto, järviseutu, mökki, ovet). `_cull_buildings` poistaa `data.buildings`-listasta talot, jotka ovat yli rajan YDINREITISTÄ (`_core_grid`: päätie, keskustan tiet ja kohteet, lava, satama, Uitto, mökki, Siitari, asema; ei sivu-, haara- eikä pohjoisteitä eikä parkkeja; `route_dist(p, true)`). Kulun este (`reach_clamp`) ja ilmoitus käyttävät koko verkkoa (`_route_grid`), jottei pelaaja jää jumiin eikä menetä tehtäviä (suojatut: nimetyt, hotelli, Gasthaus, työkkäri, Katja, Siitari, asema, `Taytto.keep_old`; ne ovat itse reitin pisteitä). `reach_clamp` projisoi pelaajan levyn reunalle (liuku); `mopo_trip.gd` kutsuu sitä joka ruutu ja lähettää `reach_blocked` enintään 8 s välein; `main.gd` näyttää "Raahen metsään ei ulkopuolisen kannata vaeltaa. Tulee puukosta." 4,5 s. Testi: `tools/testit/aja.sh tscn tools/testit/vaala_raja.tscn` (karsinta, route_dist vs raaka silmukka, ovet, kulku jalan ja mopolla, ilmoituksen toisto, kuvat). Paperikartan oma esiavausjäsennys näyttää karsimattomat talot.
 
 ## Hahmojen anatomia
 

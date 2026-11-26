@@ -44,7 +44,7 @@ func on_event(_ev: String, _data: Dictionary) -> void:
 	pass
 
 
-## Uuden päivän alku (_new_day): palauttaa Päivin aamulapun lisärivin ("" = ei mitään). at_m = herätys mökillä.
+## Uuden päivän alku (_new_day): palauttaa Päivin aamulapun lisärivin ("" = ei mitään).
 func aamu(_at_m: bool) -> String:
 	return ""
 

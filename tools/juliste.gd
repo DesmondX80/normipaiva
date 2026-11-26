@@ -1,5 +1,5 @@
 extends Node
-## Uusi juliste koko pelistä: Saloinen, mökki Neittävällä ja Raahe. Kuvat ovat oikeita pelikuvia testikohtauksista
+## Uusi juliste koko pelistä: Saloinen ja Raahe. Kuvat ovat oikeita pelikuvia testikohtauksista
 ## (--scene=... --nohud), ja tämä sommittelee ne GTA-sarjakuvaksi. Puuttuvat kuvat otetaan ajon alussa pelistä
 ## (yksi kohtaus kerrallaan, n. minuutti kappale); valmiit kuvat käytetään uudelleen.
 ## Ajo: godot --path . tools/juliste.tscn -- --out=/polku/juliste.png [--shots=/polku/kuvat]
@@ -23,16 +23,16 @@ const PANELS := [
 	["shop", "shot.png", Vector2(0.52, 0.62), 1.8, 0, 1, 0.7, "KAUPPA", "Harmaapäät laskee kolikoita"],
 	["laavufire", "shot.png", Vector2(0.45, 0.4), 1.2, 0, 2, -0.6, "LAAVU", "Makkara, nuotio ja kalja"],
 	["tractor", "shot.png", Vector2(0.4, 0.55), 1.4, 0, 3, 0.9, "VAARA", "\"Mää ajan sut kumoon!\""],
-	["mokkifish", "shot_1.png", Vector2(0.5, 0.55), 1.4, 1, 0, 0.6, "KALAAN", "Soutuveneellä virveliä"],
-	["mokkipingis", "shot_rally.png", Vector2(0.45, 0.55), 1.3, 1, 1, -0.7, "PIHAPINGIS", "Santtu – pihapingismestari"],
-	["mokkijahti", "shot_aim.png", Vector2(0.5, 0.58), 1.3, 1, 2, 0.8, "METSÄSTYS", "Hirveen ei oo lupaa!"],
-	["mokkiuinti", "shot_10.png", Vector2(0.45, 0.42), 1.3, 1, 3, -0.5, "SALMINEN", "Sukellus simpukoiden sekaan"],
-	["junamatka", "shot_vaala3.png", Vector2(0.5, 0.4), 1.35, 2, 0, -0.6, "JUNALLA", "Ravintolavaunussa Kossut"],
-	["mokkikiihdytys", "shot_ajo1.png", Vector2(0.45, 0.6), 1.25, 2, 1, 0.7, "KIIHDYTYS", "Tunturi-Jani, 150 m"],
-	["mokkinuoret", "shot_lava.png", Vector2(0.58, 0.62), 1.35, 2, 2, -0.8, "LAVA", "Oulujärven lavalle pummilla"],
-	["mokkisiitari", "shot_3.png", Vector2(0.32, 0.5), 1.0, 2, 3, 0.6, "SIITARI", "\"Mopolla Raaheen\" karaokessa"],
+	["karhut", "shot.png", Vector2(0.5, 0.5), 1.3, 1, 0, 0.6, "PEDOT", "Karhu on kaukana, kunnes ei oo"],
+	["kalalampi", "shot.png", Vector2(0.5, 0.55), 1.4, 1, 1, -0.7, "KALAAN", "Kalalammella onki veteen"],
+	["mirkku", "shot.png", Vector2(0.5, 0.55), 1.3, 1, 2, 0.8, "NAAPURI", "Mirkku tietää kaiken"],
+	["wanharaahe", "shot.png", Vector2(0.5, 0.5), 1.3, 1, 3, -0.5, "RETKI", "Wanha Raahe"],
+	["pekka", "shot.png", Vector2(0.5, 0.4), 1.35, 2, 0, -0.6, "PEKKA", "Pekan kyydillä"],
+	["kuutonen", "shot.png", Vector2(0.5, 0.5), 1.25, 2, 1, 0.7, "JEMMA", "Kuutonen jemmaan"],
+	["juntti", "shot_1.png", Vector2(0.5, 0.45), 1.35, 2, 2, -0.8, "RIITA", "Juntti ei anna periksi"],
+	["laavufire", "shot_1.png", Vector2(0.5, 0.5), 1.0, 2, 3, 0.6, "ILTA", "Nuotio ja kalja"],
 ]
-const SECTIONS := ["SALOINEN", "MÖKKI · NEITTÄVÄ", "RAAHE"]
+const SECTIONS := ["SALOINEN", "RETKET", "VÄKI"]
 const HERO := ["bikeside", "shot.png", Vector2(0.45, 0.45), 1.0]
 const ENDINGS := [
 	["wasted", "shot_1.png", Vector2(0.5, 0.45), 1.12, Rect2(30, 1995, 700, 240), -0.6, "LOPPU A", RED, "Päivi nappasi kiinni"],
@@ -130,12 +130,12 @@ func _layout() -> void:
 	sub.position = Vector2(0, 222)
 	sub.size = Vector2(SIZE.x, 90)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sticker(root, "+ MÖKKI JA RAAHE!", 34, RED, Color.WHITE, Vector2(1170, 238), -0.1)
+	_sticker(root, "+ RAAHE!", 34, RED, Color.WHITE, Vector2(1170, 238), -0.1)
 
 	# Pääkuva.
 	var hero := Rect2(30, 330, 1540, 650)
 	_frame(root, _crop(HERO[0], HERO[1], HERO[2], HERO[3], hero.size.x / hero.size.y), hero, -0.5)
-	_sticker(root, "UUTTA: TARINA · MÖKKI · MOPO · JUNA", 30, ORANGE, Color.WHITE, Vector2(62, 360), -0.07)
+	_sticker(root, "UUTTA: TARINA · RETKET", 30, ORANGE, Color.WHITE, Vector2(62, 360), -0.07)
 	_sticker(root, "RAAHEIN PÄÄSEE, KUNHAN…", 34, YELLOW, INK, Vector2(1010, 900), -0.04)
 
 	for p in PANELS:
@@ -166,7 +166,7 @@ func _layout() -> void:
 	tag.position = Vector2(0, 2262)
 	tag.size = Vector2(SIZE.x, 80)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var credit := _text(root, "Saloinen · Raahe · Neittävä · Raahe  ·  Tehty Godotilla  ·  Hahmot: Quaternius (CC0)", 26, Color(0.75, 0.72, 0.68), 5)
+	var credit := _text(root, "Saloinen · Raahe  ·  Tehty Godotilla  ·  Hahmot: Quaternius (CC0)", 26, Color(0.75, 0.72, 0.68), 5)
 	credit.position = Vector2(0, 2342)
 	credit.size = Vector2(SIZE.x, 44)
 	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

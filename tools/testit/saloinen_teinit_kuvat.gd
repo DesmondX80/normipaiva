@@ -116,7 +116,7 @@ func _run() -> void:
 			"KAUKALO_KIINNI", "KAUKALO_PAKO", "LAAVU_KIINNI", "LAAVU_PAKO"]:
 		var v: Variant = (t.get_script() as GDScript).get_script_constant_map()[k]
 		for line in (v if v is Array else [v]):
-			if (line as String).to_lower().contains("vaala") or (line as String).to_lower().contains("siitari"):
+			if (line as String).to_lower().contains("siitari"):
 				bad_w += 1
 				print("TESTI VIKA repliikki ", k, ": ", line)
 	print("TEINIT repliikit Raahe/Siitari: ", bad_w)

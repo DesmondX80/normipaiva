@@ -31,7 +31,7 @@ func _vika(t: String) -> void:
 
 func _run() -> void:
 	var t0 := Time.get_ticks_msec()
-	while (main.get("mokki") == null) and Time.get_ticks_msec() - t0 < 400000:
+	while (main.get("world") == null) and Time.get_ticks_msec() - t0 < 400000:
 		await get_tree().process_frame
 	for i in 30:
 		await get_tree().process_frame

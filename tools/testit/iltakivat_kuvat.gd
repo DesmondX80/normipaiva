@@ -86,7 +86,7 @@ func _run() -> void:
 			continue
 		if not ResourceLoader.exists(KIVAT[kiva][0]):
 			continue
-		for site: String in (["vaala"] if kiva == "disko" else ["saloinen", "vaala"]):
+		for site: String in ["saloinen"]:
 			var tag := "%s_%s" % [kiva, site]
 			var g := _make(kiva, site)
 			await _shot(tag + "_alku")
@@ -106,7 +106,7 @@ func _run() -> void:
 				g._cam.transform = keep
 				if "_cam_base" in g:
 					g._cam_base = keep
-			if site == "saloinen" or kiva == "disko":
+			if site == "saloinen":
 				var t: Array = g.test_target() if g.has_method("test_target") else [g._hall.to_global(g.CENTER), 1.0]
 				g.set_process(false)  # kiva palauttaa kameransa joka ruudussa: pysäytetään kulmakuvien ajaksi
 				await Asento.views(g._cam, out, "%s_asetelma" % tag, t[0] + Vector3(0, 0.4, 0), 2.6, Vector3(0, 0, 1))

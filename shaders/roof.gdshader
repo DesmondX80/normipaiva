@@ -1,6 +1,6 @@
 shader_type spatial;
 render_mode cull_disabled;
-// Vaalan talojen katot yhdistettynä meshinä: väri verteksiväristä, tyyppi alfasta.
+// Talojen katot yhdistettynä meshinä: väri verteksiväristä, tyyppi alfasta.
 // 1.0 saumapelti (saumat lappeen suuntaan), 0.5 betonitiili (aaltoilevat rivit), 0.0 huopa tasakatolle.
 
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;

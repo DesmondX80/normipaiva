@@ -2,7 +2,6 @@ extends Node
 ## Kolmiomittaus (#255, scripts/kolmiomittaus.gd): logiikka, hahmot, Sytkäri, paperikartan ympyrät, ovet, erikoissääntöinen
 ## Rasvanappi, aamu ja maito. main.gd palauttaa tallennuksen.
 ## Ajo: tools/testit/aja.sh scene kolmiomittaus   (Saloinen: Joni, Esa ja Minttu)
-##      tools/testit/aja.sh scene kolmiomittaus_vaala   (Raahe: Hevari-Tero, Sivikki-Timo, Sivikki ja Katja)
 ## Kuvat: _kaverit, _hahmo_<nimi>_edesta/_sivulta/_takaa, _rinkka_* (rajattu), _sytkari_mätsi, _sytkari_matka,
 ## _kartta, _vaara_ovi, _ovi_ilman_lahjaa, _ovi_lahjat, _rasva_esittely, _rasva_pimea, _rasva_puhelu, _rasva_loppu, _aamu.
 const Kuva := preload("res://tools/testit/kuva.gd")
@@ -417,13 +416,6 @@ func _check_follow(npcs: Array, w: Node3D, site: String) -> void:
 			v.global_position, w.global_position, v.avoid.map(func(a: Array) -> Vector3: return (a[0] as Node3D).global_position)])
 		if d > v.gap + 1.5:
 			_vika("%s jäi jälkeen (%.1f m)" % [v.display_name, d])
-	if site == "vaala":
-		var car: Vector3 = main._kolmio_civic.global_position
-		for v: Node3D in npcs:
-			var dc := Vector2(v.global_position.x - car.x, v.global_position.z - car.z).length()
-			print("KOLMIO %s Sivikin keskeltä %.1f m" % [v.display_name, dc])
-			if dc < 2.4:
-				_vika("%s kävelee Sivikin läpi" % v.display_name)
 	var cam := _cam_at(w.global_position + Vector3(4, 3, 6), w.global_position + Vector3(0, 0.9, 0))
 	await _snap("_kaverit_mukana")
 	cam.queue_free()
@@ -439,7 +431,7 @@ func _quest_reset(site: String) -> void:
 		main.tilat.firsts.erase(f)
 	# Tehtävän valmistumislippu on loppu (quests.gd done "flag:ending_minttu/katja"), joka säilyy testin HOME:ssa
 	# ajojen välillä: ilman tätä tehtävä on jo tehty, eikä ideaviestiä näytetä (_quest_ideas ohittaa tehdyt).
-	main.endings.counts.erase({"saloinen": "minttu", "vaala": "katja"}[site])
+	main.endings.counts.erase({"saloinen": "minttu"}[site])
 	main._quest_ideas()  # alkutilanne kirjattu (quests.primed), kuten pelissä puolen sekunnin välein
 
 

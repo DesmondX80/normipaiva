@@ -50,7 +50,7 @@ func reset() -> void:
 	chosen = keys.slice(0, PICK)
 
 
-## Tila mukaan päivän kolmen joukkoon (esim. mökillä humalatila aina): korvaa viimeisen, jos ei jo mukana.
+## Tila mukaan päivän kolmen joukkoon (esim. humalatila aina): korvaa viimeisen, jos ei jo mukana.
 func ensure(key: String) -> void:
 	if key in chosen:
 		return

@@ -217,7 +217,7 @@ func _run_world() -> void:
 	var main: Node3D = load("res://main.tscn").instantiate()
 	add_child(main)
 	var t0 := Time.get_ticks_msec()
-	while (main.get("mokki") == null) and Time.get_ticks_msec() - t0 < 400000:
+	while (main.get("world") == null) and Time.get_ticks_msec() - t0 < 400000:
 		await get_tree().process_frame
 	for i in 30:
 		await get_tree().process_frame

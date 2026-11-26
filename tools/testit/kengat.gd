@@ -357,7 +357,7 @@ func _jakauma() -> void:
 	for pd in KI.PEOPLE:
 		if pd.id in ["hilkka", "annaliisa"]:
 			want.append(["%s %s" % [pd.id, pd.modes[0]], pd.look, "kavelykenka"])
-	# #274: kodin tai mökin kumisaappaat jalassa (Looks.boots) kaikissa asuissa paitsi hiihtohaalarissa.
+	# #274: kodin kumisaappaat jalassa (Looks.boots) kaikissa asuissa paitsi hiihtohaalarissa.
 	Looks.boots = "koti"
 	want.append_array([["saappaat tuulipuku", Looks.player("tuulipuku"), "kumisaapas"],
 		["saappaat farkut", Looks.player("farkut"), "kumisaapas"], ["saappaat tyovaatteet", Looks.player("tyovaatteet"), "kumisaapas"],
@@ -386,7 +386,7 @@ func _measure() -> void:
 			if ch.shoe_type != "paljas" and absf(lo) > 0.005:
 				print("TESTI VIKA %s%s kengän alin %.1f mm lattiasta (raja ±5 mm)" % [r[0], lr, lo * 1000.0])
 		if ch.shoe_mi != null:
-			if r[0] == "kumisaapas_m":  # #274: kodin ja mökin saapasesineen (kumisaappaat.gd) mitat pelin saappaasta
+			if r[0] == "kumisaapas_m":  # #274: kodin saapasesineen (kumisaappaat.gd) mitat pelin saappaasta
 				var bb: AABB = ch.shoe_mi.global_transform * ch.shoe_mi.get_aabb()
 				print("KENKA kumisaapas_m koko: korkeus %.3f m, pituus %.3f m, leveys (pari) %.3f m" % [bb.size.y, bb.size.z, bb.size.x])
 			if Shoes.TYPES[ch.shoe_type].has("sandal") and not Shoes.TYPES[ch.shoe_type].get("sock", false):

@@ -112,14 +112,6 @@ func _ready() -> void:
 ## Tyypitystaulun literaalirivit (02-arkkitehtuuri.md Korjaus 2, sekstaajan pohjat dump-csv:stä): [alue, id, b, ctx, odotus].
 ## Odotus on luokan alku (K8 = mikä tahansa K8-variantti).
 const CLASSIFY := [
-	["vaala", "472392144", {"l": 256.5, "d": 86.7, "t": "school", "lv": 1}, {"gap": 5.0}, "VANHA"],
-	["vaala", "534430539", {"l": 57.5, "d": 38.9, "t": "yes", "lv": 3, "r": 0.47}, {"gap": 5.0}, "VANHA"],
-	["vaala", "508285475", {"l": 39.8, "d": 12.3, "t": "apartments", "lv": 2}, {"gap": 5.0}, "K7"],
-	["vaala", "508285476", {"l": 54.3, "d": 19.6, "t": "yes", "lv": 1}, {"gap": 5.0}, "K8_liike"],
-	["vaala", "827456101", {"l": 31.4, "d": 13.5, "t": "yes", "lv": 1}, {"gap": 5.0}, "K6"],
-	["vaala", "827456164", {"l": 36.2, "d": 11.9, "t": "yes", "lv": 1}, {"gap": 5.0}, "K6"],
-	["vaala", "827456093", {"l": 29.6, "d": 12.3, "t": "yes", "lv": 1}, {"gap": 5.0}, "K6"],
-	["vaala", "-100567", {"l": 10.4, "d": 8.6, "t": "cabin", "lv": 2}, {"gap": -1.0}, "K1"],
 	["saloinen", "1304", {"l": 115.8, "d": 46.3, "t": "yes", "lv": 1}, {"gap": -1.0}, "K8"],
 	["saloinen", "298", {"l": 74.2, "d": 46.2, "t": "yes", "lv": 1}, {"gap": -1.0}, "K8"],
 	["saloinen", "36", {"l": 80.2, "d": 33.0, "t": "yes", "lv": 1}, {"gap": -1.0}, "K8"],

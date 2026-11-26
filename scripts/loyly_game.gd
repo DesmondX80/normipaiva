@@ -379,7 +379,7 @@ func _place_ladle(delta: float) -> void:
 	Room.set_layers(_ladle)
 
 
-## Ulkonäkö saunassa: sama kuin Uiton ja mökin saunassa (cutscene.gd sauna_look: paljas, löylystä punertava iho, ei
+## Ulkonäkö saunassa: sama kuin Uiton saunassa (cutscene.gd sauna_look: paljas, löylystä punertava iho, ei
 ## kenkiä), pyyhkeen väri lanteille. Naiset: _bikini_look. towel = false: pyyhe jäi lauteille (paljas).
 static func _towel_look(base: Dictionary, towel: bool, col: Color) -> Dictionary:
 	var lk: Dictionary = Cutscene.sauna_look(base)

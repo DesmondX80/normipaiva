@@ -3,7 +3,7 @@ extends RefCounted
 ## laatikollisen vanhaa tavaraa ("Vie kirppikselle, puolet mulle"). Tavarat myydään kuten marjat omalla pöydällä
 ## (kirppis_myynti_game.gd, romu-tuotteet), ja puolet tuloista on Pekan. Saman päivän tilitys ilahduttaa Pekkaa
 ## (maine +2 ja seuraava kyyti ilmainen). Jos Pekan osuus jää yön yli maksamatta, Pekka on suuttunut: ei kyytiä
-## mökille, ennen kuin rahat tulevat. Myymättömät tavarat jäävät laatikkoon seuraaville päiville.
+## Raaheen, ennen kuin rahat tulevat. Myymättömät tavarat jäävät laatikkoon seuraaville päiville.
 
 ## Laatikon sisältö: tuote -> määrä (hinnat ja nimet kirppis_myynti_game.gd GOODS).
 const START := {"lp": 3, "pokaali": 1, "karvalakki": 1, "vieherasia": 1, "taulu": 1, "kahvimylly": 1}
@@ -14,7 +14,7 @@ var given := false
 var left := {}  # laatikossa jäljellä: tuote -> määrä
 var owed := 0.0  # Pekan osuus myydyistä, tilittämättä
 var owed_day := -1  # päivä, jona tilittämätön myynti alkoi
-var free_ride := false  # saman päivän tilityksen palkka: seuraava kyyti mökille ilmainen
+var free_ride := false  # saman päivän tilityksen palkka: seuraava kyyti Raaheen ilmainen
 var paid_total := 0.0
 var late_count := 0  # myöhästyneet tilitykset
 

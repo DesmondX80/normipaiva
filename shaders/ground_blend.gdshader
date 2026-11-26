@@ -1,6 +1,6 @@
 shader_type spatial;
 render_mode cull_disabled;
-// Vaalan maasto yhtenä meshinä: maankäytön värit verteksiväreinä (COLOR = väri a, CUSTOM0.rgb = väri b,
+// Maasto yhtenä meshinä: maankäytön värit verteksiväreinä (COLOR = väri a, CUSTOM0.rgb = väri b,
 // CUSTOM0.a = sorapintaisuus), joten pellon, pihan, metsänpohjan ja pientareen rajat liukuvat ruudun matkalla
 // eivätkä näy 4 m portaina. Kuvio kuten ground.gdshaderissa (maailmankoordinaattien kohina + kuoppaisuus).
 

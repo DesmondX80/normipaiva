@@ -1,6 +1,6 @@
 extends Node3D
 ## Normipäivä Saloisissa: rakentaa maailman, pyörittää pelin tilaa ja HUDin.
-## Tilat: ulkona (kylässä, mökillä ja Raahessa) tai sisätila (in_shop, in_home, …), cutscene, fight ja minigame.
+## Tilat: ulkona (kylässä ja Raahessa) tai sisätila (in_shop, in_home, …), cutscene, fight ja minigame.
 
 const B := preload("res://scripts/build.gd")
 const Pose := preload("res://scripts/pose.gd")
@@ -203,8 +203,7 @@ const GRILL_TIME := 5.0
 const SAVE_PATH := "user://normipaiva.cfg"
 
 const INTERIOR_POS := Vector3(3000, 0, 0)
-var _list_pending := false  # päivä alkoi mökiltä: Päivin värilista kerrotaan kotiin palatessa
-## Mökin sisätila (mokki_interior.gd) omassa taskussaan; kuistin ovelta E vie sisään.
+var _list_pending := false  # päivä alkoi muualta kuin kotoa: Päivin värilista kerrotaan kotiin palatessa
 const HomeInterior := preload("res://scripts/home_interior.gd")
 ## Autotallin sisätila (garage_interior.gd): nosturiovelta sisään. Auto SLN-73 ja karburaattorin säätö
 ## (carb_game.gd), työpöytä (pyörän huolto), radio, pakastearkku, työkalukaappi (jemma) ja pyörän paikka.
@@ -406,7 +405,7 @@ const START_MONEY := 20.0
 const BAR_ROUND := 6.0  # kädenväännön häviäjä tarjoaa kierroksen
 const TAXI_RADIUS := 3.5
 const BAR_POS := Vector3(0, 0, -4200)  # baarin minipeli kaukana kartan ulkopuolella
-const PINGIS_POS := Vector3(-3000, 0, 300)  # mökin pingisnäyttämö kaukana kartan ulkopuolella (tappelun vieressä)
+const PINGIS_POS := Vector3(-3000, 0, 300)  # pingisnäyttämö kaukana kartan ulkopuolella (tappelun vieressä)
 const CHOCO_CHANCE := 0.5  # suklaa lepyttää Päivin
 const CHOCO_MONEY := 5.0  # leppynyt Päivi antaa aamulla ylimääräistä
 const BEER_PRICE := 12.90
@@ -520,7 +519,6 @@ var has_matches := false
 ## Suklaalevy taskussa: saattaa lepyttää Päivin (salainen mekaniikka, ei vinkkejä pelissä).
 var has_chocolate := false
 var has_flowers := false  # kukkakimppu Päiville (säästöpiha, #141)
-var _kahvipoyta_day := -1  # päivä, jona Päivi sai rönttöset: kahvipöytä katettuna kotona
 var has_onki := false  # bambuonki (Sepon varasto tai kirppis): onkiminen rannalta
 var has_virveli := false  # virveli ja lusikkauistin (kirppiksen Tauno)
 var madot := 0  # onkimadot (kauppa-auton matopurkki; ongen mukana puolikas purkki)
@@ -545,7 +543,6 @@ var arto: CharacterBody3D
 var pekka: CharacterBody3D
 var sinikka: CharacterBody3D
 var sinikka_task := 0  # 1 = Sinikka odottaa mustikoita
-var tikka_ennatys := 0  # tikanheiton paras tulos (3 x 3 tikkaa)
 var tractor: CharacterBody3D
 ## player = se jolla nyt liikutaan (pyörä tai jalan); bike ja walker_out ovat molemmat olemassa koko ajan.
 var bike: CharacterBody3D
@@ -591,7 +588,7 @@ var stash_used: Array = []
 ## Pyörä jää sinne, minne sen jättää (myös yön yli ja pelikerrasta toiseen): tallennettu paikka ja suunta.
 var _bike_saved = null  # [Vector3, float] tai null
 ## Pelaajan paikka tallennukseen: viimeisin kohta, jossa liikuttiin vapaasti ulkona Saloisissa maan pinnalla
-## ([paikka, kulma, pyörällä]). Sisätiloissa, minipeleissä, mökillä ja Raahessa jää viimeisin ulkopaikka, joten
+## ([paikka, kulma, pyörällä]). Sisätiloissa, minipeleissä ja Raahessa jää viimeisin ulkopaikka, joten
 ## lataus jatkaa oven edestä. _resume_saved on tallennuksesta luettu paikka, johon peli jatkuu käynnistettäessä.
 var _resume_spot: Array = []
 var _resume_saved: Array = []
@@ -665,9 +662,9 @@ const VAINO_MONEY := 5.0
 ## PEKKA_CARE €) tai Päivi kotona (ilmainen, mutta motkottaa). Hoitamaton haitta kestää päivän loppuun.
 const StrayDog := preload("res://scripts/stray_dog.gd")
 ## Metsän pedot (beast.gd): jalan metsässä kertyy aikaa, ja kun _beast_next täyttyy, karhu tai susi ilmestyy
-## puiden sekaan. Saloisissa kerran päivässä; mökillä metsää on enemmän ja pedot yleisempiä (aika kertyy
+## puiden sekaan. Saloisissa kerran päivässä (aika kertyy
 ## nopeammin, kaksi päivässä). Karhun haava on isompi kuin suden: enemmän kipua, ontuu pahemmin ja kipu
-## pahenee hoitamatta. Haavan hoitavat Pekka, Päivi tai mökillä Santtu omin konstein.
+## pahenee hoitamatta. Haavan hoitavat Pekka tai Päivi omin konstein.
 const Beast := preload("res://scripts/beast.gd")
 const BEAST_FOREST_S := [50.0, 110.0]
 const BEAST_MAX := {"koti": 1}
@@ -1278,7 +1275,7 @@ func _process(delta: float) -> void:
 			home_int.carrying = beers > 0 or has_kanister
 			if home_int.spot == "kaappi":
 				_stash_ui("koti")
-			# Kotona on rauhallista kuten mökillä: stressi hellittää, nälkä kasvaa hiljaa.
+			# Kotona on rauhallista: stressi hellittää, nälkä kasvaa hiljaa.
 			tilat.add("stressi", 0.005 * delta)
 			tilat.add("nalka", -0.002 * delta)
 			tilat.add("humala", -0.002 * delta)
@@ -1489,8 +1486,7 @@ func _outside_logic() -> void:
 	if false:
 		pass
 		return
-	# Mökillä vain mökin omat toiminnot: kauppareissu, jemmat ja kylän tapahtumat odottavat Saloisissa.
-	_compass.has_cache = false
+		_compass.has_cache = false
 	var ppos := player.global_position
 	_wife_note_player(ppos)
 	# Kompassin kohde poistuu, kun sinne päästään.
@@ -7793,14 +7789,14 @@ func journal_data() -> Dictionary:
 
 ## Muiden paikkakuntien tehtävät: "näytä kartalla" osoittaa K-Marketin taksitolpalle (retket.gd, lähtö taksilla). Kartalle
 ## niistä ei piirretä omia renkaita (kaikki samassa paikassa), vain kompassi.
-const TEKEMISET := ["juoksulenkki", "lintutorni", "ronttonen", "hedelmapeli", "pajatso", "juhannuskokko"]  # quests.gd tekemiset
+const TEKEMISET := ["juoksulenkki", "lintutorni", "hedelmapeli", "pajatso", "juhannuskokko"]  # quests.gd tekemiset
 const HANTTIHOMMAT := ["keikkatyo", "kesaduuni", "tyokkari", "pullonkeraus", "kioski_hengailu"]  # quests.gd hanttihommat
 const TAXI_QUESTS := ["kalajoki", "kalalampi", "pubivisa", "hanhikiven_rajakivi", "pakkahuoneen_veistos", "peruskiven_kapseli", "manamansalon_kirkko", "tietokonemuseo",
 	"wanharaahe", "kuvakirkko", "vanhaherra", "karhut", "hiidenportti", "pyhakoski", "messenius", "raate"]
 
 
 ## Sivutehtävän paikat (maailman x/z) kartan lyijykynämerkintöihin ja päiväkirjan "Näytä kartalla" -linkkiin.
-## Tyhjä: ei merkkiä (liikkuva kohde, mökin homma tai salaisuus, jota ei ole vielä löydetty).
+## Tyhjä: ei merkkiä (liikkuva kohde tai salaisuus, jota ei ole vielä löydetty).
 func quest_spots(id: String) -> Array:
 	var v3 := func(p: Vector3) -> Vector2:
 		return Vector2(p.x, p.z)
@@ -8140,9 +8136,6 @@ func _enter_home(door: String) -> void:
 		_flowers_day = day
 		_save_game()
 		_queue_message("Kukat maljakkoon keittiön pöydälle. Päivi näkee ne illalla.", 3.0)
-	home_int.set_kahvipoyta(_kahvipoyta_day == day)
-	if false:
-		pass
 	if wanharaahe.ovikuva:
 		_give_ovikuva()
 	if Looks.hat == "koppa" and _once_today("koppa_paivi"):
@@ -8180,7 +8173,7 @@ func _on_home_slept() -> void:
 	_win()
 
 
-## Vessanpönttö (koti, mökin pesuhuone, mökin huussi): ensin kysytään ykkönen vai kakkonen (esinevalikko), sitten
+## Vessanpönttö (koti): ensin kysytään ykkönen vai kakkonen (esinevalikko), sitten
 ## minipeli (wc_game.gd) ja lopuksi tulos (_wc_result).
 var _wc_where := ""
 ## Juoksukaljat: kauppias perässä (shop_chaser.gd). Saloisissa taksiin ehtii juuri ja juuri, Raahessa ei taksia.
@@ -8232,7 +8225,7 @@ func _start_wc(mode: String) -> void:
 	_wc_game = g
 
 
-## Minipelin tulos: helpotus (kerran päivässä), ja sotku tai tukos saa kotona Päivin tai nörtin, mökillä Santun
+## Minipelin tulos: helpotus (kerran päivässä), ja sotku tai tukos saa kotona Päivin tai nörtin
 ## huomauttamaan.
 func _wc_result(mode: String, r: Dictionary) -> void:
 	var where := _wc_where
@@ -8274,7 +8267,7 @@ func _wc_result(mode: String, r: Dictionary) -> void:
 		if where == "koti":
 			lines.append("Pönttö tukossa! Nörtti huutaa: \"Kuka tukki taas pöntön? Mää en ainakaan!\"")
 		else:
-			lines.append("Pönttö tukossa! %s: \"Mökin viemäri ei vedä noin paljoa paperia!\"" % who)
+			lines.append("Pönttö tukossa! %s: \"Viemäri ei vedä noin paljoa paperia!\"" % who)
 			if false:
 				pass
 	elif r.sheets < WcGame.PAPER_OK.x:
@@ -8704,7 +8697,7 @@ func _pick_berries(dt: float) -> void:
 const FORAGE_REGROW := Vector2i(1, 5)  # poimittu paikka kasvaa takaisin tämän päivämäärän välein
 
 
-## Aamulla: poimitut marja- ja sienipaikat, joiden aika on tullut, kasvavat takaisin (Saloinen ja mökki).
+## Aamulla: poimitut marja- ja sienipaikat, joiden aika on tullut, kasvavat takaisin (Saloinen).
 func _regrow_forage() -> void:
 	pass
 
@@ -8887,7 +8880,7 @@ func _drone_logic() -> void:
 		_start_drone()
 
 
-## Alustan keskipiste maanpinnalla (maailmassa): kotipiha tai mökin piha.
+## Alustan keskipiste maanpinnalla (maailmassa): kotipiha.
 func _drone_pad() -> Vector3:
 	var pad: Vector3 = world.drone_pad_pos
 	return pad + Vector3(0, Terrain.h(pad.x, pad.z), 0)
@@ -9005,7 +8998,7 @@ func _on_drone_photo(id: String) -> void:
 		_queue_message("Kuusikosta nousee savua... Pannu-Sulon pontikkapannu! Paikka merkittiin karttaan (M).", 4.0)
 	if n == names.size() and n > before:  # vain kohdelistan viimeinen kuva (legendakuvat eivät toista palkintoa)
 		if id.begins_with("m_"):
-			_queue_message("Kaikki mökin ilmakuvat otettu! Santtu saa uudet kuvat Airbnb-ilmoitukseen.", 4.0)
+			_queue_message("Kaikki ilmakuvat otettu!", 4.0)
 			tilat.add("moraali", 0.1)
 		else:
 			_queue_message("Kaikki ilmakuvat otettu! Saloinen on nyt kartoitettu ilmasta.", 4.0)
@@ -9406,7 +9399,7 @@ func _open_eat_menu() -> void:
 	elif Saappaat.bag != "":
 		items.append(["saappaat", "Kumisaappaat repusta jalkaan"])
 	if items.is_empty():
-		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja, mökin savustimesta kalaa ja riistaa.", 3.0)
+		_show_message("Ei mitään syötävää eikä juotavaa. Kaupan leipähyllystä saa korvapuusteja ja piirakoita, metsästä marjoja.", 3.0)
 		return
 	var w := _active_walker()
 	w.controls_enabled = false
@@ -9694,7 +9687,7 @@ func _once_today(id: String) -> bool:
 	return true
 
 
-## Mukava paikka: syttynyt nuotio laavulla, tuli kodassa, Kiilinlammen grillikatos tai mökin piha.
+## Mukava paikka: syttynyt nuotio laavulla, tuli kodassa, Kiilinlammen grillikatos.
 func _pleasant_spot() -> bool:
 	var p := player.global_position
 	if false:
@@ -9763,35 +9756,14 @@ var _korkki_rng := RandomNumberGenerator.new()
 const KORKKI_VIRHE_HINTA := 15.0  # Korkki-Raimo ostaa tupla-virhepainoksen
 
 
-## Korkkiläpsy (#290, korkki_game.gd): Raahen lavan pihan teinit illalla 18–23 kerran päivässä. Kumpikin panee 3 tuplaa
+## Korkkiläpsy (#290, korkki_game.gd): kaukalon iltateinit illalla 18–23 kerran päivässä. Kumpikin panee 3 tuplaa
 ## (pelaajalta vain tuplat, teiniltä muiden pitäjien korkkeja), voitetut korkit kansioon.
 const KorkkiGame := preload("res://scripts/korkki_game.gd")
 var _lapsy_day := -1
 var _lapsy_game: Node3D
 
 
-func _start_korkkilapsy() -> void:
-	return
-	var out := Vector3(0, 0, 1)
-	var mine: Array = korkit.take_tuplat_keys(3)
-	_lapsy_day = day
-	var g := KorkkiGame.new()
-	g.drunk = tilat.value("humala")
-	for k in mine:
-		g.stack.append({"key": k, "up": false})
-		g.stack.append({"key": Korkit.roll("kalja" if randf() < 0.5 else "limu", _korkki_rng, _juhannus()), "up": false})
-	# Pelipaikka teinien vierestä pihalle päin, asfaltin korkeudella; kävelijä piiloon (oma kyykkyhahmo pelissä).
-	g.face = out
-	if false:
-		pass
-	_hud.visible = false
-	CamCtl.free_mouse = true
-	tilat.first("korkkilapsy", 0.3)
-	g.finished.connect(_on_korkkilapsy_finished)
-	_lapsy_game = g
-
-
-## Saloisten kaukalo: sama peli kaukalon iltateinien vieressä (hs_teens), pelaaja piiloon pelin ajaksi.
+## Korkkiläpsy Saloisten kaukalolla: peli kaukalon iltateinien vieressä (hs_teens), pelaaja piiloon pelin ajaksi.
 func _start_korkkilapsy_kaukalo() -> void:
 	if _lapsy_game != null or not is_instance_valid(hs_teens) or korkit.tuplat() < 3:
 		return
@@ -10016,7 +9988,7 @@ func _end_day_stats() -> String:
 	return note
 
 
-## Aamun lapun muistutukset päivän kolmesta tilasta: kotona Päivi, mökillä Santtu kirjoittaa lappuun omin sanoin
+## Aamun lapun muistutukset päivän kolmesta tilasta: Päivi kirjoittaa lappuun omin sanoin
 ## (ei tilojen nimiä), ja rivi vihjaa, mitä tilalle kannattaa tehdä.
 const STAT_TIPS := {
 	"paivi": {
@@ -10031,23 +10003,10 @@ const STAT_TIPS := {
 		"kokemus": ["Tee tänään jotain uutta, äläkä vaan makaa.", "Älä seiso tumput suorina."],
 		"humala": ["Ei kaljaa ennen iltaa!", "Kohtuudella sen kaljan kanssa."],
 	},
-	"santtu": {
-		"stressi": ["Täällä ei oo kiire mihinkään.", "Rauhotu, ollaan mökillä."],
-		"nalka": ["Ruokaa riittää, syö kunnolla.", "Laita savustimeen jotain, nälkä tulee."],
-		"vasymys": ["Ota välillä rennosti laiturilla.", "Älä riehu koko päivää."],
-		"kipu": ["Varo itteäs, lähin lääkäri on kaukana.", "Ei mitään tyhmiä tänään."],
-		"stamina": ["Tänään tarvitaan voimia, syö hyvin.", "Säästele vähän, hommia riittää."],
-		"vireys": ["Käy metsässä, raitis ilma tekee hyvää.", "Kirkas pää on tänään plussaa."],
-		"moraali": ["Tehään tästä hyvä päivä.", "Kala laiturilta piristää aina."],
-		"keskittyminen": ["Pää kasassa, niin hommat sujuu.", "Älä haahuile."],
-		"kokemus": ["Kokeile jotain, mitä et oo ennen tehny.", "Mökillä riittää uutta tekemistä."],
-		"humala": ["Saunakaljat illalla, ei aamusta.", "Kohtuudella, ettei mene överiks."],
-	},
 }
-## Krapula-aamun rivi (vireys ja keskittyminen -0,3): kotona Päivi, mökillä Santtu.
+## Krapula-aamun rivi (vireys ja keskittyminen -0,3): Päivi.
 const HANGOVER_NOTE := {
 	"paivi": "Haisit yöllä ihan viinalta. Toivottavasti päätä särkee.",
-	"santtu": "Eilinen ilta venyi. Juo vettä, kyllä se krapula siitä hellittää.",
 }
 
 
@@ -10236,7 +10195,7 @@ func _on_bitten(direction: Vector3) -> void:
 	_show_message("AI PERKELE! Vieras koira puri pohkeeseen!\nHaava pitää hoitaa: Pekka osaa, tai Päivi kotona.", 4.0)
 
 
-## Onko piste metsässä (Saloisissa alustan mukaan, mökillä kaikki mikä ei ole pihaa, tietä, peltoa tai vettä).
+## Onko piste metsässä (alustan mukaan).
 func _in_forest(p: Vector3) -> bool:
 	return world.surface_at(p) == "forest"
 
@@ -10343,8 +10302,8 @@ func _on_beast_attack(kind: String, dir: Vector3) -> void:
 		"SUSI PURI! Hampaat upposivat reiteen, ja susi nappasi eväät mennessään."
 	if not lost.is_empty():
 		msg += "\nMeni: %s." % ", ".join(lost)
-	msg += "\nIso haava, kipu pahenee: hoidata pian (Pekka, Päivi tai mökillä Santtu)." if big else \
-		"\nHaava pitää hoitaa: Pekka, Päivi tai mökillä Santtu."
+	msg += "\nIso haava, kipu pahenee: hoidata pian (Pekka tai Päivi)." if big else \
+		"\nHaava pitää hoitaa: Pekka tai Päivi."
 	_show_message(msg, 5.0)
 
 
@@ -10379,7 +10338,7 @@ func _roll_vaino() -> void:
 ## Väinö karkuteillä: Pekan huuto, kiinniotto jalan (nuuhkiessa tai makkaralla houkuteltuna) ja palautus.
 func _vaino_logic() -> void:
 	if _vaino_at >= 0.0 and clock_min >= _vaino_at:
-		var late := clock_min > _vaino_at + 60.0  # karkuaika meni ohi poissa (mökki, Raahe): Väinö pysyi kotona
+		var late := clock_min > _vaino_at + 60.0  # karkuaika meni ohi poissa (Raahe): Väinö pysyi kotona
 		_vaino_at = -1.0
 		if not late:
 			_vaino_escape()
@@ -10745,9 +10704,8 @@ func _set_hat(h: String) -> void:
 		Looks.restyle_player(n)
 
 
-## Kumisaappaat kodin eteisestä tai mökin ovensuusta (#274): yksi pari, joka odottaa kummallakin matolla (molemmissa
-## näkyy sama pari, kun se ei ole mukana). E avaa valikon: matolta jalkaan tai reppuun, jalasta matolle tai reppuun,
-## repusta jalkaan tai matolle. Otettu pari katoaa molemmilta matoilta, ja sen voi palauttaa kummalle tahansa.
+## Kumisaappaat kodin eteisestä (#274): yksi pari, joka odottaa matolla. E avaa valikon: matolta jalkaan tai reppuun,
+## jalasta matolle tai reppuun, repusta jalkaan tai matolle.
 ## Hiihtohaalarissa pidetään kuukengät. Jalassa: Looks.boots = "jalassa", repussa: Saappaat.bag = "repussa".
 ## Repusta ja T:llä: _bag_boots.
 func _toggle_boots(_place: String) -> void:
@@ -10887,8 +10845,7 @@ func _station_logic() -> void:
 var _rasva_game: CanvasLayer
 
 
-## Aseman takana makasiinin takaovi (makasiini.gd): koputus avaa kurkistusluukun (rasvanappi_game.gd). Raahessa
-## sama makasiini on aseman vieressä (vaala.gd _build_makasiini, ovi "makasiini" _on_vaala_door).
+## Aseman takana makasiinin takaovi (makasiini.gd): koputus avaa kurkistusluukun (rasvanappi_game.gd)..
 func _makasiini_logic() -> void:
 	if _hint.text != "" or world.makasiini_door == Vector3.ZERO or _rasva_game != null or Settings.get_v("k18_pois"):
 		return
@@ -10954,7 +10911,7 @@ var _kolmio_ui: CanvasLayer  # Sytkäri tai kohtaus auki
 var _kolmio_anchor: Node3D  # Rasvanapin halli tämän yläpuolelle
 
 
-## Paperikartalle (paper_map.gd): käynnissä olevan mittauksen ympyrät (kylässä maailman x/z, Raahessa vaala.gd x/z).
+## Paperikartalle (paper_map.gd): käynnissä olevan mittauksen ympyrät (kylässä maailman x/z).
 ## Kylän kartta kysyy "saloinen": kesäheilan mittauksen aikana sen ympyrät (_kolmio_sal_site).
 func kolmio_rings(site: String) -> Array:
 	if site == "saloinen":
@@ -11002,7 +10959,7 @@ func _kolmio_house_door(f: Dictionary) -> Vector2:
 	return (f.c as Vector2) + Vector2(q.x, q.z)
 
 
-## Ovet kohteittain: Saloisissa OSM-taloista, Raahessa _kolmio_vaala_setup. Kodin (luku 6) kohde on pelaajan oma
+## Ovet kohteittain: Saloisissa OSM-taloista. Kodin (luku 6) kohde on pelaajan oma
 ## etuovi (koputus _home_door_logicissa, ettei ovi vie sisään), väärät ovet ovat Saloisten väärät ovet.
 func _kolmio_door_list(site: String) -> Array:
 	if site == "koti" and not _kolmio_doors.has("koti") and world != null and home_door != Vector3.ZERO:
@@ -11031,7 +10988,7 @@ func _kolmio_target(site: String) -> Vector2:
 	return Vector2.INF
 
 
-## Pelaajan paikka kohteen kehyksessä (Saloisissa maailma, Raahessa vaala.gd).
+## Pelaajan paikka kohteen kehyksessä (Saloisissa maailma).
 func _kolmio_me(site: String) -> Vector2:
 	var p := player.global_position
 	return Vector2(p.x, p.z)
@@ -11884,7 +11841,10 @@ var _raahe_hop := HOP_RAAHE
 ## Pekan kyyti Raaheen (avautuu, kun story.ride_unlocked()): kalja tai bensarahat, Pekka ajaa Kapteenin Kulmalle.
 func _pekka_ride() -> void:
 	var paid := "kalja"
-	if beers > 0:
+	if laatikko.free_ride:
+		laatikko.free_ride = false  # saman päivän tilityksen palkka: yksi ilmainen kyyti
+		paid = "ilmainen, Pekan piikkiin"
+	elif beers > 0:
 		beers -= 1
 		player.set_carrying(beers > 0)
 	else:
@@ -12553,11 +12513,14 @@ func _talk_options(who := "") -> Array:
 				"avaimet_mukana":
 					o.append(_opt("tarina", "Anna autonavaimet", true, "", true))
 			if story.ride_unlocked():  # avaimet Pekalle ja naapurin hommat tehty: Pekan kyyti Raaheen
-				var why := "" if beers > 0 or money >= PEKKA_RIDE_PRICE else "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
+				var why := "" if laatikko.free_ride or beers > 0 or money >= PEKKA_RIDE_PRICE else "ei kaljaa eikä %s € bensarahaa" % _eur(PEKKA_RIDE_PRICE)
 				var shut_r := closed_text("raahe", fposmod(clock_min + HOP_RAAHE, 1440.0))
-				if why == "" and shut_r != "":
+				if laatikko.angry(day):
+					why = "Pekka ei aja, ennen kuin saa kirppisrahojaan"
+				elif why == "" and shut_r != "":
 					why = shut_r
-				o.append(_opt("kyyti", "Kyyti Raaheen (%s, meno-paluu Pekan Volvolla)%s" % ["kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €", _late_note(HOP_RAAHE)],
+				var fare_t: String = "ilmainen, Pekan piikkiin" if laatikko.free_ride else ("kalja" if beers > 0 else _eur(PEKKA_RIDE_PRICE) + " €")
+				o.append(_opt("kyyti", "Kyyti Raaheen (%s, meno-paluu Pekan Volvolla)%s" % [fare_t, _late_note(HOP_RAAHE)],
 					why == "", why))
 			if ebike.started and not ebike.parts.has("akku"):
 				var shrooms: int = bucket.get("kantarelli", 0) + bucket.get("herkkutatti", 0)
@@ -13046,11 +13009,11 @@ func _talk_neighbor(id: String) -> void:
 			if tili.on_time:
 				maine = clampf(maine + PekanLaatikko.ON_TIME_REP, 0.0, 100.0)
 				tilat.add("moraali", 0.05)
-				_talk_box.reply("Rehti mies, perkele! Seuraava kyyti mökille on mun piikkiin.", _talk_options(),
+				_talk_box.reply("Rehti mies, perkele! Seuraava kyyti Raaheen on mun piikkiin.", _talk_options(),
 					"Pekalle %s €. Maine +%d, seuraava kyyti ilmainen." % [_eur(tili.amount), int(PekanLaatikko.ON_TIME_REP)])
 			else:
 				_talk_box.reply("No vihdoin. Kyllä mää jo ehdin miettiä, perkele. No, kyydit taas auki.", _talk_options(),
-					"Pekalle %s €. Pekka leppyi, kyyti mökille taas auki." % _eur(tili.amount))
+					"Pekalle %s €. Pekka leppyi, kyyti Raaheen taas auki." % _eur(tili.amount))
 			_save_game()
 		"akku":
 			var need := EBIKE_AKKU_SIENET
@@ -13408,11 +13371,6 @@ func _edge_logic() -> void:
 	_show_message("\"%s\"" % lines.pick_random(), 3.5)
 
 
-# --- Santun hommat ---------------------------------------------------------------------------------------------
-# Ensimmäisen mökkiyön jälkeen Santtu antaa aamulapussa päivän hommat (santun_hommat.gd). Tekemättömät hommat
-# kiristävät hermoja, ja täysillä hermoilla tulee lähtö. Santtu tulee katsomaan ja kommentoimaan jokaista hommaa.
-
-
 # --- Pankkiautomaatti ------------------------------------------------------------------------------------------
 
 ## K-Marketin takaseinän automaatti (luodaan kerran, world.gd:n päälle).
@@ -13465,9 +13423,7 @@ func _atm_use() -> void:
 # --- Mopomatka Raaheen -----------------------------------------------------------------------------------------
 
 
-## Mopomatkan maailma (vaala.gd, ~1,2 s) valmiiksi, kun mökille saavutaan ruudun ollessa pimeänä: selkään noustessa
-## matka alkaa heti ilman latausta.
-## Raahen baari (raahe_interior.gd): vapautetaan Raahessa ja mökillä (_unload_far_places), luodaan tarvittaessa.
+## Raahen baari (raahe_interior.gd): vapautetaan tarpeettomana, luodaan tarvittaessa.
 func _ensure_raahe() -> void:
 	if raahe_int != null:
 		return
@@ -13516,7 +13472,7 @@ func _swim(where: String, _from: Vector3) -> void:
 		_show_message("Hyppäsit laiturilta Keskimmäiseen. Vesi on raikasta! Kunto palautui.", 3.0)
 
 
-## Järviseudun välianimaatiot ja minipelit mökillä jalan tai mopomatkalla (Raahen maailma): pelaaja pysähtyy,
+## Välianimaatiot ja minipelit: pelaaja pysähtyy,
 ## vaarat tai mopomatka tauolle ja HUD piiloon; lopuksi takaisin samaan tilaan.
 var _act_prev := ""
 
@@ -14098,7 +14054,7 @@ func _klaffi_found() -> void:
 	_save_game()
 
 
-# --- 90-luvun nuorison lavahommat (vaala.gd _build_lava_youth) ------------------------------------------------
+# --- 90-luvun nuorison lavahommat ------------------------------------------------
 
 
 ## Juhannus (#58 idea 6) ja Kesäillan valssi (idea 7): juhannusaattona (perjantai) Oulujärven rannalla palaa kokko,
@@ -15138,7 +15094,6 @@ func _load_game() -> void:
 			_saved_today[k] = cfg.get_value("tanaan", k)
 	has_chocolate = cfg.get_value("peli", "suklaa", false)
 	has_flowers = cfg.get_value("peli", "kukat", false)
-	_kahvipoyta_day = cfg.get_value("peli", "kahvipoyta_paiva", -1)
 	has_onki = cfg.get_value("peli", "onki", false)
 	kalalupa = cfg.get_value("peli", "kalalupa", false)
 	has_virveli = cfg.get_value("peli", "virveli", false)
@@ -15174,7 +15129,7 @@ func _load_game() -> void:
 	_set_outfit(cfg.get_value("pelaaja", "asu", "tuulipuku"))
 	_set_hat(cfg.get_value("pelaaja", "hattu", ""))
 	_set_look(cfg.get_value("pelaaja", "hahmo", {}))
-	# Yksi pari: vanhat tallennukset ("koti" / "mokki") luetaan jalassa olevaksi, ja jalassa oleva voittaa repun.
+	# Yksi pari: vanhat tallennukset ("koti") luetaan jalassa olevaksi, ja jalassa oleva voittaa repun.
 	_set_boots("jalassa" if cfg.get_value("pelaaja", "saappaat", "") != "" else "")
 	Saappaat.bag = "repussa" if Looks.boots == "" and cfg.get_value("pelaaja", "saappaat_repussa", "") != "" else ""
 	phone.volume = cfg.get_value("puhelin", "voimakkuus", 2)
@@ -15228,7 +15183,6 @@ func _load_game() -> void:
 	mower_broken = cfg.get_value("nurmikko", "rikki", false)
 	has_mower_part = cfg.get_value("nurmikko", "varaosa", false)
 	sinikka_task = cfg.get_value("sinikka", "tehtava", 0)
-	tikka_ennatys = cfg.get_value("mokki", "tikka_ennatys", 0)
 	_has_taimet = cfg.get_value("peli", "taimet", false)
 	_sulo_free = cfg.get_value("peli", "sulo_ilmainen", false)
 	_auction_day = cfg.get_value("paivarajat", "huutokauppa", -1)
@@ -15271,7 +15225,6 @@ func _load_game() -> void:
 	_viita_fire_day = cfg.get_value("paivarajat", "viita_nuotio", -1)
 	_viita_kalja_day = cfg.get_value("paivarajat", "viita_kalja", -1)
 	_kaljarauha = cfg.get_value("peli", "kaljarauha", false)
-	var hm: Dictionary = cfg.get_value("mokki", "hommat", {})
 	_lawn_praise = cfg.get_value("nurmikko", "kehu", false)
 	world.home_hedge.load_state(cfg.get_value("pensasaita", "aita", {}))
 	hedge_nagged = cfg.get_value("pensasaita", "motkotettu", false)
@@ -15409,10 +15362,8 @@ func _save_game() -> void:
 	cfg.set_value("tanaan", "vaino", vaino_tila)
 	cfg.set_value("tanaan", "vaino_karkaa", _vaino_at)
 	cfg.set_value("peli", "kaljarauha", _kaljarauha)  # koskee seuraavaa aamua
-	# Mökillä tai Raahessa tallennettu peli jatkuu mökin pihasta (_resume_at_mokki), Santun hommat samana päivänä.
 	cfg.set_value("peli", "suklaa", has_chocolate)
 	cfg.set_value("peli", "kukat", has_flowers)
-	cfg.set_value("peli", "kahvipoyta_paiva", _kahvipoyta_day)
 	cfg.set_value("peli", "onki", has_onki)
 	cfg.set_value("peli", "kalalupa", kalalupa)
 	cfg.set_value("peli", "virveli", has_virveli)
@@ -15497,7 +15448,6 @@ func _save_game() -> void:
 	cfg.set_value("nurmikko", "rikki", mower_broken)
 	cfg.set_value("nurmikko", "varaosa", has_mower_part)
 	cfg.set_value("sinikka", "tehtava", sinikka_task)
-	cfg.set_value("mokki", "tikka_ennatys", tikka_ennatys)
 	cfg.set_value("nurmikko", "kehu", _lawn_praise)
 	if world != null and world.home_hedge != null:
 		cfg.set_value("pensasaita", "aita", world.home_hedge.save_state())
@@ -15694,8 +15644,7 @@ func _nearest_safe() -> Vector3:
 
 
 ## Uusi päivä turvapaikasta: vaarat ja kauppa nollautuvat, jemma, rahat ja laavun valtaus säilyvät.
-## where = "gasthaus": herätys Raahen Gasthausista. Saloisten asiat odottavat kuten mökillä, mutta Santun hommia
-## ei arvota eikä lappua kirjoita Santtu.
+## where = "gasthaus": herätys Raahen Gasthausista. Saloisten asiat odottavat, ja Päivin lista tulee kotiaamuna.
 func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	_clock_fast = false
 	_thief_stop()  # yöllä teini jättää pyörän siihen, missä se on
@@ -15793,7 +15742,7 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		var ra: String = r.aamu(false)
 		if ra != "":
 			bonus += "\n" + ra
-	if _sinikka_gossip: # mökkiaamuna juoru odottaa kotiaamua (lapun kirjoittaa Santtu)
+	if _sinikka_gossip:
 		_sinikka_gossip = false
 		_paivi_mad = true
 		tilat.add("stressi", -0.1)
@@ -15804,7 +15753,6 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 		bonus += "\nNäin sut telkkarissa. KESÄILLAN VALSSISSA. Kyyhkyjahdissa, vai? Me puhutaan tästä vielä."
 	if _juhannus():
 		_morning_info.append("Tänään on juhannusaatto! Illalla kokko Oulujärven rannalla ja juhannustanssit lavalla (TV kuvaa).")
-	var mokki_note := ""
 	var rauha := _kaljarauha
 	_kaljarauha = false
 	_roll_list()
@@ -15895,12 +15843,10 @@ func _new_day(spawn: Vector3, lost: bool, intro := "", where := "") -> void:
 	_flush_morning_info(intro)
 
 
-## Aamun lapun otsikko allekirjoittajan sanoin: kotona Päivi, laavulta ja mökiltä Päivi hämmästelee, mökillä Santtu.
+## Aamun lapun otsikko allekirjoittajan sanoin: kotona Päivi, laavulta Päivi hämmästelee.
 const MORNING_HEAD := {
 	"koti": ["Huomenta, kulta!", "Huomenta! Kahvia on pannussa.", "Huomenta! Mää lähin jo."],
 	"laavulta": ["Missä sää taas yöllä olit?!", "Laavulla nukuit taas, vai?"],
-	"mokilta": ["Tuu jo kotiin sieltä mökiltä!", "Huomenta, mökkiläinen."],
-	"mokki": ["Huomenta! Kahvit on keitetty.", "Huomenta mökille!", "Aamu! Sauna lämpiää illalla."],
 	"gasthaus": ["Hyvää huomenta! Aamukahvi kuuluu hintaan.", "Huomenta Raahesta! Kiitos yöpymisestä."],
 }
 ## Aamun pelitiedot (jemmat, varoitukset, teinit, pyörän paikka), joita lapun kirjoittaja ei tietäisi tai kirjoittaisi:
@@ -15908,7 +15854,7 @@ const MORNING_HEAD := {
 var _morning_info: Array[String] = []
 
 
-## Aamun pelitiedot ruudun viesteiksi. intro = päivän vaihdon oma viesti (kotiinpaluu, häviö, Raahe, mökki).
+## Aamun pelitiedot ruudun viesteiksi. intro = päivän vaihdon oma viesti (kotiinpaluu, häviö, Raahe).
 func _flush_morning_info(intro := "") -> void:
 	var lines: Array[String] = []
 	for l in intro.strip_edges().split("\n"):
@@ -16071,7 +16017,7 @@ func _setup_environment() -> void:
 	sun.light_energy = 1.35
 	sun.shadow_enabled = true
 	sun.shadow_blur = 1.0
-	# Varjoatlas 4096 (project.godot): 8192 maksoi mökillä 4 ms ruudussa (13,3 -> 9,4 ms), eikä ero näy suurennettunakaan.
+	# Varjoatlas 4096 (project.godot): 8192 maksoi 4 ms ruudussa (13,3 -> 9,4 ms), eikä ero näy suurennettunakaan.
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_max_distance = 180.0
 	sun.directional_shadow_blend_splits = true
@@ -16351,7 +16297,7 @@ func _build_hud() -> void:
 	_clock_hud = ClockHud.new()  # vasen yläkulma; Päivin lappu saa mennä päälle
 	_clock_hud.position = Vector2(20, 14)
 	layer.add_child(_clock_hud)
-	_stats = _label(layer, 22)  # matkan tiedot (viinakätköt, Santun hommat) kellon alla; pitkä rivi ei ylety kompassiin
+	_stats = _label(layer, 22)  # matkan tiedot (viinakätköt) kellon alla; pitkä rivi ei ylety kompassiin
 	_stats.position = Vector2(20, 14 + ClockHud.SIZE.y + 6)
 	# Näppäinohjerivi vasemmassa alakulmassa: vain ohjeet, joita ei voi arvata (vakiot WASD, Shift, Esc ja vihjepalkin
 	# E ja F jätetty pois). Pyörällä myös jarru ja kello. Näppäimet asetusten mukaan (_help_text).
@@ -16615,7 +16561,7 @@ func inventory_items() -> Array:
 			Settings.action_key("phone"), Settings.action_key("next_song"), Settings.action_key("phone_volume")])
 	if has_sausage:
 		add.call("makkara_valmis" if sausage_done else "makkara", "Grillimakkara" + (" (paistettu)" if sausage_done else ""), 1,
-			"Paistetaan laavulla tai mökin savustimessa.")
+			"Paistetaan laavulla.")
 	if has_matches:
 		add.call("tulitikut", "Tulitikut", 1, "Nuotion sytytykseen.")
 	if has_chocolate:
@@ -16706,7 +16652,7 @@ func inventory_items() -> Array:
 		elif BIRDS.has(nom):
 			icon = "lintu"
 			tint = BIRDS[nom]
-		add.call(icon, str(nom).capitalize(), catch[nom], "Raaka saalis · savustin mökin kesäkeittiössä", {"tint": tint})
+		add.call(icon, str(nom).capitalize(), catch[nom], "Raaka saalis", {"tint": tint})
 	add.call("polkky", "Pölkky", kota_polkyt, "Kodan halkotelineelle.")
 	add.call("halko", "Halko", kota_halot, "Kodan pesään.")
 	var bought: Dictionary = paivi_bag.duplicate()
@@ -17049,7 +16995,7 @@ func _pass_out_text() -> String:
 	return "%d.%02d" % [int(lim) / 60, int(lim) % 60]
 
 
-## Kahvikuppi siirtää nukahtamista (kodin ja mökin kahvit, baarien kahvit).
+## Kahvikuppi siirtää nukahtamista (kodin kahvit, baarien kahvit).
 func _coffee() -> void:
 	_night_coffee += 1
 
@@ -17091,8 +17037,8 @@ func _minigame_open() -> bool:
 	return false
 
 
-## Yön raja: sammutaan siihen missä ollaan. Kotona ja mökillä sänkyyn kuten nukkumaan mentäessä, muualla herätys
-## paikan mukaan (piha tai oja, autotallin lattia, baarin jälkeen koti tai mökki).
+## Yön raja: sammutaan siihen missä ollaan. Kotona sänkyyn kuten nukkumaan mentäessä, muualla herätys
+## paikan mukaan (piha tai oja, autotallin lattia, baarin jälkeen koti).
 func _pass_out() -> void:
 	var drunk := _humala_peak > 0.4
 	var spawn := Vector3.ZERO

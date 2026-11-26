@@ -70,7 +70,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Toisella kerralla Pentti suunnittelee kiertuetta, ja joka kolmas kyyti on **Pentin kiertue** (onnellinen loppu):
   loppukohtauksessa BangBus ajaa yön maantietä Kajaanin, Kuhmon ja Suomussalmen kautta, Pentti ratissa ja pelaaja
   etupenkillä. Herätys kotipihalta (Raahessa Gasthausin pihalta) klo 11, kiertuekulut 20–40 €.
-  Testit `--scene=bangbus` ja `--scene=bangbus_vaala`. Mainosjuliste: [kuvat/pentin_bangbus_juliste.png](kuvat/pentin_bangbus_juliste.png).
+  Testi `--scene=bangbus`. Mainosjuliste: [kuvat/pentin_bangbus_juliste.png](kuvat/pentin_bangbus_juliste.png).
 - **Kolmiomittaus (Sytkäri-mätsi, vain aikuisille):** Saloisten kaupan pihassa seisovat Joni (tummatukkainen golfari,
   selässä Sandels-oluen 24-pakkauksesta jesarilla tehty päkkirinkka termoksineen, golfpalloineen ja tölkkeineen) ja Esa
   (erämies, harppi taskussa), Raahen aseman pihassa Hevari-Tero (valittaa valtiosta) ja Sivikki-Timo (punainen Honda
@@ -97,9 +97,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (golfjutut, hyräily, valitus, VTEC). Kesken pelin Päivi soittaa: "Missä sää oot?" "Kolmiomittaamassa." "No tuo maitoa
   tullessas." Aamulla kahvit ja mansikkaletut (onnellinen loppu **Kolmiomittaus Saloisissa** tai **Raahessa**), ja
   seuraavana päivänä maito on vietävä kotiin, tai Päivi motkottaa. Yksi kolmiomittaus päivässä. Päiväkirjan Tehtävät-sivulle
-  tulee "Kolmiomittaus Saloisissa" tai "Raahessa", kun kavereiden kanssa juttelee ensimmäisen kerran (ajatusviesti), ja se
+  tulee "Kolmiomittaus Saloisissa", kun kavereiden kanssa juttelee ensimmäisen kerran (ajatusviesti), ja se
   leimataan tehdyksi aamulla; Saloisten tehtävällä on karttamerkintä kavereiden luo. Testit
-  `--scene=kolmiomittaus` ja `--scene=kolmiomittaus_vaala` (`tools/testit/kolmiomittaus.gd`).
+  `--scene=kolmiomittaus` (`tools/testit/kolmiomittaus.gd`).
 - **Iltakivat (kolmiomittauksen toinen ilta ja siitä eteenpäin, vain aikuisille, vähän rivoja):** kohteen ensimmäinen
   ilta on aina Rasvanappi, sen jälkeen illat kiertävät (`kolmiomittaus.gd KIVAT`; Saloisissa räsytuppi, lettukisa,
   karaoke ja löylykisa; Raahessa räsytuppi, Sivikki-disko, löylykisa, lettukisa ja karaoke). Jokaisen voitto on
@@ -147,7 +147,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   huipennusta tule. Päiväkirjan Tarina-sivulla luku 6 näkyy vaiheineen ja Päivin piirretyllä ilmeellä (rauhallinen,
   kulmat koholla, kädet puuskassa, laukku pakattu). Vihjeitä: Pekka ("Päivi kyseli musta eilen..."), Sinikka ja Pentti.
 - **Päivin kauppalista:** aamulla ruudun laidassa on Päivin heippalappu (kauppalista ja Päivin omin sanoin
-  kirjoittamat muistutukset; mökillä lapun kirjoittaa Santtu). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
+  kirjoittamat muistutukset). Pelin tiedot, kuten jemmojen tilanne ja varoitukset,
   tulevat ruudun viesteinä. Kauppalistan neljä tuotetta on kirjoitettu kukin omanvärisellä kynällä ("vihreä tamponi,
   punainen maito..."), mutta lappu näkyy vain hetken, ja repun kauppalistassa on pelkät tuotteet. Kaupan oikealla seinällä on Päivin hylly, jossa jokaisesta tuotteesta
   on viisi väriä: Q vaihtaa väriä, E ottaa, vaihtaa tai palauttaa. Päivin ostokset maksetaan Päivin rahoilla.
@@ -183,8 +183,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   `scripts/retket.gd`: nimi, lähtöpaikka, matkan kesto, meno-paluu-hinta ja kohtaus). Kohde on oma taskukohtaus (`retki_*.gd`), jossa
   kävellään kuten Raahen baarissa. Ovelta (taksille) E vie takaisin **lähtöpaikkaan** samaan paikkaan, josta lähdettiin: päivä ei vaihdu,
   paluumatka on jo maksettu ja kello siirtyy matkan keston verran sekä menossa että tullessa. Yöllä sammutaan kuten muuallakin
-  (herätys kotona). Uusi kohde = yksi rivi rekisteriin ja yksi tiedosto; Raahen aseman matkavalikko (`lahto: "vaala_asema"`)
-  generoidaan samasta rekisteristä, kun ensimmäinen Raahen kohde tulee.
+  (herätys kotona). Uusi kohde = yksi rivi rekisteriin ja yksi tiedosto;
 - **Matkaopas (B):** taksikuskilta saa kerran pehmeäkantisen taskuoppaan (taksivalikon valinta "Onko sulla mitään esitettä näistä
   retkipaikoista?"; tallentuu ensikertana `matkaopas`, näkyy repussa). Opas on aukeama (`scripts/matkaopas.gd`): kansilehti ja
   sisällys (käydyt rastitettu, klikkaus vie sivulle), sitten sivu jokaisesta rekisterin kohteesta. Nimi, lähtöpaikka, kesto ja
@@ -248,9 +247,9 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   - **Oma kirppispöytä (#128):** salin etuosassa vuokrattava pöytä ("OMA PÖYTÄ"): Hilkalta paikka 2 €/päivä (puheesta
     tai pöydän luota E), jonka jälkeen pöydän taakse pääsee koko päiväksi. Pöydälle viedään repusta kaikki myytävä:
     marjat ja sienet (litroittain ämpäristä), savukala ja savuriista sekä tiskin alta kalja ja pontikka. Ostajat
-    (mummo, mökkiläinen, Anna-Liisa, nuori mies) tulevat pöydän ääreen yksi kerrallaan ja tekevät tarjouksen; pelaaja
+    (mummo, Anna-Liisa, nuori mies) tulevat pöydän ääreen yksi kerrallaan ja tekevät tarjouksen; pelaaja
     hyväksyy (H), tekee vastatarjouksen (W/S hinta, väli) tai heittää ostajan pois (X). Ostajalla on piilotettu
-    enimmäishinta: mummo ja Anna-Liisa tinkivät, mökkiläinen maksaa enemmän, mutta yli 20 % enimmäishinnan ylittävä
+    enimmäishinta: mummo ja Anna-Liisa tinkivät, mutta yli 20 % enimmäishinnan ylittävä
     vastatarjous ajaa ostajan pois ("Pihi kuin Pekka") ja liian moni epäonnistunut yritys (sydämet) tyhjentää
     kärsivällisyyden. Liian halpa myynti jättää rahat saamatta. Kalja ja pontikka myydään vain nuorelle ostajalle, ja
     kauppa onnistuu vain, kun Anna-Liisa katsoo muualle (silmämerkki vihreä, varoitus ennen kuin hän kääntyy takaisin):
@@ -263,7 +262,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     (12), vieherasia (15), Itkevä poika -taulu (18) ja kampikahvimylly (12). Ne myydään omalla pöydällä kuten marjat;
     ostajat huudahtavat tavarasta ("Voi, Itkevä poika!"), Anna-Liisa tunnistaa Pekan tavarat, ja romujen ollessa
     pöydällä tulee myös keräilijä, joka maksaa vanhasta hyvin. Puolet romujen tuloista on Pekan (yhteenvedossa ja
-    viestissä). Tilitys Pekalle samana päivänä: maine +2 ja seuraava kyyti mökille ilmainen ("Pekan piikkiin").
+    viestissä). Tilitys Pekalle samana päivänä: maine +2 ja seuraava kyyti Raaheen ilmainen ("Pekan piikkiin").
     Jos osuus jää yön yli, Pekka tervehtii vihaisena eikä anna kyytiä, ennen kuin rahat tulevat (ei palkkiota).
     Myymättömät jäävät laatikkoon (reppu: Pekan romulaatikko). Sivutehtävä "Pekan vintin romut". Testi
     `--scene=pekanlaatikko`.
@@ -408,8 +407,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Kolme kohtaa (vierailija/tie, portti, muistokivi), kaikki "sanotaan"-muodossa; aukioloa tai museota ei esitetä varmana. Kun kaikki on käyty: mielihyvä +3 ja maine +1 kerran (`raate_legenda.gd`). Näkyy päiväkirjassa ensimmäisen kohdan jälkeen. Testi `--scene=raate`.
 - **Saloisten koulukeskus, päiväkoti, kentät ja ulkopingis (#143):** keskustan koulukeskus ja päiväkoti (OSM-rakennukset)
   nimikylttineen, kaksi jalkapallokenttää rajaviivoineen ja maaleineen sekä koulun pihan ulkopingispöytä ("PIHAPINGIS").
-  Pöydällä iltapäivisin ja iltaisin (14–21) E: haaste kylän nuorille samalla pingis_game.gd-minipelillä kuin Santun kanssa
-  mökillä, mutta koulun pihalla ja heikommalla vastustajalla (taito 0,72 ja +0,06 jokaisesta voitosta, enintään 0,96).
+  Pöydällä iltapäivisin ja iltaisin (14–21) E: haaste kylän nuorille samalla pingis_game.gd-minipelillä
+  koulun pihalla heikommalla vastustajalla (taito 0,72 ja +0,06 jokaisesta voitosta, enintään 0,96).
   Voitto: nuoret tarjoavat limut, kerran päivässä maine +3, moraali ja stressi paranevat ("Setä on ihan ok"). Tappio: tarjoat
   limut (3 €), jos rahaa ei ole, maine −2 kerran päivässä. Päiväkodin toinen paikka px (585, 12) osuu leikkipaikkaan eikä
   omaan rakennukseen, joten kyltti on vain päiväkodilla px (725, 123). Ei vielä: Päivin työpaikka päiväkodissa eikä juniorien
@@ -564,13 +563,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   - **Aukioloajat:** K-Marketit 7–21, Alkon hylly 9–18, Siitarin baari 11–02 (hotellin vastaanotto aina auki),
     Kapteenin Kulma 14–02 ja lavatanssit 20–01, pankkiautomaatti aina. Suljetulla ovella kerrotaan, milloin paikka
     aukeaa, ja taksi Raaheen ei lähde, jos baari on perillä kiinni. Sulkemisaikaan sisällä tulee valomerkki: kaupassa
-    kauppias hoputtaa, ja baareista ja lavalta ohjataan ulos vartin päästä (`--scene=mokkiaukiolot`).
-  - **Rönttönen (Kainuun rönttönen, `ronttonen_game.gd`):** mökin keittiössä piste "Leivo rönttösiä" (E). Kolme vaihetta hiirellä:
-    kaulinta (vedä kaulinta hiiri pohjassa pystyyn ja vaakaan, taikinasoikio kasvaa), täyte (4 keko perunamuusia, sitten 3 lusikallista
-    puolukkaa; muusi ensin) ja reunan nyppiminen (18 poimua klikkaamalla). Valmis rönttönen on avoin soikea: täyte näkyy ja reuna on
-    poimuinen. Erä on 3 rönttöstä (reppuun enintään 6). Kun ne viedään kotiin, Päivi kattaa kahvipöydän (3D: liina, kahvipannu, kupit ja
-    rönttöset lautasella) sille päivälle: mielihyvä +10 ja stressi alas (palkkio kerran päivässä, loput rönttöset säilyvät).
-    Humalassa kursori huojuu. Testi `--scene=ronttonen`.
+    kauppias hoputtaa, ja baareista ja lavalta ohjataan ulos vartin päästä.
 - **Drooni:** kotipihan asfaltilla on droonin laskeutumisalusta (jalan E). Kuvauskopterilla tutkitaan Saloisia
   ilmasta: W/S/A/D liikkuu, hiiri tai Q/E kääntää, Space nousee, C laskee, Shift = sport-tila ja hiiren pystyliike
   kallistaa kameraa. V vaihtaa FPV- ja seurantakameran. Vasen nappi ottaa ilmakuvan: tunnistettavia kohteita on 14
@@ -578,10 +571,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   jalkapallopojat ja... Pannu-Sulon pontikkapannu, joka merkitään kuvan jälkeen karttaan). Akku kestää 5 min ja
   latautuu alustalla, korkeusraja on 120 m ja kantama noin 2,7 km (akku ei riitä aivan kantaman reunalle ja takaisin): heikolla akulla tai signaalilla drooni palaa
   itse kotiin (H palaa, F laskeutuu). Kova törmäys rikkoo droonin päiväksi. Päivin jahti on tauolla lennon ajan.
-  Drooni kulkee mukana myös **mökille**: alusta on pysäköintipaikan vieressä mökin takana. Mökillä kuvattavia on
-  mökki, savusauna, palju, kesäkeittiö, laituri, metsästyslava, Santtu, Korpi-Kallen pannu ja lähijärvet (Likanen, Tervalampi,
-  Kiiskeroinen); lentoalue ulottuu noin 600 m:n päähän, ja järveen tipahtanut drooni on mennyttä. Moottoreista
-  kuuluu vain pieni surina.
+  Moottoreista kuuluu vain pieni surina.
 - **Reppu (I tai Tab):** sama nahkakantinen kierrevihko kuin Normipäiväkirja (`mg_draw.gd notebook`: kansi, viivapaperi,
   marginaali, kierrerenkaat, tahrat, otsikkokyltti, välilehti ja käsiala). Oikealla sivulla on **9 taskua** 3 x 3 -ruudukossa:
   tavarat, kaljat, ostokset, sienet, kalat, saaliit ja eväät (T, klikkaus syö tai juo) pikselikuvakkeina ja pinoina. Täyden repun
@@ -622,9 +612,8 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   `nipple_cloth`). Lapsilla ja nuorilla niitä ei ole (pituus alle 1,5 m tai lookin `nipples: false`).
 - **Kengät (#272, #274):** jokaisella hahmolla on oma kenkätyyppi (`look.shoe`; `Shoes.type_for` käyttää `shoes`-väriä vain varalla).
   Pelaajalla tuulipuvussa lenkkarit, farkuissa ja työvaatteissa työkengät ja hiihtohaalarissa kuukengät; saunassa ja uidessa
-  paljain jaloin. Kirppikseltä ostetut släbärit ja villasukat korvaavat asun kengät vaatekaapista (ks. kirppis). **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin päätyseinällä punaisen uunin vieressä on
-  vihreä saapaspari vaalealla kuramatolla. Ne ovat periaatteessa yhdet saappaat: kun ne ottaa kummasta tahansa paikasta,
-  ne katoavat molemmilta matoilta, ja ne voi palauttaa kummalle tahansa. E avaa valikon: matolta jalkaan tai reppuun,
+  paljain jaloin. Kirppikseltä ostetut släbärit ja villasukat korvaavat asun kengät vaatekaapista (ks. kirppis). **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) on
+  vihreä saapaspari vaalealla kuramatolla. E avaa valikon: matolta jalkaan tai reppuun,
   jalasta matolle tai reppuun ja repusta jalkaan tai matolle. Repussa kulkevat saappaat vaihtuvat jalkaan missä tahansa
   repusta (I) tai T-valikosta, ja riisutut menevät takaisin reppuun, joten omat kengät saa aina takaisin. Ne pysyvät jalassa
   paikasta toiseen ja tallentuvat (`pelaaja/saappaat`, `pelaaja/saappaat_repussa`), eikä paikka vaihda kenkiä itsestään.
@@ -669,16 +658,10 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   osunut jää kiinni ja reunaan osunut lennättää pölkyn pölliltä. Raimo ja Veikko tulevat ulos kommentoimaan.
 - Kartan reunalla hahmo kommentoi, miksi pidemmälle ei kannata lähteä.
 
-### Mökin esikuva
-
-- **Mökki** on mallinnettu oikean Airbnb-vuokramökin ("The warmth of a smoke sauna and cottage life",
-  Neittävä) valokuvien mukaan. Se on erillinen alue, jonne pääsee naapurin Pekan kyydillä tai kaupan taksilla.
-
 ## Maiseman täyttö: talot (K1–K8)
 
-Saloisten ja Raahen nimettömät OSM-rakennukset saavat oman mallin (`scripts/rakennukset.gd`), jonka tyypin, värit ja mitat
-valitsee `scripts/taytto.gd` pohjasta. Täyttö on vain Saloisissa (`world.gd _build_houses`) ja Raahessa (`vaala.gd`), ei Raahessa:
-Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy silti pienenä osuutena kummassakin kylässä.
+Saloisten nimettömät OSM-rakennukset saavat oman mallin (`scripts/rakennukset.gd`), jonka tyypin, värit ja mitat
+valitsee `scripts/taytto.gd` pohjasta. Täyttö on vain Saloisissa (`world.gd _build_houses`): Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy silti pienenä osuutena.
 
 - **K1** rintamamiestalo (1½ krs, avoräystäät) | **K2** matala omakotitalo (70-80-luku, osa tasakattoisia, peiterima- tai tiilenvärinen)
   | **K3** aitta, myös rantamökki (suurennettu) | **K4** lato | **K5** Raahen vanha puutalo (aita, kun tietä on)
@@ -737,35 +720,33 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
 
 ## Normipäiväkirja: tarina, tehtävät, onnelliset loput ja legendaariset hetket (O)
 
-- **Tarina** etenee luvuittain: 1. Raaheen pääsee, kunhan… (naapurien hommat ja Pekan kyyti mökille), 2. Raahen
-  isäntä (Santun hommat ja savusaunan korjaus), 3. Mopolla Raaheen (Siitari, Oulujärven lava, kiihdytys), 4. Junalla
-  kotiin ja 5. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Lapinraunion aarnivalkea, Kertunkankaan rauta, Tekojärven Ukko) sekä rinnakkainen 6. Päivi epäilee (aikuisille, ks. yllä). Seuraavaan
-  vaiheeseen vihjataan puheissa: Santtu, Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka
+- **Tarina** etenee luvuittain: 1. Pekan hommat (naapurien hommat ja Pekan kyyti Raaheen) ja 2. Kylän salaisuudet (Seuranmäen kirppis, Tokolan varasto ja aarre, Vanhan Sulon pannu, Lapinraunion aarnivalkea, Kertunkankaan rauta, Tekojärven Ukko) sekä rinnakkainen 6. Päivi epäilee (aikuisille, ks. yllä). Seuraavaan
+  vaiheeseen vihjataan puheissa: Siitarin baarimikko, aidan takana porukka, Gasthausin emäntä, Pekka
   ja Tauno kertovat, mitä seuraavaksi.
 - **Sivutehtävät**: kauppalista, nurmikko, laavu, Väinö, jalkapallopojat, pontikka, ilmakuvat, kotiviini,
-  sähköpyörä, huutokauppa, tanssit ja bingo, Teron kädenvääntö, Santun viisi tähteä, viina- ja rahakätköt,
+  sähköpyörä, huutokauppa, tanssit ja bingo, Teron kädenvääntö, viina- ja rahakätköt,
   eräjorma, pihapingis ja pummilla lavalle. Retkien legendat (tietokonemuseon Pong, Wanhan Raahen kierros, kuvakirkon
   piilokuvat, kapteenin taskukello, Kuhmon karhukuva, Hiidenportti, Pyhäkosken tarinat, Kajaanin linna ja Raatteen
   Portti, Kalajoen rantafutis) tulevat tiedoksi perillä ensimmäisestä kohdasta, edistyminen otsikon perässä (esim. tarinat 1 / 3).
   Lisäksi Teeriniemen kalalampi (saalis), Kapteenin Kulman pubivisa (kaikki oikein), ponkkarin uimakisa (voitto),
   Valentin Raahen elokuvapäivät (Veturitallin ovelta) ja Hanttihommat (keikkatyö, kesäduuni, työkkäri, pullonkeräys ja
-  kioskihengailu, kokeiltu X / 5) ja Kylän tekemisiä (juoksulenkki, lintutorni, rönttöset, hedelmäpeli, pajatso,
-  muskelivene ja juhannuskokko, kokeiltu X / 7). Salaiset (Rasvanappi, rakaleiman kopio, Nyrkit puhuu: tappelun voitto) tulevat
+  kioskihengailu, kokeiltu X / 5) ja Kylän tekemisiä (juoksulenkki, lintutorni, hedelmäpeli, pajatso
+  ja juhannuskokko, kokeiltu X / 5). Salaiset (Rasvanappi, rakaleiman kopio, Nyrkit puhuu: tappelun voitto) tulevat
   päiväkirjaan vasta, kun ne on kerran tehty.
 - **→ näytä kartalla** tehtävän alla asettaa kompassin (lyijykynärengas kartalla). Toisten paikkakuntien tehtävät
   (Raahe, Hanhikivi, Pakkahuone, Peruskivi, Manamansalo ja retkien legendat) osoittavat K-Marketin taksitolpalle,
   eikä niille piirretä omaa rengasta. Linkitöntä tehtävää ei voi näyttää: kohde liikkuu (Väinö, pallo, Pentti) tai se
-  on mökillä tai Raahessa, joka ei ole Saloisten kartalla.
+  on Raahessa, joka ei ole Saloisten kartalla.
 - **Jemmat**-välilehti: kaikki löydetyt jemmapaikat täyttöpalkkeineen (kaljat / tila), kotijemma tavoitteeseen
   nähden tölkkiriveinä, ulkojemmat ja yhteensä sekä riskit: Päivi voi löytää liian täyden
   kotijemman, ja teinit voivat pölliä ulkojemmasta. Reppu (I) näyttää myös tyhjät löydetyt jemmat. Testi `--scene=jemmat`.
 - **Päiväkirja (O)** ei paljasta mitään etukäteen: luku näkyy, kun siihen päästään, vaihe, kun siitä on kuultu, ja
   sivutehtävä, kun siitä on kerrottu. Uusista vihjeistä tulee ilmoitus "Päiväkirjaan tuli uutta".
 - **Onnelliset loput** (päivä päättyy loppukohtaukseen): juhlat autotallissa, viinibileet, laavulla kaljoilla,
-  legendaarinen normipäivä, mökkibileet, erämaan laavu (Viitajärven laavu auringonlaskussa), Kymppiuutiset nauhalta
+  legendaarinen normipäivä, erämaan laavu (Viitajärven laavu auringonlaskussa), Kymppiuutiset nauhalta
   (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa), Mirkun
-  teltassa sekä kolmiomittaus Saloisissa ja Raahessa. Ilmoitus "ONNELLINEN LOPPU".
-- **Legendaariset hetket** (saavutukset, peli jatkuu): Raaheen Pekan kyydillä, savusaunan löylyt, Pentin ensimmäinen kyyti, lavatanssit,
+  teltassa sekä kolmiomittaus Saloisissa. Ilmoitus "ONNELLINEN LOPPU".
+- **Legendaariset hetket** (saavutukset, peli jatkuu): Raaheen Pekan kyydillä, Pentin ensimmäinen kyyti, lavatanssit,
   karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
   Drakkar Noir ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".

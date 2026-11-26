@@ -128,7 +128,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.get_tree().quit()
 		"saappaat":
 			# #274: kumisaappaat kodin eteisestä (E jalkaan ja pois), asun vaihto saappaat jalassa (haalari voittaa), pyörä,
-			# mökin saappaat ("jo jalassa"), tallennus. Kuvat: esine edestä, päädystä ja ylhäältä, jalat lähikuvina.
+			# tallennus. Kuvat: esine edestä, päädystä ja ylhäältä, jalat lähikuvina.
 			var saved := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
 			var snap := func(name: String) -> void:
 				for i in 20:
@@ -238,25 +238,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			var kp := main.bike.global_position + Vector3(0, 0.45, 0)
 			await close.call(kp, kp + main.bike.global_basis.x * 1.6 + Vector3(0, 0.2, 0), "_pyora_jalat.png")
 			await close.call(kp, kp - main.bike.global_basis.x * 1.6 + Vector3(0, 0.2, 0), "_pyora_jalat_vasen.png")
-			# 3. Mökillä: sama pari, joten mökin matto on tyhjä; E riisuu ne reppuun.
 			main._toggle_mount()
-			for i in 5:
-				await main.get_tree().process_frame
-			await snap.call("_mokki_tulo.png")
-			for i in 5:
-				await main.get_tree().process_frame
-			print("SAAPPAAT mökki vihje '%s'" % main._hint.text)
-			await press.call()
-			await menu.call("reppuun")
-			var bag_cf := ConfigFile.new()
-			bag_cf.load(Main.SAVE_PATH)
-			check.call("tallennus reppu", bag_cf.get_value("pelaaja", "saappaat_repussa", ""), "repussa")
-			await snap.call("_mokki.png")
-			# Mökin matolle: sama pari näkyy taas kummallakin matolla.
-			await press.call()
-			await menu.call("tahan")
-			await press.call()
-			await menu.call("jalkaan")
 			# 4. Kotona E: omat kengät takaisin.
 			main._enter_home("ovi")
 			main.home_int.walker.position = main.home_int.SPOTS.saappaat[0]
@@ -265,7 +247,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			print("SAAPPAAT koti 2 vihje '%s'" % main._hint.text)
 			await press.call()
 			check.call("kodin matto tyhjä", main.home_int._boots.visible, false)
-			await menu.call("tahan")  # mökiltä otetut saappaat kodin matolle
+			await menu.call("tahan")
 			print("SAAPPAAT pois: boots '%s', tyyppi %s, esine näkyvissä %s, viesti '%s'" % [Looks.boots, types.call(),
 				main.home_int._boots.visible, main._msg.text])
 			check.call("koti pois", [Looks.boots, types.call(), main.home_int._boots.visible], ["", ["lenkkari"], true])
@@ -605,8 +587,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._inventory.toggle()
 			print("REPPUK sisällä: ulkokävelijän ohjaus %s, tila %s" % [main.walker_out.controls_enabled, main.state])
 		"reppu":
-			# Reppu täynnä tavaraa Saloisissa (kuva _reppu), sitten mökille: HUD ilman pääpelin tehtäviä, pyörän
-			# välimatka ja repun mökkinäkymä (kuva _reppu_mokki). Tallennus palautetaan.
+			# Reppu täynnä tavaraa Saloisissa (kuvat _reppu ja _reppu_pohja). Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
 			var snap := func(suffix: String) -> void:
 				await Kuva.piirto()
@@ -641,27 +622,6 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._inventory._hover = main._inventory.SLOTS - 1
 			main._inventory.queue_redraw()
 			await snap.call("_reppu_pohja.png")
-			main._inventory.toggle()
-			await main.get_tree().process_frame
-			main._toggle_mount()
-			for i in 10:
-				await main.get_tree().physics_frame
-			await main.get_tree().process_frame
-			print("REPPU HUD mökki: ", main._stats.text.replace("\n", " | "), " status=", main._status.text,
-				" hazards=", main._hazards.process_mode)
-			Input.action_press("mount")
-			await main.get_tree().process_frame
-			Input.action_release("mount")
-			await main.get_tree().process_frame
-			print("REPPU pyörä: ", main._msg.text)
-			var e0 := main.clock_min
-			for i in 30:
-				await main.get_tree().process_frame
-			print("REPPU aika mökillä %.2f -> %.2f" % [e0, main.clock_min])
-			main._inventory.toggle()
-			for i in 5:
-				await main.get_tree().process_frame
-			await snap.call("_reppu_mokki.png")
 			main._inventory.toggle()
 			if not saved.is_empty():
 				FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)

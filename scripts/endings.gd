@@ -10,7 +10,6 @@ const ENDINGS := [
 	["viinibileet", "Viinibileet", "Kotiviini kypsyi saavissa: Pekka, Arto ja Sinikka autotalliin."],
 	["laavu", "Laavulla kaljoilla", "Laavu vallattu, kalja auki Antinsuonkankaalla."],
 	["legendaarinen", "Legendaarinen normipäivä", "Nuotio, makkara ja kalja laavulla auringonlaskussa."],
-	["mokkibileet", "Mökkibileet", "Raahen kotiviini, Santtu, Sinikka ja Korpi-Kalle. Herätys jostain krapulassa."],
 	["paapeli", "Raaheen Pekan kyydillä", "Naapurin hommat tehty, avaimet löytyi, ja Volvo kaahaa Raaheen."],
 	["savusauna", "Savusaunan löylyt", "Korjattu savusauna, pehmeät löylyt ja järvi perään."],
 	["lavatanssit", "Lavatanssit Oulujärvellä", "Humppaveikot soitti, ja jalka nousi kuin nuorena."],
@@ -56,7 +55,7 @@ const ENDINGS := [
 
 ## Oikeat onnelliset loput: päivä päättyy loppukohtaukseen (juhlat tallissa, viinibileet, laavu). Muut ovat
 ## legendaarisia hetkiä: saavutuksia, joiden jälkeen peli jatkuu.
-const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet", "eramaan_laavu", "uutiset", "mirkku",
+const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "eramaan_laavu", "uutiset", "mirkku",
 	"minttu", "katja", "pentin_kiertue", "kulissit", "avoin_pelikortti"]
 
 ## Legendaariset hetket, jotka koetaan lavastettuna kohtauksena (cutscene.gd): ei erillistä ilmoitusta, vaan kohtauksen

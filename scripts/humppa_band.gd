@@ -5,7 +5,7 @@ extends Node3D
 ## sulkeutuvat, kitaristi näppäilee iskujen välissä, rumpali lyö bassorumpua iskulla ja virveliä välissä, symbaalit
 ## heilahtavat. Päät nyökkäävät tahdissa.
 ## Paikallinen kehys: yleisö -Z:n suunnassa (hahmojen oletuskatse), lavan takaseinä +Z. Lavan pinta y = 0.
-## Käyttö: vaala.gd (lava ulkoa, ikkunoista näkyy) ja lava_game.gd (tanssit). bpm ja playing ohjaavat soittoa.
+## Käyttö: lava_game.gd (tanssit). bpm ja playing ohjaavat soittoa.
 ## Ohjelmisto: vanhat iskelmät ja lavamusiikki äänitteinä (iskelmat.gd); jos tiedostoja ei ole, syntetisoitu humppa
 ## (humppa_synth.gd). Äänitteen loputtua bändi soittaa seuraavan.
 

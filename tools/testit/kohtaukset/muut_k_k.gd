@@ -31,7 +31,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 		"kick":
 			main.player.position = main.juntti.position + Vector3(0, 0.3, 1.2)
 		"kello":
-			# Vuorokausikello: kulku ulkona, kotona, autotallissa ja mökin tuvassa, tauko pysäyttää, nokoset ja
+			# Vuorokausikello: kulku ulkona, kotona, autotallissa, tauko pysäyttää, nokoset ja
 			# auto-/taksimatka hyppäävät, uusi päivä alkaa klo 8. Kuva HUD:sta.
 			if main.player == main.bike:
 				main._toggle_mount()
@@ -61,9 +61,6 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await main.get_tree().create_timer(2.0, true, false, true).timeout
 			main.get_tree().paused = false
 			print("KELLO tauolla: +%.2f" % (main.clock_min - c2))
-			var c3 := main.clock_min
-			print("KELLO autolla mökille: +%.0f min -> %s" % [main.clock_min - c3, main._clock_text()])
-			await tick.call("mökillä")
 			print("KELLO repussa: ", main.inventory_info().lines[0])
 			main._new_day(main.home_zone + Vector3(0, 0, 4), false)
 			print("KELLO uusi päivä %d: %s" % [main.day, main._clock_text()])
@@ -541,40 +538,6 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 						print("TESTI VIKA pelaaja jäi piiloon kaukalon läpsyn jälkeen")
 			else:
 				print("KORKIT kaukalo: iltateinit eivät paikalla, ei tarkistettu")
-			main._lapsy_day = -1
-			for i in 6:
-				main.korkit.add("kontio:tavallinen")
-			main.clock_min = 19 * 60.0
-			for i in 10:
-				await main.get_tree().process_frame
-			var t_ennen: int = main.korkit.tuplat()
-			main._start_korkkilapsy()
-			print("KORKIT läpsy: peli %s, pinossa %d, tuplat %d -> %d" % [main._lapsy_game != null,
-				main._lapsy_game.stack.size() if main._lapsy_game != null else 0, t_ennen, main.korkit.tuplat()])
-			if main._lapsy_game == null or main._lapsy_game.stack.size() != 6 or main.korkit.tuplat() != t_ennen - 3:
-				print("TESTI VIKA korkkiläpsy ei alkanut oikein")
-			else:
-				var lg = main._lapsy_game
-				lg._aim = 0.2
-				lg._phase = "power"
-				lg._power = 0.5
-				for i in 40:
-					await main.get_tree().process_frame
-				await Kuva.piirto()
-				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_lapsy_tahtays.png"))
-				lg._strike(0.05, 0.72)
-				await main.get_tree().create_timer(0.45).timeout
-				await Kuva.piirto()
-				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", "_lapsy_lyonti.png"))
-				var n_me: int = lg._won_me.size()
-				print("KORKIT läpsy lyönti: sain %d, pinossa %d" % [n_me, lg.stack.size()])
-				var d_ennen: int = main.korkit.owned.values().reduce(func(a, b): return a + b, 0)
-				lg._end(true)
-				await main.get_tree().process_frame
-				var d_jalk: int = main.korkit.owned.values().reduce(func(a, b): return a + b, 0)
-				print("KORKIT läpsy loppu: korkkeja %d -> %d, peli poissa %s" % [d_ennen, d_jalk, main._lapsy_game == null])
-				if main._lapsy_game != null or d_jalk < d_ennen:
-					print("TESTI VIKA korkkiläpsyn lopetus")
 			# Täysi aukeama palkitaan kerran; kansio päiväkirjan Korkit-välilehdellä (kuva).
 			var maine0 := main.maine
 			main.korkit.add("koffi:tavallinen")

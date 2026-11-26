@@ -72,23 +72,8 @@ Toimintojen vaikutukset tiloihin:
 | Tappelun voitto | moraali +, kokemus + (tappelun miinusten päälle) |
 | Kädenvääntö Raahessa: voitto / häviö | moraali + / moraali − |
 | Marjojen tai sienten myynti | moraali + |
-| Mökki: savusauna / palju (kerran päivässä) | stressi ++, väsymys ++, kipu +, vireys + / stressi ++, kipu +, stamina + |
-| Mökki: kala laiturilta / tikan täysosuma (kerran päivässä) | moraali +, stressi + / moraali +, keskittyminen + |
-| Mökki: metsästys saaliin kanssa / hirvi ammuttu | moraali + (0,05 per saalis), stressi + / moraali −−, stressi −− |
-| Mökki: savustus valmis | stressi + |
-| Mökki: pihapingis | stamina −, nälkä −; kerran päivässä voitto: moraali +, keskittyminen +, stressi + / häviö: stressi +, moraali − |
-| Mökin piha (paikallaan) | kuten nuotio: stressi ++, vireys + |
 | Lava: leiman kopiointi teinin kädestä (räkäleima): onnistuu / teini huomaa | stressi − / stressi −, moraali −, maine −1 |
-| Mökki: kiukaan tai paljun kamiinan sytytys (kerran päivässä kumpikin) | stressi + |
-| Mökki: Santun homma tehty / kaikki hommat tehty | moraali +, stressi + / moraali ++, stressi + |
-| Mökki: peukaloon vasaralla / ampiaisen pisto / tikkailta putoaminen | kipu − / kipu − / kipu −−, stressi − |
-| Mökki: sanko läikkyi / häkää savusaunassa | stressi −, moraali − / kipu −, vireys −, stressi − |
-| Mökki: Santun häätö | moraali −−, stressi −− |
-| Mökin sisällä olo | stressi +, vireys + (hitaasti), nälkä − |
-| Mökin sisällä (kerran päivässä): suodatinkahvi / takka / TV | vireys ++, stressi + / stressi + / stressi +, kokemus − |
-| Mökin sisällä (kerran päivässä): suihku / sisäsauna | vireys +, kipu + / stressi ++, väsymys ++, kipu + |
-| Nukkuminen mökillä | väsymys +++ (ennen päivän tulosta), aamulla stressi − (Päivi soittaa) |
-| Pekan kyyti mökille (ensimmäinen kerta) | kokemus + |
+| Pekan kyyti Raaheen (ensimmäinen kerta) | kokemus + |
 | Poliisilta pakoon | stressi + |
 | Kolmiomittaus: väärä ovi | moraali − (vähän) |
 | Kolmiomittaus: onnellinen loppu (Rasvanappi naisen luona ja aamukahvit) | moraali +, stressi +, vireys +, kokemus + (ensikerrat) |

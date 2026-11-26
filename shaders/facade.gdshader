@@ -1,6 +1,6 @@
 shader_type spatial;
 render_mode cull_disabled;
-// Vaalan talojen seinät yhdistettynä meshinä: väri verteksiväristä, materiaali verteksivärin alfasta.
+// Talojen seinät yhdistettynä meshinä: väri verteksiväristä, materiaali verteksivärin alfasta.
 // 1.0 vaakapaneeli (omakotitalot), 0.75 pystylaudoitus peiterimoin (vajat), 0.5 tiili, 0.25 rappaus,
 // 0.0 betonielementit saumoineen. Koordinaatit maailmasta seinän suunnan mukaan: kuvio ei veny.
 

@@ -766,7 +766,7 @@ static func swim_look(base: Dictionary) -> Dictionary:
 
 ## Salmisen uimarannalla: kahlaus hiekkapohjalle, rintauintia ja sukellus kirkkaaseen veteen (vedenalainen kuva:
 ## aaltoileva hiekkapohja, kaisloja, ahvenparvi, valokiilat ja kuplat), sitten pinnalle polskimaan. frame =
-## rannan kehys vesirajassa (+Z järvelle, Mokki.beach_frame), wl = vedenpinnan korkeus maailmassa, ground(p) = maan
+## rannan kehys vesirajassa (+Z järvelle), wl = vedenpinnan korkeus maailmassa, ground(p) = maan
 ## korkeus maailman pisteessä p (kahlaus).
 func swim_dive(frame: Transform3D, wl: float, ground: Callable, done: Callable, title := "SALMINEN",
 		sub := "Maailman paras uimaranta. Hiekka lämmittää jalkapohjia.", sub_end := "Maailman paras uimaranta. Ei epäilystäkään.") -> void:
@@ -1506,7 +1506,7 @@ func pentti_tour(stats: String, done: Callable) -> void:
 	_title.add_theme_font_size_override("font_size", 150)
 
 
-# --- Pekan kyyti mökille ----------------------------------------------------------
+# --- Pekan kyyti ----------------------------------------------------------
 
 
 

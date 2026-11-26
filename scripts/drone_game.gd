@@ -8,7 +8,7 @@ extends Node3D
 ## Akku riittää viideksi minuutiksi; 20 %:ssa varoitus, 8 %:ssa automaattinen paluu kotiin. Yli kantaman
 ## signaali heikkenee ja drooni palaa itse. Kova törmäys maahan, taloon tai puuhun rikkoo droonin.
 ## main.gd:n lapsi, paikka = laskeutumisalusta; body liikkuu maailmassa (tutka, kompassi ja kartta seuraavat sitä).
-## Lennetään kotipihalta Saloisissa tai mökin pihalta: maanpinta, vesi ja lentoalue annetaan kutsuttavina
+## Lennetään kotipihalta Saloisissa: maanpinta, vesi ja lentoalue annetaan kutsuttavina
 ## (oletuksena Saloisten maasto ja pelialue).
 
 signal photographed(id: String)

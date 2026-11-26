@@ -1,7 +1,7 @@
 extends Node
 ## Kolmiomittauksen (#255) piirretyt kohtaukset ja Sytkäri kuvina ilman pelimaailmaa: ovi Saloisissa (lahjat
-## ojennettu) ja Raahessa, väärä ovi (mummo keppi ylhäällä, pieni poika), aamu kummassakin, Sytkärin kortti, mätsi ja
-## mittaus kummallekin naiselle. Hahmot ovat 3D-hahmoja (Looks.make) kohtausten omissa lavastuksissa. Jokaisen
+## ojennettu), väärä ovi (mummo keppi ylhäällä, pieni poika), aamu, Sytkärin kortti, mätsi ja
+## mittaus. Hahmot ovat 3D-hahmoja (Looks.make) kohtausten omissa lavastuksissa. Jokaisen
 ## kohtauksen hahmoille ja Jonin rinkalle ajetaan läpimenotarkistus (Asento.solids, "LÄPI … -> …" = VIKA).
 ## tools/testit/aja.sh tscn tools/testit/kolmio_kuvat.tscn
 const Kuva := preload("res://tools/testit/kuva.gd")
@@ -71,96 +71,6 @@ func _lapi(node: Node, nm: String) -> void:
 	print("KOLMIO läpimenot %s: %d hahmoa, %d läpimenoa" % [nm, list.size(), bad])
 
 
-## Lahjojen pitely lähikuvina (Raahessa kaikki kolme kantavat): edestä, sivulta ja ylhäältä kunkin lahjan kohdalta.
-## Ennen kuvia otteen rako numeroina (_rako), kädet vartalosta (_kasi_vartaloon) ja läpimenot (Asento.solids).
-## Lopuksi lahjat kuistin pöydällä (kaikki ojennettu) edestä, sivulta ja ylhäältä.
-func _holders() -> void:
-	var ui = _scene("ovi", "vaala", func(u): pass)
-	ui._line = 0; ui._given = 0; ui._door = 0.0; ui._door_to = 0.0; ui._line_t = 9.0
-	for i in 12:
-		await get_tree().process_frame
-	for nimi: String in ui._props:
-		_rako(ui._people[nimi], ui._props[nimi], nimi)
-		_kasi_vartaloon(ui._people[nimi], nimi)
-	_lapi(ui, "pitely")
-	for nimi: String in ui._props:
-		var prop: Node3D = ui._props[nimi]
-		var ch: Node3D = ui._people[nimi]
-		var c := prop.global_position + Vector3(0, 0.08, 0)
-		var fwd := -ch.global_basis.z
-		for v in [["edesta", fwd * 0.75 + Vector3(0, 0.12, 0)], ["sivulta", ch.global_basis.x * 0.6 + fwd * 0.2 + Vector3(0, 0.25, 0)],
-				["ylhaalta", fwd * 0.2 + Vector3(0, 0.55, 0)]]:
-			var eye: Vector3 = c + v[1]
-			ui._cam_base = Transform3D(Basis.looking_at(c - eye, Vector3.UP if v[0] != "ylhaalta" else fwd), eye)
-			for i in 4:
-				await get_tree().process_frame
-			await Kuva.piirto()
-			Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_pitely_%s_%s.png" % [nimi.replace(" ", "_"), v[0]]))
-	ui._given = 3
-	for i in 30:  # lahjat liukuvat pöydälle
-		await get_tree().process_frame
-	var t: Vector3 = ui._table_top + Vector3(0, 0.08, 0)
-	for v in [["edesta", Vector3(0.1, 0.25, 0.85)], ["sivulta", Vector3(0.8, 0.3, 0.1)], ["ylhaalta", Vector3(0, 0.75, 0.12)]]:
-		var eye: Vector3 = t + v[1]
-		ui._cam_base = Transform3D(Basis.looking_at(t - eye, Vector3.UP), eye)
-		for i in 4:
-			await get_tree().process_frame
-		await Kuva.piirto()
-		Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_poyta_lahjat_%s.png" % v[0]))
-	ui.queue_free()
-	await get_tree().process_frame
-
-
-## Otteen rako: käden ja sormien pinnan pisteet (Pose.limb_points) lahjan kehyksessä, etäisyys lahjan sivupintaan
-## (rasian kaltevat seinät, purkin vaippa, kimpun kääre). Kummankin käden pienin rako; negatiivinen = sisällä.
-func _rako(ch: Node3D, prop: Node3D, nimi: String) -> void:
-	var sk: Skeleton3D = ch.skeleton
-	for lr in ["_l", "_r"]:
-		var bones := []
-		for i in sk.get_bone_count():
-			var bn := sk.get_bone_name(i)
-			if bn.ends_with(lr) and (bn.begins_with("hand") or bn.begins_with("thumb") or bn.begins_with("index")
-					or bn.begins_with("middle") or bn.begins_with("ring") or bn.begins_with("pinky")):
-				bones.append(bn)
-		var pts := Pose.limb_points(ch, prop, bones, 1)
-		if pts.is_empty():
-			print("KOLMIO rako %s %s ei tarkistettu (headless)" % [nimi, lr])
-			return
-		var mind := INF
-		var inside := 0
-		var ylo := INF
-		var yhi := -INF
-		for q in pts:
-			ylo = minf(ylo, q.y)
-			yhi = maxf(yhi, q.y)
-		var bands := [INF, INF, INF]  # rako nyrkin ala-, keski- ja yläosassa (pitkin kättä)
-		for q in pts:
-			var d := INF
-			match String(prop.name):
-				"Mansikat":
-					var zh := lerpf(Gifts.RASIA_ALA.y, Gifts.RASIA_YLA.y, clampf(q.y / Gifts.RASIA_H, 0.0, 1.0))
-					if q.y >= 0.0 and q.y <= Gifts.RASIA_H and absf(q.z) < zh:
-						d = absf(q.x) - Gifts.rasia_half(q.y)
-				"Kermavaahto":
-					if q.y >= 0.0 and q.y <= Gifts.PURKKI_H:
-						d = Vector2(q.x, q.z).length() - Gifts.PURKKI_R
-				"Ruusut":
-					var r := Gifts.kaare_r(q.y)
-					if r > 0.0:
-						d = Vector2(q.x, q.z).length() - r
-			mind = minf(mind, d)
-			var bi := clampi(int((q.y - ylo) / maxf(yhi - ylo, 0.001) * 3.0), 0, 2)
-			bands[bi] = minf(bands[bi], d)
-			if d < -RAKO_SISALLA:
-				inside += 1
-		print("KOLMIO rako %s %s (%s): lähin käden piste lahjan pinnasta %.4f m, sisällä %d pistettä; nyrkin ala/keski/ylä %s (y %.3f..%.3f)" % [
-			nimi, lr, prop.name, mind, inside, bands.map(func(b): return snappedf(b, 0.001)), ylo, yhi])
-		if inside > 0:
-			_vika("%s %s: käsi %s sisällä (%d pistettä, syvin %.3f m)" % [nimi, lr, prop.name, inside, mind])
-		elif mind > RAKO_KELLUU:
-			_vika("%s %s: käsi kelluu %s vieressä (lähin %.3f m)" % [nimi, lr, prop.name, mind])
-
-
 ## Käsi omaan vartaloon: olkavarren alapuolen, kyynärvarren ja käden keskilinjan etäisyys vartalon pintaan
 ## (pelvis..spine_03, Pose.limb_points). Alle KASI_RAJA = käsi vartalon sisällä.
 func _kasi_vartaloon(ch: Node3D, nimi: String) -> void:
@@ -204,10 +114,6 @@ func _run() -> void:
 	var ui = _scene("ovi", "saloinen", func(u): pass)
 	ui._line = 3; ui._given = 2; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
 	await _shot(ui, "ovi_saloinen", true)
-	ui = _scene("ovi", "vaala", func(u): pass)
-	ui._line = 1; ui._given = 0; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
-	await _shot(ui, "ovi_vaala")
-	await _holders()
 	ui = _scene("vaara", "saloinen", func(u): u.resident = Kolmio.WRONG_DOORS.saloinen[0])
 	ui._line = 2; ui._door = 1.0; ui._door_to = 1.0; ui._line_t = 9.0
 	await _shot(ui, "vaara_mummo")
@@ -220,10 +126,7 @@ func _run() -> void:
 	ui = _scene("aamu", "saloinen", func(u): u.stats = "Kolme ympyrää ✔")
 	ui._line = 1; ui._line_t = 9.0
 	await _shot(ui, "aamu_saloinen")
-	ui = _scene("aamu", "vaala", func(u): pass)
-	ui._line = 2; ui._line_t = 9.0
-	await _shot(ui, "aamu_vaala")
-	for site in ["saloinen", "vaala"]:
+	for site in ["saloinen"]:
 		var info: Dictionary = Kolmio.SITES[site]
 		for m in ["match", "matka"]:
 			var sy = S.new()
@@ -246,7 +149,7 @@ func _run() -> void:
 				sy._view.queue_redraw()
 				await _shot(sy, "syt_matsi_%s" % site)
 	await _rinkka()
-	for site in ["saloinen", "vaala"]:
+	for site in ["saloinen"]:
 		await _olohuone(site)
 	print("KOLMIO kuvat valmis, vikoja %d" % vikoja)
 	get_tree().quit()

@@ -39,7 +39,7 @@ tehtiin kahdesti uudelleen).
 - **Näkyvät hahmot ovat oikeita 3D-hahmoja** (`Looks.make`, animaatiot kuten `Crouch_Idle`, `Interact`), ei
   2D-piirrettyjä (`MG.person` vain vanhoissa peleissä). Myös vastustaja ja pelaajan oma hahmo.
 - **Mallin valinta, järjestyksessä:** (1) pelimaailmassa 3D:nä oikeassa paikassa, jossa toiminta tapahtuu (esim.
-  `korkki_game.gd` Vaalan lavan pihalla, `rasvanappi_hall.gd`): paikka, valo ja paikalla olevat hahmot tulevat
+  `korkki_game.gd` Saloisten kaukalolla, `rasvanappi_hall.gd`): paikka, valo ja paikalla olevat hahmot tulevat
   pelistä; (2) oma 3D-lavastus SubViewportissa (`kolmio_kohtaus.gd`, `lava_game.gd`); (3) puhdas 2D-piirto vain
   peleille, joissa ei näy hahmoja eikä paikkaa (pöydän pinta, laite lähikuvassa). Älä sekoita: 2D-kulissi ja 3D-hahmo
   päällekkäin antaa ristiriitaisen perspektiivin ja valon.

@@ -11,10 +11,10 @@ if [ ${#KOHTAUKSET[@]} -eq 0 ]; then
   KOHTAUKSET=(paivipartio paivihyvitys paivihalytys paivikoti raahepaivi wasted chocotest keskustelu keskustelut
     pekkakyyti taxitest taxistand taxipaapeli lappupekka lappupekka2 tarina tarinamyynti mummot mummotesti mummokeppi
     vaino wife hedgeclose pensasaita karaokeaito kirppismyynti kauppalista kauppapalautus kauppaovi maksamatta
-    junttikierto juntti seppo mirkku mirkku_loppu sinikka sinikkatehtava poliisi tractor mokkiratsia mokkihotelli
-    siitarihotelli mokkisiitari mokkisiitaritappelu mokkikaatuminen mokkijuhannus junamatka asema satama vanhaherra
+    junttikierto juntti seppo mirkku mirkku_loppu sinikka sinikkatehtava poliisi tractor
+    asema vanhaherra
     hanhikivi pakkahuone peruskivi kuvakirkko tietokonemuseo karhut hiidenportti kajaani kalajoki raate pyhakoski
-    wanharaahe manamansalo kalalampi ronttonen valentinvaala uutiset rasvanappi pekka kuutonen yo kello)
+    wanharaahe manamansalo kalalampi uutiset rasvanappi pekka kuutonen yo kello)
 fi
 export GODOT_AIKARAJA="${GODOT_AIKARAJA:-150}"
 for k in "${KOHTAUKSET[@]}"; do

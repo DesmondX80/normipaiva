@@ -50,7 +50,7 @@ var hair_mis: Array = []  # hiusverkot (meta "hair_press"; Pose.limb_points)
 var shoe_type := "paljas"  # Shoes.TYPES-avain
 var shoe_mi: MeshInstance3D  # kenkäverkko (meta "kenka"), null paljain jaloin
 var shoe_sole := 0.0  # kengän pohja jalkapohjan alla (m, hahmon mittakaavassa; Pose.FOOT_H:n lisä)
-## Näkyvän maanpinnan nosto hahmon kohdalla: tiet ja pihat piirretään maaston yläpuolelle (world.gd LAYER, vaala.gd LIFT_*),
+## Näkyvän maanpinnan nosto hahmon kohdalla: tiet ja pihat piirretään maaston yläpuolelle (world.gd LAYER),
 ## mutta hahmot kulkevat maastossa. main.gd asettaa palvelun (Callable(paikka) -> m), ja seisova tai kävelevä hahmo
 ## nostetaan sen verran, etteivät kengät uppoa asfalttiin. Ei istuessa, ajaessa eikä uidessa (SOLE 0).
 static var ground_lift: Callable

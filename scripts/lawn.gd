@@ -29,9 +29,9 @@ var rows := 0
 var mower: Node3D
 ## Nurmikon yllätykset: {kind: "siili" | "kivi", pos: Vector2, r: float, node: Node3D}.
 var objects: Array = []
-## Maan korkeus maailman x/z:ssä: tyhjä = Saloisten maasto (terrain.gd). Mökin nurmikolla mökin oma maasto.
+## Maan korkeus maailman x/z:ssä: tyhjä = Saloisten maasto (terrain.gd).
 var height_fn: Callable
-## Aamulla arvottavat yllätykset (mökillä vain kiviä).
+## Aamulla arvottavat yllätykset.
 var kinds: Array = ["siili", "kivi"]
 
 var _img: Image

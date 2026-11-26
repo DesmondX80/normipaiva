@@ -1,11 +1,11 @@
 extends RefCounted
-## Maiseman täytetalojen valinta (Saloinen world.gd ja Raahe vaala.gd): tyyppi K1–K5 (scripts/rakennukset.gd),
-## värit ja mitat nimettömän rakennuksen pohjasta, tyypistä ja ympäristöstä. Yhteinen rekisteri molemmille kylille;
-## kutsuja antaa rakennuksesta siemennetyn rng:n (Saloinen hash(b.c), Raahe id), joten valinta ei riipu
+## Maiseman täytetalojen valinta (Saloinen world.gd): tyyppi K1–K5 (scripts/rakennukset.gd),
+## värit ja mitat nimettömän rakennuksen pohjasta, tyypistä ja ympäristöstä. Rekisteri kylälle;
+## kutsuja antaa rakennuksesta siemennetyn rng:n (Saloinen hash(b.c)), joten valinta ei riipu
 ## rakennusjärjestyksestä eikä world._rng:stä.
 ##
 ## keep_old(b) -> bool: pohja jää vanhaksi malliksi (koulu, kirkko, hotelli ym. KEEP_T, lv >= 4, L- tai U-muoto
-##   r < 0,75 ja ala >= 260 m²). Kutsuja (world.gd, vaala.gd) tarkistaa tämän ennen plan()ia; plan() itse ei jätä
+##   r < 0,75 ja ala >= 260 m²). Kutsuja (world.gd) tarkistaa tämän ennen plan()ia; plan() itse ei jätä
 ##   pohjaa tyhjäksi, vaan täyttää sen taulun seuraavan rivin mukaan.
 ## classify(alue, b, ctx) -> String: tyypitystaulu (02-arkkitehtuuri.md Korjaus 2): "VANHA", "K1"–"K5", "K3_ranta",
 ##   "K6", "K7", "K7_liike", "K8_kone", "K8_teollisuus", "K8_liike", "K8_suoja", "JAKO" (enintään 3 taloa) tai "TALO"
@@ -14,8 +14,8 @@ extends RefCounted
 ##   vähintään 5 m, talo vähintään 9 m:n tontilla). Jokainen alkio on pick()-tulos; isoissa (K6–K8) lisäksi v, n, krs.
 ##   Talon kehys pohjan kehyksessä: local_xf(o) = Transform3D(Basis(UP, rot), Vector3(dx, 0, dz)).
 ## pick(alue, b, ctx, rng) -> {tyyppi, l, d, wall, roof, trim, flat, carport, rima, gate_gap, seed, rot, dx, dz, piha, v, krs, n}
-##   alue: "saloinen" tai "vaala".
-##   b: {l (pitkä sivu, m), d (lyhyt sivu, m), t (OSM building-tyyppi tai Raahen kind, "" = tuntematon), lv (kerroksia),
+##   alue: "saloinen".
+##   b: {l (pitkä sivu, m), d (lyhyt sivu, m), t (OSM building-tyyppi, "" = tuntematon), lv (kerroksia),
 ##      r (monikulmion ala / suunnatun laatikon ala; puuttuu = 1)}.
 ##      Pohjan pitkä sivu on paikallisella X:llä ja julkisivu -Z:ssä (world.gd _osm_fit).
 ##   ctx: {pelto: bool (pellon laidassa), ranta: bool (rantamökki, julkisivu rantaan), gap: float (etupiha tielle,
@@ -27,11 +27,10 @@ extends RefCounted
 ##   carport ja gate_gap ovat toiveita: kutsuja nollaa ne, jos katos tai aita osuisi tiehen tai toiseen pohjaan.
 
 const TYPES := ["K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8"]
-## Jakaumat (01-suunnitelma.md "Täytön säännöt"; K5 2–5 % myös Saloisiin ja Raaheen, 00-ohjeet.md). Painot valitaan
+## Jakaumat (01-suunnitelma.md "Täytön säännöt"; K5 2–5 % Saloisiin, 00-ohjeet.md). Painot valitaan
 ## kelvollisten tyyppien joukosta: K3 ja K4 tulevat pääosin pohjan koosta ja ympäristöstä, painot jakavat päätalot.
 const DIST := {
 	"saloinen": {"K1": 40.0, "K2": 40.0, "K3": 12.0, "K4": 6.0, "K5": 3.0},  # K5 3,0 -> 3–4 % (mitattu, 03-toteutus-E.md)
-	"vaala": {"K1": 35.0, "K2": 30.0, "K3": 20.0, "K4": 10.0, "K5": 1.5},  # K5 1,5 -> noin 3–4 % (dump-mittaus ennen G:tä, pieni otos)
 }
 ## Mittavälit [l_min, l_max, d_min, d_max] (m); K3/K4: l = päädyn leveys, d = harjan suuntainen pituus.
 const SIZES := {
@@ -125,8 +124,6 @@ static func _class(alue: String, b: Dictionary, ctx: Dictionary) -> String:
 	elif area >= 500.0 and t in ["yes", ""]:
 		if (pelto or gap < 0.0) and d <= 20.0:
 			return "K8_kone"
-		if alue == "vaala" and gap >= 0.0 and gap <= 10.0:
-			return "K8_liike"
 		return "K8_teollisuus"
 	elif area >= SPLIT_AREA:
 		if t in RESIDENTIAL_T:
@@ -150,7 +147,7 @@ static func _small_ok(alue: String, b: Dictionary, ctx: Dictionary) -> Dictionar
 	var w: Dictionary = DIST.get(alue, DIST.saloinen)
 	if area < 45.0:
 		return {"K4": 1.0} if ctx.get("pelto", false) and small >= 4.0 else {"K3": 1.0}
-	if t == "cabin":  # mökki: rannalla rantamökki, iso mökki K1 (Raahen kind shed, 04-sopivuus.md e)
+	if t == "cabin":  # mökki: rannalla rantamökki, iso mökki K1
 		return {"K1": 1.0} if area >= 60.0 and not ctx.get("ranta", false) else {"K3": 1.0}
 	if ctx.get("ranta", false) and area < 80.0:
 		return {"K3": 1.0}
@@ -229,7 +226,7 @@ static func _split(alue: String, b: Dictionary, ctx: Dictionary, rng: RandomNumb
 
 
 ## Talon (ja autokatoksen) kulmat local_xf:llä tontin [x0, x1] ja pohjan (+0,3 m) sisällä; myös dz = 0:lla
-## (world.gd ja vaala.gd ennen local_xf-vaihtoa).
+## (world.gd ennen local_xf-vaihtoa).
 static func _fits(o: Dictionary, x0: float, x1: float, fl: float, fd: float) -> bool:
 	var pts: Array[Vector2] = []
 	var hl: float = o.l / 2.0
@@ -391,7 +388,7 @@ static func pick(alue: String, b: Dictionary, ctx: Dictionary, rng: RandomNumber
 
 
 
-## Lokirivi (world.fill_log, vaala.fill_log): testit (maisema_kuvat) laskevat jakaumat, värit ja päällekkäisyydet.
+## Lokirivi (world.fill_log): testit (maisema_kuvat) laskevat jakaumat, värit ja päällekkäisyydet.
 static func entry(t: String, c: Vector2, yaw: float, l: float, d: float, wall: Color, foot: PackedVector2Array, v := "") -> Dictionary:
 	return {"t": t, "c": c, "yaw": yaw, "l": l, "d": d, "wall": wall, "foot": foot, "v": v}
 

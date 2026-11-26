@@ -15,7 +15,7 @@ const BEER_PRICE := 12.90
 const EXTRAS := {"makkara": ["grillimakkara", 3.50], "tikut": ["tulitikut", 1.20]}
 ## Karkkiteline kassan lähellä (heräteostos): suklaalevy.
 const CANDY_SPOT := Vector3(5.2, 0, 7.2)
-## Alkon hylly vasemmalla seinällä (vain Raahen K-Market Tervaportissa, vaala = true): viina kätköviinaksi.
+## Alkon hylly vasemmalla seinällä (vain Raahen K-Market Tervaportissa, raahe = true): viina kätköviinaksi.
 const ALKO_SPOT := Vector3(-10.4, 0, -2.0)
 const ALKO := ["Koskenkorva 0,5 l", 21.90]
 const ALKO_MAX := 2
@@ -81,7 +81,7 @@ var _sel := {}  # lokeron valittu väri: tuote -> värin indeksi
 var _items := {}  # tuote -> väri -> MeshInstance3D (valittu nostetaan esiin)
 var money := 20.0  # main päivittää ennen sisääntuloa
 ## Raahen K-Market Tervaportti: Alkon hylly näkyvissä, eikä Saloisten naapuri (Anna-Liisa) tule kauppaan.
-var vaala := false
+var raahe := false
 var alko := true  # Raahessa: Alkon hylly (Tervaportti)
 var _alko: Node3D
 
@@ -122,8 +122,8 @@ func enter() -> void:
 	walker.position = ENTRY
 	walker.rotation.y = 0.0
 	walker.activate()
-	_alko.visible = vaala and alko
-	if not vaala and not _neighbor_spawned and _neighbor_t < 0.0:
+	_alko.visible = raahe and alko
+	if not raahe and not _neighbor_spawned and _neighbor_t < 0.0:
 		_neighbor_t = randf_range(4.0, 10.0)
 
 
@@ -205,7 +205,7 @@ func _process(delta: float) -> void:
 				walker.set_carrying(true)
 				Sfx.play("pickup", -4.0, 0.9)
 		_return_logic(BAKERY)
-	elif vaala and alko and _flat(p, ALKO_SPOT) < 1.5 and not has_paid:
+	elif raahe and alko and _flat(p, ALKO_SPOT) < 1.5 and not has_paid:
 		var n := alko_count()
 		if n >= ALKO_MAX:
 			hint = "Kaksi pulloa riittää. Kassalle!"
@@ -288,7 +288,7 @@ Rahat ei riitä (%s / %s €): palauta tavaraa samaan hyllyyn, josta otit" % [_e
 ## Mistä mitäkin löytyy (vihje ja kauppiaan neuvo).
 func where_text() -> String:
 	return "Kaljat takaseinältä, grillitarvikkeet oven vierestä, teipit rautahyllystä, Päivin tuotteet oikealta seinältä" + \
-		(", Alko vasemmalta seinältä" if vaala and alko else "")
+		(", Alko vasemmalta seinältä" if raahe and alko else "")
 
 
 ## Kassalla: summa, riittävätkö rahat ja hinnan mielialalisä (main.gd keskusteluikkuna).
