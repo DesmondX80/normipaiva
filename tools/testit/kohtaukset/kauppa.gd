@@ -46,6 +46,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await main.get_tree().process_frame
 			print("SHOP state=", main.state)
 		"apteekki":
+			# Raahen apteekki: ulkokuva, sisälle, tiski ja valikko; ostot ilman reseptiä ja reseptillä.
 			for i in 30:
 				await main.get_tree().process_frame
 			var aocc := Camera3D.new()
@@ -90,6 +91,8 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.clock_min += Main.PERV_MIN + 1.0
 			main._stat_effects()
 			main.reseptit = 1
+			main.asema_katkot["saloinen"] = 1
+			main._take_cache("saloinen")
 			print("APTEEKKI kätkön jälkeen reseptit ", main.reseptit, ", viesti: ", main._msg.text)
 			# Jatkaminen: oksikodoni + Burana, pervitiini + Panadol; teho puolittuu, annokset tuplaantuvat.
 			main.laake = {"opiaatti": 1, "burana": 2, "perv": 1, "panadol": 2}

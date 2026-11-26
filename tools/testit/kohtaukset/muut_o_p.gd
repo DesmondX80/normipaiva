@@ -317,6 +317,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved_py)
 			main.get_tree().quit()
 		"paivakirja":
+			# Normipäiväkirja (#132): alussa vain luku 1 ja itsestäänselvät tehtävät, Raahen loppu avaa luvun 2,
 			# Santun vihje tervehdyksessä, sivutehtävät ilmestyvät, loppujen kirjaus (erilaiset ja yhteensä) ja kuvat
 			# kolmesta välilehdestä. Tallennus palautetaan.
 			var saved := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
@@ -352,6 +353,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			# (Saloisten paikat ja taksitolppa).
 			for k in ["pyhakoski_voimala", "kuvakirkko_suntio", "wanharaahe_patsas", "karhut_opas", "olavi_legenda",
 					"kuningas_legenda", "kanttori_legenda", "pingis_ulkopoyta", "hanhikivi_legenda", "kalajoki_sarkat", "kalalupa",
+					"pubivisa", "uintikilpailu", "keikkatyo", "tyokkari", "rasvanappi", "rakaleima", "tappelu_juntti",
 					"lintutorni", "pajatso", "ronttonen"]:
 				main.tilat.first(k)
 			main.pyhakoski.voimala = true
@@ -368,13 +370,14 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 					print("TESTI VIKA tehtävällä %s ei ole näytä kartalla -linkkiä" % id)
 				else:
 					print("PK %s: %s (%s)" % [id, by[id].title, by[id].progress])
+			for id in ["tekemiset", "hanttihommat", "rasvanappi", "rakaleima", "tappelut"]:
 				if not by.has(id):
 					print("TESTI VIKA päiväkirjasta puuttuu tehtävä ", id)
 				else:
 					print("PK %s: %s (%s)%s" % [id, by[id].title, by[id].progress, " tehty" if by[id].done else ""])
 			if by.has("hanttihommat") and by.hanttihommat.progress != "kokeiltu 2 / 5":
 				print("TESTI VIKA hanttihommien edistyminen '%s'" % by.hanttihommat.progress)
-			if by.has("tekemiset") and by.tekemiset.progress != "kokeiltu 3 / 7":
+			if by.has("tekemiset") and by.tekemiset.progress != "kokeiltu 3 / 6":
 				print("TESTI VIKA kylän tekemisten edistyminen '%s'" % by.tekemiset.progress)
 			if by.has("rasvanappi") and not by.rasvanappi.done:
 				print("TESTI VIKA rasvanappi ei ole tehty, vaikka pelattu")
@@ -729,6 +732,14 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			for r in range(40, 900, 20):
 				for k in 24:
 					var q := p0 + Vector3(cos(k * TAU / 24.0), 0, sin(k * TAU / 24.0)) * r
+					var metsassa := true
+					for d: Vector3 in [Vector3.ZERO, Vector3(30, 0, 0), Vector3(-30, 0, 0), Vector3(0, 0, 30), Vector3(0, 0, -30)]:
+						if main.world.surface_at(q + d) != "forest":
+							metsassa = false
+							break
+					if metsassa:
+						spot = q
+						break
 				if spot != Vector3.INF:
 					break
 			print("PEDOT metsäpiste ", spot, " alusta ", main.world.surface_at(spot))

@@ -203,6 +203,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				drag.call(1, vc + Vector2(50 + 10 * (k + 1), 0))
 			touch.call(0, vc, false)
 			touch.call(1, vc, false)
+			print("KARTTAVETO nipistys: zoom %.3f -> %.3f" % [z0, main._paper._vzoom])
 			main._paper.toggle()
 		"karttamerkit":
 			# Lyijykynämerkinnät: muutama sivutehtävä tiedossa (yksi tehty), kartta kaukaa ja läheltä, päiväkirjan

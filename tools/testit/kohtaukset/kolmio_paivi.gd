@@ -16,6 +16,7 @@ var main: Main
 func aja(scene: String, path: String, nohud: bool) -> int:
 	match scene:
 		"parkit":
+			# Pysäköidyt autot eivät ole toistensa sisällä Saloisissa eikä Raahessa (tools/testit/parkit.gd).
 			var saved_pk := FileAccess.get_file_as_bytes(Main.SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			var pk: Node = load("res://tools/testit/parkit.gd").new()
 			pk.main = main
@@ -59,6 +60,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.get_tree().quit()
 			return 2
 		"kolmio_juttu":
+			# Teron ja Timon juttelu Raahen aseman pihalla: jalan kulkija heidän vieressään, vihje ja E (ei kuvia, toimii headlessina).
 			for i in 5:
 				await main.get_tree().process_frame
 			for nm in [0, 1]:
@@ -202,6 +204,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				Kuva.ruutu(main.get_viewport()).save_png(path.replace(".png", v[0] + ".png"))
 			main.get_tree().quit()
 		"paivin_puhelu":
+			# Päivi soittaa aamulla Raaheen (cutscene.wasted_phone): käden ja puhelimen asento edestä, oikealta ja ylhäältä
 			# kesken puhelun; kuvat _edesta, _oikealta, _ylhaalta ja _lahikuva.
 			var saved_pu := FileAccess.get_file_as_bytes(Main.SAVE_PATH)  # testi ei saa muuttaa pelaajan tallennusta
 			var wake_pu := main.player.global_position

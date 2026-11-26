@@ -16873,6 +16873,11 @@ func _day_rhythm() -> void:
 	var inside := _between(t, NEIGHBORS_INSIDE)
 	for n in [arto, pekka, sinikka]:
 		var away: bool = inside or (n == sinikka and _sinikka_away())
+		if n != null and n.visible == away:
+			n.visible = not away
+			n.process_mode = Node.PROCESS_MODE_DISABLED if away else Node.PROCESS_MODE_INHERIT
+			if away:
+				n.global_position = n.yard[0]
 	_wife_rhythm(t)
 
 

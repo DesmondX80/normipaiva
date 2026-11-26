@@ -1410,6 +1410,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._talk_box.close()
 		"laavut":
 			# Kaikki laavut ja nuotiopaikat iltapäivän valossa, nuotiot palamassa: Antinsuonkangas, Viitajärvi,
+			# Kiilinlammen grillikatos, Haapajärven kota, Keskimmäisen laavu (mökki) ja Raahen laavu. Kuvat _laavu_*.
 			var cam := Camera3D.new()
 			main.add_child(cam)
 			cam.fov = 55.0

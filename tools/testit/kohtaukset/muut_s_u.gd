@@ -476,6 +476,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._sormus_given = false
 			print("SR valinnat rannalla: %s" % [main._talk_options("sinikka").map(func(o): return o.id)])
 			main.day += 1
+			print("SR aamu: '%s'" % main._flowers_morning().strip_edges().left(70))
 			main.clock_min = 11 * 60
 			await ticks.call(3)
 			print("SR klo 11: pihan Sinikka %s, rannan %s" % [main.sinikka.visible, main.world.uimaranta_sinikka.visible])
@@ -614,9 +615,11 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._flowers_day = 2
 			main.day = 3
 			var mm := main.money
+			print("SE aamu (kukat, multa): '%s' rahaa +%s" % [main._flowers_morning().strip_edges().replace("\n", " | "), main._eur(main.money - mm)])
 			main._flowers_day = 7
 			main.day = 8
 			mm = main.money
+			print("SE aamu (syntymäpäivä muistettu): '%s' +%s" % [main._flowers_morning().strip_edges().left(60), main._eur(main.money - mm)])
 			main.day = 22
 			main._flowers_day = -1
 			FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)

@@ -150,6 +150,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.get_tree().quit()
 		"asema":
 			# Asemat: Saloisten asema ulkoa (katu ja laituri), odotussali, hörppy juopolle -> kätkö kartalle, kätkön
+			# tyhjennys, laiturille ja junan vihje; sama Raahessa. Tallennus palautetaan lopuksi.
 			var saved := FileAccess.get_file_as_bytes(Main.SAVE_PATH)
 			var view := [null, null]  # kameran paikka ja kohde (null = pelin oma kamera)
 			var snap := func(name: String) -> void:

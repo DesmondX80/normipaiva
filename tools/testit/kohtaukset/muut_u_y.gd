@@ -137,15 +137,19 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			for i in 30:
 				await main.get_tree().process_frame
 			await snap.call("_pyora.png")
+			# Raahen vaatekaappi: työvaatteet ja Karjala-lippis.
 			for i in 5:
 				await main.get_tree().process_frame
+			print("KAAPPI Raahe vihje '%s'" % main._hint.text)
 			Input.action_press("interact")
 			await main.get_tree().process_frame
 			await main.get_tree().process_frame
 			Input.action_release("interact")
 			await main.get_tree().process_frame
+			print("KAAPPI Raahe valinnat %s" % [main._item_menu._items])
 			main._item_menu.visible = false
 			main._item_menu.chosen.emit("tyovaatteet")
+			print("KAAPPI Raahe asu %s, viesti '%s'" % [Looks.outfit, main._msg.text])
 			await snap.call("_paapeli.png")
 			Looks.outfit = "tuulipuku"
 			var f := FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE)

@@ -455,6 +455,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			for i in 5:
 				await main.get_tree().process_frame
 			print("RATA vihje ennen: '%s'" % main._hint.text)
+			main._station_use("saloinen", "raahe")
 			var t0 := Time.get_ticks_msec()
 			while not tr.at_station() and Time.get_ticks_msec() - t0 < 30000:
 				await main.get_tree().process_frame

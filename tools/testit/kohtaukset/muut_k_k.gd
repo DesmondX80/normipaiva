@@ -694,6 +694,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._talk_box.close()
 			print("KO kanisteri %s, kaasu annettu %s, rahaa %s" % [main.has_kanister, main._kaasu_given, main._eur(main.money)])
 			main.day = 11
+			print("KO aamu: '%s'" % main._flowers_morning().strip_edges().left(60))
 			await frames.call(20)
 			var hd: Vector3 = main.world.huhtala_door
 			var hc := M.w(M.HUHTALA)
