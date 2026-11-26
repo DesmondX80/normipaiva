@@ -6,7 +6,6 @@ extends Node3D
 
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
-const Bubble := preload("res://scripts/bubble.gd")
 
 var out := "user://kuplat"
 var cam: Camera3D

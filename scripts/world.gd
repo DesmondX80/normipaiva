@@ -194,7 +194,6 @@ var reippari_youth: Node3D  # iltaporukka kioskin edessä (main.gd näyttää il
 var reippari_youth_pos: Vector3
 var reippari_record: Node3D  # ennätystaulu (main.gd päivittää tekstin)
 var klaffi_prop: Node3D  # taitettava klaffipöytä nojaa Reipparin päätyseinään (main.gd _klaffi_saloinen)
-var klaffi_pos := Vector3.ZERO
 var reippari_root: Node3D  # kioskin kehys (piirakkahaaste: piirakka_game.gd), -Z = julkisivu
 var reippari_raija: Node3D  # Raija luukulla
 var station_pos: Vector3  # Saloisten asema K-Marketin takana: kadun puoleisen oven edusta (E: odotussaliin)

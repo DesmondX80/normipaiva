@@ -12,7 +12,6 @@ const Kolmio := preload("res://scripts/kolmiomittaus.gd")
 const MAP_W := 600.0
 const INK := Color(0.22, 0.16, 0.1)
 const PAPER := Color(0.93, 0.88, 0.74)
-const VZOOM_MAX_KYLA := 2.0  # kyläkartan talot ovat merkkejä, ei pohjia: tätä lähemmäs ei kannata
 
 var world: Node3D
 var player: Node3D
@@ -27,21 +26,10 @@ var has_target := false
 var target := Vector2.ZERO
 
 const SNAP_PX := 14.0
-var _vd := {}  # tie.json
 var _vland: Control  # maanpeite kartan alla (show_behind_parent), oma materiaali
-var _vgrid := {}  # maastoruudukon nx, nz, x0, z0, cell
-var _vcodes := PackedByteArray()
-var _vtree_pts := PackedVector2Array()  # puumerkit metsään (Saloisten tapaan)
-const VROAD_GRAVEL_HALF := 2.6
-const VROAD_OUT := Color(0.45, 0.25, 0.1)
-const VROAD_FILL := Color(0.98, 0.86, 0.4)
 ## Näkymä: _vrect = kartan alue (maailman x/z), _vcenter
 ## keskipiste samassa kehyksessä, _vzoom pikseliä metrille.
 var _vrect := Rect2()
-var _vbld_pts := PackedVector2Array()  # rakennusten kolmiot (kehyksen x/z), yksi piirtokutsu
-var _vbld_idx := PackedInt32Array()
-var _vbld_cols := PackedColorArray()
-var _vpois: Array = []  # [nimi, paikka, laji, aina näkyvä]
 var _vzoom := 0.3
 const ZOOM_OPEN := 0.6  # kyläkartta avattaessa (px/m), pelaaja keskellä
 var _vcenter := Vector2.ZERO

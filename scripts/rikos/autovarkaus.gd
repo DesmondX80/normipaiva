@@ -72,7 +72,6 @@ var _poliisi: CharacterBody3D
 var _hud: CanvasLayer
 var _paivi_kytketty: CharacterBody3D  # Päivin auto, jonka caught-signaali ohjataan tähän osaan jahdin ajaksi
 var nakyy := false  # jahtaaja näkee pelaajan (testi ja HUD)
-var _delta_ms := 0
 
 
 func setup() -> void:

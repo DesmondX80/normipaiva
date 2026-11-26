@@ -33,7 +33,6 @@ const PLAY_AREA := [MAP_MIN, Vector2(SIZE.x, MAP_MIN.y), SIZE, Vector2(MAP_MIN.x
 const J_W := Vector2(125, 573)    # Ketunperäntie / Oikotie, K-Marketin kulma
 const J_K := Vector2(195, 765)    # Ketunperäntie / Tarpiontie (kehyksen kiintopiste)
 const J_T := Vector2(630, 1186)   # Tarpiontie / Kangastie / Honganpalontie
-const J_H1 := Vector2(821, 1161)  # Järvikuja / Ristontie
 const J_H2 := Vector2(844, 1237)  # Järvikujan eteläpää: laavupolku alkaa
 
 const J_KL := Vector2(492, 2380)   # Ketunperäntie / laavupolku

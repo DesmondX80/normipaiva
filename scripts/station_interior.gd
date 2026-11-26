@@ -52,7 +52,6 @@ const BEG := {
 }
 const NO_DRINK := ["Ei sulla oo mitään. Tuu takas pullon kanssa.", "Tyhjin käsin? Ei tieto ilmaiseks tuu.",
 	"Kalja, kossu, pontikka, mikä vaan käy. Sitten jutellaan."]
-const THANKS := ["Kiitti, veli. Sä oot hyvä tyyppi.", "Aah. Nyt lähtee päivä käyntiin.", "Glug glug... Tää jää muistiin."]
 const AMBIENT := ["Juna myöhässä taas. Niinku aina.", "Ennen tässä oli lipunmyynti ja kioski. Nyt on vaan me.",
 	"Konnari heitti mut ulos viime viikolla. Ilman lippua kuulemma.", "Onks kellään tulta?",
 	"Tää uuni lämmitti kunnolla vielä kasarilla.", "Älä istu siihen, siinä nukkuu Rane."]

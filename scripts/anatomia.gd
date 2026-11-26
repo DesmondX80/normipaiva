@@ -20,10 +20,6 @@ const Vartalo := preload("res://scripts/anatomia_vartalo.gd")
 const FILES := ["anatomia.gd", "anatomia_kadet.gd", "anatomia_jalat.gd", "anatomia_paa.gd", "anatomia_vartalo.gd"]
 
 ## Maskin alueet (omistaja): kädet A, jalat B, pää C, vartalo D.
-const ALUE_KADET := 1
-const ALUE_JALAT := 2
-const ALUE_PAA := 3
-const ALUE_VARTALO := 4
 
 ## Raja-arvot, joita useampi osa käyttää: nilkan lepo-y (anat_class: luokka 3 jos rest.y < nilkka). Mitattu
 ## anatomia_kuvat.gd:n ANAT luokka3 -rivistä: jalkaterän (3) ylin ja housujen (2) alin piste menevät päällekkäin

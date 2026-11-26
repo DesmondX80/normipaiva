@@ -70,7 +70,6 @@ const PALM_UP_FWD := 0.06
 const PALM_UP_X := 0.062
 const GIFT_FIST := 0.07  # nyrkin yläreuna otteen (ranteen) yläpuolella (mitattu): kaltevan lahjan levein kohta nyrkin kohdalla
 var _pancake: Node3D
-var _pan_at := Vector3.ZERO
 var _box: Node3D  # koti: Päivin kerma- ja mansikkalaatikko (_koti_box)
 
 ## 3D-hahmojen ulkonäöt (looks.gd). Väärien ovien asukkaat tässä.

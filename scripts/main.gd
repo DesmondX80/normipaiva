@@ -63,12 +63,6 @@ const RaaheInterior := preload("res://scripts/raahe_interior.gd")
 const Retket := preload("res://scripts/retket.gd")
 const RAAHE_INT_POS := Vector3(-16000, 0, 0)
 const RETKI_INT_POS := Vector3(-16000, 0, -16000)  # retkikohteen taskukohtaus (retket.gd), luodaan matkalle lähtiessä
-const RAAHE_MENU := {
-	"tuoppi": ["Tuoppi hanasta 0,5 l", 7.5, 0.14, 0.1, 0.05],
-	"lonkero": ["Lonkero", 7.9, 0.14, 0.1, 0.05],
-	"kossu": ["Kossupaukku 4 cl (\"ruukin lääke\")", 6.9, 0.12, 0.08, 0.03],
-	"kahvi": ["Kaffet ja korvapuusti", 3.9, 0.0, 0.05, 0.05],
-}
 const RAAHE_LINES := ["Ruukin porukka nostaa lasit: \"Skooli!\"", "Kapteeni nyökkää ikkunapöydästä.",
 	"Baarimikko: \"Ko lasi on tyhjä, tiiät mistä saa lisää.\"", "Kävelykadulla kulkee iltaväkeä kohti Pekkatoria.",
 	"Joku räknää tiskillä kolikoita tuopin hintaan.", "Kellarista kuuluu karaokea portaita ylös."]
@@ -89,10 +83,6 @@ const KaraokeGame := preload("res://scripts/karaoke_game.gd")
 ## keskiverron pelaajan hyvän suorituksen, "kelpo" erottaa rennon pelaajan mokaajasta.
 const KARAOKE_RAIKUU := 0.85
 const KARAOKE_KELPO := 0.55
-const PAIVI_SINIKKA_SEURA_CALLS := [
-	"\"Anna-Liisa soitti just, että sää TANSSIT seuraintalolla Sinikan kanssa! Kotiin, NYT!\"",
-	"\"Mitä sää siellä seuraintalolla Sinikan kanssa pyörit?! Koko kylä puhuu jo!\"",
-	"\"Taas se Sinikka! Mummot näki teidät lattialla. Luuletko, ettei tänne kuulu mitään?\""]
 const PAIVI_MORNING_SINIKKA := ["Siitä Sinikasta puhutaan vielä. Tänään mää pidän sua silmällä.",
 	"Kahvi on pöydällä. Kylmänä. Tiedät kyllä miksi. (Sinikka.)"]
 const DroneGame := preload("res://scripts/drone_game.gd")
@@ -9310,8 +9300,6 @@ func _drakkar_dance(score: float) -> float:
 
 ## Omat juomat baarissa: baarimikko huomaa joka toisen kerran (OWN_DRINK_SEEN); ensin varoitus, toisella ulos.
 const OWN_DRINK_SEEN := 0.5
-const OWN_DRINK_WARN := ["Hei! Omia juomia ei täällä juoda.", "Pullo pois, tää on anniskeluravintola!",
-	"Nähtiin kyllä. Vielä kerran niin lähdet."]
 var _own_drink_warned := false  # nollataan baariin tullessa
 
 
@@ -11748,7 +11736,6 @@ const KALALUPA_PRICE := 8.0
 var kalalupa := false  # Teeriniemen leirintäalueen kalalupa ostettu (tallentuu)
 var _retki_id := ""
 var _retki_from := Vector3.ZERO  # lähtöpaikka (maailmankoordinaatit), jonne palataan
-var _retki_fare := 0.0
 var _retki_hop := 0.0   # matkan kesto lähtöpaikasta (suuntaansa)
 
 
