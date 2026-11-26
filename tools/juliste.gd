@@ -20,7 +20,7 @@ const CELL := Vector2(370, 230)
 ## [kohtaus, tiedosto, polttopiste (0..1), zoom, rivi, sarake, kallistus, tarra, kuvateksti]
 const PANELS := [
 	["juntti", "shot.png", Vector2(0.5, 0.4), 1.15, 0, 0, -0.8, "STREET FIGHTER", "Juntti haastaa riitaa"],
-	["shop", "shot.png", Vector2(0.52, 0.62), 1.8, 0, 1, 0.7, "KAUPPA", "Harmaapäät laskee kolikoita"],
+	["kajaani", "shot_alue.png", Vector2(0.5, 0.5), 1.3, 0, 1, 0.7, "LINNA", "Kajaanin linnan raunioilla"],
 	["laavufire", "shot.png", Vector2(0.45, 0.4), 1.2, 0, 2, -0.6, "LAAVU", "Makkara, nuotio ja kalja"],
 	["tractor", "shot.png", Vector2(0.4, 0.55), 1.4, 0, 3, 0.9, "VAARA", "\"Mää ajan sut kumoon!\""],
 	["karhut", "shot_alue.png", Vector2(0.5, 0.5), 1.3, 1, 0, 0.6, "PEDOT", "Karhu metsässä"],
@@ -29,13 +29,13 @@ const PANELS := [
 	["wanharaahe", "shot_alue.png", Vector2(0.5, 0.5), 1.3, 1, 3, -0.5, "RETKI", "Wanha Raahe"],
 	["pekka", "shot.png", Vector2(0.5, 0.4), 1.35, 2, 0, -0.6, "PEKKA", "Pekan kyydillä"],
 	["kuutonen", "shot_edesta.png", Vector2(0.5, 0.45), 1.6, 2, 1, 0.7, "JEMMA", "Kuutonen jemmaan"],
-	["mirkku", "shot_mirkku_puhe.png", Vector2(0.5, 0.5), 1.3, 2, 2, -0.8, "KYLÄ", "Mirkku juoruaa"],
-	["kalalampi", "shot_5_kirjolohi.png", Vector2(0.5, 0.5), 1.3, 2, 3, 0.6, "SAALIS", "Kirjolohi koukussa"],
+	["grilli", "shot.png", Vector2(0.5, 0.5), 1.3, 2, 2, -0.8, "GRILLI", "Makkara kuumana"],
+	["hanhikivi", "shot_onkija.png", Vector2(0.5, 0.5), 1.3, 2, 3, 0.6, "HANHIKIVI", "Onkija Hanhikivellä"],
 ]
 const SECTIONS := ["SALOINEN", "RETKET", "VÄKI"]
 const HERO := ["bikeside", "shot.png", Vector2(0.45, 0.45), 1.0]
 const ENDINGS := [
-	["wasted", "shot_1.png", Vector2(0.5, 0.45), 1.12, Rect2(30, 1995, 700, 240), -0.6, "LOPPU A", RED, "Päivi nappasi kiinni"],
+	["wasted", "shot.png", Vector2(0.5, 0.45), 1.12, Rect2(30, 1995, 700, 240), -0.6, "LOPPU A", RED, "Päivi nappasi kiinni"],
 	["garage", "shot.png", Vector2(0.5, 0.45), 1.12, Rect2(870, 1995, 700, 240), 0.6, "LOPPU B", GREEN, "Jemmassa 26 – juhlan paikka!"],
 ]
 
