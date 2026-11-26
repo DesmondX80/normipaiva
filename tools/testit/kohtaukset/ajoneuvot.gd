@@ -799,7 +799,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				if arg.begins_with("--asu="):
 					Looks.outfit = arg.substr(6)  # esim. farkut: verkkopaidassa Helena painautuu kiinni
 			var done := [false]
-			main.cutscene.train_ride(scene == "junavaunu", func() -> void: done[0] = true, not OS.get_cmdline_user_args().has("--eitarjoa"))  # --eitarjoa: normaali sketsi ilman kossuja
+			main.cutscene.train_ride(func() -> void: done[0] = true, not OS.get_cmdline_user_args().has("--eitarjoa"))  # --eitarjoa: normaali sketsi ilman kossuja
 			var seen := ""
 			var due := -1
 			var n := 0

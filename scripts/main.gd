@@ -8220,6 +8220,18 @@ func _wc_release() -> void:
 	_hud.visible = true
 
 
+func _start_wc(mode: String) -> void:
+	_menu_mode = "give"
+	_hud.visible = false
+	var g := WcGame.new()
+	g.mode = mode
+	g.drunk = _hand_shake()
+	g.flush = _wc_where != "huussi"
+	g.finished.connect(_wc_result)
+	add_child(g)
+	_wc_game = g
+
+
 ## Minipelin tulos: helpotus (kerran päivässä), ja sotku tai tukos saa kotona Päivin tai nörtin, mökillä Santun
 ## huomauttamaan.
 func _wc_result(mode: String, r: Dictionary) -> void:
@@ -16451,6 +16463,25 @@ func _build_hud() -> void:
 	_talk_box.closed.connect(_talk_end)
 	_item_menu = ItemMenu.new()
 	layer.add_child(_item_menu)
+	_item_menu.chosen.connect(func(id: String) -> void:
+		if _menu_mode == "eat":
+			_on_eat(id)
+		elif _menu_mode == "wc":
+			_start_wc(id)
+		elif _menu_mode == "asu":
+			_on_wardrobe(id)
+		elif _menu_mode == "saappaat":
+			_on_boots_menu(id))
+	_item_menu.cancelled.connect(func() -> void:
+		if _menu_mode == "wc":
+			_menu_mode = "give"
+			_wc_release()
+		elif _menu_mode in ["eat", "asu"]:
+			_menu_mode = "give"
+			_interior_busy(false)
+			_active_walker().controls_enabled = true
+		else:
+			player.controls_enabled = true)
 
 	_hp_label = _label(layer, 18)
 	_hp_label.anchor_top = 1.0

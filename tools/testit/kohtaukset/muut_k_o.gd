@@ -446,7 +446,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.maine = 20.0
 			main._start_pingis_nuoret()
 			var g: Node3D = main.get_children().filter(func(c): return c is PingisGame)[0]
-			print("KO peli: paikka %s, vastustaja %s, taito %.2f" % [g.venue, g.opp_name, g.opp_skill])
+			print("KO peli: vastustaja %s, taito %.2f" % [g.opp_name, g.opp_skill])
 			await main.get_tree().create_timer(1.0).timeout
 			await snap_k.call("_e_peli.png")
 			g._rounds = [2, 0]
