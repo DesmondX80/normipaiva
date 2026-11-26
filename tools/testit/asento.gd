@@ -8,7 +8,8 @@
 const Pose := preload("res://scripts/pose.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 
-const RAJA := 0.035  # luun keskilinjan pienin sallittu rako pintaan (raajan puolipaksuus hihan kanssa)
+const RAJA := 0.035  # raajan puolipaksuus hihan kanssa, kun verkkoa ei saada mitattua
+const LIMITYS_RAJA := 0.005  # sallittu raajan ihon painuma pintaan (pehmeä kosketus)
 
 
 ## Ottaa kuvat edestä, päädyistä, ylhäältä ja takaa ja kokoaa ne 3x2-ruudukoksi <out>/<prefix>_koottu.png
@@ -46,9 +47,11 @@ static func views(cam: Camera3D, out: String, prefix: String, center: Vector3, s
 	print("kuva ", prefix, "_koottu (", ", ".join(kulmat.map(func(k): return k[0])), ")")
 
 
-## Tulostaa ketjujen (esim. olkavarsi -> kyynärvarsi -> käsi) raon pintaan, jonka muodostavat surface-luiden
-## verkko (esim. vartalo). Rako alle RAJA = "LÄPI"; ensimmäisen luun alkupuolta ei lasketa (nivelen juuri).
-## Palauttaa läpimenojen määrän (0 = kunnossa).
+## Tulostaa ketjujen (esim. olkavarsi -> kyynärvarsi -> käsi) limityksen pintaan, jonka muodostavat surface-luiden
+## verkko (esim. vartalo ja reidet). Limitys = raajan oma paksuus (raajan verkon mediaanietäisyys luusta) - luun keskilinjan
+## 3D-etäisyys lähimpään pinnan pisteeseen; yli LIMITYS_RAJA = "LÄPI". Pehmeä kosketus (iho painuu muutaman mm) sallitaan.
+## Ensimmäisen luun alkupuolta ei lasketa (olkanivelen juuri on luonnostaan vartalossa). Palauttaa läpimenojen määrän.
+## Ennen mitattiin pystyrako (pinta luun alla 4 cm säteellä): kyljen vieressä riippuva käsivarsi antoi vääriä löytöjä.
 ## Ilman näyttöä verkkoa ei paisteta, joten aja ikkunallisena.
 static func report(ch: Node3D, space: Node3D, chains: Array, surface: Array) -> int:
 	var pts := Pose.limb_points(ch, space, surface)
@@ -57,17 +60,39 @@ static func report(ch: Node3D, space: Node3D, chains: Array, surface: Array) -> 
 		return 0
 	var bad := 0
 	for chain in chains:
-		var rows := Pose.clearance(ch, space, chain, pts)
-		var low := INF
-		for r in rows:
-			if r[0] == chain[0] and r[1] < 0.5:
-				continue  # nivelen juuri (olkapää, lonkka) on luonnostaan vartalon sisällä
-			low = minf(low, r[2])
-			if r[2] < RAJA:
-				bad += 1
-				print("RAKO LÄPI %s t=%.2f rako=%.3f m" % [r[0], r[1], r[2]])
-		print("RAKO %s: pienin %.3f m (%d pistettä pinnan kohdalla)" % [chain[-1], low, rows.size()])
+		var worst := -INF
+		for i in chain.size() - 1:
+			var bone: String = chain[i]
+			var a: Vector3 = space.to_local(ch.to_global(ch.bone_position(bone)))
+			var b: Vector3 = space.to_local(ch.to_global(ch.bone_position(chain[i + 1])))
+			var r := _limb_radius(ch, space, bone, a, b)
+			for s in 5:
+				var t := s / 4.0
+				if i == 0 and t < 0.5:
+					continue
+				var p := a.lerp(b, t)
+				var d := INF
+				for q in pts:
+					d = minf(d, p.distance_to(q))
+				worst = maxf(worst, r - d)
+				if r - d > LIMITYS_RAJA:
+					bad += 1
+					print("RAKO LÄPI %s t=%.2f limitys=%.3f m (etäisyys %.3f, paksuus %.3f)" % [bone, t, r - d, d, r])
+		print("RAKO %s: suurin limitys %.3f m" % [chain[-1], worst])
 	return bad
+
+
+## Raajan puolipaksuus: luun bone verkon pisteiden etäisyyksien mediaani janasta a-b.
+static func _limb_radius(ch: Node3D, space: Node3D, bone: String, a: Vector3, b: Vector3) -> float:
+	var ds := []
+	var ab := b - a
+	for q in Pose.limb_points(ch, space, [bone]):
+		var t := clampf((q - a).dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
+		ds.append(q.distance_to(a + ab * t))
+	if ds.is_empty():
+		return RAJA
+	ds.sort()
+	return ds[ds.size() / 2]
 
 
 ## Istuvan hahmon tarkistus: lantion rako istuimeen (seat_y, K8: -0,03...0,03), jalkaterien korkeus lattiasta
@@ -379,3 +404,4 @@ static func _ground(ch: Node3D, space: Node3D, bones: Array) -> int:
 			found += 1
 			print("LÄPI %s -> maa (%s) pisteitä %d syvin %.3f m, maa y %.3f" % [ch.name, grp[0], n, deepest, gy])
 	return found
+

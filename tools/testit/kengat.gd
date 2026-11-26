@@ -5,6 +5,7 @@ extends Node3D
 ## hahmolla (ka ja p95 < 16,7 ms; vertailuksi samat paljain jaloin). Kuvat: edestä, sivulta, ylhäältä, takaa, kävelyn kolme
 ## vaihetta ja varpaillaan seisonta, rajattuna jalkoihin ja koottuna vertailukuviksi (vertailu_*.png). Viat: "TESTI VIKA ...".
 ## aja.sh tscn tools/testit/kengat.tscn
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -105,18 +106,41 @@ func _strap_gap(ch: Node3D, nm: String) -> void:
 	var rv: PackedVector3Array = sa[Mesh.ARRAY_VERTEX]
 	var u2: PackedVector2Array = sa[Mesh.ARRAY_TEX_UV2]
 	var bv: PackedVector3Array = ch.body_mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	if Shoes.TYPES[ch.shoe_type].get("sock", false):
+		# Släbärin remmi on villasukan päällä: rako mitataan sukan pintaan. Sukan kärjet ovat harvassa (renkaat), joten
+		# vertailupisteiksi myös kolmioiden keski- ja reunapisteet (pinta, ei pelkät kärjet).
+		bv = PackedVector3Array()
+		var ix: PackedInt32Array = sa[Mesh.ARRAY_INDEX]
+		for k in range(0, ix.size(), 3):
+			var a := ix[k]
+			var b := ix[k + 1]
+			var c := ix[k + 2]
+			if u2[a].y < 0.5 and u2[b].y < 0.5 and u2[c].y < 0.5:
+				bv.append_array([rv[a], (rv[a] + rv[b]) / 2.0, (rv[b] + rv[c]) / 2.0, (rv[a] + rv[c]) / 2.0, (rv[a] + rv[b] + rv[c]) / 3.0])
 	var worst := 0.0
 	var n := 0
+	# Släbärin remmi kaartuu pohjan reunasta jalkapöydän yli, ja sivuilla on ilmaa kuten oikeassa släbärissä: mitataan
+	# vain remmin yläosa (yli 2,5 cm remmin alimmasta kohdasta), jonka pitää myötäillä jalkapöytää.
+	var sock: bool = Shoes.TYPES[ch.shoe_type].get("sock", false)
+	var strap := func(j: int) -> bool:  # hihnan kärki: sandaalilla osa 0, släbärillä osa 3 (osa 0 on sukka, 1 pohja)
+		return u2[j].y > 2.5 if sock else u2[j].y < 0.5
+	var y_min := INF
 	for j in rv.size():
-		if u2[j].y > 0.5:
-			continue  # pohjalaatta
+		if strap.call(j):
+			y_min = minf(y_min, rv[j].y)
+	var top_only: bool = ch.shoe_type == "slabari"
+	for j in rv.size():
+		if not strap.call(j):
+			continue
+		if top_only and rv[j].y < y_min + 0.025:
+			continue
 		var best := INF
 		for q in bv:
 			if absf(q.y - rv[j].y) < 0.03 and signf(q.x) == signf(rv[j].x):
 				best = minf(best, q.distance_to(rv[j]))
 		worst = maxf(worst, best)
 		n += 1
-	print("KENKA %s hihnat: %d kärkeä, kauimpana ihon kärjestä %.1f mm" % [nm, n, worst * 1000.0])
+	print("KENKA %s hihnat: %d kärkeä, kauimpana %s %.1f mm" % [nm, n, "sukan kärjestä" if sock else "ihon kärjestä", worst * 1000.0])
 	if n == 0 or worst > 0.03:  # karkea mitta: vartaloverkon kärkiväli on 1–2 cm
 		print("TESTI VIKA %s sandaalin hihna irti ihosta (%.1f mm)" % [nm, worst * 1000.0])
 
@@ -166,7 +190,56 @@ func _run_e4() -> void:
 	get_tree().quit()
 
 
+## Släbärit ja villasukat yhtenä kenkänä (pelaajan kirppisjalkineet, Looks.feet): `--e5` ajaa pelaajan kolmessa asussa ja
+## miehen ja naisen mallin (mitat, iho sukan läpi, kuvakulmat, kävely, varpaillaan, remmin rako, lähikuvat).
+func _run_e5() -> void:
+	var looks := []
+	Looks.feet = "slabarit"
+	for o in ["tuulipuku", "farkut", "nahkaliivi"]:
+		looks.append(["pelaaja_%s" % o, Looks.player(o)])
+	Looks.feet = ""
+	Looks.feet = "slabarit"
+	looks.append(["haalari_ei_slabareita", Looks.player("hiihtohaalari")])  # hiihtohaalarissa kuukengät, vaikka släbärit valittu
+	Looks.feet = ""
+	for kind in ["male", "female"]:
+		var lk := _look(kind, Looks.SLABARI_COL)
+		lk["shoe"] = "slabari"
+		lk["socks"] = Looks.VILLASUKAT
+		looks.append(["slabari_%s" % kind.left(1), lk])
+	for i in looks.size():
+		var ch: Node3D = Looks.make(self, looks[i][1])
+		ch.position = Vector3(i * 1.2, 0, 0)
+		ch.play("Idle", 0.0, 0.0)
+		ch.anim.seek(0.5, true)
+		row.append([looks[i][0], ch])
+	for i in 6:
+		await get_tree().process_frame
+	for r in row:
+		print("KENKA %s tyyppi %s" % [r[0], r[1].shoe_type])
+	for i in 3:
+		if row[i][1].shoe_type != "slabari":
+			print("TESTI VIKA %s: odotus släbärit ja villasukat (%s)" % [row[i][0], row[i][1].shoe_type])
+	if row[3][1].shoe_type != "kuukenka":
+		print("TESTI VIKA hiihtohaalarissa odotus kuukenkä (%s)" % row[3][1].shoe_type)
+	_measure()
+	for r in row:
+		await _views(r[0], r[1])
+		if r[1].shoe_type == "slabari":
+			await _walk(r[1], r[0])
+			await _tiptoe(r[1], r[0])
+			_strap_gap(r[1], r[0])
+	for nm in ["pelaaja_tuulipuku", "pelaaja_farkut", "pelaaja_nahkaliivi", "slabari_m", "slabari_f"]:
+		_sheet(nm + "_kuvat", [nm + "_edesta", nm + "_sivu", nm + "_takaa", nm + "_kolmeneljannes",
+			nm + "_edesta_lahi", nm + "_vino_lahi", nm + "_sivu_lahi", nm + "_ylhaalta"])
+		_sheet(nm + "_kavely", [nm + "_kavely_0", nm + "_kavely_1", nm + "_kavely_2", nm + "_varpaat"])
+	print("KENKA valmis ", ProjectSettings.globalize_path(out))
+	get_tree().quit()
+
+
 func _run() -> void:
+	if "--e5" in OS.get_cmdline_user_args():
+		await _run_e5()
+		return
 	if "--e3" in OS.get_cmdline_user_args():
 		await _run_e3()
 		return
@@ -316,8 +389,8 @@ func _measure() -> void:
 			if r[0] == "kumisaapas_m":  # #274: kodin ja mökin saapasesineen (kumisaappaat.gd) mitat pelin saappaasta
 				var bb: AABB = ch.shoe_mi.global_transform * ch.shoe_mi.get_aabb()
 				print("KENKA kumisaapas_m koko: korkeus %.3f m, pituus %.3f m, leveys (pari) %.3f m" % [bb.size.y, bb.size.z, bb.size.x])
-			if Shoes.TYPES[ch.shoe_type].has("sandal"):
-				continue  # avoin kenkä: iho kuuluukin näkyä
+			if Shoes.TYPES[ch.shoe_type].has("sandal") and not Shoes.TYPES[ch.shoe_type].get("sock", false):
+				continue  # avoin kenkä: iho kuuluukin näkyä (släbärin villasukka on umpinainen kuori: mitataan)
 			var o := Shoes.skin_outside(ch.shoe_mi.mesh, ch.body_mi.mesh.surface_get_arrays(0))
 			print("KENKA %s iho_ulkona %.1f mm (lepoasento; varjostin painaa ihoa vielä 6 mm sisään)" % [r[0], o * 1000.0])
 			if o > 0.0:
@@ -428,7 +501,7 @@ func _views(nm: String, ch: Node3D) -> void:
 		sm.set_shader_parameter("main_col", keep_main)
 	g = _foot_near(ch, fw + rt)
 	await _shot(nm + "_kolmeneljannes", g + (fw + rt).normalized() * 0.75 + Vector3(0, 0.35, 0), g)
-	if nm == "lenkkari_m" or nm == "lenkkari_f" or NEW.has(ch.shoe_type) or ch.shoe_type in ["sandaali", "nauhakenka"]:  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
+	if nm == "lenkkari_m" or nm == "lenkkari_f" or NEW.has(ch.shoe_type) or ch.shoe_type in ["sandaali", "nauhakenka", "slabari"]:  # kärki lähikuvina (kuopat ja ääriviiva näkyvät vain läheltä)
 		var lr := "_r" if (ch.to_global(ch.bone_position("ball_r")) - ch.to_global(ch.bone_position("ball_l"))).dot(rt) > 0.0 else "_l"
 		var toe: Vector3 = ch.to_global(ch.bone_position("ball" + lr)) + fw * 0.03
 		toe.y = 0.03
@@ -500,8 +573,8 @@ func _shot(tag: String, pos: Vector3, look: Vector3) -> void:
 	cam.look_at_from_position(pos, look)
 	for i in 3:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	cam.get_viewport().get_texture().get_image().save_png(out.path_join(tag + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(cam.get_viewport()).save_png(out.path_join(tag + ".png"))
 
 
 ## Vertailukuva: kuvat pienennettyinä 4 x 2 ruudukkoon.
@@ -549,8 +622,8 @@ func _ruutu() -> void:
 		ms.sort()
 		res[shod] = [sum / 60.0, ms[56]]
 		print("RUUTU %s ka %.2f ms p95 %.2f ms max %.2f ms (24 hahmoa)" % ["kengat" if shod else "paljain", sum / 60.0, ms[56], ms[59]])
-		await RenderingServer.frame_post_draw
-		cam.get_viewport().get_texture().get_image().save_png(out.path_join("ruutu_%s.png" % ("kengat" if shod else "paljain")))
+		await Kuva.piirto()
+		Kuva.ruutu(cam.get_viewport()).save_png(out.path_join("ruutu_%s.png" % ("kengat" if shod else "paljain")))
 		for ch in crowd:
 			ch.queue_free()
 		await get_tree().process_frame

@@ -48,7 +48,7 @@ mittakaava n. 1,22 m/px. Uusi alue laajennetaan samaan kehykseen, jolloin kaikki
    - `python tools/kartta/kyla_osm.py --osm <map.osm> [--out <tiedosto>]`
    - `python tools/kartta/kyla_osm.py --osm <map.osm> --lansi`: läntinen laajennus (px x -260..-60, kirkko, kellotapuli
      ja hautausmaa) liitetään samoin; ote bbox `24.447,64.610,24.457,64.667` haetaan kolmena leveyspiirikaistana
-     (64.610–64.630–64.648–64.667) ja yhdistetään id:iden mukaan. Korkeusmalli kattaa jo px x -300:een asti.
+     (64.610–64.630–64.648–64.667) ja yhdistetään id:iden mukaan. Korkeusmalli kattaa px x -550:een asti (maastoruudukon 300 m marginaali `MAP_MIN`:n länsipuolella).
    - `python tools/kartta/kyla_osm.py --osm <map.osm> --pohjoinen`: vain pohjoinen laajennus (px y -960..-60)
      liitetään olemassa olevan `map_osm.gd`:n osioiden loppuun, jolloin vanhan alueen kohteet pysyvät täsmälleen
      ennallaan. Saumassa kohteet leikataan samasta raakageometriasta kuin vanhassa otteessa (`SAUMA`-korjaukset
@@ -70,8 +70,9 @@ mittakaava n. 1,22 m/px. Uusi alue laajennetaan samaan kehykseen, jolloin kaikki
 
 ## Mökki (scripts/mokki.gd, assets/mokki/kartta.json)
 
-Mökin ympäristö (kävelyalue `AREA_MIN..AREA_MAX` mokki.gd:ssä: 400 m mökin ympäri ja pohjoiseen Salmisille ja
-Keskimmäiselle, n. 1 × 2,15 km; näkyvä alue 550 m laajempi) on osoitepisteen kehyksessä (x itään, z etelään, metreinä;
+Mökin ympäristö (kävelyalue `AREA_MIN..AREA_MAX` mokki.gd:ssä: 400 m mökin ympäri, pohjoiseen Salmisille ja
+Keskimmäiselle ja lännessä 590 m Kaisuan pelloille, n. 1,2 × 2,15 km; näkyvä alue 550 m laajempi kuin `VIEW_MIN..AREA_MAX`,
+joten länsilaajennus ei muuttanut puita eikä maaston välimuistia) on osoitepisteen kehyksessä (x itään, z etelään, metreinä;
 origo 64.5054523 N, 26.6672225 E; lon × 111 320 × cos(lat), lat × 111 320). `kartta.json` tehdään kokonaan samoilla
 työkaluilla kuin kylä: OSM-kohteet (myös metsät) samalla muuntimella, pihan tarkka ruudukko "dem" (300 × 300 m, 2 m)
 ja kaukoalue "dem_far" (2 × 2 km, 8 m = mökin kaukomaaston ruutu) MML:n 2 m mallista (lehti R4333D kattaa koko

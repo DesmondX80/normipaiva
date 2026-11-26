@@ -3,6 +3,7 @@ extends Node
 ## istujat (kuvat edestä, päädyistä, ylhäältä, takaa) sekä tulostaa ASENTO-rivit.
 ## "$(tools/testit/godot.sh)" --path . --resolution 1280x720 -- --nohud --scene=asennot --asento=b --kohta=<nimi>
 ## kohta: tarpio, viita, mirkku, taksi_koti, pekka, juna, tv, uutiset, nortti, ankkuri
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Pose := preload("res://scripts/pose.gd")
 const Asento := preload("res://tools/testit/asento.gd")
@@ -178,8 +179,8 @@ func run() -> void:
 			return
 	Engine.time_scale = 0.01  # jäädytä välianimaatio
 	for k in 3:  # välianimaation oma kamera (suljetuissa tiloissa ulkopuolinen kamera ei näe sisään)
-		await RenderingServer.frame_post_draw
-		main.get_viewport().get_texture().get_image().save_png(out.path_join("%s_oma_%d.png" % [kohta, k]))
+		await Kuva.piirto()
+		Kuva.ruutu(main.get_viewport()).save_png(out.path_join("%s_oma_%d.png" % [kohta, k]))
 		await _frames(50)
 	cam.current = true
 	await _frames(5)

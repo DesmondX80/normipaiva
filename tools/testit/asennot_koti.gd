@@ -4,6 +4,7 @@ extends Node
 ## portailla. Kohtauksen lavastus siirretään 300 m ylös, jotta pelimaailman kappaleet eivät osu tarkistukseen
 ## (lavastus on omassa 3D-maailmassaan samoissa koordinaateissa kuin pelimaailma).
 ## tools/testit/aja.sh scene asennot --asento=koti
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const K := preload("res://scripts/kolmio_kohtaus.gd")
 const Asento := preload("res://tools/testit/asento.gd")
@@ -26,8 +27,8 @@ func run() -> void:
 		ui._stage.position.y = 300.0
 		for i in 30:
 			await main.get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		ui._vp.get_texture().get_image().save_png(out.path_join("koti_%s_%d.png" % v))
+		await Kuva.piirto()
+		Kuva.ruutu(ui._vp).save_png(out.path_join("koti_%s_%d.png" % v))
 		var list := []
 		Asento._chars(ui._stage, list)
 		var n := 0

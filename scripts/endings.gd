@@ -59,6 +59,18 @@ const ENDINGS := [
 const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet", "eramaan_laavu", "uutiset", "mirkku",
 	"minttu", "katja", "pentin_kiertue", "kulissit", "avoin_pelikortti"]
 
+## Legendaariset hetket, jotka koetaan lavastettuna kohtauksena (cutscene.gd): ei erillistä ilmoitusta, vaan kohtauksen
+## jälkeen hillitty rivi päiväkirjan uudesta tarinasta. Muut hetket näyttävät vielä vanhan ilmoituksen.
+const STAGED := ["pentin_kyyti"]
+
+## [id, nimi, kuvaus] -> kuvaus.
+static func desc_of(id: String) -> String:
+	for e in ENDINGS:
+		if e[0] == id:
+			return e[2]
+	return ""
+
+
 var counts := {}  # id -> kerrat
 var first_day := {}  # id -> päivä, jolloin saatu ensimmäisen kerran
 

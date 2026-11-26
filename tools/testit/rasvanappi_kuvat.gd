@@ -3,6 +3,7 @@ extends Node
 ## pimeä halli (myös valot päällä tarkistusta varten), tökkäys, nimivalikko, nuolu ja loppu; lopuksi väärä salasana
 ## (viha ja luukun paukahdus). Ovikohtaus on 3D:nä: makasiini rakennetaan tähän yöhön (makasiini.gd).
 ## godot --path . --resolution 1280x720 tools/testit/rasvanappi_kuvat.tscn -- <kansio>
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Game := preload("res://scripts/rasvanappi_game.gd")
 const Makasiini := preload("res://scripts/makasiini.gd")
@@ -59,8 +60,8 @@ func _wait(sec: float) -> void:
 
 
 func _shot(name: String) -> void:
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join(name + ".png"))
 	print("KUVA ", name, " tila ", g._mode if is_instance_valid(g) else "valmis", " a ", g._t - g._answer_t if is_instance_valid(g) else -1.0)
 
 

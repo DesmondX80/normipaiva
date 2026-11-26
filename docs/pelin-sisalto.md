@@ -60,7 +60,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (Saloisissa urheilukentän maalista, Oravajärven rannalta tai aseman laiturilta, Raahessa Gasthausin pihalta):
   moraali nousee, mutta vireys, kipu ja stressi kärsivät, ja lompakosta puuttuu 5–20 € ("Bensarahat. T: Pentti").
   Jos joku kylän hahmo on lähellä (25 m), hän näkee kyytiin nousun 60 %:n todennäköisyydellä: maine −3 ja Päivi
-  kuulee asiasta aamulla. Päiväkirjaan sivutehtävä "Pentin kyydissä" ja ensimmäisestä kyydistä legendaarinen hetki.
+  kuulee asiasta aamulla. Päiväkirjaan sivutehtävä "Pentin kyydissä".
+  Ensimmäinen kyyti on legendaarinen hetki (`cutscene.gd _pentti_legend`): keinunta ja humppa loppuvat, liukuovi
+  aukeaa punaisen hehkun keskeltä, ja pelaaja astuu ulos. Kaupasta tuleva mummo pudottaa ostoskassinsa ("Tää
+  kerrotaan koko kylälle!"), maitopurkki vierii pois, ja Pentti huikkaa keulan vierestä. Lopuksi kamera nousee
+  parkkipaikan ylle ja hetken nimi tulee näkyviin. Aamulla tulee rivi "Päiväkirjaan uusi tarina". Myöhemmät kyydit
+  lasketaan hiljaa, ja Pentti muistelee ensimmäistä kertaa tervehtiessään (`rikos/pentti.gd HELLO_MUISTO`). Testi
+  `--scene=pentti_eka`.
   Toisella kerralla Pentti suunnittelee kiertuetta, ja joka kolmas kyyti on **Pentin kiertue** (onnellinen loppu):
   loppukohtauksessa BangBus ajaa yön maantietä Kajaanin, Kuhmon ja Suomussalmen kautta, Pentti ratissa ja pelaaja
   etupenkillä. Herätys kotipihalta (Raahessa Gasthausin pihalta) klo 11, kiertuekulut 20–40 €.
@@ -251,13 +257,27 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     kiinni jäädessä peli päättyy, maine −4, Päivi kuulee, ja Hilkka antaa 55 %:n todennäköisyydellä myyntikiellon
     huomiseen. Pöytäkerran jälkeen maine: reiluja kauppoja ("Rehellinen kauppamies" +3 tai "Reilu myyjä" +1) tai
     liikaa tyly tinkiminen ("Pihi kuin Pekka" −3). Reilu hinta: puolukka 6 €/l, mustikka 7, kantarelli 14, herkkutatti
-    11, savukala 7, savuriista 9, kalja 15, pontikka 20. Pelin aikaa kuluu tunti per neljä asiakasta. Pekan vanhoja
-    tavaroita ei vielä myydä. Testi `--scene=kirppismyynti`.
+    11, savukala 7, savuriista 9, kalja 15, pontikka 20. Pelin aikaa kuluu tunti per neljä asiakasta. Testi `--scene=kirppismyynti`.
+  - **Pekan vintin romut** (`pekan_laatikko.gd`): kun oma pöytä on kerran pidetty, Pekka tarjoaa laatikollisen
+    vanhaa tavaraa ("Vie kirppikselle, puolet mulle"): kolme iskelmä-LP:tä (5 €), pilkkipokaali -87 (10), karvalakki
+    (12), vieherasia (15), Itkevä poika -taulu (18) ja kampikahvimylly (12). Ne myydään omalla pöydällä kuten marjat;
+    ostajat huudahtavat tavarasta ("Voi, Itkevä poika!"), Anna-Liisa tunnistaa Pekan tavarat, ja romujen ollessa
+    pöydällä tulee myös keräilijä, joka maksaa vanhasta hyvin. Puolet romujen tuloista on Pekan (yhteenvedossa ja
+    viestissä). Tilitys Pekalle samana päivänä: maine +2 ja seuraava kyyti mökille ilmainen ("Pekan piikkiin").
+    Jos osuus jää yön yli, Pekka tervehtii vihaisena eikä anna kyytiä, ennen kuin rahat tulevat (ei palkkiota).
+    Myymättömät jäävät laatikkoon (reppu: Pekan romulaatikko). Sivutehtävä "Pekan vintin romut". Testi
+    `--scene=pekanlaatikko`.
   - **Hiihtohaalari:** Railin vaatetangossa keskipöydän vieressä (vakosamettitakin ja flanellipaidan välissä)
     roikkuu neonpinkki kasarin toppahaalari, 6 € (tinkiä voi). Valkoinen olkakaarroke sahalaitaisin vuorenhuipuin,
     keltainen ja turkoosi raita, tikkauskanavat, vetoketju, mustat resorit, valkoiset kuukengät ja raidallinen frotee-otsapanta
     (mitoitetaan pään ja tukan mukaan). Ostettuna moraali nousee hieman, Anna-Liisa nauraa, ja haalari tulee kodin
     vaatekaappiin. Haalarissa Anna-Liisa nauraa seuraintalolla ja Päivi motkottaa kotiovella kerran päivässä.
+  - **Släbärit ja villasukat:** samalla tangolla lattialla 90-luvun släbärit (tummansininen muotoiltu pohja, leveä remmi
+    kolmella valkoisella raidalla), 3 € (tinkiä voi). Jalassa ne ovat yksi kenkä: harmaa villasukka (resorivarsi puoleen sääreen lahkeen päällä, valkoinen kanta ja
+    kärki) ja släbäri päällä. Ostettuna Raili muistelee Kalajoen hiekkoja, ja Päivi kaivaa kotona
+    niihin harmaat villasukat (valkoinen kanta ja kärki). Kodin vaatekaapista "Släbärit ja villasukat jalkaan" ja takaisin
+    "Asun omat kengät jalkaan" millä tahansa asulla paitsi hiihtohaalarilla (kuukengät). Kumisaappaat menevät edelle:
+    jos ne ovat jalassa, ne riisutaan ensin eteisen matolle. Pelkkä ulkonäkö. Testi `--scene=slabarit`.
     Testi `--scene=haalari`.
   - **Drakkar Noir (legendaarinen hetki):** Railin pöydällä puolillaan oleva musta pullo (12 €). Kun pullo loppuu,
     Railin pöydälle tulee uusi (legendaarinen hetki vain ensimmäisestä).
@@ -392,8 +412,20 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   mökillä, mutta koulun pihalla ja heikommalla vastustajalla (taito 0,72 ja +0,06 jokaisesta voitosta, enintään 0,96).
   Voitto: nuoret tarjoavat limut, kerran päivässä maine +3, moraali ja stressi paranevat ("Setä on ihan ok"). Tappio: tarjoat
   limut (3 €), jos rahaa ei ole, maine −2 kerran päivässä. Päiväkodin toinen paikka px (585, 12) osuu leikkipaikkaan eikä
-  omaan rakennukseen, joten kyltti on vain päiväkodilla px (725, 123). Ei vielä: koulun disko, Päivin työpaikka päiväkodissa
-  eikä juniorien treenit. Testi `--scene=koulukeskus` (logiikka headlessinä, kuvat ikkunallisena).
+  omaan rakennukseen, joten kyltti on vain päiväkodilla px (725, 123). Ei vielä: Päivin työpaikka päiväkodissa eikä juniorien
+  treenit. Testi `--scene=koulukeskus` (logiikka headlessinä, kuvat ikkunallisena).
+- **Koulun disko** (`koulu_disko_game.gd`): perjantaisin 18–21 koulukeskuksen ovelta (kyltti "KOULUDISKO PE 18–21",
+  muina aikoina ovessa lappu), kerran illassa. DJ on hukassa, ja pelaaja pyörittää kasetteja liikuntasalissa
+  (parketti pelikenttäviivoineen, puolapuut, kori, patjat, serpentiinit, ilmapallot, KOULUDISKO-banderolli,
+  peilipallo valotäplineen ja värivalot; DJ-pöydällä tuplakasettideki VU-mittareineen). 12 lasta tanssii tai
+  seisoskelee seinustalla, opettaja valvoo. Lapset huutavat toiveita (tekno, dance, hidas), ja pelaaja valitsee
+  kolmesta kasetista seuraavan (vasen/oikea) ja miksaa biisin saumassa (E, kun miksauspalkin neula on vihreällä).
+  Tanssilattia: eniten toivottu +3, muu toivottu +1, toivomaton −1, polkka −3, kolmas samaa peräkkäin −1; sujuva
+  miksaus +1, kesken biisin −1 (levyn raapaisu), hiljaisuus −2. Hitaalla lapset tanssivat pareittain. Opettaja
+  toivoo kolmannessa biisissä kerran polkkaa: lapset voihkivat, mutta soitettu polkka antaa maineen +1 (soittamatta
+  −1). Kuusi biisiä (20 s kukin); tulos keskimääräisestä täyttöasteesta: Diskon kuningas (8+, maine +4), Kelpo DJ
+  (5+, +2), Kuin mummojen tanssit (2+, 0) tai Tyhjä lattia (−1). Kesken lähtö: maine −1. Sivutehtävä "Koulun DJ".
+  Testi `--scene=koulu_disko`.
  grillikioski seuraintalon vieressä (auki 11–23). Luukulta Raijalta makkaraperunat,
   lihapiirakka kaikilla, hampurilainen ja kahvi (ruoat reppuun, T syö). Illalla 18–23 kioskin edessä notkuu porukka
   mopoineen, ja juoruista kuulee mm. Pannu-Sulon kuusikosta ja Tokolan varastosta. Ilmoitustaululta alkaa
@@ -590,7 +622,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   `nipple_cloth`). Lapsilla ja nuorilla niitä ei ole (pituus alle 1,5 m tai lookin `nipples: false`).
 - **Kengät (#272, #274):** jokaisella hahmolla on oma kenkätyyppi (`look.shoe`; `Shoes.type_for` käyttää `shoes`-väriä vain varalla).
   Pelaajalla tuulipuvussa lenkkarit, farkuissa ja työvaatteissa työkengät ja hiihtohaalarissa kuukengät; saunassa ja uidessa
-  paljain jaloin. **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin päätyseinällä punaisen uunin vieressä on
+  paljain jaloin. Kirppikseltä ostetut släbärit ja villasukat korvaavat asun kengät vaatekaapista (ks. kirppis). **Kumisaappaat (#274):** kodin eteisessä (makuuhuoneen oven ja etuseinän välissä) ja mökin päätyseinällä punaisen uunin vieressä on
   vihreä saapaspari vaalealla kuramatolla. Ne ovat periaatteessa yhdet saappaat: kun ne ottaa kummasta tahansa paikasta,
   ne katoavat molemmilta matoilta, ja ne voi palauttaa kummalle tahansa. E avaa valikon: matolta jalkaan tai reppuun,
   jalasta matolle tai reppuun ja repusta jalkaan tai matolle. Repussa kulkevat saappaat vaihtuvat jalkaan missä tahansa
@@ -733,10 +765,14 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
   legendaarinen normipäivä, mökkibileet, erämaan laavu (Viitajärven laavu auringonlaskussa), Kymppiuutiset nauhalta
   (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa), Mirkun
   teltassa sekä kolmiomittaus Saloisissa ja Raahessa. Ilmoitus "ONNELLINEN LOPPU".
-- **Legendaariset hetket** (saavutukset, peli jatkuu): Raaheen Pekan kyydillä, savusaunan löylyt, lavatanssit,
+- **Legendaariset hetket** (saavutukset, peli jatkuu): Raaheen Pekan kyydillä, savusaunan löylyt, Pentin ensimmäinen kyyti, lavatanssit,
   karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
   Drakkar Noir ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".
+- **Lavastetut hetket** (`endings.gd STAGED`) koetaan kohtauksina, ja niihin päädytään tarinan kautta. Niistä ei tule
+  ilmoitusta, vaan kohtauksen jälkeen rivi "Päiväkirjaan uusi tarina". Kohtaus nähdään vain ensimmäisellä kerralla.
+  Toistot lasketaan päiväkirjaan, ja hahmo muistelee ensimmäistä kertaa. Hetki on Pentin ensimmäinen kyyti
+  (`rikos/pentti.gd`, `cutscene.gd pentti_ride`; testi `--scene=pentti_eka`).
 - Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 10, kerrat yhteensä; matalat kortit tiiviinä riveinä) ja legendaariset hetket oikealla
   (X / 16, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
 
@@ -769,6 +805,10 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
 - **Kantoraja:** jalan jaksaa kantaa 12 kaljaa, pyörän kyytiin mahtuu 6. Liian täysin käsin ei pääse pyörän
   selkään, ja kalja kädessä ei pääse kauppaan (kauppias kieltää).
 - **Turvapaikat Päiviltä:** Kiilinlammen grillikatos, Viitajärven laavu ja länsilaidan rauniot. Niihin Päivi ei tule
-  Hyundailla perään. Testi `--scene=turvapaikat`.
+  Hyundailla perään. Testi `--scene=turvapaikat`. Lisäksi kotitöiden ajan: oman nurmikon leikkuu (40 m leikkurista)
+  ja pensasaidan leikkuu (40 m aidan luota, Päivi vahtii itse narun vieressä; leikkuun jälkeen 15 s aikaa lähteä,
+  testi `--scene=pensasaita`). Häviö tai uusi päivä kesken leikkuun lopettaa minipelin (`main.gd _abort_hedge`).
+  Trimmeri haukkaa latvasta enintään 22 cm kerrallaan: liian syvä veto pitkään kasvuun ei leikkaa, vaan kone pykii
+  ja nykii, ja ruudulle tulee vinkki leikata ylempää pala kerrallaan (`hedge_game.gd _deep_tick`).
 - Esc avaa valikon: asetukset (grafiikan laatu, koko näyttö, V-Sync, renderöintiskaala, FOV, FPS-näyttö,
   leijuvat opasteet eli paikkojen ja hahmojen nimet (oletuksena pois), äänenvoimakkuudet, hiiren herkkyys, käänteinen Y, kameran automaattikeskitys), ohjaimet ja tekijät.

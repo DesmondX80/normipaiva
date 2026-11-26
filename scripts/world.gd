@@ -378,7 +378,7 @@ func build(step: Callable) -> void:
 	_commit_batches()
 	await step.call("Istutetaan metsää", 0.75)
 	# Metsän sirottelu (tuhansia pistetestejä) välimuistista: sama satunnaistila, kartta ja talot = samat puut.
-	var tkey := "v1/%d/%d/%d/%d/%d/%d/%s" % [_rng.state, _trees.size(), hash(_houses), _fill_hash, hash(_tree_free), hash(M.FORESTS), _drape_key()]
+	var tkey := "v2/%d/%d/%d/%d/%d/%d/%s/%d" % [_rng.state, _trees.size(), hash(_houses), _fill_hash, hash(_tree_free), hash(M.FORESTS), _drape_key()]
 	var tc := MeshBundle.load_dict("metsa", tkey)
 	if tc.has("trees"):
 		_trees = tc.trees
@@ -676,6 +676,23 @@ func _road_clearance(p: Vector2) -> float:
 		var c := Geometry2D.get_closest_point_to_segment(p, s[0], s[1])
 		best = minf(best, p.distance_to(c) - s[2])
 	return best
+
+
+## Näkyvän pinnan nosto maastosta pisteessä (m): tiet, pientareet, polut ja asfalttipihat piirretään maaston yläpuolelle
+## (LAYER, ettei pinta välky maaston kanssa). Seisova hahmo nostetaan tämän verran (Character.ground_lift, main.gd), etteivät
+## kengät uppoa asfalttiin. 0 = maasto.
+func surface_lift(pos: Vector3) -> float:
+	var p := Vector2(pos.x, pos.z)
+	var lift := 0.0
+	for s in _seg_grid.get(Vector2i(floori(p.x / CELL), floori(p.y / CELL)), []):
+		var d: float = p.distance_to(Geometry2D.get_closest_point_to_segment(p, s[0], s[1])) - float(s[2])
+		if d <= 0.0:
+			lift = maxf(lift, float(LAYER[s[3]]))
+		elif d <= 1.2 and STYLES[s[3]].edge != "":
+			lift = maxf(lift, float(LAYER.shoulder))
+	if lift < float(LAYER.lot) and _in_any(p, _lots):
+		lift = float(LAYER.lot)
+	return lift
 
 
 ## Mikä alusta pisteessä on (ks. TERRAIN).
@@ -1340,6 +1357,7 @@ var lehto_penkki_pos := Vector3.ZERO
 var lehto_portti_pos := Vector3.ZERO
 var lehto_plate: Node3D  # Pörrön muistokyltti (näkyy tehtävän jälkeen)
 var pingis_ulko_pos := Vector3.ZERO  # ulkopingispöytä (#143)
+var koulu_ovi_pos := Vector3.ZERO  # koulukeskuksen ovi (koulun disko perjantaisin, koulu_disko_game.gd)
 var kanttorila_pos := Vector3.ZERO  # Kanttorilan pihan etuosa (yösävel)
 var kauppias_pos := Vector3.ZERO  # kauppiaan hauta
 var olavi_katko_pos := Vector3.ZERO
@@ -1610,6 +1628,13 @@ func _build_koulukeskus() -> void:
 		add_child(root)
 		var plate := B.sign_plate(root, spec[1], spec[2], spec[3], spec[5], spec[6], spec[3], "Helvetica Neue")
 		plate.position = Vector3(0, spec[4], -0.06)
+		if spec[0] == M.KOULUKESKUS:
+			# Ovi julkisivun edessä ja diskon kyltti oven vieressä (koulun disko perjantaisin 18–21).
+			var door := front + nrm * 1.6
+			koulu_ovi_pos = Vector3(door.x, T.h(door.x, door.y), door.y)
+			var disko := B.sign_plate(root, "KOULUDISKO PE 18–21", Color(0.92, 0.2, 0.5), Color(1.0, 0.95, 0.4), 0.45, 56,
+				Color(1.0, 0.95, 0.4), "Helvetica Neue")
+			disko.position = Vector3(0, 2.0, -0.06)
 	for c in M.KENTAT:
 		_build_pitch(M.w2(c), 34.0, 20.0)
 	var at := M.w2(M.ULKOPINGIS)
@@ -2372,6 +2397,15 @@ func _build_rauniot() -> void:
 				tn.position = Vector3(cos(a) * 1.4, 0.0, sin(a) * 1.4)
 				tn.rotation.y = -a + PI / 2.0
 				tn.play("Sitting_Idle" if k == 1 else "Idle", 0.0)
+				if k == 1:
+					# Istuu kivellä nuotion ääressä (ennen ilmassa ilman istuinta): Pose.sit SUORA, etu = hahmon -Z (kohti nuotiota).
+					var stone := Node3D.new()
+					stone.position = tn.position
+					stone.rotation.y = tn.rotation.y
+					rauniot_youth.add_child(stone)
+					B.mesh(stone, B.cyl(0.24, 0.29, 0.42, 9), Vector3(0, 0.21, 0.05), Color(0.52, 0.5, 0.47))
+					Seat.spot(stone, {"seat": Vector3(0, 0.42, 0.05), "front": Vector3(0, 0, -1), "depth": 0.4})
+					seat_queue.append([tn, stone, Pose.SUORA, {}])
 			rauniot_youth.visible = false
 
 
@@ -2444,15 +2478,22 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 	B.mesh(root, B.boxm(Vector3(0.25, 0.3, 0.7)), sr + Vector3(0, 0.6, 0), accent.lightened(0.15))
 	B.mesh(root, B.boxm(Vector3(0.2, 0.35, 0.2)), sr + Vector3(0, 0.85, 0.3), accent.lightened(0.15))
 	# Penkki ja äidit (päivisin).
+	# Penkki ja istujat maan pinnalle: leikkipuisto on y=0:ssa, mutta maa vaihtelee (Käpykatu +0,14: jalat 8 cm maassa,
+	# Herukkapolku -0,19: penkki ilmassa). Korkein kohta penkin jalkojen ja istujien jalkaterien alla, ettei mikään mene maahan.
+	var ground := -INF
+	for lp in [Vector3(-0.8, 0, -5.2), Vector3(0.8, 0, -5.2), Vector3(-0.8, 0, -4.8), Vector3(0.8, 0, -4.8),
+			Vector3(-0.4, 0, -4.4), Vector3(0.4, 0, -4.4)]:
+		var wp: Vector3 = root.transform * lp
+		ground = maxf(ground, T.h(wp.x, wp.z))
 	var bench := Node3D.new()
-	bench.position = Vector3(0, 0, -5.0)
+	bench.position = Vector3(0, ground, -5.0)
 	root.add_child(bench)
 	B.mesh(bench, B.boxm(Vector3(1.8, 0.06, 0.45)), Vector3(0, 0.45, 0), Color(0.55, 0.4, 0.25))
 	B.mesh(bench, B.boxm(Vector3(1.8, 0.4, 0.05)), Vector3(0, 0.7, -0.22), Color(0.55, 0.4, 0.25))
 	for x in [-0.8, 0.8]:
 		B.mesh(bench, B.boxm(Vector3(0.08, 0.45, 0.4)), Vector3(x, 0.22, 0), Color(0.3, 0.3, 0.3))
 	var mums := Node3D.new()
-	mums.position = Vector3(0, 0, -5.0)
+	mums.position = Vector3(0, ground, -5.0)
 	root.add_child(mums)
 	for i in 2:
 		var mum := Looks.make(mums, {"model": "female", "shirt": [Color(0.6, 0.75, 0.9), Color(0.75, 0.22, 0.32)][i], "pants": Color(0.2, 0.22, 0.3),
@@ -2460,10 +2501,13 @@ func _playground(name: String, px: Vector2, idx: int) -> void:
 			"shoe": "lenkkari"})
 		mum.rotation.y = PI  # kasvot leikkipuistoon päin (hahmo katsoo -Z, penkin selkänoja on -Z:ssa)
 		mum.play("Sitting_Idle", 0.0)
-		mum.anim.advance(0.01)
-		# Istuma-asennossa lantio on hahmon origon takana: lantio istuimelle selkänojan eteen.
-		var pelvis: Vector3 = mum.basis * mum.bone_position("pelvis")
-		mum.position = Vector3(i * 0.8 - 0.4 - pelvis.x, 0.05, -0.07 - pelvis.z)
+		# Istuu kuten muut kalusteiden istujat (Pose.sit JAYKKA): lantio istuimelle, jalat maahan, kädet reisille kontaktein.
+		# Istumapaikka omassa solmussa penkin origossa (kappaleet penkin avaruudessa), etu = +Z (kohti leikkipuistoa).
+		var spot := Node3D.new()
+		bench.add_child(spot)
+		Seat.spot(spot, {"seat": Vector3(i * 0.8 - 0.4, 0.48, 0.0), "front": Vector3(0, 0, 1), "depth": 0.45,
+			"back": {"p": Vector3(i * 0.8 - 0.4, 0.7, -0.195), "n": Vector3(0, 0, 1)}, "solids": Seat.collect(bench)})
+		seat_queue.append([mum, spot, Pose.JAYKKA, {}])
 	var kid := Looks.make(mums, {"model": "male", "shirt": accent, "pants": Color(0.2, 0.3, 0.6), "hair": "Hair_Buzzed",
 		"hair_color": Color(0.85, 0.75, 0.4), "height": 1.05, "skin": Color(0.97, 0.82, 0.72), "shoe": "lenkkari"})
 	kid.position = Vector3(1.0, 0.0, 7.6)
@@ -2637,6 +2681,10 @@ func _build_honganpalo() -> void:
 	root.position = Vector3(c.x, 0, c.y)
 	root.rotation.y = f.yaw  # paikallinen -Z = julkisivu tielle
 	add_child(root)
+	# _lift_objects nostaa koulun keskipisteen maaston tasolle; siirtymä vie lattian pääoven edustan maanpinnan
+	# tasolle (portaat maahan), ja rinteen alapuolelle sokkeli jatkuu syvälle.
+	var door0: Vector3 = root.to_global(Vector3(0, 0, -d / 2.0 - 2.0))
+	root.position.y = T.h(door0.x, door0.z) - T.h(c.x, c.y)
 	blockers.append([c, Vector2(l / 2.0, d / 2.0), f.yaw])
 	_add_house(c)
 	for k in [-1.0, 1.0]:
@@ -2647,7 +2695,7 @@ func _build_honganpalo() -> void:
 	var brick := Color(0.62, 0.3, 0.22)
 	B.mesh(root, B.boxm(Vector3(l, h, d)), Vector3(0, h / 2.0, 0), brick)
 	B.mesh(root, B.boxm(Vector3(l + 0.5, 0.35, d + 0.5)), Vector3(0, h + 0.17, 0), Color(0.25, 0.25, 0.27))  # tasakatto
-	B.mesh(root, B.boxm(Vector3(l + 0.02, 0.5, d + 0.02)), Vector3(0, 0.25, 0), Color(0.45, 0.45, 0.45))  # sokkeli
+	B.mesh(root, B.boxm(Vector3(l + 0.02, 4.5, d + 0.02)), Vector3(0, -1.75, 0), Color(0.45, 0.45, 0.45))  # sokkeli
 	var win := Color(0.55, 0.7, 0.82)
 	for side in [-1.0, 1.0]:  # ikkunanauhat pitkille sivuille
 		var n := int(l / 3.2)
@@ -2760,7 +2808,7 @@ func _build_honganpalo() -> void:
 	# Kenttä: viivat, maalit ja pojat.
 	var kc := M.w2(M.HONGAN_KENTTA)
 	var field := Node3D.new()
-	field.position = Vector3(kc.x, 0, kc.y)
+	field.position = Vector3(kc.x, 0, kc.y)  # maasto tasoitettu kentän kohdalta (tools/bake_terrain.gd), _lift_objects nostaa
 	field.rotation.y = f.yaw
 	add_child(field)
 	_tree_free.append([kc, 26.0])
@@ -5492,7 +5540,7 @@ func _build_clearcuts() -> void:
 ## Maskikuva: R = ruohon tiheys, G = viljapelto. Tiet, vesi ja talot nollataan.
 ## Ruohomaski välimuistista (pikseli kerrallaan maalaaminen vie GDScriptillä yli sekunnin).
 func _build_mask() -> ImageTexture:
-	var key := "v1/%d/%d/%d/%d/%d" % [hash(_houses), hash(_mask_clear), hash(M.ROADS), hash(M.FORESTS), hash(M.FIELDS)]
+	var key := "v1/%d/%d/%d/%d/%d/%d" % [hash(_houses), hash(_mask_clear), hash(M.ROADS), hash(M.FORESTS), hash(M.FIELDS)]
 	var c := MeshBundle.load_dict("ruohomaski", key)
 	if c.get("img") is Image:
 		return ImageTexture.create_from_image(c.img)

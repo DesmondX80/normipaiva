@@ -3,6 +3,7 @@ extends Node
 ## (verkkopaita, tarjotut paukut, Saloisista Raaheen), kuvaa pelikameralta riisunnan vaiheet (STRIP_LEN s) ja tulostaa
 ## RISSUNTA-rivit (Helenan käsien ja pelaajan käden raot, läpimenot).
 ## aja.sh --kiintea scene asennot --asento=h
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -58,8 +59,8 @@ func pitsi(out: String) -> void:
 		cam.look_at_from_position(stage.global_position + k[1], stage.global_position + k[2])
 		for i in 6:
 			await main.get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		main.get_viewport().get_texture().get_image().save_png("%s/pitsi_%s.png" % [out, k[0]])
+		await Kuva.piirto()
+		Kuva.ruutu(main.get_viewport()).save_png("%s/pitsi_%s.png" % [out, k[0]])
 	print("RISSUNTA pitsikuvat %s" % ProjectSettings.globalize_path(out))
 
 
@@ -117,7 +118,7 @@ func run() -> void:
 			continue
 		if tt >= KUVAT[i]:
 			var f := "%s/riisunta_%02d_%.1fs.png" % [out, i, tt]
-			main.get_viewport().get_texture().get_image().save_png(f)
+			Kuva.ruutu(main.get_viewport()).save_png(f)
 			var hl: Node3D = cs.train_cast.helena
 			print("RISSUNTA %.1fs undress %.2f teksti %s" % [tt, float(hl.body_mat.get_shader_parameter("undress")), str(cs._sub.text)])
 			i += 1

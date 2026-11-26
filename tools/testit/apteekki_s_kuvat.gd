@@ -4,6 +4,7 @@ extends Node
 ## ylhäältä, pelikameralta koputuspisteeltä, takaovelta ja luukulta (luukku auki). Rakojen alitus = "TESTI VIKA".
 ## tools/testit/aja.sh tscn tools/testit/apteekki_s_kuvat.tscn
 ## Nopea tarkistus ilman pelimaailmaa (vain runko ja hoitaja): ... apteekki_s_kuvat.tscn --vain-hoitaja
+const Kuva := preload("res://tools/testit/kuva.gd")
 const Asento := preload("res://tools/testit/asento.gd")
 const Pose := preload("res://scripts/pose.gd")
 const Ap := preload("res://scripts/apteekki_saloinen.gd")
@@ -217,6 +218,6 @@ func _shot(nm: String, from: Vector3, to: Vector3) -> void:
 	cam.look_at_from_position(from, to)
 	for i in 30:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join("kuva_%s.png" % nm))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join("kuva_%s.png" % nm))
 	print("kuva %s (%.1f ms)" % [nm, 1000.0 / maxf(Engine.get_frames_per_second(), 1.0)])

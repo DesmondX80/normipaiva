@@ -2,6 +2,7 @@ extends Node
 ## Rasvanapin hahmojen anatomia FPS-kameralta: halli valot päällä, hahmot konttaamassa ja seisomassa, lähikuvat
 ## (kädet, jalat, selkä, hartiat, kasvot) kaikista viidestä pelaajasta ja pelaajasta itsestään.
 ## godot --path . --resolution 1280x720 tools/testit/rasvanappi_anat.tscn -- <kansio> [--anat=0|1]
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Game := preload("res://scripts/rasvanappi_game.gd")
 const Hall := preload("res://scripts/rasvanappi_hall.gd")
@@ -47,8 +48,8 @@ func _ready() -> void:
 
 
 func _shot(name: String) -> void:
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join(name + ".png"))
 	print("KUVA ", name)
 
 

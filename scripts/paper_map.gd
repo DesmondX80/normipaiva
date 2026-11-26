@@ -261,7 +261,7 @@ func _w2(p: Vector2) -> Vector2:
 
 ## Näkymän pikseli maailman x/z:ksi (kyläkartta).
 func _from_view(local: Vector2) -> Vector2:
-	return (local - _view.size / 2.0) / _vzoom + _vcenter
+	return (local - _voff()) / _vzoom
 
 
 func _pts(arr: Array) -> PackedVector2Array:
@@ -272,8 +272,14 @@ func _pts(arr: Array) -> PackedVector2Array:
 
 
 ## Mopomatkan kehyksen (x itään, z etelään, origo mökin osoitepisteessä) piste näkymän pikseleiksi.
+## Siirto pyöristetään kokonaisiin pikseleihin: vieritettäessä kaikki viivat ja merkit liikkuvat samassa tahdissa
+## (murtopikselisiirrossa ohuet viivat hyppivät pikselistä toiseen eri hetkinä ja kartta näyttää nykivän).
 func _vpx(p: Vector2) -> Vector2:
-	return (p - _vcenter) * _vzoom + _view.size / 2.0
+	return p * _vzoom + _voff()
+
+
+func _voff() -> Vector2:
+	return (_view.size / 2.0 - _vcenter * _vzoom).round()
 
 
 # --- Paperi ja kehys ---------------------------------------------------------
@@ -379,14 +385,23 @@ func _draw_map() -> void:
 			hi = hi.max(p)
 		lo = lo.max(Vector2.ZERO)  # vain näkyvä osa (zoomatessa suot ovat isoja)
 		hi = hi.min(v.size)
-		var yy := lo.y + 5.0
+		# Viivoitus kiinni kartassa (rivit maailman ruudukossa), ei ruudussa: ei ui vieritettäessä. Ruudun koko
+		# kahden potensseina, joten zoomatessa kuvio vain venyy ja harvenee portaittain.
+		var dz := pow(2.0, roundf(log(6.0 / _vzoom) / log(2.0)))
+		var org := _voff()
+		var step_y := dz * _vzoom
+		var row := ceili((lo.y - org.y) / step_y)
+		var yy := org.y + row * step_y
 		while yy < hi.y:
-			var xx := lo.x + fmod(yy * 7.0, 11.0)
+			var step_x := step_y * 14.0 / 6.0
+			var shift := fmod(absf(row * 7.0), 11.0) / 6.0 * step_y
+			var xx := org.x + shift + floorf((lo.x - org.x - shift) / step_x) * step_x
 			while xx < hi.x:
 				if Geometry2D.is_point_in_polygon(Vector2(xx, yy), pts):
-					v.draw_line(Vector2(xx, yy), Vector2(xx + 6, yy), Color(0.3, 0.5, 0.7, 0.8), 1.0)
-				xx += 14.0
-			yy += 6.0
+					v.draw_line(Vector2(xx, yy), Vector2(xx + step_y, yy), Color(0.3, 0.5, 0.7, 0.8), 1.0)
+				xx += step_x
+			yy += step_y
+			row += 1
 	# Puumerkit metsiin.
 	var view_r := Rect2(Vector2(-5, -5), v.size + Vector2(10, 10))
 	for t in _tree_pts:
@@ -402,8 +417,6 @@ func _draw_map() -> void:
 
 	# Tiet: ensin ääriviivat, sitten täyttö; leveys kasvaa zoomatessa.
 	var rw := clampf(_vzoom / 0.4, 1.0, 3.0)
-	for pass_i in 2:
-		pass
 	_rail_on(v, _pts(Array(M.railway())), clampf(3.0 * rw, 2.5, 6.0))  # Saloisten rata asemalta horisonttiin
 	# Talot pieninä mustina neliöinä.
 	if world != null:
@@ -463,7 +476,7 @@ func _draw_map() -> void:
 
 	# Naapurit (tarina lähettää heidän luokseen): kuulakärkikynän ympyrä, nimi hiiren alla (_place_at).
 	for n in NEIGHBORS:
-		_place_mark_on(v, _px(n[0]))
+		_place_mark_on(v, _px(n[0]), M.w2(n[0]))
 	_house_icon_on(v, _px(M.HOME_ZONE), Color(0.8, 0.15, 0.1))
 	_outlined(v, lb_at.koti, "Järvikuja 1", 13, Color(0.7, 0.1, 0.05))
 	var sp := _px(M.SHOP_ZONE)
@@ -555,7 +568,7 @@ func _draw_map() -> void:
 			_sinikka_icon_on(v, _w2(sk_p))
 	# Kylän julkiset paikat pienenä kuulakärkikynän ympyränä ("täällä on jotain"), nimi hiiren alla (_place_at).
 	for pl in _public_places():
-		_place_mark_on(v, _w2(pl[1]))
+		_place_mark_on(v, _w2(pl[1]), pl[1])
 	if game != null:
 		for qm in game.quest_marks(true):
 			_pencil_ring_on(v, qm)
@@ -717,7 +730,7 @@ func _poi_icon_on(ci: CanvasItem, p: Vector2, kind: String) -> void:
 func _rail_on(ci: CanvasItem, pts: PackedVector2Array, w: float) -> void:
 	ci.draw_polyline(pts, INK, w)
 	for i in pts.size() - 1:
-		ci.draw_dashed_line(pts[i], pts[i + 1], Color(0.95, 0.93, 0.85), w - 1.5, 6.0)
+		ci.draw_dashed_line(pts[i], pts[i + 1], Color(0.95, 0.93, 0.85), w - 1.5, clampf(6.0 * _vzoom / 0.4, 3.0, 18.0))  # ratapölkyt venyvät kartan mukana
 
 
 func _house_icon_on(ci: CanvasItem, p: Vector2, col: Color) -> void:
@@ -785,9 +798,9 @@ func _place_at(local: Vector2) -> String:
 
 
 ## "Täällä on jotain": pieni kuulakärkikynällä sutaistu ympyrä (vähän yli kierroksen, ei aivan pyöreä).
-func _place_mark_on(ci: CanvasItem, p: Vector2) -> void:
+func _place_mark_on(ci: CanvasItem, p: Vector2, key: Vector2) -> void:
 	var pts := PackedVector2Array()
-	var h := absi(int(p.x * 7.0 + p.y * 13.0))
+	var h := absi(int(key.x * 7.0 + key.y * 13.0))  # muoto paikan (maailman x/z) mukaan: ei elä vieritettäessä
 	var a0 := (h % 628) / 100.0
 	for s in 17:
 		var a := a0 + s * TAU * 1.15 / 16.0

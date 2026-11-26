@@ -42,13 +42,31 @@ jakavat pelaajan tallennuksen ja user://-kansion, joten vain yksi saa olla käyn
 
 ## Testikohtaukset
 
-`scripts/main.gd`:n `_maybe_screenshot` sisältää kymmeniä testikohtauksia. Ajo:
+Testikohtaukset (noin 340) ovat tiedostoissa `tools/testit/kohtaukset/<ryhmä>.gd` (mökki, ajoneuvot, kartta ja kota, kauppa, kolmio ja Vaala sekä muut aakkosjärjestyksessä). Jokaisessa on `KOHTAUKSET`-lista ja `aja(scene, path, nohud)`, jonka `match scene:` sisältää kohtaukset; `main` on pelin päänäkymä (`main.walker_out`, `main._toggle_mount()`) ja `Main.VAKIO` sen vakiot. `main.gd:n _maybe_screenshot` lukee argumentit, valitsee ryhmän `KOHTAUSRYHMAT`-listasta ja ottaa lopuksi yhteisen kuvan; `aja` palauttaa 2, jos kohtaus lopetti itse (ennen `return`). Uusi kohtaus lisätään sopivaan ryhmään: haara `match`iin ja nimi `KOHTAUKSET`-listaan. Kohtausta ei löydy: `grep -l '"nimi"' tools/testit/kohtaukset/*.gd`. Kaikkien ryhmien ja testiskriptien (`tools/testit/*.gd`) käännöstarkistus: `aja.sh scene kohtaustarkistus` (logiikkakohtaus pelin sisällä, jotta autoloadit ovat olemassa; tulostaa `KOHTAUSTARKISTUS <ryhmä>: OK` ja lopuksi rikkinäisten testiskriptien määrän). Aja se aina, kun muutat testitiedostoja mekaanisesti: esim. perivä testi (`extends "res://tools/testit/kolmio_kuvat.gd"`) ei saa määritellä uudelleen yläluokan vakiota. Siirto tehtiin skriptillä, joka lisäsi `main.`-etuliitteet; pelin jäsentä ei voi käyttää ilman etuliitettä (käännösvirhe), ja `$Solmu` kirjoitetaan `main.get_node("Solmu")`. Ajo:
 
 ```bash
 godot --path . -- --shot=/polku/kuva.png --scene=<nimi> [--nohud]
 ```
 
-Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi ajaa `--headless`.
+Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi ajaa `--headless` (`aja.sh --headless scene <nimi>`).
+Testit ottavat kuvan apufunktiolla `tools/testit/kuva.gd` (`const Kuva := preload("res://tools/testit/kuva.gd")`,
+`await Kuva.piirto()` ja `Kuva.ruutu(get_viewport()).save_png(p)`), ei suoraan `RenderingServer.frame_post_draw`:lla:
+headlessissa mitään ei piirretä, joten signaali ei tule koskaan ja testi jäisi aikarajaan. Ruudulla apufunktio toimii
+kuten ennen; headlessissa odotus on yksi ruutu ja kuva on tyhjä samankokoinen kuva. Pikseleistä mittaava testi
+tarkistaa `Kuva.piirretaan()` ja tulostaa headlessissa "ei tarkistettu" (esim. `savy_mitta.gd`). Pelin oma koodi
+(`scripts/`) ei voi ladata `tools/`-tiedostoja (vienti jättää ne pois), joten `main.gd`:n lopun kuva tarkistaa
+`DisplayServer.get_name()`:n itse.
+Testit jakavat ajokansion (`AJO_KANSIO`) tallennuksen, joten edellisten kohtausten tarinatila kertyy: esim. korkkikansion
+rikos tuo aamulla Päivin kysymyksen, ja avoin keskustelu estää oven (vessa-kohtaus jäi ovelle). Jos kohtaus toimii
+puhtaalla kansiolla mutta ei pitkän ajon jälkeen, aja se uudella `AJO_KANSIO`:lla ennen kuin epäilet koodia.
+Kun main tuo uusia ääniä tai malleja tai muuttaa `.import`-tiedostoja (esim. tekstuurien pakkaus), aja
+`godot --headless --path . --import` ennen testejä ja peliä: editori tuo tiedostot itse, mutta suoraan ajettu peli ei,
+joten ne puuttuvat tuontivälimuistista (`.godot/imported`). Silloin testit kaatuvat (esim. `voice_length` null) tai
+hahmot jäävät lataamatta (`Failed loading resource ... .s3tc.ctex`, `instantiate` null).
+`--scene=koulu_disko`: koulun disko (`koulu_disko_game.gd`): ovi torstaina ja perjantaina, pisteytys (`score_change`, `rating`) ilman ruutua, ensimmäinen biisi, toive kesken biisin, miksauspalkki, sujuva miksaus hitaaseen (parit), kesken katkaisu, opettajan polkkatoive ja polkka, hiljaisuus, loppu ja tulos, vaikutus peliin (maine, kerran illassa, sivutehtävä) ja tallennus; rivit `DI OK` tai `TESTI VIKA`, kuvat `_ovi`, `_alku`, `_kasetit_lahi`, `_soi`, `_lattia_lahi`, `_deki_lahi`, `_miksaus`, `_hidas`, `_opettaja`, `_polkka`, `_loppu`. Kamera rajataan projisoimalla (`_frame_cam`): kaikkien lattiapaikkojen lapset 12–88 % leveydelle ja 18–74 % korkeudelle, DJ:n pää vasempaan alakulmaan.
+`--scene=pekanlaatikko`: Pekan vintin romut (`pekan_laatikko.gd`): laatikko vasta oman kirppispöydän jälkeen ja vain kerran, romut pöydälle, keräilijän, Anna-Liisan ja mummon repliikit, Pekan osuus (puolet romujen tuloista), saman päivän tilitys (maine, ilmainen kyyti), myöhästynyt tilitys (kyyti kiinni, vihainen tervehdys) ja tallennus; rivit `PL OK` tai `TESTI VIKA`, kuvat `_pekka_laatikko`, `_keraaja`, `_poyta_lahi` (pöytä 2 × suurennettuna), `_annaliisa_taulu`, `_yhteenveto`, `_tilitys`, `_myohassa`.
+`--scene=honganpalo_maasto`: Honganpalon koulu ja kenttä maaston pinnalla (kentän rako maahan yhdeksästä pisteestä, `TESTI VIKA` yli 0,15 m; kuvat `_hongan_*` kentästä sivulta, päädystä ja ylhäältä, koulusta edestä ja takaa sekä pihasta). Kentän alla maasto on tasoitettu leivonnassa (`tools/bake_terrain.gd`, `_flatten_site`).
+`--scene=lansi_maasto`: kylän länsiosa maaston pinnalla (kirkon, kellotapulin ja Pirtin pohjan kulmat suhteessa keskipisteeseen, josta `_lift_node` nostaa; maaston korkeus länsireunalla kirkon kohdalla, ei nollia; kuvat `_lansi_*` kirkosta, tapulista, hautausmaasta, Pirtistä ja länsireunasta). Korkeusmalli ja maastoruudukko alkavat px x -550:stä (`tools/kartta/kyla.py`, `tools/bake_terrain.gd`).
 `--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).
 `--scene=kalalampi`: retkirunko ja Teeriniemen kalalampi (taksivalikko, matka, lupa, onkiminen, paluu ja kello; kuvat `_alue`, `_tiski`, `_ranta`, `_koho`, `_kirjolohi`, `_taimen`; `--shot=`).
 `--scene=matkaopas`: matkaopas B (`tools/testit/matkaopas.gd`: ei opasta, saaminen taksikuskilta kerran ja tallennus, tyhjä opas, osa kuultu, kaikki käyty: hinnat = taksivalikko ja leimat latauksen jälkeen, uusi rekisteririvi, Esc sekä O ja M oppaan kanssa; kuvat `_ei_opasta`, `_saatu`, `_tyhja_<aukeama>`, `_osa_<aukeama>`, `_kaikki_<aukeama>`, `_vertailu`, `_rajaus_sivu`, `_rajaus_leima`, `_rajaus_sisallys`; `--shot=`).
@@ -75,6 +93,19 @@ Jonin rinkka seisten ja kävelyn kahdeksassa vaiheessa (`KOLMIO rinkka`: selän 
 vartaloon). Lahjojen mallit: `scripts/kolmio_lahjat_mallit.gd`.
 Saloisten huumekauppa: `tools/testit/aja.sh tscn tools/testit/apteekki_s_kuvat.tscn [--vain-hoitaja]` (apteekin paikka ja raot tiehen, halliin ja puihin, hoitajan raot luukussa ja `Asento.solids`, kuvat ulkoa, takaa ja luukulta), `tools/testit/aja.sh tscn tools/testit/saloinen_teinit_kuvat.tscn` (kaukalon iltateinit, kellonaika 20–01, läpimenot, kääntyminen pelaajaan, laavun `peaceful`; repliikeissä ei sanoja Raahe/Siitari) ja `tools/testit/aja.sh tscn tools/testit/laakelaukku_kuvat.tscn` (paljastumisporras, laukku 3. ostolla kerran, tallennus, 3D-laukku portaalla, ikoni, laukun ja klaffipöydän minipelit). Raahen regressio: `--scene=apteekki` (APTEEKKI- ja KLAFFI-rivit).
 
+
+`tools/testit/aja.sh scene hahmoeditori`: hahmoeditori pelin alussa (`scripts/hahmoeditori.gd`, testi `tools/testit/hahmoeditori.gd`):
+kameran rajaus projisoimalla (pää ja koko hahmo paneelin vasemmalle jäävän alueen keskellä), jokaisen rivin jokainen vaihtoehto
+(kuvat `_<rivi>_<vaihtoehto>`), käännetty hahmo (`_kaanto_<aste>`), valinnat muissa asuissa ja päähineissä (`_asu_*`), arvonta,
+peruminen, hyväksyntä (`--he-rivi=<id>` kuvaa vain yhden rivin ja sitä käyttävät asut; pelaajan mallit vaihtuvat, kuvat `_valmis` ja `_peli`), tallennus ja lataus; rivit `HE OK` tai `TESTI VIKA`.
+Uusi vaihtoehto lisätään `looks.gd`:n `HAHMO`-taulukkoon (rivin ensimmäinen on oletus) ja sen vaikutus `_apply_custom`iin.
+
+`tools/testit/aja.sh tscn tools/testit/hahmo_lahikuva.tscn keho=hintela asu=nahkaliivi`: pelaajan hahmon lähikuvat ilman pelin
+latausta (alle minuutti): yksi kohta (oletus vasen olkapää, `kohde=x,y,z`, `etaisyys=`) edestä, viistosta, sivulta, takaviistosta,
+takaa ja ylhäältä. `vari=1` näyttää vartalon yksivärisenä (kolot ja taitteet näkyvät varjoista), `l.<avain>=<luku>` asettaa
+ulkonäköarvon suoraan (esim. `l.muscle=0` = pohjamalli, `l.delt_keep=0` = hartia ilman kevennystä) ja `hahmo=<Looks-vakio>`
+(esim. `hahmo=PENTTI`) kuvaa muun hahmon kuin pelaajan. Muodon korjaus tehdään
+näistä kuvista, ei koko pelin ruudusta: hartian lovi näkyi vasta lähikuvassa.
 
 `tools/testit/aja.sh scene aloitusruutu`: päävalikko kuten käynnistyksessä (kuva) ja tarkistus, ettei taustalla näy pelin
 HUD-laatikoita (autovarkauden tähtilaatikko `rikos/tahdet_hud.gd` on piilossa, kun valikko on auki tai tähtiä ei ole).
@@ -297,7 +328,7 @@ Istujat sijoitetaan yhteisillä apufunktioilla `scripts/pose.gd`:ssä: `Pose.sea
 etusuuntaan, lantio istuimelle), `Pose.feet_to_floor(ch, floor_y, front)` (jalat lattialle lonkkien kohdalle, polvet
 eteen) ja `Pose.hands_on_thighs(ch, space)` (kämmenet reisien pinnalle; kutsu vasta, kun jalka-IK on ollut voimassa
 yhden ruudun). Tarkistus: `tools/testit/asento.gd` (`seat_report` lantion rako, jalat, polvet, suunta; `bench_report`
-kalusteen osien akselit; `report` raajojen rako pintaan). Testikohtaus: `-- --shot=x.png --scene=asennot --asento=<osa>`
+kalusteen osien akselit; `report` raajojen 3D-limitys pintaan: raajan oma paksuus verkosta miinus luun etäisyys lähimpään pinnan pisteeseen, vika yli 5 mm. Vanha pystyrakomittari antoi vääriä löytöjä kyljen vieressä riippuvasta käsivarresta). Istutuksen kädet (`Pose.sit`): kämmen laskeutuu reisien ja vatsan pinnalle (isovatsaisen kädet vatsan päälle), `_clear_torso` siirtää kyynärpään ulos kyljestä ja `_fit_hands` nostaa rannetta reiden pinnasta enintään 12 mm (jäännös tulostuu `KONTAKTI ranne`). Kalusteen istujat istutetaan aina `Seat.spot` + `seat_queue` + `Pose.sit` -polulla, ei pelkällä Sitting_Idle-animaatiolla (leikkipuiston äidit, raunioiden nuotiokivi). Nopeat yhden kalusteen kierrokset (n. 80 s): `--asento=ranta` (rantatuolin isovatsainen ja nainen) ja `--asento=portaat` (Honganpalon portaiden istuja). Kun polvet ovat yli 10 cm lonkan yllä (portaat), `hands_on_thighs` laittaa kämmenet polvilumpioille ja kyynärpäät sivuille-alas, eikä kapselityöntöä (`clear_arms`) käytetä, koska kapseli on polven kohdalla verkkoa paksumpi. `_settle_feet` nostaa jalkapohjan tuen päälle mitatusta verkosta (kengän kanta jäi muuten muutaman mm askelmaan). Osissa c ja d löytöjen määrä vaihtelee ajosta toiseen (Raahen istujien puhevuoro on satunnainen, kädenväännön kulma riippuu ruutuajasta); vertaa mainiin näkymittäin, ei pelkkää summaa. Testikohtaus: `-- --shot=x.png --scene=asennot --asento=<osa>`
 ajaa `tools/testit/asennot_<osa>.gd`:n (osa 0 = apujen oma kokeilu tuolilla; kuvat `user://asennot_<osa>/`). `asennot_b` pitää
 välianimaation auki testin ajan (`cutscene.gd test_hold`: `_end` odottaa ennen häivytystä ja `_props`in vapautusta).
 `asennot_h` (junan riisunta, Helenan mustat pitsialusvaatteet): `aja.sh --kiintea scene asennot --asento=h` (xvfb:llä ilman näyttöä)
@@ -464,6 +495,38 @@ ja `_vino_lahi_varjoton` (varjokartan sahalaita valon rajalla ei ole muotovika).
 kärjen alla, ja suun yläpuolinen jalkaterä (meta `"suu"`) jää lahkeen värisenä näkyviin (`skin_outside` ohittaa sen). Kuvat:
 `<nimi>_paalta` (ylhäältä ilman vartaloa), `vertailu_karki` ja `vertailu_asut` (pelaaja, hiihtohaalari, Minttu helmassa).
 **Kumisaappaat ja `Looks.boots` (#274):** `scripts/kumisaappaat.gd` rakentaa kodin eteisen ja mökin (punaisen uunin vieressä) saapaspari-esineen umpinaisista paloista ja loftatusta jalkaosasta (pitkä matala kärki) vaalealle kuramatolle (`build`, maton koko parametrina, vihje `hint`; korkeus 0,375 m mitattu pelin saappaasta). `Looks.boots` (`""` tai `"jalassa"`) on staattinen muuttuja, jonka kirjoittaa vain `main.gd` (`_toggle_boots`/`_set_boots`, kuten hattu); `Looks.player()` asettaa sen ollessa asetettuna `shoe: kumisaapas` paitsi hiihtohaalarissa. Tallennus `pelaaja/saappaat`. Sisätilat lähettävät `acted("saappaat")`, ja E avaa valikon (`_toggle_boots`/`_on_boots_menu`: jalkaan, reppuun, tähän). Saappaat ovat yksi pari, joka odottaa kummallakin matolla: repussa `Saappaat.bag = "repussa"` (`kumisaappaat.gd`, tallennus `pelaaja/saappaat_repussa`), ja matoilla pari näkyy vain, kun se ei ole jalassa eikä repussa (`Saappaat.at_mat`). Vanhat tallennukset (`"koti"`/`"mokki"`) luetaan jalassa olevaksi. Repusta ja T:llä `_bag_boots` (repun tavara `kumisaappaat`, `use: saappaat`). Testit: `aja.sh scene saappaat`, `kengat.tscn` (jakauma), `hahmot_kontakti`/`tanssi_kontakti` argumentilla `saappaat`.
+**Släbärit ja villasukat (`slabari`, `style` 8, `Looks.feet`):** yksi kenkä, jossa villasukka on umpinainen kuori
+jalan ympärillä (`sock`: päällinen rakennetaan kuten lenkkarissa, tiukka `margin` 3 mm, pyöreä kärki `toe_n` 2,2) ja
+sen varsi nousee puoleen sääreen lahkeen päälle (`shaft`: pehmeä `rigid: false` eli painot iholta, löysä `pad` 11 mm ja `flare` 6 mm, alareuna 3 cm jalkaosan sisään `soft_lap`, muuten jalkapöydän edessä jäi rako, josta näkyi lahkeen värinen jalkaterä,
+`top_k` 0,42; lahje menee varren sisään kuten saappaissa, `shoe_top`), sen alla paksu muotoiltu släbärin pohja (`lift` 0,03, `sole` 0,026) ja päällä yksi leveä remmi
+(`sandal.single`: `toe` 0,06 m päkiästä taakse, `w` 0,072, osa 3). Remmi lasketaan sukkakuoren renkaista (kupera kuori
+sukan päällä, `thick` 3 mm), ja sen päät ovat siinä, missä sukka kohtaa pohjan (sukan alareunan sivuttaiset
+ääripisteet), joten remmi myötäilee sukan kylkiä. Hahmo on umpinaisen kengän tilassa (`shoe_on`, jalkaterä kuoren
+sisällä), ei sandaalin ihotilassa. `shoe.gdshader` style 8: osa 0 = villasukka (`knit`: noin 4 mm:n V-silmukat, urat
+rivien ja sarakkeiden välissä, melanssilanka ja vaaleat kuidut, kaukaa tasoittuva; villan nukka reunavalona; valkoinen
+kärki t > 0,925 ja kantapala pyöreänä kuppina; `sock_col`, `sock_tip` = `look.socks`), osa 2 = varsi resorina
+(pystyraidat kehän ympäri, kaksinkertainen yläreuna, sisäpinta tummempi),
+osa 1 = tummansininen pohja vaaleammalla jalkasängyn huulella ja mustalla kuviopohjalla, osa 3 = remmi, jossa kolme
+valkoista raitaa poikki remmin leveyden mukaan (`strap_u` = shoes.gd meta `remmi`). `Looks.feet` (`""` /
+`"slabarit"`, tallennus `pelaaja/jalkineet`, ostettu `pelaaja/slabarit`) asettaa `Looks.player()`:ssä tyypin ja sukat,
+paitsi hiihtohaalarissa; kumisaappaat (`Looks.boots`) menevät edelle. `main.gd _set_feet` päivittää pelaajan mallit
+kuten saappaat; vaatekaappi `_on_wardrobe("slabarit")`. Kirppiksen esine `kirppis_interior.gd _slabarit`. Testit:
+`aja.sh tscn tools/testit/kengat.tscn --e5` (pelaaja kolmessa asussa, mies ja nainen; iho sukan läpi `iho_ulkona`,
+remmin rako sukan pintaan kolmioiden keski- ja reunapisteistä, vain jalkapöydän päältä: karkea mitta, 28–30 mm, kun
+sandaalilla 22 mm) ja `aja.sh scene slabarit` (osto, vaatekaappi, haalari, saappaat, tallennus). Ensimmäinen versio
+maalasi sukan ihon pintaan (varpaat erottuivat möykkyinä); sukka kenkänä on pehmeä ja yhtenäinen.
+
+**Hahmot tien pinnalle (`Character.ground_lift`):** tiet, pientareet, polut ja asfalttipihat piirretään maaston
+yläpuolelle (Saloinen `world.gd LAYER`: polku 1,2 cm, piennar 1,7, piha 2,1, katu 2,5, tie 2,9, valtatie 3,3 cm;
+Vaala `vaala.gd LIFT_*`: asfaltti 4,5 cm, sora ja piennar 3–4 cm), ettei pinta välky maaston kanssa, mutta hahmot ja
+fysiikka kulkevat maastossa: ilman nostoa jokaisen kengän pohja jäi asfaltin sisään. `main.gd _ground_lift` antaa
+näkyvän pinnan noston hahmon kohdalla (`world.surface_lift` tieruudukosta ja pihoista, Vaalassa `vaala.surface_lift`
+`drive_code`:sta Vaalan koordinaateissa; hahmot yli 0,3 m maaston yläpuolella eli sisätilat ja lavasteet saavat 0), ja
+`character.gd _follow_ground` nostaa seisovan tai kävelevän hahmon mallin sen verran (vain kun SOLE-nosto > 0, eli ei
+istuessa, ajaessa eikä uidessa). Muutos liukuu 0,3 m/s (ei nykäystä tien reunalla), ajasta riippuen (hidas kone ei jätä
+nostoa kesken). Fysiikka ja kävelijän paikka pysyvät ennallaan. Testi `aja.sh scene slabarit` (rivi `kengän alin
+näkyvällä pinnalla`: släbärit ja lenkkarit asfaltilla ±5 mm).
+
 **Satunnaisten joukkojen kengät (#274):** `Shoes.random_type(rng, age, female)` arpoo tyypin iän ja sukupuolen mukaan (vanha `kavelykenka`; nainen 40 % `sandaali`, muuten `lenkkari`; aikuinen mies 40 % `tyokenka`, muuten `lenkkari`; nuori mies `lenkkari`). Arpa on `hash(rng.state)`, joten rng:tä ei kuluteta ja joukkojen asettelu pysyy ennallaan; sama siemen antaa samat kengät (`vaala.gd _build_lava_crowd`, `lava_game.gd`).
 **Tanssijoiden kengät:** Hilkka ja Anna-Liisa `kavelykenka`, Sinikka `sandaali`. Eri tyypin pohjat eroavat enintään 3,3 mm (`KENKA ... pohja`: lenkkari ja kumisaapas 23,0, kävelykenkä 19,7-23,0, sandaali 21,5-22,5 mm), mikä ei rikkoisi otetta (raja 5 mm). `tanssi_kontakti --kiintea`: 7 löytöä sekä mainissa että muutoksen jälkeen (myös `saappaat`). Kun tulee uusia kenkätyyppejä, tarkista tanssijoiden korkeusero.
 **Ruutuaika:** `kengat.tscn` `RUUTU`-rivi on ohjelmistorenderöinnin luku. Kenkien GPU-ruutuaikaa (lava, seuraintalo; tavoite alle 16,7 ms) ei ole mitattu: pilviympäristössä ei ole näytönohjainta, joten mittaus on testaamatta ja jää käyttäjän koneelle.

@@ -34,6 +34,8 @@ const LINES := {
 	"taped": ["Teipattu. Ja nyt varovasti.", "Toivottavasti se kestää. Jatka."],
 	"cord_off": ["Hyvä. Johto pois alta.", "No niin, nyt ei mee johto poikki."],
 	"sides": ["Kylkiversot! Ei se oo valmis, ku sivut sojottaa.", "Vielä ne kyljestä törröttävät oksat."],
+	"deep": ["Mitä sää sillä rämpyttelet? Naapurit kuulee.", "No nyt se taas yskii. Ihan niinku sun auto.",
+		"Älä riko sitä! Se on mun isän vanha trimmeri."],
 	"half": ["No nyt alkaa näyttää aidalta.", "Hyvä. Samaan malliin."],
 	"done": ["Suora ku viivottimella. Kiitos, kulta.", "No nyt! Tuo on pensasaita."],
 	"done_holes": ["Valmis... mutta ne kolot. Ne näkyy kadulle.", "Ihan hyvä. Paitsi ne kolot."],
@@ -91,6 +93,9 @@ var _end_t := 0.0
 var _cord_warned := false
 var _half_said := false
 var _sides_said := false
+var _jam := 0.0  # terä liian syvällä rehottavassa latvassa (yli BITE): kone pykii ja nykii, vinkki ruudulle
+var _jam_t := 0.0
+var _deep_said := false
 
 
 ## Trimmerin ääni syntetisoituna: terien edestakainen surina (n. 50 Hz kantti ja saha), moottorin vinkuna ja
@@ -99,6 +104,8 @@ class Motor extends AudioStreamPlayer:
 	const MIX := 11025.0
 	var on := false
 	var strain := 0.0
+	var jam := 0.0  # liian syvä veto: kierrokset sakkaavat nykien (pykiminen)
+	var _jt := 0.0
 	var _pb: AudioStreamGeneratorPlayback
 	var _spd := 0.0
 	var _ph := 0.0
@@ -117,7 +124,9 @@ class Motor extends AudioStreamPlayer:
 		_pb = get_stream_playback()
 
 	func _process(delta: float) -> void:
-		_spd = lerpf(_spd, (1.0 - strain * 0.2) if on else 0.0, 1.0 - exp(-(7.0 if on else 2.5) * delta))
+		_jt = fmod(_jt + delta * 7.0, 1.0)
+		var bog := jam * (0.3 + (0.4 if _jt < 0.45 else 0.0))
+		_spd = lerpf(_spd, (1.0 - strain * 0.2 - bog) if on else 0.0, 1.0 - exp(-(14.0 if jam > 0.1 else 7.0 if on else 2.5) * delta))
 		if _pb == null:
 			return
 		var dt := 1.0 / MIX
@@ -128,7 +137,7 @@ class Motor extends AudioStreamPlayer:
 				_ph2 = fmod(_ph2 + 1250.0 * _spd * dt, 1.0)
 				var buzz := (0.2 if _ph < 0.5 else -0.2) + (_ph * 2.0 - 1.0) * 0.14
 				_lp += (_rng.randf_range(-1.0, 1.0) - _lp) * 0.3
-				var crunch := _lp * strain * 0.9 * (0.55 + 0.45 * sin(_ph * TAU * 2.0))
+				var crunch := _lp * maxf(strain, jam) * 0.9 * (0.55 + 0.45 * sin(_ph * TAU * 2.0))
 				s = (buzz + sin(_ph2 * TAU) * 0.05 + crunch) * _spd
 			_pb.push_frame(Vector2(s, s))
 
@@ -472,6 +481,9 @@ func _place_camera() -> void:
 	if _motor.on:
 		_trim.position += Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1), _rng.randf_range(-1, 1)) * 0.003 * (1.0 + _strain * 2.0)
 		_teeth.position.z = 0.006 if int(_t * 50.0) % 2 == 0 else -0.006
+		if _jam > 0.05:  # pykiessä terä ei uppoa: nykii taaksepäin
+			_trim.position -= bd * (0.04 + 0.04 * sin(_t * 44.0)) * _jam
+			_teeth.position.z = 0.0 if fmod(_t * 7.0, 1.0) < 0.45 else _teeth.position.z
 	# Teipatessa ja lopuksi trimmeri lasketaan alas, ettei se peitä näkymää.
 	_lower = lerpf(_lower, 0.0 if _phase == "leikkaa" else 1.0, 1.0 - exp(-4.0 * get_process_delta_time()))
 	_trim.position += Vector3(0, -0.55, 0.15) * _lower
@@ -506,6 +518,8 @@ func _trim_tick(delta: float) -> void:
 	if not _lmb:
 		_strain = lerpf(_strain, 0.0, 1.0 - exp(-6.0 * delta))
 		_motor.strain = _strain
+		_jam = 0.0
+		_motor.jam = 0.0
 		_prev_range = Vector2.INF
 		return
 	# Terän pisteet aidan sisällä: niiden x-väli (ja edellisen ruudun väli, pyyhkäisy) leikataan.
@@ -532,6 +546,7 @@ func _trim_tick(delta: float) -> void:
 		if _cord_on and _cord_x >= ra - 0.06 and _cord_x <= rb + 0.06 and _blade_y <= ct + 0.04 and ct - _blade_y <= BITE:
 			_cut_cord(Vector3(_cord_x, ct + 0.03, f - 0.1))
 			return
+		_deep_tick(ra, rb, delta)
 		var res: Dictionary = hedge.cut_range(ra, rb, _blade_y, BITE, _cord_x if _cord_on else INF)
 		removed += res.removed
 		var at: Array = res.at
@@ -551,6 +566,7 @@ func _trim_tick(delta: float) -> void:
 		holes = now_holes
 	else:
 		_prev_range = Vector2.INF
+		_deep_tick(INF, -INF, delta)
 	for sh in side_hits:
 		removed += 0.1
 		Sfx.play("rattle", -12.0, 1.8)
@@ -579,12 +595,40 @@ func _trim_tick(delta: float) -> void:
 		_say((LINES.done_holes if holes > 0 else LINES.done).pick_random(), 3.2)
 
 
+## Liian syvä veto: terä narun tasolla tai ylempänä, mutta latva yli BITE sen yläpuolella. Terä ei haukkaa sitä, joten
+## kone pykii ja nykii taaksepäin, ja ruudulle tulee vinkki (Päivi mäkättää kerran). Kylkiversojen korkeudella
+## (selvästi narun alla) ei pykitä: siellä terä vain hipoo kylkeä.
+func _deep_tick(ra: float, rb: float, delta: float) -> void:
+	var deep := false
+	if ra <= rb and _blade_y >= hedge.TARGET - 0.12:
+		for i in hedge.xs.size():
+			var x: float = hedge.xs[i]
+			if x >= ra - hedge.COL / 2.0 and x <= rb + hedge.COL / 2.0 and hedge.tops[i] - _blade_y > BITE:
+				deep = true
+				break
+	_jam = lerpf(_jam, 1.0 if deep else 0.0, 1.0 - exp(-(12.0 if deep else 5.0) * delta))
+	_motor.jam = _jam
+	if not deep:
+		return
+	_shake = maxf(_shake, 0.7)
+	_jam_t -= delta
+	if _jam_t <= 0.0:
+		_jam_t = 0.14
+		Sfx.play("rattle_hard", -16.0, 0.6 + _rng.randf() * 0.15)
+		_spawn_chip(Vector3(clampf(_aim.x, ra, rb), _blade_y + 0.03, hedge.front() - 0.05), false)
+	if not _deep_said and _say_t < 0.0:
+		_deep_said = true
+		_say(LINES.deep.pick_random(), 3.0, true)
+
+
 func _status() -> String:
 	match _phase:
 		"johto":
 			return "JOHTO POIKKI! Teippaa: %d %%" % roundi(_tape / TAPE_TIME * 100.0)
 		"valmis":
 			return "Pensasaita leikattu!" + (" (koloja %d)" % holes if holes > 0 else "")
+	if _jam > 0.3:
+		return "KONE PYKII! Latva liian korkealla yhdelle vedolle: nosta terää ja leikkaa pala kerrallaan."
 	return "Narun tasalla %d %% · kylkiversoja %d · koloja %d%s" % [roundi(hedge.level_share() * 100.0), hedge.sides_left(), holes,
 		" · johto aidan päällä!" if _cord_on else ""]
 

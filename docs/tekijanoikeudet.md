@@ -7,15 +7,15 @@
 - Äänet: CC0- ja public domain -äänitteitä OpenGameArtista, Kenneyltä ja Wikimedia Commonsista (lähteet:
   `assets/sounds/LICENSE.md`). Poikkeus: pyörän räminä ja kolahdukset (`bike_ride.ogg`, `bike_clunk_*.ogg`) – Frick &
   Traa, Wikimedia Commons (**CC BY-SA 4.0**, muokatut tiedostot samalla lisenssillä).
-- 90-luvun tyyliset biisit (`assets/music/kuulokkeet/`, kuulokkeet, lavan disko ja teinien kasettisoittimet),
+- 90-luvun tyyliset biisit (`assets/music/kuulokkeet/`, kuulokkeet, lavan disko, teinien kasettisoittimet ja koulun disko),
   uudelleenkoodattu pienemmiksi (MP3 128 kbps, Ogg Vorbis q4):
   - "Robotertanz" – Shane Ivers, https://www.silvermansound.com (CC BY 4.0)
   - "90s Racer Techno" ja "Acid Action" – Bogart VGM, OpenGameArt (CC BY 4.0)
   - "I´m Free", "It´s Love" ja "Dance and Jump" – Snabisch, OpenGameArt (CC BY 3.0)
   - "Bitten by the Rave Spider" – Woolly Jammoth, OpenGameArt (CC BY 4.0)
-- Junamatkan taustabiisi (`assets/music/slow_stride.ogg`, ravintolavaunun välikuva ja kuulokkeiden varasoittolista):
+- Junamatkan taustabiisi (`assets/music/slow_stride.ogg`, ravintolavaunun välikuva, kuulokkeiden varasoittolista ja koulun diskon hidas):
   "Slow Stride" – isaiah658, [OpenGameArt](https://opengameart.org/content/slow-stride) (CC0; maininta ei pakollinen).
-- Iskelmät ja lavamusiikki (`assets/music/iskelma/`, Päivin kännykkä ja Oulujärven lavan bändi): Kansalliskirjaston
+- Iskelmät ja lavamusiikki (`assets/music/iskelma/`, Päivin kännykkä, Oulujärven lavan bändi ja koulun diskon polkat ja valssi): Kansalliskirjaston
   [Raita](https://www.doria.fi/handle/10024/66373) – musiikkia vanhoilta äänilevyiltä, Public Domain. Uudelleenkoodattu
   (mono, MP3 48 kbps 22 kHz, hiljaiset alut pois); esittäjät, vuodet ja Doria-tunnisteet `scripts/iskelmat.gd`:ssä:
   Säkkijärven polkka (Willy Larsen 1928), Orpopojan valssi ja Kulkurin valssi (J. Alfred Tanner 1926),

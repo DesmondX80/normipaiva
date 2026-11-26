@@ -41,6 +41,7 @@ const CHOCO_FAIL_LINE := "Ja luuletko että mut ostetaan suklaalla?"
 var env: Environment
 var sun: DirectionalLight3D
 var busy := false
+var phase := ""  # käynnissä olevan kohtauksen vaihe (testit ottavat kuvat vaiheen mukaan, esim. "juoksu", "uijat")
 var test_hold := false  # testikoukku (asennot_b): _end odottaa, kunnes testi on kuvannut ja mitannut (_props ei vapaudu kesken)
 
 var _cam: Camera3D
@@ -185,12 +186,15 @@ func _end(done: Callable) -> void:
 	_layer.visible = false
 	busy = false
 	done.call()
+	if busy:
+		return  # done aloitti seuraavan välianimaation (esim. Paapelin saapuminen kyydin perään): se omistaa tason
 	var tw2 := _tween()
 	_layer.visible = true
 	tw2.tween_property(_fade, "color:a", 0.0, 0.8)
 	tw2.parallel().tween_method(_layout_bars, 1.0, 0.0, 0.8)
 	await tw2.finished
-	_layer.visible = false
+	if not busy:
+		_layer.visible = false
 
 
 func _fade_to(a: float, t: float) -> void:
@@ -1223,7 +1227,10 @@ const PENTTI_RIDE_LINES := ["Pentti: \"Penkit on lämpimät, sanoinhan!\"", "Pen
 
 
 ## Parkkipaikka illalla: Pentin pakettiauto keinuu humpan tahtiin ja ikkunat huurtuvat. stats ruudun alalaitaan.
-func pentti_ride(stats: String, done: Callable) -> void:
+## legend = {"title", "sub", "lines"} ensimmäisellä kyydillä (legendaarinen hetki, rikos/pentti.gd _kyyti): keinunta
+## loppuu, liukuovi aukeaa ja pelaaja astuu ulos. Kaupasta tuleva mummo pysähtyy ja pudottaa ostoskassin, Pentti
+## nojaa kuljettajan ovesta, ja kamera nousee parkkipaikan ylle.
+func pentti_ride(stats: String, done: Callable, legend: Dictionary = {}) -> void:
 	_begin()
 	await _fade_to(1.0, 0.4)
 	var stage := Node3D.new()
@@ -1294,8 +1301,148 @@ func pentti_ride(stats: String, done: Callable) -> void:
 			_title.text = "PENTIN KYYDISSÄ"
 			_sub.text = stats
 		await get_tree().process_frame
+	if not legend.is_empty():
+		await _pentti_legend(stage, van, bubble, legend)
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
+
+
+## Pentin kyydin legendaarinen huipennus (pentti_ride legend). Auton kehys: -Z keula, liukuovi oikealla (+X) välillä
+## z -0,76 ... 0,69 (vehicles.gd hiace BP, SLIDE), kuljettajan ovi vasemmalla (-X) z -1,4 kohdalla.
+func _pentti_legend(stage: Node3D, van: Node3D, bubble: Label3D, legend: Dictionary) -> void:
+	var lines: Array = legend.get("lines", [])
+	var vt := func(local: Vector3) -> Vector3: return van.to_global(local)
+	var vx: Vector3 = van.global_basis.x  # oikea kylki (liukuovi)
+	van.rotation.z = 0.0
+	van.rotation.x = 0.0
+	van.position.y = 0.0
+	# Mummo ostoskassin kanssa tulee kaupan ovelta liukuoven puolelle.
+	var mummo: Node3D = Looks.make(stage, Looks.AKKA)
+	var m_from: Vector3 = vt.call(Vector3(5.5, 0, -3.5))
+	var m_to: Vector3 = vt.call(Vector3(3.2, 0, -0.6))
+	mummo.global_position = m_from
+	mummo.global_rotation.y = B.yaw_to(m_to - m_from)
+	mummo.play("Walk", 0.0)
+	var bag := Node3D.new()
+	B.mesh(bag, B.boxm(Vector3(0.28, 0.32, 0.16)), Vector3(0, -0.18, 0.02), Color(0.92, 0.9, 0.82))
+	B.mesh(bag, B.boxm(Vector3(0.29, 0.06, 0.17)), Vector3(0, -0.1, 0.02), Color(1.0, 0.42, 0.0))  # kaupan raita
+	B.mesh(bag, B.cyl(0.035, 0.035, 0.12, 10), Vector3(0.06, 0.02, 0.02), Color(0.9, 0.9, 0.95))  # maitopurkki
+	B.mesh(bag, B.sphere(0.05, 10), Vector3(-0.07, 0.0, 0.03), Color(0.85, 0.65, 0.3))  # pulla
+	var bag_bone: Node3D = mummo.attach("hand_r", bag, Vector3(0, -0.02, 0.0))
+	# Liukuoven aukko: tumma sisus ja ovilevy kiskolla taaksepäin.
+	var opening := B.mesh(van, B.boxm(Vector3(0.02, 1.25, 0.95)), Vector3(0.858, 0.98, -0.25), Color(0.08, 0.02, 0.03))
+	opening.visible = false
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.25, 0.3)
+	glow.light_energy = 0.0
+	glow.omni_range = 3.0
+	glow.position = Vector3(0.4, 1.2, -0.2)
+	van.add_child(glow)
+	_title.text = ""
+	_sub.text = ""
+	phase = "hiljaisuus"
+	# 1. Keinunta loppuu, hiljaisuus; mummo kävelee ohi.
+	var t0 := _now_ms()
+	while _now_ms() - t0 < 2400:
+		var t := (_now_ms() - t0) / 1000.0
+		mummo.global_position = m_from.lerp(m_to, clampf(t / 2.8, 0.0, 1.0))
+		var vp := van.global_position
+		_cam.global_position = vp + vx * 7.5 + van.global_basis.z * -2.0 + Vector3(0, 1.7, 0)
+		_cam.look_at(vp + vx * 1.5 + Vector3(0, 1.0, 0), Vector3.UP)
+		bubble.text = "(Humppa loppuu. Auto lakkaa keinumasta.)" if t < 1.8 else ""
+		await get_tree().process_frame
+	phase = "ovi"
+	# 2. Liukuovi aukeaa: punainen hehku, pelaaja astuu ulos.
+	Sfx.play("door_open", -2.0, 0.8)
+	opening.visible = true
+	var tw := _tween()
+	tw.tween_property(glow, "light_energy", 2.2, 0.4)
+	var hero: Node3D = Looks.make(stage, Looks.player())
+	Looks.add_cap(hero)
+	var h_in: Vector3 = vt.call(Vector3(0.5, 0, -0.25))
+	var h_out: Vector3 = vt.call(Vector3(1.5, 0, -0.25))
+	hero.global_position = h_in
+	hero.global_rotation.y = B.yaw_to(vx)
+	hero.play("Walk", 0.0)
+	mummo.global_position = m_to
+	var t1 := _now_ms()
+	var stopped := false
+	var dropped := false
+	while _now_ms() - t1 < 4200:
+		var t := (_now_ms() - t1) / 1000.0
+		hero.global_position = h_in.lerp(h_out, clampf(t / 1.2, 0.0, 1.0))
+		if t > 1.2 and hero.current() == "Walk":
+			hero.play("Idle", 0.25)
+			hero.global_rotation.y = B.yaw_to(mummo.global_position - hero.global_position)
+		if not stopped and t > 0.6:
+			stopped = true
+			mummo.play("Idle", 0.2)
+			mummo.global_rotation.y = B.yaw_to(hero.global_position - mummo.global_position)
+		if not dropped and t > 1.9:
+			dropped = true
+			var at: Vector3 = bag.global_position
+			bag_bone.queue_free()
+			var fallen := Node3D.new()
+			stage.add_child(fallen)
+			B.mesh(fallen, B.boxm(Vector3(0.28, 0.32, 0.16)), Vector3(0, 0.16, 0), Color(0.92, 0.9, 0.82))
+			B.mesh(fallen, B.boxm(Vector3(0.29, 0.06, 0.17)), Vector3(0, 0.24, 0), Color(1.0, 0.42, 0.0))
+			fallen.global_position = at
+			var gy: float = stage.global_position.y
+			var fw := _tween()
+			fw.tween_property(fallen, "global_position:y", gy, 0.35).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+			fw.tween_property(fallen, "rotation:z", 1.4, 0.25)
+			var roll := B.mesh(stage, B.cyl(0.035, 0.035, 0.12, 10), Vector3.ZERO, Color(0.9, 0.9, 0.95), Vector3(0, 0, 90))
+			roll.global_position = Vector3(at.x, gy + 0.04, at.z)
+			var rw := _tween()
+			rw.tween_property(roll, "global_position", Vector3(at.x, gy + 0.04, at.z) + vx * -0.9, 1.2).set_delay(0.35)
+			Sfx.play("body_fall", -10.0, 1.6)
+			bubble.global_position = mummo.global_position + Vector3(0, 2.0, 0)
+			bubble.text = "Mummo: " + (lines[0] if lines.size() > 0 else "Herranjestas!")
+		var mid := (hero.global_position + mummo.global_position) * 0.5
+		_cam.global_position = mid + van.global_basis.z * 5.4 + vx * 1.4 + Vector3(0, 1.5, 0)
+		_cam.look_at(mid + Vector3(0, 1.45, 0), Vector3.UP)  # kuplalle tilaa hahmojen yllä
+		await get_tree().process_frame
+	phase = "pentti"
+	# 3. Pentti nojaa kuljettajan ovesta auton keulan yli.
+	var pentti: Node3D = Looks.make(stage, Looks.PENTTI)
+	pentti.global_position = vt.call(Vector3(-1.25, 0, -1.6))
+	pentti.global_rotation.y = B.yaw_to(hero.global_position - pentti.global_position)
+	pentti.play("Idle_Talking", 0.0)
+	Sfx.play("door_open", -6.0, 1.1)
+	bubble.global_position = pentti.global_position + Vector3(0, 2.0, 0)
+	bubble.text = "Pentti: " + (lines[1] if lines.size() > 1 else "Tervetuloa uudestaan!")
+	var t2 := _now_ms()
+	while _now_ms() - t2 < 3800:
+		var vp := van.global_position
+		_cam.global_position = vp + van.global_basis.z * -6.5 + vx * 2.2 + Vector3(0, 1.7, 0)
+		_cam.look_at(vp + van.global_basis.z * -1.2 + Vector3(0, 1.2, 0), Vector3.UP)
+		await get_tree().process_frame
+	bubble.text = ""
+	pentti.play("Idle", 0.3)
+	Sfx.music_play(1.2, Sfx.MUSIC_CHORUS)
+	phase = "nousu"
+	# 4. Nousu tyhjän parkkipaikan ylle: auto, kassi maassa, mummo tuijottaa.
+	var c0 := _cam.global_position
+	var vp0 := van.global_position
+	var named := false
+	var t3 := _now_ms()
+	while _now_ms() - t3 < 7000:
+		var t := (_now_ms() - t3) / 1000.0
+		var u := t / 7.0
+		u = u * u * (3.0 - 2.0 * u)
+		_cam.global_position = c0.lerp(vp0 + vx * 8.0 + van.global_basis.z * 9.0 + Vector3(0, 12.0, 0), u)
+		_cam.look_at(vp0 + vx * 1.5 + Vector3(0, 0.6, 0), Vector3.UP)
+		if not named and t > 1.8:
+			named = true
+			_title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35))
+			_title.add_theme_font_size_override("font_size", 78)
+			_band.visible = false
+			_title.text = legend.title
+			_sub.text = legend.sub
+		await get_tree().process_frame
+	_title.text = ""
+	_sub.text = ""
+	phase = ""
 
 
 ## Pentin kiertue (onnellinen loppu, joka kolmas kyyti): kuplat matkan varrelta.
@@ -2781,3 +2928,4 @@ func news_tape(stats: String, done: Callable) -> void:
 	flicker.kill()
 	await _end(done)
 	_title.add_theme_font_size_override("font_size", 150)
+

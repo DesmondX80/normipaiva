@@ -43,6 +43,10 @@ func at_least(s: String) -> bool:
 	return STEPS.find(step) >= STEPS.find(s)
 
 
+func ride_unlocked() -> bool:
+	return step == "valmis"
+
+
 func all_tasks_done() -> bool:
 	return done.sienet and done.puolukat and done.nurmikko
 

@@ -2,6 +2,7 @@ extends Node3D
 ## K-Marketin penkin mummot erikseen tasaisella maalla: istuma-asennot (edestä, sivulta, lähikuvat) ja
 ## rollaattorimummon kepinhuitaisu, kun "pelaaja" kävelee liian lähelle.
 ## godot --path . --resolution 1280x720 tools/testit/mummo_kuvat.tscn -- <kansio>
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Mummot := preload("res://scripts/mummot.gd")
 const B := preload("res://scripts/build.gd")
@@ -93,8 +94,8 @@ func _run() -> void:
 			cam.look_at_from_position(mid + side * 3.6 + Vector3(0, 0.6, 0), mid + Vector3(0, 1.2, 0))
 		await get_tree().process_frame
 		if shots < marks.size() and m._swing_t >= marks[shots]:
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(out.path_join("huitaisu_%d.png" % shots))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(out.path_join("huitaisu_%d.png" % shots))
 			shots += 1
 	print("HUITAISU jää paikalleen: kuoli=%d kylkeen=%d kuvia=%d" % [killed[0], hits[0], shots])
 	Engine.time_scale = 1.0
@@ -122,5 +123,5 @@ func _shot(name: String, from: Vector3, to: Vector3, fov := 50.0) -> void:
 	cam.current = true
 	for i in 4:
 		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(out.path_join(name + ".png"))

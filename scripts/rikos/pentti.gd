@@ -71,6 +71,12 @@ const HUUDOT := ["Hei sää siellä! Lähetkö ajelulle?", "Pentin BangBus, viim
 const BANGBUS := ["BangBus? No ku moottori paukkuu. Bang! Ihan tekninen nimi. Mitä sää luulit?",
 	"Bang niinku pamaus. Pakoputki. Ei mitään muuta. Miksi sää punastut?"]
 const EI := "No ei se mitään. Pentti ei pakota. Pentti odottaa. Ensi perjantaina samaan aikaan."
+## Pentti muistelee ensimmäistä kyytiä (legendaarinen hetki) myöhemmillä kerroilla.
+const HELLO_MUISTO := ["Muistatko ekan kerran? Se mummo kerää vieläki maitopurkkeja parkkipaikalta.",
+	"Kaupan Raija kysy, kuka se mummo oli, joka pudotti kassin. Sanoin, että ei kuulu sulle.",
+	"Koko kylä puhuu vieläki siitä illasta. Mää en kiistä mitään."]
+## Ensimmäisen kyydin huipennus (cutscene.gd _pentti_legend): mummo parkkipaikalla ja Pentti ovelta.
+const LEGENDA_LINES := ["Herranjestas... Tää kerrotaan koko kylälle!", "Tervetuloa uudestaan! Bensarahat otin jo, kulta."]
 const SEEN := "Joku katsoo pitkään, kun liukuovi sulkeutuu perässäsi. Tästä kuullaan vielä."
 const MORNING := "Mulle soitettiin. Sää kuulemma nousit eilen illalla jonku viiksiniekan pakettiautoon. BANGBUS? Mikä se on?"
 ## Herätys: [teksti, paikka-avain] (paikka _heratys_paikka).
@@ -206,7 +212,7 @@ func hello(who: String) -> String:
 	if kyydit % KIERTUE_VALI == 1:
 		return HELLO_VIHJE
 	if kyydit > 0 and randf() < 0.5:
-		return HELLO_TAAS
+		return HELLO_MUISTO[kyydit % HELLO_MUISTO.size()] if randf() < 0.5 else HELLO_TAAS
 	return HELLO[randi() % HELLO.size()]
 
 
@@ -297,7 +303,13 @@ func _kyyti() -> void:
 		game.cutscene.pentti_tour(lstats, func() -> void: _kiertue_aamu(raha))
 		return
 	var stats := "Kyyti nro %d  ·  %s" % [kyydit, nakyi]
-	game.cutscene.pentti_ride(stats, func() -> void: _herays(raha))
+	# Pentin kyydissä (legendaarinen hetki): ensimmäinen kyyti päättyy huipennukseen parkkipaikalla (cutscene.gd
+	# _pentti_legend), ja hetki kirjataan aamulla päiväkirjariviksi. Myöhemmät kyydit ovat tavallisia, ne lasketaan
+	# hiljaa, ja Pentti muistelee ensimmäistä kertaa.
+	var legend := {}
+	if game.endings.counts.get("pentin_kyyti", 0) == 0:
+		legend = {"title": Endings.name_of("pentin_kyyti").to_upper(), "sub": Endings.desc_of("pentin_kyyti"), "lines": LEGENDA_LINES}
+	game.cutscene.pentti_ride(stats, func() -> void: _herays(raha), legend)
 
 
 ## Aamu kyydin jälkeen: herätys oudosta paikasta myöhään, tilat ja rahat, päiväkirja ja legendaarinen hetki.
@@ -313,8 +325,7 @@ func _herays(raha: float) -> void:
 	game.tilat.add("kipu", -0.25)  # selkä ja polvet
 	game.tilat.add("stressi", -0.15)
 	game.tilat.first("pentti_kyyti", 0.5)
-	if game.endings.counts.get("pentin_kyyti", 0) == 0:
-		game._ending("pentin_kyyti")  # vain ensimmäinen kyyti on legendaarinen hetki
+	game._ending("pentin_kyyti")  # ensimmäinen: päiväkirjarivi; myöhemmät lasketaan hiljaa (endings.gd STAGED)
 	if raha > 0.0:
 		game._queue_message("Lompakosta puuttuu %s €. Tilalla on lappu: \"Bensarahat. T: Pentti\"." % game._eur(raha), 4.0)
 	game._save_game()
@@ -581,8 +592,9 @@ func testi(_arg: String) -> void:
 			game.endings.counts.get("pentin_kyyti", 0), game.endings.counts.get("pentin_kiertue", 0), game.state])
 		if game.day != dpv + 1:
 			_vika("kyyti %d: päivä ei vaihtunut" % nro)
-		if game.endings.counts.get("pentin_kyyti", 0) != hetket:
-			_vika("kyyti %d kirjasi uuden legendaarisen hetken (vain ensimmäinen)" % nro)
+		# Tavallinen kyyti lasketaan hiljaa (endings.gd STAGED); kiertue (3.) ei ole kyyti-hetki.
+		if game.endings.counts.get("pentin_kyyti", 0) != hetket + (1 if nro == 2 else 0):
+			_vika("kyyti %d: legendaarisen hetken kerrat väärin" % nro)
 		if nro == 2 and game.endings.counts.get("pentin_kiertue", 0) != loput:
 			_vika("toinen kyyti kirjasi kiertueen")
 		if nro == 3:

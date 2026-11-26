@@ -549,6 +549,17 @@ static func _paint(img: Image, id: String, tint: Color) -> void:
 			_r(img, 1, 6, 3, 1, Color(0.85, 0.85, 0.9))
 			_r(img, 12, 9, 3, 1, Color(0.85, 0.85, 0.9))
 			_c(img, 8, 8, 2.2, Color(0.3, 0.3, 0.32))
+		"laatikko":  # Pekan romulaatikko: pahvilaatikko teippeineen, levy ja karvalakki pistävät esiin
+			_c(img, 5, 5, 3.2, Color(0.1, 0.1, 0.1))
+			_c(img, 5, 5, 1.0, Color(0.8, 0.2, 0.15))
+			_r(img, 9, 3, 5, 3, Color(0.45, 0.3, 0.18))
+			_r(img, 10, 2, 3, 1, Color(0.55, 0.38, 0.22))
+			_r(img, 2, 7, 12, 8, Color(0.72, 0.55, 0.32))
+			_r(img, 2, 7, 12, 1, Color(0.84, 0.68, 0.42))
+			_r(img, 2, 14, 12, 1, Color(0.55, 0.4, 0.22))
+			_r(img, 7, 7, 2, 8, Color(0.9, 0.85, 0.65))
+			_r(img, 1, 6, 3, 2, Color(0.66, 0.5, 0.28))
+			_r(img, 12, 6, 3, 2, Color(0.66, 0.5, 0.28))
 		"jalkapallo":
 			_c(img, 8, 8, 6.3, Color(0.96, 0.96, 0.96))
 			_r(img, 7, 6, 2, 2, Color(0.1, 0.1, 0.1))

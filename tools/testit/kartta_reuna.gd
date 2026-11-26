@@ -1,6 +1,7 @@
 extends Node
 ## Kartan hahmomerkki pelialueen reunoilla (paperikartta ja minikartta): ruutupaikka vs. odotettu paikka ja kuvat.
 ## Ajo: tools/testit/aja.sh scene kartta_reuna    Kuvat: _<paikka>_paperi, _<paikka>_mini.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const M := preload("res://scripts/map_data.gd")
 const Terrain := preload("res://scripts/terrain.gd")
@@ -21,14 +22,14 @@ func _frames(n := 4) -> void:
 
 func _snap(suffix: String) -> void:
 	await _frames(3)
-	await RenderingServer.frame_post_draw
+	await Kuva.piirto()
 	if DisplayServer.get_name() == "headless":
 		return
 	var path := "user://kartta_reuna%s.png" % suffix
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shot="):
 			path = a.substr(7).replace(".png", suffix + ".png")
-	get_viewport().get_texture().get_image().save_png(path)
+	Kuva.ruutu(get_viewport()).save_png(path)
 
 
 func run() -> void:

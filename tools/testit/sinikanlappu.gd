@@ -4,6 +4,7 @@ extends Node
 ## K1 näkyvyys kellon mukaan, K2–K3 tekstit, K4 paperin rako oveen, K5 teksti mahtuu, K6 kehote ja E, K7 kartta ja
 ## tallennus, K8 korin rako portaaseen, K9–K11 korin tilat ja piirakka, K12 tallennus tiloittain, K13 puhereitti,
 ## K15 ruutuaika ja kuvat. Viat "TESTI VIKA" -riveinä.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const SinikanKuisti := preload("res://scripts/sinikan_kuisti.gd")
 const SinikanKuistiMallit := preload("res://scripts/sinikan_kuisti_mallit.gd")
@@ -55,8 +56,8 @@ func _phys(n := 4) -> void:
 
 func _snap(suffix: String) -> void:
 	await _frames(4)
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(_shot_path(suffix))
+	await Kuva.piirto()
+	Kuva.ruutu(get_viewport()).save_png(_shot_path(suffix))
 
 
 func _press() -> void:

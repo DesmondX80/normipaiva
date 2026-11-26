@@ -21,9 +21,11 @@ const SOLE := {
 	"male": {"": 0.054, "Jog": 0.029, "Sprint": 0.025, "Crouch": 0.013, "Sitting": 0.0, "Driving": 0.0, "Swim": 0.0},
 	"female": {"": 0.046, "Jog": 0.0096, "Sprint": 0.0086, "Crouch": 0.020, "Sitting": 0.0, "Driving": 0.0, "Swim": 0.0},
 }
+const DELT_KEEP := 0.7  # hartialihaksen pienennyksestä tekemättä jätettävä osuus kaikilla hahmoilla (_shape_offset delt_keep)
 const DEFAULT_MUSCLE := -0.85  # pohjamalli on superhero: tavallisilla ihmisillä lihakset pienemmiksi
 const Elastic := preload("res://scripts/elastic.gd")
 const Shoes := preload("res://scripts/shoes.gd")
+const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const Anatomia := preload("res://scripts/anatomia.gd")
 const PRESS_MAX := 6  # kontaktilaatikoita enintään (varjostimen press_xf0..5)
 
@@ -48,6 +50,12 @@ var hair_mis: Array = []  # hiusverkot (meta "hair_press"; Pose.limb_points)
 var shoe_type := "paljas"  # Shoes.TYPES-avain
 var shoe_mi: MeshInstance3D  # kenkäverkko (meta "kenka"), null paljain jaloin
 var shoe_sole := 0.0  # kengän pohja jalkapohjan alla (m, hahmon mittakaavassa; Pose.FOOT_H:n lisä)
+## Näkyvän maanpinnan nosto hahmon kohdalla: tiet ja pihat piirretään maaston yläpuolelle (world.gd LAYER, vaala.gd LIFT_*),
+## mutta hahmot kulkevat maastossa. main.gd asettaa palvelun (Callable(paikka) -> m), ja seisova tai kävelevä hahmo
+## nostetaan sen verran, etteivät kengät uppoa asfalttiin. Ei istuessa, ajaessa eikä uidessa (SOLE 0).
+static var ground_lift: Callable
+var _ground := 0.0  # nykyinen nosto (m, pehmennetty)
+var _base_y := 0.0  # mallin korkeus animaation mukaan (_lift_sole)
 var _shoe_lift := 0.0  # sama mallin mittakaavassa (_lift_sole)
 
 var _overrides := {}  # luu -> [akseli hahmon avaruudessa, kulma]
@@ -71,7 +79,8 @@ var _jig_zero := true  # jiggle_*-uniformit ovat jo nolla
 ## look: model, shirt, pants, shoes, skin, hair (tiedoston nimi ilman päätettä tai ""), hair_color,
 ## beard (bool), stripes (bool), height (m), shine (0..1).
 ## Vartalo: belly (0..1 kaljamaha), bulk (-1..1 hoikka..tukeva), shoulders (-1..1 kapeat..leveät hartiat),
-## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE).
+## muscle (-1..0 lihakset pienemmiksi; oletus DEFAULT_MUSCLE), legs (-1..1 jalkojen paksuus, hahmoeditori),
+## delt_keep (0..1 hartialihaksen pienennyksestä tekemättä jätettävä osuus; oletus DELT_KEEP).
 func setup(look: Dictionary) -> void:
 	var kind: String = look.get("model", "male")
 	born_frame = Engine.get_process_frames()
@@ -85,7 +94,8 @@ func setup(look: Dictionary) -> void:
 	model.scale = Vector3.ONE * (float(look.get("height", REST_HEIGHT)) / REST_HEIGHT)
 	_sole = SOLE[kind]
 	_scale = model.scale.y
-	model.position.y = float(_sole[""]) * _scale
+	_base_y = float(_sole[""]) * _scale
+	model.position.y = _base_y
 	skeleton = model.get_node("Armature/Skeleton3D")
 
 	var body: MeshInstance3D = null
@@ -99,6 +109,11 @@ func setup(look: Dictionary) -> void:
 		"curves": float(look.get("curves", 0.0)), "bust": float(look.get("bust", 0.0)), "sag": float(look.get("sag", 0.0)),
 		"anat": 1.0 if anat_on else 0.0,  # anat: osa verkon avaimessa (välimuisti), ei muodon termi
 		"anat_arch": 1.0 if anat_on and shoe_type == "paljas" else 0.0}  # jalkaholvi vain paljaalle jalalle: kengät rakennetaan alkuperäisestä jalkaverkosta (ei muodon termi)
+	if look.has("legs"):
+		shape["legs"] = float(look.legs)  # vain kun asetettu: muiden hahmojen verkkojen välimuistiavaimet eivät muutu
+		profile_key += "_j%.2f" % float(look.legs)
+	shape["delt_keep"] = float(look.get("delt_keep", DELT_KEEP))
+	profile_key += "_d%.2f" % float(shape.delt_keep)
 	body_shape = shape
 	body.mesh = _clothed_mesh(kind, body.mesh, body.skin, skeleton, bool(look.get("stripes", false)), shape)
 	body_mat = ShaderMaterial.new()
@@ -190,7 +205,16 @@ func setup(look: Dictionary) -> void:
 		_attach_hair(HAIR_DIR + hair + ".gltf", hair_color, kind, body_src)
 	if look.get("beard", false):
 		_attach_hair(HAIR_DIR + "Hair_Beard.gltf", hair_color, kind, body_src)
-	_attach_shoes(look, kind, body, shape)
+	# Kengät ja varret eivät kutistu ohennettujen jalkojen mukana (legs < 0, hahmoeditorin hintelä keho): ne rakennetaan
+	# verkosta, jossa jalat ovat ohentamatta. Paksummat jalat (legs > 0) kengät seuraavat, ettei pohje tule varren läpi.
+	var shoe_shape := shape
+	var shoe_src: Mesh = body.mesh
+	if float(shape.get("legs", 0.0)) < 0.0 and shoe_type != "paljas":
+		shoe_shape = shape.duplicate()
+		shoe_shape["legs"] = 0.0
+		shoe_shape["bulk"] = maxf(float(shape.bulk), 0.0)
+		shoe_src = _clothed_mesh(kind, body_src, body.skin, skeleton, bool(look.get("stripes", false)), shoe_shape)
+	_attach_shoes(look, kind, body, shoe_shape, shoe_src)
 	_attach_anatomia(look, kind, body, shape)
 
 	# Matalilla laatutasoilla kaukaiset hahmot jäävät piirtämättä (kylässä 130–190 hahmoa, jokaisella oma luusto).
@@ -256,7 +280,18 @@ func _lift_sole(anim_name: String) -> void:
 			lift = _sole[pre]
 	if lift > 0.0:
 		lift += _shoe_lift  # kengänpohja (istuen, ajaessa ja uidessa kontakti nostaa jalan tukeen ft.sole:lla)
-	model.position.y = lift * _scale
+	_base_y = lift * _scale
+	model.position.y = _base_y + (_ground if _base_y > 0.0 else 0.0)
+
+
+## Maanpinnan nosto (ground_lift) jokaisella päivityksellä; muutos liukuu 0,3 m/s (tien reuna 2,5 cm noin 0,08 s), ettei
+## tulee nykäystä. Ajasta riippuva, joten hidas kone (iso delta) ei jätä nostoa kesken.
+func _follow_ground(delta: float) -> void:
+	if not ground_lift.is_valid() or model == null:
+		return
+	var want: float = ground_lift.call(global_position) if _base_y > 0.0 else 0.0
+	_ground = move_toward(_ground, want, maxf(delta, 0.016) * 0.3)
+	model.position.y = _base_y + (_ground if _base_y > 0.0 else 0.0)
 
 
 func current() -> String:
@@ -431,6 +466,7 @@ func _process(delta: float) -> void:
 			return
 	delta = _pending
 	_pending = 0.0
+	_follow_ground(delta)
 	_update_pose(delta)
 
 
@@ -592,7 +628,7 @@ static func _arc(from: Vector3, to: Vector3) -> Quaternion:
 ## Kengät (Shoes): oma skinnattu verkko luuston lapseksi kuten hiukset, painot vartalosta, joten kenkä taipuu jalkaterän
 ## mukana. Vartalon jalkaterä painuu kengän sisään (shoe_on, shoe_cut: lepoavaruuden taso, jonka takana (n·p < w)
 ## olevat jalkaterän kärjet piilotetaan; suljettu kenkä = kaikki). Verkko jaetaan saman mallin, muodon ja tyypin kesken.
-func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: Dictionary) -> void:
+func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: Dictionary, src: Mesh) -> void:
 	shoe_mi = null
 	shoe_sole = 0.0
 	_shoe_lift = 0.0
@@ -619,9 +655,9 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 		if FileAccess.file_exists(cache):
 			mesh = ResourceLoader.load(cache, "ArrayMesh", ResourceLoader.CACHE_MODE_IGNORE) as ArrayMesh
 		if mesh == null or not mesh.has_meta("pohja"):
-			mesh = Shoes.build(kind, shoe_type, body.mesh.surface_get_arrays(0), body.skin, skeleton)
+			mesh = Shoes.build(kind, shoe_type, src.surface_get_arrays(0), body.skin, skeleton)
 			DirAccess.make_dir_recursive_absolute(MESH_CACHE)
-			ResourceSaver.save(mesh, cache)
+			MeshBundle.save_atomic(mesh, cache)
 		_meshes[key] = weakref(mesh)
 	var t: Dictionary = Shoes.TYPES[shoe_type]
 	var sm := ShaderMaterial.new()
@@ -637,6 +673,12 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 			sm.set_shader_parameter(k, t[k])
 	if t.has("shaft"):
 		sm.set_shader_parameter("shaft_h", float(mesh.get_meta("varsi_h", float(t.shaft.top) + float(t.lift) - float(t.sole))))  # yläreuna kuoren alapinnasta
+	if mesh.has_meta("remmi"):
+		sm.set_shader_parameter("strap_u", mesh.get_meta("remmi"))  # släbärin raidat
+	if t.get("sock", false):  # släbärin villasukka (look.socks = {"col", "tip"})
+		var socks: Dictionary = look.get("socks", {})
+		sm.set_shader_parameter("sock_col", socks.get("col", Color(0.44, 0.44, 0.46)))
+		sm.set_shader_parameter("sock_tip", socks.get("tip", Color(0.93, 0.92, 0.89)))
 	var mi := MeshInstance3D.new()
 	mi.name = "Kengat"
 	mi.mesh = mesh
@@ -650,7 +692,7 @@ func _attach_shoes(look: Dictionary, kind: String, body: MeshInstance3D, shape: 
 	shoe_mi = mi
 	_shoe_lift = float(mesh.get_meta("pohja"))
 	shoe_sole = _shoe_lift * _scale
-	if t.has("sandal"):  # avoin kenkä: jalkaterä näkyy ihona pohjalaatan päällä, kynnet lakattu (nail_col)
+	if t.has("sandal") and not t.get("sock", false):  # avoin kenkä: jalkaterä näkyy ihona pohjalaatan päällä, kynnet lakattu (nail_col)
 		body_mat.set_shader_parameter("foot_skin", true)
 		body_mat.set_shader_parameter("nail_col", look.get("nails", look.get("shoes", Color(0.8, 0.08, 0.1))))
 		var kf: PackedFloat32Array = mesh.get_meta("kynnet", PackedFloat32Array())
@@ -683,7 +725,7 @@ func _attach_anatomia(look: Dictionary, kind: String, body: MeshInstance3D, shap
 			if mesh == null:
 				return
 			DirAccess.make_dir_recursive_absolute(MESH_CACHE)
-			ResourceSaver.save(mesh, cache)
+			MeshBundle.save_atomic(mesh, cache)
 		_meshes[key] = weakref(mesh)
 	var mi := MeshInstance3D.new()
 	mi.name = "Anatomia"
@@ -1190,7 +1232,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	var key := "%s/%s/%s" % [kind, stripes, shape]
 	var shaped := false
 	for k in shape:
-		shaped = shaped or (k != "anat" and k != "anat_arch" and absf(shape[k]) > 0.001)
+		shaped = shaped or (not k in ["anat", "anat_arch", "delt_keep"] and absf(shape[k]) > 0.001)  # delt_keep vain muscle < 0:n kanssa
 	var live: ArrayMesh = (_meshes[key] as WeakRef).get_ref() if _meshes.has(key) else null
 	if live != null:
 		return live
@@ -1295,7 +1337,7 @@ static func _clothed_mesh(kind: String, mesh: Mesh, skin: Skin, skel: Skeleton3D
 	if kind != "female" and shape.get("belly", 0.0) > 0.0:
 		_hem_front(out)  # metatieto tallentuu välimuistiin
 	DirAccess.make_dir_recursive_absolute(MESH_CACHE)
-	ResourceSaver.save(out, cache)
+	MeshBundle.save_atomic(out, cache)
 	return out
 
 
@@ -1698,17 +1740,31 @@ static func _shape_offset(p: Vector3, shape: Dictionary) -> Vector3:
 		var cx := signf(p.x) * 0.11
 		off.x += (p.x - cx) * 0.24 * bulk * leg
 		off.z += (p.z + 0.04) * 0.24 * bulk * leg
+	var legs: float = shape.get("legs", 0.0)
+	if legs != 0.0:
+		# Jalkojen paksuus (hahmoeditorin keho): reisi ja pohje jalan akselin ympäri, sama alue kuin bulkin jaloilla (kengät
+		# seuraavat samaa muotoa). Sisäreisi kasvaa vain vähän, etteivät reidet mene toistensa sisään haarassa.
+		var lg := (1.0 - smoothstep(0.88, 0.98, p.y)) * smoothstep(0.12, 0.22, p.y) * smoothstep(0.0, 0.06, ax)
+		var gx := signf(p.x) * 0.11
+		var inner := 0.3 if legs > 0.0 and ax < 0.11 else 1.0
+		off.x += (p.x - gx) * 0.5 * legs * lg * inner
+		off.z += (p.z + 0.04) * 0.5 * legs * lg
 	var mu: float = shape.get("muscle", 0.0)
 	if mu < 0.0:
 		var m := -mu
 		var torso_x := 1.0 - smoothstep(0.24, 0.32, ax)
 		# Olkapäät (hartialihas): käsivarren tyvi kohti käsivarren akselia ja sisemmäs.
-		var delt := exp(-pow((ax - 0.2) / 0.1, 2.0)) * exp(-pow((p.y - 1.48) / 0.11, 2.0))
+		# delt_keep (0..1, oletus DELT_KEEP kaikilla hahmoilla): hartialihaksen ja epäkäslihaksen pienennyksestä jätetään tämä osuus
+		# tekemättä. Täysi pienennys kutistaa olkapään 64 % ja siirtää sitä 4 cm sisään: paljaalla olkapäällä (nahkaliivi,
+		# verkkopaita) niskan ja olkapään väliin jää terävä lovi ("kuin kirveellä lyöty"), olkapään kärkeen piikki ja
+		# olkavarren tyveen kolo. Pohjamallin hartia on sileä (tools/testit/hahmo_lahikuva.tscn l.muscle=0).
+		var keep := 1.0 - clampf(float(shape.get("delt_keep", 0.0)), 0.0, 1.0)
+		var delt := exp(-pow((ax - 0.2) / 0.1, 2.0)) * exp(-pow((p.y - 1.48) / 0.11, 2.0)) * keep
 		off.y += (1.45 - p.y) * 0.75 * m * delt
 		off.z += (-0.06 - p.z) * 0.55 * m * delt
 		off.x -= signf(p.x) * 0.045 * m * delt
 		# Niskan ja hartioiden väliset epäkäslihakset alemmas.
-		var trap := smoothstep(0.04, 0.1, ax) * (1.0 - smoothstep(0.16, 0.24, ax)) * exp(-pow((p.y - 1.54) / 0.06, 2.0))
+		var trap := smoothstep(0.04, 0.1, ax) * (1.0 - smoothstep(0.16, 0.24, ax)) * exp(-pow((p.y - 1.54) / 0.06, 2.0)) * keep
 		off.y -= 0.035 * m * trap
 		# Rintalihakset litteämmiksi.
 		var pec := smoothstep(0.02, 0.08, p.z) * exp(-pow((p.y - 1.36) / 0.08, 2.0)) * torso_x

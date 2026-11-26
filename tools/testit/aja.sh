@@ -10,7 +10,7 @@
 #
 # Käyttö:
 #   tools/testit/aja.sh kaantyy                                  # kääntyykö peli ilman editoria (kaantyyko.sh)
-#   tools/testit/aja.sh [valinnat] scene <nimi> [lisä...]        # main.gd:n testikohtaus, esim. scene asennot --asento=a
+#   tools/testit/aja.sh [valinnat] scene <nimi> [lisä...]        # testikohtaus (tools/testit/kohtaukset/), esim. scene asennot --asento=a
 #   tools/testit/aja.sh [valinnat] tscn <polku.tscn> [lisä...]   # erillinen kohtaus; saa tulostekansion 1. argumenttina
 # Valinnat: --headless (ei ikkunaa, ei kuvia), --ei-kuvia (logiikkatesti ikkunalla),
 #   --video (scene ja tscn: ajaa Movie Maker -tilassa, 30 fps, <nimi>.avi ajokansioon ja tarkistaa sen; aikaraja oletus 900 s),

@@ -28,23 +28,46 @@ const GOODS := {
 	"savuriista": {"name": "Savuriista", "unit": "kpl", "fair": 9.0, "one": "savuriistan", "many": "%d savuriistaa"},
 	"kalja": {"name": "Kalja", "unit": "kpl", "fair": 15.0, "one": "kaljan", "many": "%d kaljaa", "under": true},
 	"pontikka": {"name": "Pontikka", "unit": "pullo", "fair": 20.0, "one": "pullon pontikkaa", "many": "%d pulloa pontikkaa", "under": true},
+	# Pekan vintin romut (pekan_laatikko.gd): puolet tuloista Pekalle. "wow" = ostajan huudahdus ennen tarjousta.
+	"lp": {"name": "LP-levyt", "unit": "kpl", "fair": 5.0, "one": "sen LP-levyn", "many": "%d LP-levyä", "romu": true,
+		"wow": "Vanhoja iskelmälevyjä! "},
+	"pokaali": {"name": "Pilkkipokaali", "unit": "kpl", "fair": 10.0, "one": "sen pilkkipokaalin", "many": "%d pokaalia", "romu": true,
+		"wow": "Pilkkikisat -87, kolmas sija? "},
+	"karvalakki": {"name": "Karvalakki", "unit": "kpl", "fair": 12.0, "one": "sen karvalakin", "many": "%d karvalakkia", "romu": true,
+		"wow": "Oikee karvalakki! "},
+	"vieherasia": {"name": "Vieherasia", "unit": "kpl", "fair": 15.0, "one": "sen vieherasian", "many": "%d vieherasiaa", "romu": true,
+		"wow": "Vanhoja uistimia! "},
+	"taulu": {"name": "Itkevä poika -taulu", "unit": "kpl", "fair": 18.0, "one": "sen Itkevä poika -taulun", "many": "%d taulua",
+		"romu": true, "wow": "Voi, Itkevä poika! Meidän mummolla oli tuo. "},
+	"kahvimylly": {"name": "Kahvimylly", "unit": "kpl", "fair": 12.0, "one": "sen kahvimyllyn", "many": "%d kahvimyllyä", "romu": true,
+		"wow": "Kampikahvimylly! "},
 }
-const ORDER := ["puolukka", "mustikka", "kantarelli", "herkkutatti", "savukala", "savuriista"]
+const ROMU := ["lp", "pokaali", "karvalakki", "vieherasia", "taulu", "kahvimylly"]
+const ORDER := ["puolukka", "mustikka", "kantarelli", "herkkutatti", "savukala", "savuriista", "lp", "pokaali", "karvalakki",
+	"vieherasia", "taulu", "kahvimylly"]
 ## Ostajatyypit: tykkäämät tuotteet, avaustarjous ja enimmäishinta (osuutena reiluista hinnoista), kärsivällisyys
 ## (epäonnistuneita vastatarjouksia) ja ulkonäkö (MG.person).
 const TYPES := {
-	"mummo": {"name": "Mummo", "weight": 35, "likes": ["puolukka", "mustikka", "kantarelli", "herkkutatti", "savukala"],
+	"mummo": {"name": "Mummo", "weight": 35, "likes": ["puolukka", "mustikka", "kantarelli", "herkkutatti", "savukala", "taulu",
+		"kahvimylly", "karvalakki"],
 		"open": 0.5, "cap": Vector2(0.9, 1.1), "patience": 3,
 		"look": {"hair": "buns", "hair_col": Color(0.88, 0.88, 0.9), "shirt": Color(0.5, 0.42, 0.64), "skin": Color(0.95, 0.8, 0.72)},
 		"open_line": "Ottaisin %s. Antaisinko %s €?", "tag": "tinkii pontevasti"},
-	"mokki": {"name": "Mökkiläinen", "weight": 25, "likes": ["savukala", "savuriista", "kantarelli", "herkkutatti", "puolukka", "mustikka"],
+	"mokki": {"name": "Mökkiläinen", "weight": 25, "likes": ["savukala", "savuriista", "kantarelli", "herkkutatti", "puolukka", "mustikka",
+		"vieherasia", "kahvimylly", "lp"],
 		"open": 0.75, "cap": Vector2(1.2, 1.5), "patience": 2,
 		"look": {"cap": true, "glasses": true, "shirt": Color(0.2, 0.55, 0.65), "hair_col": Color(0.3, 0.22, 0.15), "skin": Color(0.97, 0.8, 0.7)},
 		"open_line": "Mökille tarttis %s. %s € kelpaa?", "tag": "kaupungista, rahaa on"},
-	"annaliisa": {"name": "Anna-Liisa", "weight": 15, "likes": ["puolukka", "mustikka", "savukala"],
+	"annaliisa": {"name": "Anna-Liisa", "weight": 15, "likes": ["puolukka", "mustikka", "savukala", "taulu"],
 		"open": 0.4, "cap": Vector2(0.8, 0.95), "patience": 4,
 		"look": {"hair": "buns", "hair_col": Color(0.55, 0.45, 0.35), "shirt": Color(0.75, 0.55, 0.6), "skin": Color(0.95, 0.8, 0.74)},
-		"open_line": "Hmm, %s... %s €, ja se on reilua.", "tag": "naapuri, tietää kaiken"},
+		"open_line": "Hmm, %s... %s €, ja se on reilua.", "tag": "naapuri, tietää kaiken",
+		"romu_line": "Tuohan on Pekan tavaraa! Tietääkö Pekka? Ottaisin %s, %s €."},
+	# Keräilijä tulee vain, kun pöydällä on Pekan romuja: maksaa hyvin vanhasta tavarasta.
+	"keraaja": {"name": "Keräilijä", "weight": 30, "likes": ["lp", "pokaali", "vieherasia", "taulu", "kahvimylly", "karvalakki"],
+		"open": 0.7, "cap": Vector2(1.15, 1.5), "patience": 2,
+		"look": {"glasses": true, "beard": true, "hair_col": Color(0.45, 0.4, 0.38), "shirt": Color(0.42, 0.36, 0.2), "skin": Color(0.93, 0.78, 0.68)},
+		"open_line": "Ostaisin %s. %s €, keräilijähinta.", "tag": "kaupungista, retron perässä"},
 	"nuori": {"name": "Nuori mies", "weight": 25, "likes": ["kalja", "pontikka"], "under": true,
 		"open": 0.8, "cap": Vector2(1.0, 1.25), "patience": 2,
 		"look": {"cap": true, "shirt": Color(0.2, 0.2, 0.25), "hair_col": Color(0.2, 0.15, 0.1), "skin": Color(0.96, 0.78, 0.68)},
@@ -60,6 +83,7 @@ var _keys: Control
 var _left := {}
 var _sold := {}
 var _income := 0.0
+var _income_by := {}  # tuote -> € (Pekan romujen osuus lasketaan tästä)
 var _served := 0
 var _good := 0
 var _greedy := 0
@@ -165,7 +189,11 @@ func _qty_text(item: String, qty: int) -> String:
 
 func _open_line() -> void:
 	var td: Dictionary = TYPES[_b.type]
-	_say(td.open_line % [_qty_text(_b.item, _b.qty), _eur(_b.offer)], false)
+	var g: Dictionary = GOODS[_b.item]
+	if g.get("romu", false) and td.has("romu_line"):
+		_say(td.romu_line % [_qty_text(_b.item, _b.qty), _eur(_b.offer)], false)
+		return
+	_say(String(g.get("wow", "")) + td.open_line % [_qty_text(_b.item, _b.qty), _eur(_b.offer)], false)
 
 
 func _say(text: String, me: bool) -> void:
@@ -198,6 +226,7 @@ func _accept(price: float) -> void:
 	_left[item] = int(_left[item]) - qty
 	_sold[item] = int(_sold.get(item, 0)) + qty
 	_income += price
+	_income_by[item] = float(_income_by.get(item, 0.0)) + price
 	_coins = mini(_coins + roundi(price / 3.0) + 1, 14)
 	var ratio: float = price / _b.fair
 	if ratio >= 0.85 and ratio <= 1.3:
@@ -289,6 +318,14 @@ func _summary() -> void:
 	Sfx.play("win_small" if _income > 0.0 else "cloth", -6.0)
 
 
+## Pekan osuus tämän pöytäkerran romumyynnistä (sama laskenta kuin pekan_laatikko.gd record_sale).
+func pekka_share() -> float:
+	var t := 0.0
+	for k in ROMU:
+		t += float(_income_by.get(k, 0.0))
+	return snappedf(t * 0.5, 0.5)
+
+
 func _end() -> void:
 	if _done:
 		return
@@ -297,8 +334,8 @@ func _end() -> void:
 		_rep = -4
 		_title = "Kaljankauppaaja"
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	finished.emit({"sold": _sold, "income": _income, "caught": _caught, "quit": _quit, "rep": _rep, "title": _title,
-		"buyers": _served, "good": _good, "greedy": _greedy})
+	finished.emit({"sold": _sold, "income": _income, "income_by": _income_by, "caught": _caught, "quit": _quit, "rep": _rep,
+		"title": _title, "buyers": _served, "good": _good, "greedy": _greedy})
 	queue_free()
 
 
@@ -596,17 +633,19 @@ func _draw_table(ci: CanvasItem) -> void:
 	for k in ORDER:
 		if int(_left.get(k, 0)) > 0:
 			shown.append(k)
+	# Paljon tavaraa (Pekan romut marjojen lisäksi): kuvakkeet, hintalaput ja määrät pienenevät, jotta kaikki mahtuvat.
 	var span := 640.0 / maxf(shown.size(), 1.0)
+	var sc := clampf(span / 100.0, 0.62, 1.0)
 	for i in shown.size():
 		var k: String = shown[i]
 		var x := 300.0 + span * (i + 0.5)
 		var base := Vector2(x, TABLE_TOP + 62)
-		_icon(ci, k, base, 1.0)
+		_icon(ci, k, base, sc)
 		var n: int = _left[k]
-		var tag := Rect2(base + Vector2(-38, 12), Vector2(76, 24))
-		MG.sign(ci, tag, "%s €" % _eur(GOODS[k].fair), Color(1, 0.96, 0.7), INK, 15, Color(0.4, 0.3, 0.2))
-		ci.draw_circle(base + Vector2(30, -40), 13.0, Color(0.15, 0.4, 0.3))
-		ci.draw_string(ThemeDB.fallback_font, base + Vector2(17, -34), "%d" % n, HORIZONTAL_ALIGNMENT_CENTER, 26, 17, Color.WHITE)
+		var tag := Rect2(base + Vector2(-38, 12) * sc, Vector2(76, 24) * sc)
+		MG.sign(ci, tag, "%s €" % _eur(GOODS[k].fair), Color(1, 0.96, 0.7), INK, int(15 * sc), Color(0.4, 0.3, 0.2))
+		ci.draw_circle(base + Vector2(30, -40) * sc, 13.0 * sc, Color(0.15, 0.4, 0.3))
+		ci.draw_string(ThemeDB.fallback_font, base + Vector2(17, -34) * sc, "%d" % n, HORIZONTAL_ALIGNMENT_CENTER, 26 * sc, int(17 * sc), Color.WHITE)
 	if shown.is_empty():
 		MG.sign(ci, Rect2(520, TABLE_TOP + 20, 240, 50), "Pöytä tyhjä", Color(0.9, 0.85, 0.7), INK, 22, Color(0.4, 0.3, 0.2))
 	# Kassarasia oikealla.
@@ -708,6 +747,196 @@ func _icon(ci: CanvasItem, id: String, base: Vector2, sc: float) -> void:
 			ci.draw_string(ThemeDB.fallback_font, o + Vector2(-13, -24) * sc, "PK", HORIZONTAL_ALIGNMENT_CENTER, 26 * sc, int(10 * sc), Color(0.15, 0.15, 0.45))
 			ci.draw_line(o + Vector2(-10, -38) * sc, o + Vector2(-10, -2) * sc, Color(1, 1, 1, 0.5), 2.0)
 			ci.draw_rect(Rect2(o + Vector2(-14, -40) * sc, Vector2(28, 42) * sc), MG.OUTLINE, false, 1.5)
+		_:
+			_icon_romu(ci, id, base, sc)
+
+
+## Pekan vintin romut (pekan_laatikko.gd): LP-levyt, pilkkipokaali, karvalakki, vieherasia, Itkevä poika -taulu ja
+## kahvimylly. Sävytys kuten muissa: vaalea yläreuna, tumma alareuna, ääriviivat ja yksityiskohdat.
+func _icon_romu(ci: CanvasItem, id: String, base: Vector2, sc: float) -> void:
+	var font := ThemeDB.fallback_font
+	var q := func(pts: Array) -> PackedVector2Array:  # pisteet suhteessa pohjaan, mittakaavassa
+		var out := PackedVector2Array()
+		for v: Vector2 in pts:
+			out.append(base + v * sc)
+		return out
+	match id:
+		"lp":
+			# Levy pistää esiin kuoren takaa: musta vinyyli urineen ja punainen etiketti.
+			var dc := base + Vector2(16, -34) * sc
+			ci.draw_circle(dc, 24.0 * sc, Color(0.07, 0.07, 0.08))
+			for rr in [21.0, 18.0, 15.0, 12.0]:
+				ci.draw_arc(dc, rr * sc, 0, TAU, 28, Color(0.2, 0.2, 0.22), 1.0)
+			ci.draw_arc(dc, 19.0 * sc, -2.2, -1.2, 10, Color(0.6, 0.6, 0.65, 0.7), 2.0)  # kiilto
+			ci.draw_circle(dc, 7.5 * sc, Color(0.8, 0.18, 0.15))
+			ci.draw_circle(dc, 1.6 * sc, Color(0.05, 0.05, 0.05))
+			ci.draw_arc(dc, 24.0 * sc, 0, TAU, 32, MG.OUTLINE, 1.5)
+			# Takimmaiset kuoret vinossa pinossa.
+			ci.draw_colored_polygon(q.call([Vector2(-34, -54), Vector2(12, -58), Vector2(16, -10), Vector2(-30, -6)]), Color(0.25, 0.45, 0.6))
+			ci.draw_polyline(q.call([Vector2(-34, -54), Vector2(12, -58), Vector2(16, -10), Vector2(-30, -6), Vector2(-34, -54)]), MG.OUTLINE, 1.5)
+			ci.draw_colored_polygon(q.call([Vector2(-31, -52), Vector2(15, -52), Vector2(15, -6), Vector2(-31, -6)]), Color(0.85, 0.75, 0.35))
+			ci.draw_rect(Rect2(base + Vector2(-31, -52) * sc, Vector2(46, 46) * sc), MG.OUTLINE, false, 1.5)
+			# Etukuori: auringonlasku järven yllä, laulajan siluetti ja nimiraita.
+			var fr := Rect2(base + Vector2(-27, -48) * sc, Vector2(46, 46) * sc)
+			MG.grad_rect(ci, Rect2(fr.position, Vector2(fr.size.x, fr.size.y * 0.62)), Color(0.98, 0.62, 0.25), Color(0.9, 0.3, 0.3))
+			ci.draw_circle(base + Vector2(-4, -26) * sc, 8.0 * sc, Color(1.0, 0.88, 0.4))
+			MG.grad_rect(ci, Rect2(fr.position + Vector2(0, fr.size.y * 0.62), Vector2(fr.size.x, fr.size.y * 0.38)), Color(0.2, 0.3, 0.55), Color(0.1, 0.15, 0.35))
+			ci.draw_line(base + Vector2(-20, -16) * sc, base + Vector2(-8, -16) * sc, Color(1.0, 0.85, 0.5, 0.7), 1.5)
+			ci.draw_circle(base + Vector2(9, -30) * sc, 4.5 * sc, Color(0.12, 0.08, 0.08))  # pää
+			ci.draw_colored_polygon(q.call([Vector2(1, -18), Vector2(17, -18), Vector2(14, -26), Vector2(4, -26)]), Color(0.12, 0.08, 0.08))
+			ci.draw_rect(Rect2(fr.position + Vector2(3, 3) * sc, Vector2(40, 9) * sc), Color(1, 0.97, 0.88))
+			ci.draw_string(font, fr.position + Vector2(3, 10.5) * sc, "ISKELMÄT", HORIZONTAL_ALIGNMENT_CENTER, 40 * sc, int(8 * sc), Color(0.6, 0.15, 0.1))
+			ci.draw_line(fr.position + Vector2(1, 1), fr.position + Vector2(fr.size.x - 1, 1), Color(1, 1, 1, 0.5), 1.5)
+			ci.draw_rect(fr, MG.OUTLINE, false, 2.0)
+		"pokaali":
+			var gold := Color(0.95, 0.74, 0.22)
+			# Puinen jalusta messinkilaatalla.
+			var foot := Rect2(base + Vector2(-20, -14) * sc, Vector2(40, 16) * sc)
+			MG.solid(ci, foot, Color(0.36, 0.2, 0.1))
+			ci.draw_rect(Rect2(base + Vector2(-12, -10) * sc, Vector2(24, 8) * sc), gold.darkened(0.1))
+			ci.draw_string(font, base + Vector2(-12, -4) * sc, "1987", HORIZONTAL_ALIGNMENT_CENTER, 24 * sc, int(7 * sc), Color(0.25, 0.15, 0.05))
+			# Varsi ja kaulus: vasen puoli vaalea, oikea tumma (pyöreä metalli).
+			ci.draw_polygon(q.call([Vector2(-3, -14), Vector2(3, -14), Vector2(2, -27), Vector2(-2, -27)]),
+				PackedColorArray([gold.lightened(0.3), gold.darkened(0.35), gold.darkened(0.35), gold.lightened(0.3)]))
+			ci.draw_polygon(q.call([Vector2(-9, -16), Vector2(9, -16), Vector2(6, -13), Vector2(-6, -13)]),
+				PackedColorArray([gold.lightened(0.2), gold.darkened(0.3), gold.darkened(0.3), gold.lightened(0.2)]))
+			# Korvat: silmukat kupin molemmin puolin (piirretään ensin, kuppi peittää kiinnityskohdat).
+			for side in [-1.0, 1.0]:
+				var hc := base + Vector2(side * 16, -45) * sc
+				ci.draw_arc(hc, 7.5 * sc, 0, TAU, 16, MG.OUTLINE, 5.0 * sc)
+				ci.draw_arc(hc, 7.5 * sc, 0, TAU, 16, gold.darkened(0.15) if side > 0 else gold.lightened(0.1), 3.0 * sc)
+			# Malja: leveä suu ja pyöreä pohja (puoliellipsi), vaalea vasemmalla ja tumma oikealla.
+			var bowl := PackedVector2Array()
+			var cols := PackedColorArray()
+			for a in 17:
+				var th := a / 16.0 * PI  # 0 = oikea reuna, PI = vasen reuna, alakaari
+				var v := Vector2(cos(th) * 16.0, -56.0 + sin(th) * 26.0)
+				bowl.append(base + v * sc)
+				cols.append(gold.lightened(0.35).lerp(gold.darkened(0.35), (v.x + 16.0) / 32.0))
+			ci.draw_polygon(bowl, cols)
+			ci.draw_polyline(bowl + PackedVector2Array([bowl[0]]), MG.OUTLINE, 1.5)
+			# Suun reuna ellipsinä ja kiilto.
+			var rim := PackedVector2Array()
+			for a in 20:
+				var th := a / 20.0 * TAU
+				rim.append(base + Vector2(cos(th) * 16.0, -56.0 + sin(th) * 3.0) * sc)
+			ci.draw_colored_polygon(rim, gold.darkened(0.45))
+			ci.draw_polyline(rim + PackedVector2Array([rim[0]]), gold.lightened(0.5), 1.5)
+			ci.draw_line(base + Vector2(-10, -50) * sc, base + Vector2(-7, -38) * sc, Color(1, 1, 1, 0.6), 2.0)
+			# Kaiverrettu ahven maljan kyljessä (pilkkikisat).
+			var fc := base + Vector2(2, -45) * sc
+			var fish := PackedVector2Array()
+			for a in 14:
+				var th := a / 14.0 * TAU
+				fish.append(fc + Vector2(cos(th) * 6.0, sin(th) * 2.8) * sc)
+			ci.draw_polyline(fish + PackedVector2Array([fish[0]]), gold.darkened(0.5), 1.2)
+			ci.draw_polyline(q.call([Vector2(8, -45), Vector2(12, -48), Vector2(12, -42), Vector2(8, -45)]), gold.darkened(0.5), 1.2)
+			ci.draw_circle(fc + Vector2(-3.5, -0.5) * sc, 0.8 * sc, gold.darkened(0.55))
+		"karvalakki":
+			var fur := Color(0.45, 0.3, 0.18)
+			# Korvaläpät roikkuvat sivuilla, nauhat alas.
+			for side in [-1.0, 1.0]:
+				var flap := Rect2(base + Vector2(side * 23 - 7, -30) * sc, Vector2(14, 26) * sc)
+				MG.box(ci, flap, fur.darkened(0.1), int(6 * sc), 0, MG.OUTLINE, 2)
+				ci.draw_line(base + Vector2(side * 23, -4) * sc, base + Vector2(side * 19, 4) * sc, Color(0.25, 0.18, 0.12), 1.5)
+			# Kupu: puoliellipsi, vaalea yläreuna.
+			var dome := PackedVector2Array()
+			for a in 17:
+				var th := PI + a / 16.0 * PI
+				dome.append(base + Vector2(cos(th) * 24.0, -30 + sin(th) * 22.0) * sc)
+			ci.draw_colored_polygon(dome, fur)
+			ci.draw_arc(base + Vector2(0, -30) * sc, 22.0 * sc, PI * 1.15, PI * 1.6, 10, fur.lightened(0.35), 3.0 * sc)
+			ci.draw_polyline(dome + PackedVector2Array([dome[0]]), MG.OUTLINE, 2.0)
+			# Ylös käännetty etulieri.
+			var band := Rect2(base + Vector2(-26, -34) * sc, Vector2(52, 13) * sc)
+			MG.box(ci, band, fur.lightened(0.12), int(5 * sc), 0, MG.OUTLINE, 2)
+			# Turkin karvat lyhyinä vetoina (kiinteä kuvio, ei satunnainen).
+			for i in 26:
+				var fx := -20.0 + fmod(i * 7.3, 40.0)
+				var fy := -46.0 + fmod(i * 4.1, 14.0)
+				ci.draw_line(base + Vector2(fx, fy) * sc, base + Vector2(fx + 2.0, fy - 3.0) * sc, fur.darkened(0.3), 1.2)
+			for i in 14:
+				var fx := -24.0 + i * 3.6
+				ci.draw_line(base + Vector2(fx, -23) * sc, base + Vector2(fx + 1.5, -27) * sc, fur.darkened(0.25), 1.2)
+		"vieherasia":
+			var green := Color(0.24, 0.48, 0.32)
+			# Kansi auki taaksepäin, kahva ja salpa.
+			ci.draw_colored_polygon(q.call([Vector2(-32, -24), Vector2(-27, -52), Vector2(33, -52), Vector2(32, -24)]), green.darkened(0.25))
+			ci.draw_polyline(q.call([Vector2(-32, -24), Vector2(-27, -52), Vector2(33, -52), Vector2(32, -24)]), MG.OUTLINE, 1.5)
+			ci.draw_line(base + Vector2(-25, -49) * sc, base + Vector2(31, -49) * sc, green.lightened(0.25), 2.0)
+			ci.draw_arc(base + Vector2(3, -52) * sc, 7.0 * sc, PI, TAU, 8, Color(0.7, 0.7, 0.72), 2.5 * sc)
+			# Laatikko ja lokerikko.
+			var body := Rect2(base + Vector2(-32, -24) * sc, Vector2(64, 26) * sc)
+			MG.solid(ci, body, green)
+			var tray := Rect2(base + Vector2(-29, -30) * sc, Vector2(58, 9) * sc)
+			ci.draw_rect(tray, Color(0.78, 0.78, 0.74))
+			for d in 3:
+				ci.draw_line(base + Vector2(-14.5 + d * 14.5, -30) * sc, base + Vector2(-14.5 + d * 14.5, -21) * sc, Color(0.5, 0.5, 0.48), 1.5)
+			ci.draw_rect(tray, MG.OUTLINE, false, 1.5)
+			# Uistimet lokeroissa: kalanmuotoiset vaapat raitoineen ja koukkuineen.
+			var lures := [[Color(0.9, 0.15, 0.15), Color(1, 1, 1)], [Color(0.98, 0.85, 0.15), Color(0.1, 0.1, 0.1)],
+				[Color(0.75, 0.78, 0.85), Color(0.2, 0.35, 0.75)], [Color(1.0, 0.55, 0.1), Color(0.2, 0.5, 0.25)]]
+			for i in 4:
+				var lc := base + Vector2(-22 + i * 14.5, -27) * sc
+				var body_l := PackedVector2Array()
+				for a in 12:
+					var th := a / 12.0 * TAU
+					body_l.append(lc + Vector2(cos(th) * 5.5, sin(th) * 2.4) * sc)
+				ci.draw_colored_polygon(body_l, lures[i][0])
+				ci.draw_line(lc + Vector2(-1, -2) * sc, lc + Vector2(-1, 2) * sc, lures[i][1], 1.5)
+				ci.draw_line(lc + Vector2(2, -2) * sc, lc + Vector2(2, 2) * sc, lures[i][1], 1.0)
+				ci.draw_arc(lc + Vector2(6.5, 2.5) * sc, 1.6 * sc, 0, PI, 5, Color(0.3, 0.3, 0.3), 1.0)  # koukku
+			ci.draw_rect(Rect2(base + Vector2(-4, -12) * sc, Vector2(8, 6) * sc), Color(0.75, 0.75, 0.78))  # salpa
+			ci.draw_rect(Rect2(base + Vector2(-4, -12) * sc, Vector2(8, 6) * sc), MG.OUTLINE, false, 1.0)
+		"taulu":
+			# Kullattu kehys: vaalea vasen ja yläreuna, tumma oikea ja alareuna.
+			var outer := Rect2(base + Vector2(-25, -66) * sc, Vector2(50, 64) * sc)
+			var gilt := Color(0.86, 0.66, 0.25)
+			ci.draw_rect(outer, gilt)
+			ci.draw_colored_polygon(q.call([Vector2(-25, -66), Vector2(25, -66), Vector2(19, -60), Vector2(-19, -60)]), gilt.lightened(0.35))
+			ci.draw_colored_polygon(q.call([Vector2(-25, -66), Vector2(-19, -60), Vector2(-19, -8), Vector2(-25, -2)]), gilt.lightened(0.2))
+			ci.draw_colored_polygon(q.call([Vector2(25, -66), Vector2(25, -2), Vector2(19, -8), Vector2(19, -60)]), gilt.darkened(0.3))
+			ci.draw_colored_polygon(q.call([Vector2(-25, -2), Vector2(25, -2), Vector2(19, -8), Vector2(-19, -8)]), gilt.darkened(0.4))
+			# Maalaus: tumma tausta, poika ja kyynel.
+			var cv := Rect2(base + Vector2(-19, -60) * sc, Vector2(38, 52) * sc)
+			MG.grad_rect(ci, cv, Color(0.32, 0.28, 0.2), Color(0.16, 0.13, 0.1))
+			ci.draw_colored_polygon(q.call([Vector2(-15, -8), Vector2(15, -8), Vector2(11, -20), Vector2(-11, -20)]), Color(0.35, 0.4, 0.55))  # paita
+			var face := base + Vector2(0, -34) * sc
+			var head := PackedVector2Array()
+			for a in 16:
+				var th := a / 16.0 * TAU
+				head.append(face + Vector2(cos(th) * 9.5, sin(th) * 12.0) * sc)
+			ci.draw_colored_polygon(head, Color(0.92, 0.72, 0.58))
+			ci.draw_colored_polygon(q.call([Vector2(-10, -40), Vector2(-8, -48), Vector2(0, -47), Vector2(9, -49), Vector2(10, -40), Vector2(4, -44), Vector2(-3, -42)]), Color(0.45, 0.28, 0.15))
+			for side in [-1.0, 1.0]:
+				ci.draw_circle(face + Vector2(side * 4, -2) * sc, 2.3 * sc, Color(1, 1, 1))
+				ci.draw_circle(face + Vector2(side * 4, -1.5) * sc, 1.3 * sc, Color(0.25, 0.35, 0.55))
+				ci.draw_line(face + Vector2(side * 6.5, -6) * sc, face + Vector2(side * 2, -4.5) * sc, Color(0.4, 0.25, 0.15), 1.0)  # surullinen kulma
+			ci.draw_arc(face + Vector2(0, 9) * sc, 3.5 * sc, PI * 1.15, PI * 1.85, 6, Color(0.55, 0.25, 0.2), 1.2)  # suu alaspäin
+			ci.draw_colored_polygon(q.call([Vector2(-4.5, -32), Vector2(-3.2, -28.5), Vector2(-5.8, -28.5)]), Color(0.6, 0.85, 1.0))  # kyynel
+			ci.draw_circle(face + Vector2(-4.5, 6.8) * sc, 1.4 * sc, Color(0.6, 0.85, 1.0))
+			ci.draw_rect(outer, MG.OUTLINE, false, 2.0)
+			ci.draw_rect(cv, Color(0.2, 0.12, 0.05), false, 1.0)
+		"kahvimylly":
+			var wood := Color(0.6, 0.38, 0.2)
+			var box := Rect2(base + Vector2(-17, -32) * sc, Vector2(34, 32) * sc)
+			MG.solid(ci, box, wood)
+			for g in 4:  # puun syyt
+				var gy := -28.0 + g * 7.0
+				ci.draw_line(base + Vector2(-15, gy) * sc, base + Vector2(15, gy + sin(g * 1.7) * 1.5) * sc, wood.darkened(0.3), 1.0)
+			# Laatikko ja nuppi edessä.
+			var drawer := Rect2(base + Vector2(-12, -13) * sc, Vector2(24, 10) * sc)
+			MG.solid(ci, drawer, wood.lightened(0.1))
+			ci.draw_circle(base + Vector2(0, -8) * sc, 2.4 * sc, Color(0.85, 0.7, 0.35))
+			# Messinkikuppi ja kampi.
+			var brass := Color(0.88, 0.7, 0.3)
+			ci.draw_polygon(q.call([Vector2(-15, -32), Vector2(15, -32), Vector2(11, -40), Vector2(-11, -40)]),
+				PackedColorArray([brass.lightened(0.3), brass.darkened(0.3), brass.darkened(0.2), brass.lightened(0.35)]))
+			ci.draw_polyline(q.call([Vector2(-15, -32), Vector2(-11, -40), Vector2(11, -40), Vector2(15, -32)]), MG.OUTLINE, 1.5)
+			ci.draw_line(base + Vector2(0, -40) * sc, base + Vector2(0, -50) * sc, Color(0.3, 0.3, 0.32), 3.0 * sc)
+			ci.draw_line(base + Vector2(0, -50) * sc, base + Vector2(20, -53) * sc, Color(0.3, 0.3, 0.32), 3.0 * sc)
+			MG.ball(ci, base + Vector2(21, -58) * sc, 4.5 * sc, Color(0.45, 0.25, 0.12), 0.4)
+			ci.draw_circle(base + Vector2(0, -50) * sc, 2.5 * sc, Color(0.85, 0.7, 0.35))
 
 
 func _draw_bubble(ci: CanvasItem) -> void:
@@ -760,7 +989,15 @@ func _draw_panel(ci: CanvasItem) -> void:
 			HORIZONTAL_ALIGNMENT_CENTER, PANEL.size.x, 24, Color(1, 0.95, 0.7))
 		return
 	var td: Dictionary = TYPES[_b.type]
-	ci.draw_string(font, p + Vector2(18, 30), "%s (%s) ostaa %s" % [td.name, td.tag, _qty_text(_b.item, _b.qty)], HORIZONTAL_ALIGNMENT_LEFT, 640, 20, Color(0.85, 0.85, 0.9))
+	# Otsikko ei saa ulottua Vastatarjous-otsikon (x 420) kohdalle: pitkä tuotenimi (Pekan romut) pudottaa kuvauksen ja
+	# tarvittaessa pienentää tekstiä. Leveys mitataan fontista.
+	var head := "%s (%s) ostaa %s" % [td.name, td.tag, _qty_text(_b.item, _b.qty)]
+	var hsize := 20
+	if font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, hsize).x > 395.0:
+		head = "%s ostaa %s" % [td.name, _qty_text(_b.item, _b.qty)]
+	while hsize > 14 and font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, hsize).x > 395.0:
+		hsize -= 1
+	ci.draw_string(font, p + Vector2(18, 30), head, HORIZONTAL_ALIGNMENT_LEFT, 640, hsize, Color(0.85, 0.85, 0.9))
 	ci.draw_string(font, p + Vector2(18, 56), "Tarjous", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(0.7, 0.7, 0.75))
 	ci.draw_string(font, p + Vector2(18, 94), "%s €" % _eur(_b.offer), HORIZONTAL_ALIGNMENT_LEFT, -1, 38, Color(1, 0.9, 0.4))
 	ci.draw_string(font, p + Vector2(180, 56), "Reilu hinta %s €" % _eur(_b.fair), HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(0.7, 0.7, 0.75))
@@ -799,19 +1036,30 @@ func _draw_summary(ci: CanvasItem) -> void:
 	var r := Rect2(330, 120, 620, 520)
 	MG.box(ci, Rect2(r.position + Vector2(0, 0), r.size), Color(0.99, 0.96, 0.85), 14, 10, Color(0.4, 0.28, 0.15), 4)
 	MG.sign(ci, Rect2(r.position + Vector2(130, 20), Vector2(360, 54)), "PÖYTÄ PAKATTU", Color(0.15, 0.4, 0.3), Color(1, 0.97, 0.85), 28)
-	var y := r.position.y + 112.0
-	var any := false
+	var rows: Array = []
 	for k in ORDER + ["kalja", "pontikka"]:
-		if int(_sold.get(k, 0)) <= 0:
-			continue
-		any = true
-		_icon(ci, k, Vector2(r.position.x + 60, y + 18), 0.6)
-		ci.draw_string(font, Vector2(r.position.x + 110, y + 8), "%s × %d" % [GOODS[k].name, _sold[k]], HORIZONTAL_ALIGNMENT_LEFT, 300, 24, INK)
-		y += 46.0
-	if not any:
-		ci.draw_string(font, Vector2(r.position.x, y + 20), "Mitään ei mennyt kaupaksi.", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 24, INK)
+		if int(_sold.get(k, 0)) > 0:
+			rows.append(k)
+	# Yli viisi riviä: kaksi saraketta (Pekan romut marjojen lisäksi).
+	var cols := 1 if rows.size() <= 5 else 2
+	var per_col := ceili(rows.size() / float(cols))
+	var row_h := minf(46.0, 250.0 / maxf(per_col, 1.0))
+	for i in rows.size():
+		var k: String = rows[i]
+		var cx := r.position.x + 60 + (i / per_col) * 290.0
+		var y := r.position.y + 112.0 + (i % per_col) * row_h
+		_icon(ci, k, Vector2(cx, y + 18), 0.6)
+		ci.draw_string(font, Vector2(cx + 50, y + 8), "%s × %d" % [GOODS[k].name, _sold[k]], HORIZONTAL_ALIGNMENT_LEFT,
+			240 if cols == 2 else 300, 22 if cols == 2 else 24, INK)
+	if rows.is_empty():
+		ci.draw_string(font, Vector2(r.position.x, r.position.y + 132), "Mitään ei mennyt kaupaksi.", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 24, INK)
+	var pekka := pekka_share()
+	if pekka > 0.0:
+		ci.draw_string(font, Vector2(r.position.x, r.end.y - 131), "Pekan romuista puolet Pekalle: %s €" % _eur(pekka),
+			HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 18, Color(0.55, 0.3, 0.1))
 	ci.draw_line(Vector2(r.position.x + 40, r.end.y - 150), Vector2(r.end.x - 40, r.end.y - 150), Color(0.4, 0.28, 0.15), 2.0)
-	ci.draw_string(font, Vector2(r.position.x, r.end.y - 100), "Tulot %s €" % _eur(_income), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 40, Color(0.15, 0.4, 0.2))
+	ci.draw_string(font, Vector2(r.position.x, r.end.y - (92 if pekka > 0.0 else 100)), "Tulot %s €" % _eur(_income),
+		HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 40, Color(0.15, 0.4, 0.2))
 	var tcol := Color(0.15, 0.4, 0.2) if _rep > 0 else (Color(0.7, 0.2, 0.15) if _rep < 0 else Color(0.35, 0.3, 0.25))
 	ci.draw_string(font, Vector2(r.position.x, r.end.y - 56), "\"%s\"" % _title, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 26, tcol)
 	ci.draw_string(font, Vector2(r.position.x, r.end.y - 22), "Asiakkaita %d · reiluja kauppoja %d · tylysti kotiin %d" % [_served, _good, _greedy],

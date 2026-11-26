@@ -1,6 +1,7 @@
 extends Node3D
 ## Konttaava hahmo (crawler3d.gd) sivulta, edestä ja ylhäältä askeleen eri vaiheissa.
 ## godot --path . --resolution 1280x720 tools/testit/konttaus_kuvat.tscn -- <kansio>
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Crawler := preload("res://scripts/crawler3d.gd")
 const B := preload("res://scripts/build.gd")
@@ -46,6 +47,6 @@ func _run(c: Node3D, cam: Camera3D) -> void:
 		for v in views:
 			cam.look_at_from_position(v[1], v[2])
 			await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(out.path_join("%s_%d.png" % [v[0], int(ph * 10)]))
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png(out.path_join("%s_%d.png" % [v[0], int(ph * 10)]))
 	get_tree().quit()

@@ -1,6 +1,7 @@
 extends Node3D
 ## Juntin paidan hihat ja olkapäät eri asennoissa (valkoiset sirpaleet): kuvat <asento>_<vari>.png.
 ## aja.sh tscn tools/testit/juntti_paita_kuvat.tscn <kansio> [--raidat=0] [--anat=0] [--t=0.25]
+const Kuva := preload("res://tools/testit/kuva.gd")
 const Looks := preload("res://scripts/looks.gd")
 const B := preload("res://scripts/build.gd")
 
@@ -62,7 +63,7 @@ func _run() -> void:
 			d = d.rotated(d.cross(Vector3.UP).normalized(), deg_to_rad(v[2])) if v[2] != 0.0 else d
 			cam.global_position = ctr + d * v[3]
 			cam.look_at(ctr, Vector3.UP)
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("%s/%s_%s.png" % [out, an, v[0]])
+			await Kuva.piirto()
+			Kuva.ruutu(get_viewport()).save_png("%s/%s_%s.png" % [out, an, v[0]])
 	print("valmis ", out)
 	get_tree().quit()

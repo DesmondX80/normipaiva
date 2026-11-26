@@ -148,6 +148,7 @@ var _lot: Node3D
 var _dancers: Array[Node3D] = []
 var drakkar: Node3D  # Drakkar Noir Railin pöydällä (main.gd piilottaa ostettuna)
 var haalari: Node3D  # neonpinkki hiihtohaalari Railin vaatetangossa (main.gd piilottaa ostettuna)
+var slabarit: Node3D  # 90-luvun släbärit vaatetangon juurella (main.gd piilottaa ostettuna)
 var _chat_t := 4.0
 var _t := 0.0
 
@@ -591,6 +592,35 @@ func _build_rack(kg: Node3D) -> void:
 	haalari.position = Vector3(0, RACK_TOP, 0.03)
 	rack.add_child(haalari)
 	_garment_haalari(haalari)
+	slabarit = Node3D.new()
+	slabarit.position = Vector3(0.35, 0.0, 0.42)
+	rack.add_child(slabarit)
+	_slabarit(slabarit)
+
+
+## 90-luvun släbärit lattialla vierekkäin: muotoiltu tummansininen pohja (paksu, kärki ja kanta pyöristetty, musta
+## kuviopohja), leveä remmi jalkapöydän kohdalla ja siinä kolme valkoista raitaa poikki.
+func _slabarit(h: Node3D) -> void:
+	var navy := Color(0.08, 0.13, 0.36)
+	for side in [-1.0, 1.0]:
+		var f := Node3D.new()
+		f.position = Vector3(side * 0.065, 0, 0)
+		f.rotation.y = side * 0.06
+		h.add_child(f)
+		B.mesh(f, B.boxm(Vector3(0.095, 0.008, 0.27)), Vector3(0, 0.004, 0), Color(0.06, 0.06, 0.07))  # kuviopohja
+		B.mesh(f, B.boxm(Vector3(0.095, 0.02, 0.24)), Vector3(0, 0.018, 0), navy)
+		for z in [-0.12, 0.12]:  # pyöreä kärki ja kanta
+			B.mesh(f, B.cyl(0.0475, 0.0475, 0.028, 16), Vector3(0, 0.014, z), navy)
+		B.mesh(f, B.boxm(Vector3(0.085, 0.003, 0.25)), Vector3(0, 0.0295, 0), navy.lightened(0.18))  # jalkasänky
+		# Remmi: kaari jalkapöydän yli (viisi palaa), kolme valkoista raitaa poikki.
+		var zc := 0.035
+		for i in 5:
+			var a := (i - 2) / 2.0 * 1.15
+			var p := Vector3(sin(a) * 0.05, 0.03 + cos(a) * 0.035, zc)
+			B.mesh(f, B.boxm(Vector3(0.024, 0.006, 0.075)), p, navy, Vector3(0, 0, -rad_to_deg(a)))
+			for k in 3:
+				B.mesh(f, B.boxm(Vector3(0.025, 0.0062, 0.011)), p + Vector3(0, 0.0003, -0.024 + k * 0.024), Color(0.95, 0.95, 0.93),
+					Vector3(0, 0, -rad_to_deg(a)))
 
 
 ## Henkari tangolle: koukku ja puinen olkapuu (h = vaatteen juurisolmu, origo tangon kohdalla).

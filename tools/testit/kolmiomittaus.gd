@@ -5,6 +5,7 @@ extends Node
 ##      tools/testit/aja.sh scene kolmiomittaus_vaala   (Raahe: Hevari-Tero, Sivikki-Timo, Sivikki ja Katja)
 ## Kuvat: _kaverit, _hahmo_<nimi>_edesta/_sivulta/_takaa, _rinkka_* (rajattu), _sytkari_mätsi, _sytkari_matka,
 ## _kartta, _vaara_ovi, _ovi_ilman_lahjaa, _ovi_lahjat, _rasva_esittely, _rasva_pimea, _rasva_puhelu, _rasva_loppu, _aamu.
+const Kuva := preload("res://tools/testit/kuva.gd")
 
 const Kolmio := preload("res://scripts/kolmiomittaus.gd")
 const Looks := preload("res://scripts/looks.gd")
@@ -35,10 +36,10 @@ func _frames(n := 4) -> void:
 
 func _snap(suffix: String) -> void:
 	await _frames(4)
-	await RenderingServer.frame_post_draw
+	await Kuva.piirto()
 	if DisplayServer.get_name() == "headless":
 		return
-	get_viewport().get_texture().get_image().save_png(_shot_path(suffix))
+	Kuva.ruutu(get_viewport()).save_png(_shot_path(suffix))
 
 
 func _press(action := "interact") -> void:
