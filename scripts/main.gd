@@ -17165,9 +17165,6 @@ func _maybe_screenshot() -> void:
 				break
 		print("KOHTAUS ryhmä ladattu %d ms" % (Time.get_ticks_msec() - t_lataus))
 	await get_tree().process_frame
-	if scene == "kuisti":
-		var tb := Time.get_ticks_msec()
-		print("MOKKI rakennettu %d ms" % (Time.get_ticks_msec() - tb))
 	if scene == "kohtaustarkistus":
 		# Kaikkien testikohtausryhmien käännöstarkistus: jokainen tools/testit/kohtaukset/-tiedosto ladataan (logiikkakohtaus).
 		for ryhma: String in KOHTAUSRYHMAT:
