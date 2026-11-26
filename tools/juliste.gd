@@ -23,14 +23,14 @@ const PANELS := [
 	["shop", "shot.png", Vector2(0.52, 0.62), 1.8, 0, 1, 0.7, "KAUPPA", "Harmaapäät laskee kolikoita"],
 	["laavufire", "shot.png", Vector2(0.45, 0.4), 1.2, 0, 2, -0.6, "LAAVU", "Makkara, nuotio ja kalja"],
 	["tractor", "shot.png", Vector2(0.4, 0.55), 1.4, 0, 3, 0.9, "VAARA", "\"Mää ajan sut kumoon!\""],
-	["karhut", "shot.png", Vector2(0.5, 0.5), 1.3, 1, 0, 0.6, "PEDOT", "Karhu on kaukana, kunnes ei oo"],
-	["kalalampi", "shot.png", Vector2(0.5, 0.55), 1.4, 1, 1, -0.7, "KALAAN", "Kalalammella onki veteen"],
+	["karhut", "shot_alue.png", Vector2(0.5, 0.5), 1.3, 1, 0, 0.6, "PEDOT", "Karhu metsässä"],
+	["kalalampi", "shot_3_ranta.png", Vector2(0.5, 0.55), 1.3, 1, 1, -0.7, "KALAAN", "Kalalammella onki veteen"],
 	["mirkku", "shot.png", Vector2(0.5, 0.55), 1.3, 1, 2, 0.8, "NAAPURI", "Mirkku tietää kaiken"],
-	["wanharaahe", "shot.png", Vector2(0.5, 0.5), 1.3, 1, 3, -0.5, "RETKI", "Wanha Raahe"],
+	["wanharaahe", "shot_alue.png", Vector2(0.5, 0.5), 1.3, 1, 3, -0.5, "RETKI", "Wanha Raahe"],
 	["pekka", "shot.png", Vector2(0.5, 0.4), 1.35, 2, 0, -0.6, "PEKKA", "Pekan kyydillä"],
-	["kuutonen", "shot.png", Vector2(0.5, 0.5), 1.25, 2, 1, 0.7, "JEMMA", "Kuutonen jemmaan"],
-	["juntti", "shot_1.png", Vector2(0.5, 0.45), 1.35, 2, 2, -0.8, "RIITA", "Juntti ei anna periksi"],
-	["laavufire", "shot_1.png", Vector2(0.5, 0.5), 1.0, 2, 3, 0.6, "ILTA", "Nuotio ja kalja"],
+	["kuutonen", "shot_edesta.png", Vector2(0.5, 0.45), 1.6, 2, 1, 0.7, "JEMMA", "Kuutonen jemmaan"],
+	["mirkku", "shot_mirkku_puhe.png", Vector2(0.5, 0.5), 1.3, 2, 2, -0.8, "KYLÄ", "Mirkku juoruaa"],
+	["kalalampi", "shot_5_kirjolohi.png", Vector2(0.5, 0.5), 1.3, 2, 3, 0.6, "SAALIS", "Kirjolohi koukussa"],
 ]
 const SECTIONS := ["SALOINEN", "RETKET", "VÄKI"]
 const HERO := ["bikeside", "shot.png", Vector2(0.45, 0.45), 1.0]
