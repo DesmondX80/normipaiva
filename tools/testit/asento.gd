@@ -125,22 +125,6 @@ static func bench_report(parts: Array) -> int:
 	return bad
 
 
-## Selän rako selkänojaan (K8): ylä- ja keskiselän takapinnan pienin etäisyys tasosta (back_pt, back_n = normaali
-## istujaa kohti, space-avaruus). OK, kun -0,03...0,03. Palauttaa virheiden määrän.
-static func back_report(ch: Node3D, space: Node3D, back_pt: Vector3, back_n: Vector3) -> int:
-	var n := back_n.normalized()
-	var pts := Pose.limb_points(ch, space, ["spine_02", "spine_03"])
-	if pts.is_empty():
-		print("ASENTO selkä: ei pintaa (headless?), ei tarkistettu")
-		return 0
-	var low := INF
-	for q in pts:
-		low = minf(low, (q - back_pt).dot(n))
-	var ok := low >= -0.03 and low <= 0.03
-	print("ASENTO selän rako selkänojaan %.3f m %s" % [low, "OK" if ok else "VIRHE"])
-	return 0 if ok else 1
-
-
 const SOLID_MIN_PTS := 8  # läpimenoksi kutsutaan, kun kappaleen sisällä on vähintään näin monta pistettä
 const SOLID_DEPTH := 0.01  # pistettä pidetään sisällä, kun se on näin syvällä pinnan alla
 const SOLID_TOP := 0.03  # ylöspäin osoittavalle pinnalle (istuin, pöytä, maa) 2 cm:n sietoraja lisäksi

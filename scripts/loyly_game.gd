@@ -713,11 +713,6 @@ func test_closeup() -> void:
 	_cam.transform = _cam_base
 
 
-## Läpimenotarkistuksen keskipiste (iltakivat_kuvat.gd käyttää CENTERiä, jos test_target puuttuu).
-func _hall_center() -> Vector3:
-	return _room.to_global(CENTER)
-
-
 ## Lähikuva naisesta ja kauhasta kesken heiton (kuppi kiukaan yllä kallistumassa): saunavaatteet ja kauha.
 func test_closeup2() -> void:
 	_throw_anim = 0.82

@@ -146,14 +146,6 @@ func no_drink(i: int) -> void:
 	say(_people[i], NO_DRINK.pick_random())
 
 
-## Juoma annettu: where = kätkön paikka (ensimmäisellä kerralla), muuten pelkkä kiitos.
-func thank(i: int, where: String) -> void:
-	if where != "":
-		say(_people[i], "Glug glug... Aah. Okei, kuuntele: %s. Siellä on satanen. Ota ennen ku muut löytää." % where, 7.0)
-	else:
-		say(_people[i], THANKS.pick_random())
-
-
 func block_interact() -> void:
 	_enter_frame = Engine.get_process_frames()
 

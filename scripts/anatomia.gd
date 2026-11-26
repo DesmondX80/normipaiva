@@ -36,11 +36,6 @@ static func enabled(look: Dictionary) -> bool:
 	return bool(look.get("anat", float(look.get("height", 1.8)) >= 1.5))
 
 
-## Maski: alue ja voimakkuus (0..1) yhteen tavuun. Suurempi voimakkuus voittaa samassa pisteessä.
-static func mask_byte(area: int, strength: float) -> int:
-	return area * 16 + clampi(roundi(strength * 15.0), 0, 15)
-
-
 static func deform(ctx: Dictionary) -> void:
 	Kadet.deform(ctx)
 	Jalat.deform(ctx)

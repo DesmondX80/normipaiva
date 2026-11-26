@@ -74,11 +74,6 @@ func _draw() -> void:
 	_draw_cache(heading)
 
 
-## Ilmansuunta tekstinä (P, KO, I, ...) asteista: 0 = pohjoinen, 90 = itä.
-static func dir_name(deg: float) -> String:
-	return NAMES[int(roundf(fposmod(deg, 360.0) / 45.0)) % 8 * 45]
-
-
 ## Suunta asteina pisteestä a pisteeseen b (maailman x/z; pohjoinen = -Z).
 static func bearing_deg(a: Vector2, b: Vector2) -> float:
 	var d := b - a

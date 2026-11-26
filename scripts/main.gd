@@ -1791,16 +1791,6 @@ func _on_garage_acted(kind: String) -> void:
 			_save_game()
 
 
-func _use_yeast(kind: String) -> void:
-	match kind:
-		"korpi":
-			has_korpihiiva = false
-		"turbo":
-			has_turbo = false
-		_:
-			has_yeast = false
-
-
 ## Saavin sisältö tekstinä vihjeeseen: "marjat 2/3 l · hiiva ✔ · sokeri –".
 func _vat_text(where: String) -> String:
 	var m: Dictionary = vat_mix[where]
@@ -1842,47 +1832,6 @@ func _vat_menu(where: String) -> void:
 	_item_menu.open(items, "Viinisaavi · " + _vat_text(where))
 
 
-func _on_vat_menu(id: String) -> void:
-	_interior_busy(false)
-	_active_walker().controls_enabled = true
-	_menu_mode = "give"
-	var where := _vat_where
-	var m: Dictionary = vat_mix[where]
-	match id:
-		"marjat":
-			var need: int = WINE_BERRIES - m.marjat
-			for k in ["mustikka", "puolukka"]:
-				var n: int = mini(need, bucket.get(k, 0))
-				if n > 0:
-					bucket[k] -= n
-					if bucket[k] <= 0:
-						bucket.erase(k)
-					need -= n
-					m.marjat += n
-			Sfx.play("water", -8.0, 1.3)
-			_show_message("Marjat saaviin. Saavissa: %s." % _vat_text(where), 2.5)
-		"hiiva_korpi", "hiiva_turbo", "hiiva_hiiva":
-			var y: String = id.substr(6)
-			_use_yeast(y)
-			m.hiiva = y
-			Sfx.play("cloth", -8.0, 1.2)
-			_show_message("Hiiva saaviin. Saavissa: %s." % _vat_text(where), 2.5)
-		"sokeri":
-			has_sugar = false
-			m.sokeri = true
-			Sfx.play("rattle", -10.0, 1.6)
-			_show_message("Sokeri saaviin. Saavissa: %s." % _vat_text(where), 2.5)
-		"kayma":
-			if where == "koti":
-				_wine_start_ferment()
-			else:
-				pass
-			return
-		_:
-			return
-	_save_game()
-
-
 func _wine_berries() -> int:
 	return bucket.get("puolukka", 0) + bucket.get("mustikka", 0)
 
@@ -1919,19 +1868,6 @@ func _wine_act() -> void:
 	if wine_start >= 0:
 		return
 	_vat_menu("koti")
-
-
-func _wine_start_ferment() -> void:
-	var yeast: String = vat_mix.koti.hiiva
-	vat_mix.koti = {"marjat": 0, "hiiva": "", "sokeri": false}
-	wine_start = day
-	wine_days = WINE_DAYS[yeast]
-	garage_int.set_wine("kay")
-	tilat.first("kotiviini", 0.4)
-	Sfx.play("water", -6.0, 0.7)
-	_save_game()
-	_show_message("Liina päälle ja vesilukko kiinni. Viini käy (%s): valmis %d päivän päästä." % [
-		{"korpi": "korpihiiva", "turbo": "turbohiiva"}.get(yeast, "hiiva"), wine_days], 4.0)
 
 
 ## Karburaattorin säätö autotallissa (carb_game.gd). for_mopo = oman mopon kaasari (#155).
@@ -2019,26 +1955,6 @@ func _mopo_virit_menu() -> void:
 	_interior_busy(true)
 	_menu_mode = "virit"
 	_item_menu.open(items, "Mopon viritys")
-
-
-func _on_virit_menu(id: String) -> void:
-	_interior_busy(false)
-	_active_walker().controls_enabled = true
-	_menu_mode = "give"
-	if id == "takaisin" or not OmaMopo.VIRIT.has(id):
-		return
-	var v: Dictionary = OmaMopo.VIRIT[id]
-	if money < v.price:
-		_show_message("Osa maksaa %s €, rahat ei riitä." % _eur(v.price), 3.0)
-		return
-	money -= v.price
-	oma_mopo.virit[id] = true
-	_advance_clock(30.0)
-	tilat.first("mopo_viritys", 0.3)
-	tilat.add("moraali", 0.05)
-	Sfx.play("rattle_hard", -4.0, 1.1)
-	_save_game()
-	_show_message("%s Huippunopeus nyt %.1f m/s." % [v.msg, oma_mopo.max_speed()], 5.0)
 
 
 func _mopo_garage() -> void:
@@ -11681,55 +11597,6 @@ func _asema_drinks() -> Array:
 	return items
 
 
-## Juoma juopolle tai narkkarille: ensimmäisestä hörpystä kätkön paikka ja merkki kartalle, sitten pelkkä kiitos.
-func _on_asema_give(id: String) -> void:
-	_menu_mode = "give"
-	_interior_busy(false)
-	asema_int.walker.controls_enabled = true
-	match id:
-		"kalja":
-			beers -= 1
-			player.set_carrying(beers > 0)
-			asema_int.walker.set_carrying(beers > 0)
-		"pontikka":
-			pontikka -= 1
-	Sfx.play("glass", -6.0, 1.1)
-	tilat.first("asema_horppy", 0.1)
-	if asema_katkot.get(_asema_town, 0) == 0 and _cache_pos(_asema_town) != Vector3.INF:
-		asema_katkot[_asema_town] = 1
-		asema_int.thank(_asema_npc, _cache_where(_asema_town))
-		Sfx.play("win_small", -6.0)
-		_show_message("Rahakätkön paikka merkitty karttaan (%s). Ratapölkkypino radan varressa, %s." % [
-			Settings.action_key("map"), _dist_text(_cache_station(_asema_town), _cache_pos(_asema_town))], 4.5)
-		_save_game()
-	else:
-		asema_int.thank(_asema_npc, "")
-		tilat.add("moraali", 0.05)
-		_show_message("%s kiittää hörpystä.%s" % [StationInterior.PEOPLE[_asema_npc].name,
-			" Kätkö on jo kerrottu." if asema_katkot.get(_asema_town, 0) == 1 else ""], 2.5)
-
-
-## Kätkön paikka maailmassa (Raahessa mopomatkan kehyksestä) ja asema, josta se on kerrottu.
-func _cache_pos(town: String) -> Vector3:
-	return world.cache_pos
-
-
-func _cache_station(town: String) -> Vector3:
-	return world.station_plat_door
-
-
-## Juopon kuvaus kätkön paikasta: ilmansuunta ja matka asemalta.
-func _cache_where(town: String) -> String:
-	var a := _cache_station(town)
-	var b := _cache_pos(town)
-	var d := Vector2(b.x - a.x, b.z - a.z)
-	if false:
-		pass
-	var names := ["itään", "kaakkoon", "etelään", "lounaaseen", "länteen", "luoteeseen", "pohjoiseen", "koilliseen"]
-	var way: String = names[posmod(roundi(d.angle() / (TAU / 8.0)), 8)]
-	return "radan vartta %d metriä %s, vanhojen ratapölkkyjen alla on muovikassi" % [roundi(d.length() / 10.0) * 10, way]
-
-
 ## Saloisten kätkö: jalan pinon vieressä E (paikka pitää olla kuultu odotussalissa).
 func _cache_logic(p: Vector3) -> bool:
 	if asema_katkot.get("saloinen", 0) != 1 or world.cache_pos == Vector3.INF:
@@ -12288,22 +12155,6 @@ func _raahe_karaoke() -> void:
 			tilat.add("moraali", -0.1)
 			_show_message("Karaoke %d %%: nuotin vierestä. Kellarissa ei räknätä, mutta kuultiin kyllä." % pct, 3.5))
 	add_child(game)
-
-
-## Juoma Kapteenin Kulman tiskiltä: palauttaa [baarimikon repliikki, inforivi].
-func _on_raahe(id: String) -> Array:
-	var m: Array = RAAHE_MENU[id]
-	if money < m[1]:
-		return ["Rahat ei riitä.", "Rahaa %s €." % _eur(money)]
-	money -= m[1]
-	if id == "kahvi":
-		_coffee()
-	tilat.add("humala", m[2])
-	tilat.add("stressi", m[3])
-	tilat.add("moraali", m[4])
-	Sfx.play("glass" if m[2] > 0.0 else "pickup", -6.0, 0.9)
-	tilat.first("raahe_" + id, 0.1)
-	return [RAAHE_LINES.pick_random(), "%s, −%s €." % [m[0], _eur(m[1])]]
 
 
 ## Naapurit (Arto, Pekka, Sinikka): lähellä puhevihje, E avaa keskusteluikkunan.

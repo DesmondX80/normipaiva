@@ -199,9 +199,3 @@ func _place_on_line(dist: float) -> void:
 	rotation.y = atan2(-d.x, -d.z)
 
 
-func set_line_t(t: float, dir: int) -> void:
-	_t = t
-	_dir = dir
-
-
-

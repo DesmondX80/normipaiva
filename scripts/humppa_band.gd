@@ -43,11 +43,6 @@ static func repertoire() -> Array:
 	return songs if not songs.is_empty() else Synth.SONGS
 
 
-## Kappaleen tunniste (Sfx.music_play vaihtaa soittimen sisällön, kun tunniste vaihtuu).
-static func song_id(song: Dictionary) -> String:
-	return song.path if song.has("path") else Synth.song_key(song)
-
-
 ## Seuraava kappale ohjelmistosta: jokin muu kuin juuri soinut.
 func next_song() -> Dictionary:
 	var songs := repertoire().filter(func(sg: Dictionary) -> bool: return sg.title != current_song.get("title", ""))
@@ -106,22 +101,6 @@ func _start(song: Dictionary, wav: AudioStream) -> void:
 	else:
 		_player.stop()
 	song_started.emit(song, wav)
-
-
-func set_speaker(on: bool) -> void:
-	speaker = on
-	if _player == null:
-		return
-	if on and not _player.playing and playing:
-		_player.play()
-	elif not on:
-		_player.stop()
-
-
-func stop_playing() -> void:
-	playing = false
-	if _player != null:
-		_player.stop()
 
 
 func build() -> void:

@@ -312,13 +312,8 @@ func say(who: Node3D, text: String, t := 3.4) -> void:
 	who.play("Sitting_Talking" if who.has_meta("sitting") else "Idle_Talking", 0.3)
 
 
-func bartender_say(text: String) -> void:
-	say(_cellar_bartender if in_cellar() else _bartender, text)
-
-
 func tero_say(text: String) -> void:
 	say(_tero, text)
-
 
 
 func _process(delta: float) -> void:

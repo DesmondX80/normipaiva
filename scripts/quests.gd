@@ -336,15 +336,6 @@ func hint_for(who: String, firsts: Array, flag: Callable) -> String:
 	return ""
 
 
-## Onko puhujalla kertomaton tarinavihje (hint_for ilman kuulluksi merkitsemistä).
-func has_unheard_hint(who: String, firsts: Array, flag: Callable) -> bool:
-	for a in open_steps(firsts, flag):
-		var h: String = a[1].get("hint", "")
-		if "|" in h and h.get_slice("|", 0) == who and not heard.has(a[1].id):
-			return true
-	return false
-
-
 ## Uudet tiedoksi tulleet sivutehtävät (niiden idea näytetään). Ensimmäinen kutsu uuden pelin tai latauksen jälkeen
 ## kirjaa jo täyttyneet hiljaa.
 func newly_known(firsts: Array, flag: Callable, day: int) -> Array:
