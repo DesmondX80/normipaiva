@@ -323,12 +323,17 @@ func _portrait(ci: CanvasItem, r: Rect2, pname: String, circle := false) -> void
 
 ## Profiilikuvan studio: hahmo kasvot kameraan, tausta ja valot omassa 3D-maailmassaan (ei pelin aurinkoa eikä maastoa).
 func _photo(look: Dictionary, bg: Color, ground: Color, props: String) -> SubViewport:
+	return studio(self, look, bg, ground, props)
+
+
+## Sama studio muille näkymille (kolmio_kohtaus.gd kesäheilan legenda näyttää lavakuvan -96): SubViewport hostin lapseksi.
+static func studio(host: Node, look: Dictionary, bg: Color, ground: Color, props: String) -> SubViewport:
 	var vp := SubViewport.new()
 	vp.own_world_3d = true
 	vp.size = Vector2i(360, 480)
 	vp.msaa_3d = Viewport.MSAA_2X
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	add_child(vp)
+	host.add_child(vp)
 	var st := Node3D.new()
 	vp.add_child(st)
 	var ch: Node3D = Looks.make(st, look)

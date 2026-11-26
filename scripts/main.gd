@@ -12813,6 +12813,13 @@ func _kolmio_knock(site: String, idx: int) -> void:
 		ui.mode = "ovi"
 		ui.gifts = info.gifts
 		ui.missing = "" if kolmio.st(site).gift else String(info.gift_me)
+		if site == "koti":
+			# Legendaarinen hetki "kesaheila": ensimmäinen ovi lavastetaan (kolmio_kohtaus.gd _leg_*: Sytkärin kartta oikeista
+			# ympyröistä, Päivi lavakuvan hatussa, otsikko); hetki kirjataan, kun valinta päättyy onnellisesti. Myöhemmin Päivi muistelee.
+			ui.legend = int(endings.counts.get("kesaheila", 0)) == 0
+			ui.recall = not ui.legend
+			ui.rings = kolmio.st(site).rings
+			ui.home = Vector2(home_door.x, home_door.z)
 	_act_begin()
 	ui.finished.connect(func(r: Dictionary) -> void:
 		_kolmio_ui = null
@@ -12955,6 +12962,9 @@ func _kolmio_ilta(site: String, g: CanvasLayer, all_lines: Dictionary, ending: S
 	g.style = (Kolmio.RASVA_RULES[site] as Dictionary).get("style", {})
 	g.lines = all_lines.get(site, all_lines.values()[0])  # disko on vain Vaalassa: muualla Vaalan repliikit
 	g.people = _kolmio_people(site)
+	if "legend" in g:  # lavastettu legendaarinen hetki: ensimmäinen voitto (lines.legenda), toistoilla muisto
+		g.legend = int(endings.counts.get(ending, 0)) == 0
+		g.recall = not g.legend
 	g.finished.connect(func(r: Dictionary) -> void:
 		if r.get("voitto", false):
 			_ending(ending)
@@ -13036,7 +13046,8 @@ func _kolmio_maito_home() -> void:
 #   suuttua   Päivi äidillään KESA_POISSA päivää: ei lappua, listaa, rahaa eikä autoa, jääkaappi tyhjä. Paluu, kun pelaaja
 #             soittaa kukat ovella (has_flowers) tai viikon kuluttua; sitten valinta etuovella uudestaan
 #   tunnustaa onnellinen loppu "avoin_pelikortti": pelaajan synnit oikeista teoista (KESA_SYNNIT) ja Päivin synnit
-# Legendaarinen hetki "kesaheila" kummassakin onnellisessa lopussa. Ensikerrat kesaheila_matsi ja kesaheila_valinta.
+# Legendaarinen hetki "kesaheila" kummassakin onnellisessa lopussa (lavastettu ensimmäisellä ovella, _kolmio_knock;
+# kirjataan valinnassa hiljaa, endings.gd STAGED). Ensikerrat kesaheila_matsi ja kesaheila_valinta.
 
 const KESA_POISSA := 7  # "Suuttua": Päivi äidillään 7 pelipäivää (aamua)
 ## Pelaajan synnit oikeista teoista: [ensikerta tai "loppu:<id>" tai "jalki:<id>", tunnustus].

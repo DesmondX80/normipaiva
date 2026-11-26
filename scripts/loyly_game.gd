@@ -27,6 +27,9 @@ const PIPE := Vector3(0.26, 0.95, 1.55)  # piippu kiukaan seinänpuoleisessa reu
 const PIPE_R := 0.07
 const WOMAN_AT := Vector3(0.3, 0.0, 0.3)  # nainen istuu ylälauteen vasemmassa päässä (x)
 const CENTER := Vector3(1.4, 0.0, 1.0)
+const DOOR_Z := 1.85  # oviaukon keskikohta oikeassa seinässä
+const DOOR_W := 0.75
+const DOOR_H := 1.9
 const THROW_EVERY := 6.5
 const BREATH := 2.2  # hengityksen jakso (s)
 const EXHALE := Vector2(0.55, 0.85)  # uloshengitys jakson osuutena (vihreä kaari)
@@ -69,6 +72,19 @@ var _flash_ok := true
 var _sun_mask := 0
 var _rng := RandomNumberGenerator.new()
 var _order: Array = []  # paenneet järjestyksessä
+## Legendaarinen hetki "loylykunkku" (main.gd _kolmio_ilta: ensimmäinen voitto, lines.legenda): viimeinen kauha,
+## kaverit ovella, pyyhe putoaa ja otsikko omina vaiheinaan. recall: hetki on jo koettu, joku muistelee illan alussa.
+const LEG := ["kauha", "ovi", "pyyhe", "otsikko"]
+var legend := false
+var recall := false
+var _door: Node3D
+var _once := {}
+var _big_steam: CPUParticles3D
+var _door_light: OmniLight3D
+var _friends: Array = []  # ovella kurkkivat kaverit [hahmo, pyyhe]
+var _fall: Node3D  # putoava pyyhe
+var _shot := ""  # pyyhe-vaiheen kuva: "a" kädet ylös, "b" jalat, "c" ovi, "d" kaksoiskuva
+var _glow_boost := 0.0
 
 
 func _ready() -> void:
@@ -87,7 +103,12 @@ func _ready() -> void:
 	_keys.centered = true
 	add_child(_keys)
 	_story = "Löylykisa! Viimeisenä lauteilla voittaa. Hengitä ulos, kun rengas on vihreällä: tuska laskee."
-	_say(3, _line("alku", "Löylykisa! Pyyhkeet tiukalle."))
+	if recall and lines.has("muisto"):
+		var m: Array = (lines.muisto as Array).pick_random()
+		_say(int(m[0]), String(m[1]))
+		_bubble_t[int(m[0])] = 5.0
+	else:
+		_say(3, _line("alku", "Löylykisa! Pyyhkeet tiukalle."))
 
 
 func _exit_tree() -> void:
@@ -115,13 +136,23 @@ func _build() -> void:
 			Color(0.5, 0.38, 0.26).lightened(0.05 * (i % 3)))
 	_panel_wall(Vector3(ROOM.x / 2.0, ROOM.y / 2.0, -0.02), Vector3(ROOM.x, ROOM.y, 0.04), true, panel)  # takaseinä
 	_panel_wall(Vector3(-0.02, ROOM.y / 2.0, ROOM.z / 2.0), Vector3(0.04, ROOM.y, ROOM.z), false, panel)
-	_panel_wall(Vector3(ROOM.x + 0.02, ROOM.y / 2.0, ROOM.z / 2.0), Vector3(0.04, ROOM.y, ROOM.z), false, panel)
+	_right_wall(panel)
 	B.mesh(_room, B.boxm(Vector3(ROOM.x, 0.04, ROOM.z)), Vector3(ROOM.x / 2.0, ROOM.y, ROOM.z / 2.0), panel.darkened(0.25))
 	# Ikkuna takaseinässä (kesäyön sininen) ja ovi oikealla seinällä.
 	B.mesh(_room, B.boxm(Vector3(0.5, 0.3, 0.02)), Vector3(0.45, 1.85, 0.005), Color(0.35, 0.5, 0.75))
 	B.mesh(_room, B.boxm(Vector3(0.56, 0.36, 0.015)), Vector3(0.45, 1.85, 0.0), dark)
-	B.mesh(_room, B.boxm(Vector3(0.03, 1.9, 0.75)), Vector3(ROOM.x - 0.005, 0.95, 1.85), panel.darkened(0.1))
-	B.mesh(_room, B.boxm(Vector3(0.05, 0.03, 0.14)), Vector3(ROOM.x - 0.05, 1.0, 1.55), dark)  # kahva
+	# Ovi saranassa (oviaukon +Z-reunassa), aukeaa ulos pukuhuoneeseen (legendaarinen hetki): -Z = saranasta lukolle.
+	_door = Node3D.new()
+	_door.position = Vector3(ROOM.x + 0.02, 0.0, DOOR_Z + DOOR_W / 2.0)
+	_room.add_child(_door)
+	B.mesh(_door, B.boxm(Vector3(0.035, DOOR_H - 0.01, DOOR_W - 0.01)), Vector3(0, DOOR_H / 2.0, -DOOR_W / 2.0), panel.darkened(0.1))
+	for i in 5:  # oven pystypaneelit
+		B.mesh(_door, B.boxm(Vector3(0.045, DOOR_H - 0.12, 0.008)), Vector3(0, DOOR_H / 2.0, -0.07 - i * 0.15), panel.darkened(0.3))
+	B.mesh(_door, B.boxm(Vector3(0.11, 0.03, 0.14)), Vector3(0, 1.0, -DOOR_W + 0.12), dark)  # kahvat molemmin puolin
+	for z: float in [DOOR_Z - DOOR_W / 2.0 - 0.03, DOOR_Z + DOOR_W / 2.0 + 0.03]:  # karmit
+		B.mesh(_room, B.boxm(Vector3(0.05, DOOR_H + 0.06, 0.06)), Vector3(ROOM.x - 0.005, (DOOR_H + 0.06) / 2.0, z), dark)
+	B.mesh(_room, B.boxm(Vector3(0.05, 0.06, DOOR_W + 0.12)), Vector3(ROOM.x - 0.005, DOOR_H + 0.03, DOOR_Z), dark)
+	_build_pukuhuone()
 	# Lauteet: ylälaude takaseinää vasten (rimat), alalaude jalkoja varten, tukipilarit.
 	_bench(BENCH_TOP, 0.0, BENCH_D)
 	var step_y := _seat_people()
@@ -225,6 +256,38 @@ func _panel_wall(at: Vector3, size: Vector3, back: bool, col: Color) -> void:
 		var s := Vector3(size.x, 0.008, 0.012) if back else Vector3(0.012, 0.008, size.z)
 		var off := Vector3(0, 0, 0.02) if back else Vector3(0.02 * signf(ROOM.x / 2.0 - at.x), 0, 0)
 		B.mesh(_room, B.boxm(s), p + off, col.darkened(0.3))
+
+
+## Oikea seinä oviaukon ympäriltä (aukon takana pukuhuone): kolme paneelia ja rimat samoilla korkeuksilla kuin muualla.
+func _right_wall(col: Color) -> void:
+	var x := ROOM.x + 0.02
+	var z0 := DOOR_Z - DOOR_W / 2.0
+	var z1 := DOOR_Z + DOOR_W / 2.0
+	var segs := [[0.0, z0, 0.0], [z1, ROOM.z, 0.0], [z0, z1, DOOR_H]]  # z alku, z loppu, y alku
+	for sg: Array in segs:
+		var w: float = sg[1] - sg[0]
+		var y0: float = sg[2]
+		B.mesh(_room, B.boxm(Vector3(0.04, ROOM.y - y0, w)), Vector3(x, (ROOM.y + y0) / 2.0, (sg[0] + sg[1]) / 2.0), col)
+		for i in 14:
+			var y := (i + 0.5) / 14.0 * ROOM.y
+			if y > y0 + 0.01:
+				B.mesh(_room, B.boxm(Vector3(0.012, 0.008, w)), Vector3(x - 0.02, y, (sg[0] + sg[1]) / 2.0), col.darkened(0.3))
+
+
+## Pukuhuone oven takana: lattia, vaaleat paneeliseinät, naulakko ja pyyhe. Näkyy vain, kun ovi on auki.
+func _build_pukuhuone() -> void:
+	var x0 := ROOM.x + 0.04
+	var d := 1.5
+	var col := Color(0.9, 0.82, 0.64)
+	B.mesh(_room, B.boxm(Vector3(d, 0.03, 2.2)), Vector3(x0 + d / 2.0, 0.0, DOOR_Z), Color(0.55, 0.5, 0.46))
+	B.mesh(_room, B.boxm(Vector3(0.04, ROOM.y, 2.2)), Vector3(x0 + d, ROOM.y / 2.0, DOOR_Z), col)
+	for z: float in [DOOR_Z - 1.1, DOOR_Z + 1.1]:
+		B.mesh(_room, B.boxm(Vector3(d, ROOM.y, 0.04)), Vector3(x0 + d / 2.0, ROOM.y / 2.0, z), col.darkened(0.05))
+	B.mesh(_room, B.boxm(Vector3(d, 0.04, 2.2)), Vector3(x0 + d / 2.0, ROOM.y, DOOR_Z), col.darkened(0.2))
+	B.mesh(_room, B.boxm(Vector3(0.03, 0.08, 1.4)), Vector3(x0 + d - 0.035, 1.62, DOOR_Z), Color(0.5, 0.34, 0.2))  # naulakko
+	for i in 4:
+		B.mesh(_room, B.boxm(Vector3(0.08, 0.02, 0.02)), Vector3(x0 + d - 0.08, 1.6, DOOR_Z - 0.5 + i * 0.33), Color(0.3, 0.3, 0.32))
+	B.mesh(_room, B.boxm(Vector3(0.04, 0.6, 0.34)), Vector3(x0 + d - 0.1, 1.3, DOOR_Z + 0.33), Color(0.95, 0.75, 0.2))  # pyyhe naulassa
 
 
 ## Laude: rimat (6 cm, 1 cm raot) syvyyssuunnassa z0..z0+depth korkeudella y.
@@ -478,6 +541,14 @@ func _process(delta: float) -> void:
 			_bubble_t[s] -= delta
 			if _bubble_t[s] <= 0.0:
 				_bubbles[s] = ""
+	if _phase in LEG:
+		if Input.is_action_just_pressed("mount"):
+			_finish(_leg_result())
+			return
+		_leg_step(delta)
+		_update_keys()
+		_ui.queue_redraw()
+		return
 	if Input.is_action_just_pressed("mount") and _phase != "loppu" and _phase != "valmis":
 		_finish({"luovutti": true, "kiva": "loyly"})
 		return
@@ -491,7 +562,11 @@ func _process(delta: float) -> void:
 			_race(delta)
 		"loppu":
 			if _pressed() or (auto and _t > 2.0):
-				_finish({"voitto": _winner() == 0, "loylyt": _heat, "kiva": "loyly"})
+				var won := _winner() == 0
+				if won and legend and lines.has("legenda"):
+					_leg_begin()
+				else:
+					_finish({"voitto": won, "loylyt": _heat, "kiva": "loyly"})
 	for s in 3:
 		var e: Dictionary = _sitters[s]
 		e.nod = move_toward(e.nod, 0.0, delta * 1.5)
@@ -656,6 +731,8 @@ func _update_keys() -> void:
 			_keys.set_text("%s hengitä ulos (vihreällä)   %s lopeta" % [Settings.cap("interact"), Settings.cap("mount")])
 		"loppu":
 			_keys.set_text("%s jatka" % Settings.cap("interact"))
+		"kauha", "ovi", "pyyhe", "otsikko":
+			_keys.set_text("%s ohita" % Settings.cap("mount"))
 		_:
 			_keys.set_text("%s lopeta" % Settings.cap("mount"))
 
@@ -663,6 +740,9 @@ func _update_keys() -> void:
 func _draw_ui() -> void:
 	var vs := _ui.size
 	var font := ThemeDB.fallback_font
+	if _phase in LEG:
+		_draw_legend(vs)
+		return
 	var names: Array = []
 	for s: int in _sitting():
 		names.append("Sinä" if s == 0 else String(people[s].name))
@@ -697,6 +777,457 @@ func _draw_ui() -> void:
 	_ui.draw_string(font, c + Vector2(-60, 8), "%d %%" % roundi(pain * 100.0), HORIZONTAL_ALIGNMENT_CENTER, 120, 20,
 		Color(0.1, 0.05, 0.03))
 	_ui.draw_string(font, c + Vector2(-100, -rad - 18), "TUSKA", HORIZONTAL_ALIGNMENT_CENTER, 200, 16, Color.WHITE)
+
+
+# --- Legendaarinen hetki ------------------------------------------------------------------------------------------
+# Ensimmäinen voitto (main.gd _kolmio_ilta legend): kaverit ovat paenneet, ja nainen heittää kunkulle viimeisen
+# kauhallisen: valtava höyrypilvi, kunkku ei hievahda (kauha). Pukuhuoneen ovi raottuu, ja kaverit kurkkivat ovelta
+# pyyhkeet kourassa (ovi). Kunkku nousee lattialle kädet ylhäällä, pyyhe putoaa nilkkoihin (kuvataan polvista alas),
+# kaverit peittävät silmänsä ja nainen nauraa (pyyhe), ja otsikko (otsikko). Kamera pysyy siveänä: pyyhkeen
+# pudottua kunkku kuvataan rinnasta ylös (lantio rajataan laskemalla pois kuvasta).
+# Istujien etu on +Z, ovi oikealla seinällä (+X), kaverit seisovat pukuhuoneessa katse -X:ään.
+
+const P_STAND := Vector3(1.45, 0.0, 1.32)  # kunkku seisoo alalauteen edessä lattialla
+const F_AT := [Vector3(ROOM.x + 0.34, 0.0, DOOR_Z - 0.12), Vector3(ROOM.x + 0.58, 0.0, DOOR_Z + 0.26)]
+const F_TOWEL := [Color(0.95, 0.75, 0.2), Color(0.3, 0.7, 0.45)]  # pukuhuoneen naulasta siepatut pyyhkeet
+
+
+func _leg_result() -> Dictionary:
+	return {"voitto": true, "loylyt": _heat, "kiva": "loyly"}
+
+
+func _first(key: String) -> bool:
+	if _once.has(key):
+		return false
+	_once[key] = true
+	return true
+
+
+func _leg_say(i: int, sec := 3.0) -> void:
+	var r: Array = lines.legenda.rivit[i]
+	for s in 4:
+		_bubbles[s] = ""  # yksi kupla kerrallaan
+	_say(int(r[0]), String(r[1]))
+	_bubble_t[int(r[0])] = sec
+
+
+func _bone(c: Node3D, b: String) -> Vector3:
+	return _room.to_local(c.to_global(c.bone_position(b)))
+
+
+func _set_cam(eye: Vector3, look: Vector3, fov: float) -> void:
+	_cam.fov = fov
+	_cam_base = Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye)
+	_cam.transform = _cam_base
+
+
+## Kamera suunnasta dir kohti pistettä look: lähin etäisyys, jolla kaikki pisteet osuvat ruutuun reunuksen sisään.
+## Silmä pysyy saunan sisällä (etuseinä legendassa z = ROOM.z); jos ei mahdu, kuvakulma levenee.
+func _fit_cam(look: Vector3, dir: Vector3, fov: float, pts: Array, margin := 0.08) -> void:
+	var vs := get_viewport().get_visible_rect().size
+	var d := dir.normalized()
+	for f in 6:
+		var fv := fov + f * 4.0
+		for i in 80:
+			var eye := look + d * (0.5 + i * 0.04)
+			if eye.z > ROOM.z - 0.08 or eye.x > ROOM.x - 0.08 or eye.x < 0.08 or eye.y > ROOM.y - 0.08:
+				break
+			_set_cam(eye, look, fv)
+			var ok := true
+			for p: Vector3 in pts:
+				var g := _room.to_global(p)
+				var q := _cam.unproject_position(g)
+				if _cam.is_position_behind(g) or q.x < vs.x * margin or q.x > vs.x * (1.0 - margin) or q.y < vs.y * margin \
+						or q.y > vs.y * (1.0 - margin):
+					ok = false
+					break
+			if ok:
+				return
+
+
+func _leg_begin() -> void:
+	_phase = "kauha"
+	_t = 0.0
+	_story = String(lines.legenda.kauha)
+	for s in 4:
+		_bubbles[s] = ""
+	_sitters[0].pain = 0.0
+	# Etuseinä ja ovi auki -valo: lähikuvissa ei mustaa tyhjää, pukuhuone valaistu.
+	_panel_wall(Vector3(ROOM.x / 2.0, ROOM.y / 2.0, ROOM.z + 0.02), Vector3(ROOM.x, ROOM.y, 0.04), true,
+		Color(0.78, 0.6, 0.38))
+	_door_light = OmniLight3D.new()
+	_door_light.light_color = Color(0.85, 0.92, 1.0)
+	_door_light.light_energy = 1.3
+	_door_light.omni_range = 2.2
+	_door_light.shadow_enabled = true
+	_door_light.position = Vector3(ROOM.x + 0.8, 2.0, DOOR_Z)
+	_room.add_child(_door_light)
+	# Iso höyrypilvi viimeisestä kauhallisesta: rullaa kiukaalta kunkun ylle.
+	_big_steam = CPUParticles3D.new()
+	_big_steam.amount = 220
+	_big_steam.lifetime = 3.0
+	_big_steam.emitting = false
+	_big_steam.one_shot = true
+	_big_steam.explosiveness = 0.85
+	_big_steam.direction = Vector3(1.0, 0.9, -0.5)
+	_big_steam.spread = 40.0
+	_big_steam.initial_velocity_min = 0.8
+	_big_steam.initial_velocity_max = 1.8
+	_big_steam.damping_min = 0.3
+	_big_steam.damping_max = 0.6
+	_big_steam.gravity = Vector3(0, 0.12, 0)
+	_big_steam.scale_amount_min = 0.8
+	_big_steam.scale_amount_max = 2.0
+	var sm := SphereMesh.new()
+	sm.radius = 0.08
+	sm.height = 0.16
+	_big_steam.mesh = sm
+	var stm := StandardMaterial3D.new()
+	stm.albedo_color = Color(1, 0.97, 0.92, 0.07)
+	stm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	stm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_big_steam.material_override = stm
+	_big_steam.position = KIUAS + Vector3(0.05, 0.95, 0.05)
+	_room.add_child(_big_steam)
+	_set_layers(_room)
+	# Kunkku yksin lauteilla kavereiden jättämien pyyhkeiden välissä, nainen kauhoineen ja kiuas vasemmalla.
+	var p: Node3D = _chars[0]
+	var head := _bone(p, "Head")
+	_fit_cam(Vector3(1.15, 1.3, 0.75), Vector3(0.3, 0.12, 1.0), 50.0, [head + Vector3(0, 0.2, 0),
+		(_towels[1] as Node3D).position, (_towels[2] as Node3D).position + Vector3(0.2, 0, 0), _bone(_chars[3], "Head") + Vector3(-0.1, 0.2, 0),
+		KIUAS + Vector3(0, 0.3, 0.25)], 0.05)
+
+
+## Kaveri ovelle pyyhe kourassa (paljaana, pyyhe peittää edestä): hahmo ja pyyhe, kädet IK:lla pyyhkeen yläkulmiin.
+func _make_friend(i: int) -> void:
+	var s := i + 1
+	var c := Looks.make(_room, _towel_look(people[s].look, false, Color.WHITE))
+	var f := Vector3(-1.0, 0.0, -0.3 if i == 0 else -0.45).normalized()
+	c.rotation.y = atan2(-f.x, -f.z)
+	c.position = F_AT[i]
+	c.play("Idle", 0.0)
+	c.anim.advance(0.01)
+	var t := Node3D.new()  # rypistetty pyyhe: kaksi taitosta ja raidat, -Z = poispäin hahmosta
+	_room.add_child(t)
+	var col: Color = F_TOWEL[i]
+	B.mesh(t, B.boxm(Vector3(0.36, 0.44, 0.045)), Vector3(0, -0.04, 0), col)
+	var fold := B.mesh(t, B.boxm(Vector3(0.38, 0.12, 0.06)), Vector3(0, 0.15, -0.012), col.lightened(0.12))
+	fold.rotation.x = 0.25
+	for y: float in [-0.18, -0.12]:
+		B.mesh(t, B.boxm(Vector3(0.362, 0.022, 0.047)), Vector3(0, y, 0), Color(0.95, 0.95, 0.92))
+	_chars[s].visible = false
+	_friends.append([c, t, f])
+	_set_layers(c)
+	_set_layers(t)
+	_friend_pose(i, 0.0)
+
+
+## Kaverin asento: pyyhe lantion edessä kahdella kädellä; cover > 0: oikea käsi silmille (pyyhe vasemmassa).
+func _friend_pose(i: int, cover: float) -> void:
+	var fr: Array = _friends[i]
+	var c: Node3D = fr[0]
+	var t: Node3D = fr[1]
+	var f: Vector3 = fr[2]
+	var right := f.cross(Vector3.UP).normalized()
+	var pel := _bone(c, "pelvis")
+	var tp := pel + f * 0.2 + Vector3(0, -0.06, 0)
+	t.position = tp
+	t.basis = Basis.looking_at(-f, Vector3.UP).rotated(f, 0.08 if i == 0 else -0.1)
+	var inv := c.transform.affine_inverse()
+	var hl := tp + Vector3(0, 0.14, 0) - right * 0.13 + f * 0.03
+	var hr := tp + Vector3(0, 0.14, 0) + right * 0.13 + f * 0.03
+	c.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", inv * hl, inv * (hl - right * 0.35 - f * 0.1 + Vector3(0, -0.1, 0)))
+	if cover > 0.0:
+		var head := _bone(c, "Head")
+		var eyes := head + f * 0.13 + Vector3(0, 0.02, 0)
+		hr = hr.lerp(eyes, cover)
+	c.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * hr, inv * (hr + right * 0.35 - f * 0.1 + Vector3(0, -0.25, 0)))
+
+
+## Kunkku nousee lattialle pyyhe lanteilla (towel) tai ilman.
+func _stand_king(towel: bool) -> void:
+	var old: Node3D = _chars[0]
+	var c := Looks.make(_room, _towel_look(people[0].look, towel, Color(0.95, 0.95, 0.92)))
+	c.rotation.y = PI  # etu +Z
+	c.position = P_STAND
+	c.play("Idle", 0.0)
+	c.anim.advance(0.01)
+	_chars[0] = c
+	_set_layers(c)
+	old.queue_free()
+
+
+## Kunkun kädet: up 1 = nyrkit ylhäällä, 0 = kädet lanteilla.
+func _king_arms(up: float) -> void:
+	var c: Node3D = _chars[0]
+	var f := Vector3(0, 0, 1)
+	var right := f.cross(Vector3.UP)
+	var inv := c.transform.affine_inverse()
+	var head := _bone(c, "Head")
+	var pel := _bone(c, "pelvis")
+	for sd: float in [-1.0, 1.0]:
+		var hip := pel + right * sd * 0.2 + Vector3(0, 0.12, 0) + f * 0.02
+		var top := head + right * sd * 0.26 + Vector3(0, 0.3, 0) + f * 0.04
+		top.y = minf(top.y, ROOM.y - 0.12)
+		var h := hip.lerp(top, up)
+		var pole := h + right * sd * 0.4 + (Vector3(0, -0.2, 0) if up > 0.5 else -f * 0.3)
+		var lr := "_r" if sd > 0.0 else "_l"
+		c.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, inv * h, inv * pole)
+
+
+## Putoava pyyhe: avoin kangasrengas lanteilta nilkkoihin, raidat; laskeutuu ja rypistyy kasaksi jalkojen ympärille.
+func _make_fall() -> void:
+	_fall = Node3D.new()
+	_room.add_child(_fall)
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.2
+	cm.bottom_radius = 0.23
+	cm.height = 0.34
+	cm.cap_top = false
+	cm.cap_bottom = false
+	cm.radial_segments = 20
+	var mi := MeshInstance3D.new()
+	mi.mesh = cm
+	var m: StandardMaterial3D = B.mat(Color(0.95, 0.95, 0.92)).duplicate()
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	_fall.add_child(mi)
+	for y: float in [-0.11, -0.07]:
+		var r := MeshInstance3D.new()
+		var rm := CylinderMesh.new()
+		rm.top_radius = 0.2 + (y + 0.17) / 0.34 * 0.03 + 0.003
+		rm.bottom_radius = rm.top_radius + 0.002
+		rm.height = 0.02
+		rm.cap_top = false
+		rm.cap_bottom = false
+		rm.radial_segments = 20
+		r.mesh = rm
+		var bm: StandardMaterial3D = B.mat(Color(0.25, 0.45, 0.75)).duplicate()
+		bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		r.material_override = bm
+		r.position.y = y
+		_fall.add_child(r)
+	_fall.position = Vector3(P_STAND.x, 0.82, P_STAND.z)
+	_set_layers(_fall)
+
+
+## Pyyhekasa nilkkojen ympärillä: litistettyjä poimuja renkaana ja kasana kantapäiden takana, raita näkyy.
+func _make_heap() -> void:
+	var c: Node3D = _chars[0]
+	var fl := _bone(c, "foot_l")
+	var fr := _bone(c, "foot_r")
+	var ctr := Vector3((fl.x + fr.x) / 2.0, 0.0, (fl.z + fr.z) / 2.0 - 0.03)
+	var h := Node3D.new()
+	_room.add_child(h)
+	var white := Color(0.95, 0.95, 0.92)
+	for i in 11:
+		var a := TAU * i / 11.0 + 0.3
+		var r := 0.17 + 0.03 * sin(i * 2.7)
+		var lump := MeshInstance3D.new()
+		lump.mesh = B.sphere(0.075, 10)
+		lump.material_override = B.mat(white.darkened(0.06 * (i % 3)) if i != 4 else Color(0.25, 0.45, 0.75))
+		lump.scale = Vector3(1.3, 0.38 + 0.12 * fmod(i * 0.618, 1.0), 0.8)
+		lump.position = ctr + Vector3(sin(a) * r, 0.025, cos(a) * r * 0.85)
+		lump.rotation.y = a
+		h.add_child(lump)
+	for i in 3:  # taittunut kangas kantapäiden takana (korkeampi poimu)
+		var lump := MeshInstance3D.new()
+		lump.mesh = B.sphere(0.08, 10)
+		lump.material_override = B.mat(white.darkened(0.04 * i))
+		lump.scale = Vector3(1.4, 0.7, 0.9)
+		lump.position = ctr + Vector3(-0.08 + i * 0.08, 0.05, -0.15)
+		h.add_child(lump)
+	_set_layers(h)
+
+
+func _leg_step(delta: float) -> void:
+	_t += delta
+	_shake = maxf(0.0, _shake - delta * 2.0)
+	_glow_boost = maxf(0.0, _glow_boost - delta * 1.2)
+	_glow.light_energy = 1.4 + _glow_boost * 4.0 + sin(_t * 7.0) * 0.1
+	_cam.transform = _cam_base.translated_local(Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.025)
+	match _phase:
+		"kauha":
+			_env.fog_density = lerpf(_env.fog_density, 0.035 if _t > 2.2 else 0.02, delta * 1.5)
+			if _t > 0.3 and _first("k0"):
+				_leg_say(0, 2.6)
+			if _t > 1.3 and _first("heitto"):
+				_throw_anim = 0.0
+			if _t > 2.05 and _first("pilvi"):
+				_big_steam.restart()
+				_steam.restart()
+				_glow_boost = 1.0
+				_shake = 1.0
+				Sfx.play("fire", -2.0, 0.8, 1.2)
+				Sfx.play("water", -4.0, 0.6, 1.4)
+			if _t > 3.7 and _first("k1"):
+				_leg_say(1, 2.4)
+				Room.nod(_chars[0], -0.12)  # leuka pystyyn
+			if _t > 6.4:
+				_leg_ovi()
+		"ovi":
+			if _door.rotation.y > -deg_to_rad(100.0):
+				_door.rotation.y = maxf(-deg_to_rad(100.0), _door.rotation.y - delta * 3.0)
+			for i in _friends.size():
+				_friend_pose(i, 0.0)
+			if _t > 0.8 and _first("o0"):
+				_leg_say(2, 2.1)
+			if _t > 3.0 and _first("o1"):
+				_leg_say(3, 2.2)
+			if _t > 5.4:
+				_leg_pyyhe()
+		"pyyhe":
+			_leg_pyyhe_step(delta)
+		"otsikko":
+			_king_arms(0.0)
+			for i in _friends.size():
+				_friend_pose(i, 1.0)
+			if _t > 5.5:
+				_finish(_leg_result())
+
+
+func _leg_ovi() -> void:
+	_phase = "ovi"
+	_t = 0.0
+	_story = String(lines.legenda.ovi)
+	Sfx.play("door", -6.0, 0.9)
+	_big_steam.visible = false  # pilvi on jo haihtunut: ovikuvan etualalla ei höyrypalloja
+	_steam.visible = false
+	_make_friend(0)
+	_make_friend(1)
+	# Kunkun silmin lauteilta: ovi ja kurkkivat kaverit, höyry valuu ovesta ulos.
+	_set_cam(Vector3(1.2, 1.5, 1.2), Vector3(ROOM.x + 0.4, 1.38, DOOR_Z + 0.05), 44.0)
+
+
+func _leg_pyyhe() -> void:
+	_phase = "pyyhe"
+	_t = 0.0
+	_story = String(lines.legenda.pyyhe)
+	for s in 4:
+		_bubbles[s] = ""
+	_stand_king(true)
+	_shot = ""
+
+
+func _leg_pyyhe_step(delta: float) -> void:
+	var c: Node3D = _chars[0]
+	if _t < 2.4:
+		if _shot != "a":
+			_shot = "a"
+			_king_arms(0.0)
+			var head := _bone(c, "Head")
+			_fit_cam(head + Vector3(0, -0.15, 0), Vector3(0.5, 0.05, 1.0), 44.0, [head + Vector3(0.3, 0.45, 0),
+				head + Vector3(-0.3, 0.45, 0), _bone(c, "pelvis") + Vector3(0, -0.28, 0)], 0.06)
+		_king_arms(smoothstep(0.2, 0.9, _t))
+		if _t > 0.5 and _first("p0"):
+			_leg_say(4, 1.9)
+		for i in _friends.size():
+			_friend_pose(i, 0.0)
+	elif _t < 3.8:
+		if _shot != "b":
+			_shot = "b"
+			for s in 4:
+				_bubbles[s] = ""
+			# Pyyhe putoaa: kuva polvista alas (yläreuna sääriluun puolivälissä), kunkku on jo paljas.
+			c.call("restyle", _towel_look(people[0].look, false, Color.WHITE))
+			_king_arms(1.0)
+			_make_fall()
+			_set_cam(P_STAND + Vector3(0.68, 0.25, 0.76), P_STAND + Vector3(0, 0.2, 0), 34.0)  # vinosti: jalkaterät sivulta
+			Sfx.play("cloth", -2.0, 0.8)
+		_king_arms(1.0)
+		var k := clampf((_t - 2.45) / 0.5, 0.0, 1.0)
+		var fall := k * k  # painovoima: kiihtyy
+		_fall.position.y = lerpf(0.82, 0.03, fall)
+		_fall.scale = Vector3(1.0, lerpf(1.0, 0.7, k), 1.0)
+		if k >= 1.0 and _first("tomps"):
+			_fall.visible = false
+			_make_heap()
+			Sfx.play("body_fall", -14.0, 1.6)
+			_shake = 0.3
+	elif _t < 5.8:
+		if _shot != "c":
+			_shot = "c"
+			# Kunkun oikealta (kunkku jää kuvan ulkopuolelle vasemmalle taakse), ovi ja kaverit keskellä.
+			_set_cam(Vector3(1.95, 1.5, 0.95), Vector3(ROOM.x + 0.4, 1.4, DOOR_Z + 0.05), 42.0)
+		var cover := smoothstep(3.85, 4.3, _t)
+		_friend_pose(0, cover)
+		_friend_pose(1, cover)
+		(_friends[1][0] as Node3D).call("set_override", "neck_01", Vector3.UP, 0.7 * cover)
+		if _t > 4.0 and _first("p1"):
+			_leg_say(5, 2.0)
+	else:
+		if _shot != "d":
+			_shot = "d"
+			_leg_frame_d()
+			_chars[3].call("play", "Sitting_Talking", 0.2)
+		_king_arms(0.0)
+		if _t > 6.0 and _first("p2"):
+			_leg_say(6, 2.6)
+		if _t > 8.8:
+			_phase = "otsikko"
+			_t = 0.0
+			_story = ""
+			for s in 4:
+				_bubbles[s] = ""
+			_chars[3].call("play", "Sitting_Idle", 0.3)
+			Sfx.play("win", -4.0)
+
+
+## Kaksoiskuva: kunkku rinnasta ylös etualalla, nainen lauteella taustalla. Lantio rajataan laskemalla kuvan alle.
+func _leg_frame_d() -> void:
+	var c: Node3D = _chars[0]
+	_king_arms(0.0)
+	var vs := get_viewport().get_visible_rect().size
+	var head := _bone(c, "Head")
+	var wh := _bone(_chars[3], "Head")
+	var pel := _bone(c, "pelvis")
+	var look := head.lerp(wh, 0.45) + Vector3(0, -0.12, 0)
+	var sl := _bone(c, "upperarm_l")
+	var sr := _bone(c, "upperarm_r")
+	for i in 12:
+		# Päiden yllä tilaa otsikolle; kunkun olkapäät mukaan (ei pelkkää naamaa).
+		_fit_cam(look, Vector3(0.55, 0.0, 1.0), 46.0, [head + Vector3(0, 0.55, 0), wh + Vector3(0, 0.55, 0),
+			sl + Vector3(0.12, 0, 0), sr + Vector3(-0.12, 0, 0), wh + Vector3(-0.25, 0, 0)], 0.06)
+		var q := _cam.unproject_position(_room.to_global(pel + Vector3(0, 0.22, 0)))
+		if q.y > vs.y + 10.0:
+			break
+		look.y += 0.04
+
+
+func _draw_legend(vs: Vector2) -> void:
+	var font := ThemeDB.fallback_font
+	if _story != "":
+		var r := Rect2(vs.x / 2.0 - 420, 24, 840, 52)
+		Room.box(_ui, r)
+		_ui.draw_string(font, r.position + Vector2(16, 33), _story, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 32, 19, Color(1.0, 0.92, 0.75))
+	for s in 4:
+		var who: Node3D = _chars[s]
+		if s in [1, 2] and _friends.size() == 2:
+			who = _friends[s - 1][0]
+		Room.bubble(_ui, _cam, who, _bubbles[s], 90.0, 120.0)
+	if _phase != "otsikko":
+		return
+	_ui.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.03, 0.02, 0.01, 0.4 * clampf(_t / 0.8, 0.0, 1.0)))
+	var a := clampf((_t - 0.5) / 0.8, 0.0, 1.0)
+	var x0 := vs.x * 0.2
+	var w := vs.x * 0.6
+	var y := vs.y * 0.2
+	var title := "LÖYLYKUNKKU"
+	# Höyry nousee kirjaimista: läpikuultavat kiehkurat kohoavat ja haihtuvat.
+	var tw := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 78).x
+	var tx := x0 + (w - tw) / 2.0
+	for i in 14:
+		var ph := fmod(_t * 0.45 + i * 0.37, 1.0)
+		var px := tx + tw * fmod(i * 0.618, 1.0) + sin(_t * 1.7 + i) * 10.0
+		var py := y - 50.0 - ph * 90.0
+		_ui.draw_circle(Vector2(px, py), 10.0 + ph * 18.0, Color(1, 1, 1, 0.16 * (1.0 - ph) * a))
+	_ui.draw_string_outline(font, Vector2(x0, y), title, HORIZONTAL_ALIGNMENT_CENTER, w, 78, 10, Color(0.1, 0.05, 0.0, a))
+	_ui.draw_string(font, Vector2(x0, y), title, HORIZONTAL_ALIGNMENT_CENTER, w, 78, Color(1.0, 0.82, 0.35, a))
+	var sr := Rect2(x0, vs.y - 170.0, w, 96)  # alareunaan: kasvot jäävät otsikon ja laatikon väliin
+	_ui.draw_rect(sr, Color(0.05, 0.04, 0.03, 0.75 * a))
+	var sub := "%d löylyä. %s" % [_heat, String(lines.legenda.sub)]
+	_ui.draw_multiline_string(font, sr.position + Vector2(18, 34), sub, HORIZONTAL_ALIGNMENT_CENTER, w - 36, 20, 4,
+		Color(1.0, 0.94, 0.8, a))
 
 
 # --- Testi (tools/testit/iltakivat_kuvat.gd) ----------------------------------------------------------------------

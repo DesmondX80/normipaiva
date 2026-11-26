@@ -13,11 +13,29 @@ extends Node
 ## tuppi_eka: räsytupin ensimmäinen voitto Saloisissa (tuppi_game.gd _leg_*): viimeinen jako pakotetaan kavereiden
 ##   tappioksi, kuvat ässän iskusta, kalsarikavereista, polaroidista (salama, kehitys) ja otsikosta; aamulla kuva
 ##   keittiön ikkunassa. Toinen ilta: nainen muistelee polaroidia, voitto ilman huipennusta lasketaan hiljaa.
+## lettu_eka: lettukisan ensimmäinen voitto Saloisissa (lettu_game.gd _leg_*): kisa pakotetaan pelaajan voitoksi,
+##   kuvat tyhjästä lautasesta, kruunauksesta, vatkaimesta, nuolaisusta ja otsikosta. Toinen ilta: kaveri muistelee,
+##   voitto ilman huipennusta lasketaan hiljaa.
+## loyly_eka: löylykisan ensimmäinen voitto Saloisissa (loyly_game.gd _leg_*): kaverit pakotetaan pakoon, kuvat
+##   viimeisestä kauhasta ja höyrypilvestä, kavereista ovella pyyhkeet kourassa, pyyhkeen putoamisesta (polvista alas),
+##   reaktiosta ja otsikosta. Toinen ilta: joku muistelee, voitto ilman huipennusta lasketaan hiljaa.
+## disko_eka: Sivikki-diskon ensimmäinen voitto Vaalassa (disko_game.gd _leg_*): kisa pakotetaan pelaajan voitoksi,
+##   kuvat bassodropista, Katjan ja pelaajan tanssiotteesta, akun hyytymisestä (Timo ja pimeät ajovalot), laulusta
+##   ja otsikosta; tanssiotteen läpimenot mitataan. Toinen ilta: joku muistelee akkua, voitto lasketaan hiljaa.
+## karaoke_eka: karaoke-illan ensimmäinen voitto Saloisissa (ilta_karaoke.gd _leg_*): vuorot ohitetaan pelaajan
+##   voitoksi, kuvat kertosäkeestä (nainen jakkaralla), naapurin ikkunasta ja patterista, jähmettyneestä porukasta,
+##   finaalista, ennätyksestä ja otsikosta; naisen jalat jakkaran kannella mitataan. Toinen ilta: joku muistelee
+##   naapuria, voitto lasketaan hiljaa.
+## kesaheila_eka: kesäheilan ensimmäinen ovi kotona (kolmio_kohtaus.gd _leg_*): kolme mittausta kotiin, kuvat
+##   Sytkärin kartasta (ympyrät ja neula), koputuksesta, Päivistä lavakuvan hatussa, lavakuvasta ja sydämestä,
+##   kavereista, kerman ojennuksesta ja otsikosta; nauraa -> hetki kirjataan (päiväkirjarivi). Toinen kerta: tavallinen
+##   ovi, Päivi muistelee ja hattu on eteisen naulassa, tunnustaa -> laskettiin hiljaa ilman otsikkoa.
 
 const Main := preload("res://scripts/main.gd")
 const Kuva := preload("res://tools/testit/kuva.gd")
 
-const KOHTAUKSET := ["mokki_paapeli", "mokki_savusauna_eka", "pentti_eka", "tuppi_eka"]
+const KOHTAUKSET := ["mokki_paapeli", "mokki_savusauna_eka", "pentti_eka", "tuppi_eka", "lettu_eka", "loyly_eka", "disko_eka", "karaoke_eka",
+	"kesaheila_eka"]
 
 var main: Main
 var _viat := 0
@@ -36,6 +54,16 @@ func aja(scene: String, path: String, _nohud: bool) -> int:
 			await _pentti(path)
 		"tuppi_eka":
 			await _tuppi(path)
+		"lettu_eka":
+			await _lettu(path)
+		"loyly_eka":
+			await _loyly(path)
+		"disko_eka":
+			await _disko(path)
+		"karaoke_eka":
+			await _karaoke(path)
+		"kesaheila_eka":
+			await _kesaheila(path)
 	FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 	return 1
 
@@ -272,4 +300,439 @@ func _tuppi(path: String) -> void:
 	if main._kolmio_ui != null:
 		main._kolmio_ui._finish()
 	await _frames(30)
+	Settings.set_v("k18_pois", k18)
+
+
+## Lettukisa loppusekunneilla pelaajan johdossa (lettu_game.gd "kisa").
+func _lettu_win(g: CanvasLayer) -> void:
+	g._phase = "kisa"
+	g._t = 0.0
+	g._story = ""
+	g._eaters[0].bites = 34
+	g._eaters[1].bites = 22
+	g._eaters[2].bites = 19
+	g._left = 0.05
+	g.auto = true
+
+
+func _lettu(path: String) -> void:
+	const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+	var k18: Variant = Settings.get_v("k18_pois")
+	Settings.set_v("k18_pois", false)
+	main.kolmio = Kolmio.new()
+	main.endings.counts.erase("lettukunkku")
+	await _frames(10)
+	var s: Dictionary = main.kolmio.st("saloinen")
+	s.done_day = maxi(0, main.day - 1)
+	s.illat = 2
+	main._kolmio_kiva("saloinen", "lettu")
+	await _frames(20)
+	var g: CanvasLayer = main._rasva_game
+	_check(g != null and g.legend and not g.recall, "Lettu: ensimmäinen ilta, legenda odottaa")
+	_lettu_win(g)
+	var shots := [["lasku", "lasku", 0.4], ["lautanen", "lasku", 2.3], ["kruunu", "kruunu", 1.0], ["kruunattu", "kruunu", 2.6],
+		["vatkain", "vatkain", 1.0], ["nuolaisu", "vatkain", 3.15], ["viikset", "vatkain", 4.0], ["kommentti", "vatkain", 5.4],
+		["otsikko", "otsikko", 3.0]]
+	for st: Array in shots:
+		if await _tuppi_wait(g, st[1], st[2]):
+			await _shot(path, st[0])
+		else:
+			print("LEGENDA kuva %s jäi ottamatta" % st[0])
+	for i in 3000:
+		if main._kolmio_ui != null:
+			break
+		await _frames(1)
+	await _frames(30)
+	print("LEGENDA lettu aamu: kerrat %d, viesti '%s'" % [int(main.endings.counts.get("lettukunkku", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("lettukunkku", 0)) == 1, "Lettu: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Lettu: päiväkirjarivi")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(60)
+	# Toinen ilta: kaveri muistelee, voitto ilman huipennusta.
+	main.kolmio.st("saloinen").done_day = maxi(0, main.day - 1)
+	main._kolmio_kiva("saloinen", "lettu")
+	await _frames(20)
+	g = main._rasva_game
+	_check(g != null and not g.legend and g.recall, "Lettu: toinen ilta ilman legendaa")
+	var muisto := false
+	if g != null:
+		for b: String in g._bubbles:
+			if b.contains("vatkai") or b.contains("kunkku"):
+				muisto = true
+	_check(muisto, "Lettu: kaveri muistelee vatkainta")
+	await _shot(path, "muisto")
+	_lettu_win(g)
+	var seen := false
+	while is_instance_valid(g) and main._rasva_game == g:
+		if g._phase in g.LEG:
+			seen = true
+		await _frames(1)
+	await _frames(30)
+	_check(not seen, "Lettu: toisella voitolla ei huipennusta")
+	_check(int(main.endings.counts.get("lettukunkku", 0)) == 2, "Lettu: toinen voitto laskettiin hiljaa")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(30)
+	Settings.set_v("k18_pois", k18)
+
+
+## Löylykisa: kaverit pakenevat heti, pelaaja jää viimeiseksi (loyly_game.gd _race -> _end).
+func _loyly_win(g: CanvasLayer) -> void:
+	g._phase = "kisa"
+	g._t = 0.0
+	g._story = ""
+	g._heat = 6
+	g.auto = true
+	g._flee(1)
+	g._flee(2)
+
+
+func _loyly(path: String) -> void:
+	const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+	var k18: Variant = Settings.get_v("k18_pois")
+	Settings.set_v("k18_pois", false)
+	main.kolmio = Kolmio.new()
+	main.endings.counts.erase("loylykunkku")
+	await _frames(10)
+	var s: Dictionary = main.kolmio.st("saloinen")
+	s.done_day = maxi(0, main.day - 1)
+	s.illat = 2
+	main._kolmio_kiva("saloinen", "loyly")
+	await _frames(20)
+	var g: CanvasLayer = main._rasva_game
+	_check(g != null and g.legend and not g.recall, "Löyly: ensimmäinen ilta, legenda odottaa")
+	_loyly_win(g)
+	var shots := [["kauha", "kauha", 0.6], ["pilvi", "kauha", 2.7], ["kunkku", "kauha", 4.2], ["ovi", "ovi", 1.3],
+		["ovi2", "ovi", 3.4], ["nousu", "pyyhe", 1.4], ["putoaa", "pyyhe", 2.72], ["kasa", "pyyhe", 3.4],
+		["reaktio", "pyyhe", 4.6], ["ego", "pyyhe", 6.6], ["otsikko", "otsikko", 3.0]]
+	for st: Array in shots:
+		if await _tuppi_wait(g, st[1], st[2]):
+			await _shot(path, st[0])
+			if st[0] == "ego":  # siveä rajaus: kunkun lantio kuvan alareunan alapuolella
+				var c: Node3D = g._chars[0]
+				var q: Vector2 = g._cam.unproject_position(c.to_global(c.bone_position("pelvis")) + Vector3(0, 0.12, 0))
+				var vs: Vector2 = main.get_viewport().get_visible_rect().size
+				print("LEGENDA löyly lantio ruudulla y %.0f / %.0f" % [q.y, vs.y])
+				_check(q.y > vs.y, "Löyly: lantio rajattu pois kaksoiskuvasta")
+			if st[0] == "kasa":
+				var c2: Node3D = g._chars[0]
+				var k: Vector2 = g._cam.unproject_position(c2.to_global(c2.bone_position("pelvis")))
+				print("LEGENDA löyly jalkakuva lantio y %.0f" % k.y)
+				_check(k.y < 0.0, "Löyly: jalkakuvassa lantio kuvan yläpuolella")
+		else:
+			print("LEGENDA kuva %s jäi ottamatta" % st[0])
+	for i in 3000:
+		if main._kolmio_ui != null:
+			break
+		await _frames(1)
+	await _frames(30)
+	print("LEGENDA löyly aamu: kerrat %d, viesti '%s'" % [int(main.endings.counts.get("loylykunkku", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("loylykunkku", 0)) == 1, "Löyly: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Löyly: päiväkirjarivi")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(60)
+	# Toinen ilta: joku muistelee, voitto ilman huipennusta.
+	main.kolmio.st("saloinen").done_day = maxi(0, main.day - 1)
+	main._kolmio_kiva("saloinen", "loyly")
+	await _frames(20)
+	g = main._rasva_game
+	_check(g != null and not g.legend and g.recall, "Löyly: toinen ilta ilman legendaa")
+	var muisto := false
+	if g != null:
+		for b: String in g._bubbles:
+			if b.contains("pyyhe") or b.contains("kunkku"):
+				muisto = true
+	_check(muisto, "Löyly: joku muistelee pyyhettä")
+	await _shot(path, "muisto")
+	_loyly_win(g)
+	var seen := false
+	while is_instance_valid(g) and main._rasva_game == g:
+		if g._phase in g.LEG:
+			seen = true
+		await _frames(1)
+	await _frames(30)
+	_check(not seen, "Löyly: toisella voitolla ei huipennusta")
+	_check(int(main.endings.counts.get("loylykunkku", 0)) == 2, "Löyly: toinen voitto laskettiin hiljaa")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(30)
+	Settings.set_v("k18_pois", k18)
+
+
+## Sivikki-disko: kaikki liikkeet osutuiksi ja pelaajalle ylivoimaiset pisteet (disko_game.gd _dance -> _end).
+func _disko_win(g: CanvasLayer) -> void:
+	g._phase = "kisa"
+	g._t = 0.0
+	g._story = ""
+	g.auto = true
+	for n: Dictionary in g._notes:
+		n.hit = true
+	g._score = [9600, 3100, 3400]
+
+
+func _disko(path: String) -> void:
+	const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+	const Contact := preload("res://scripts/contact.gd")
+	var k18: Variant = Settings.get_v("k18_pois")
+	Settings.set_v("k18_pois", false)
+	main.kolmio = Kolmio.new()
+	main.endings.counts.erase("sivikkidisko")
+	if main.player != main.walker_out:
+		main._toggle_mount()
+	main.mokki.ensure_built()
+	main._start_mopo()
+	await _frames(30)
+	var s: Dictionary = main.kolmio.st("vaala")
+	s.done_day = maxi(0, main.day - 1)
+	s.illat = 2
+	main._kolmio_kiva("vaala", "disko")
+	await _frames(20)
+	var g: CanvasLayer = main._rasva_game
+	_check(g != null and g.legend and not g.recall, "Disko: ensimmäinen ilta, legenda odottaa")
+	if g == null:
+		Settings.set_v("k18_pois", k18)
+		return
+	await _frames(30)
+	_disko_win(g)
+	var shots := [["droppi", "droppi", 0.6], ["drop", "droppi", 2.4], ["pari", "pari", 1.6], ["ote", "pari", 4.0],
+		["himmenee", "sammuu", 0.9], ["timo", "sammuu", 4.4], ["laulu", "laulu", 1.2], ["kuoro", "laulu", 5.6],
+		["otsikko", "otsikko", 3.0]]
+	for st: Array in shots:
+		if await _tuppi_wait(g, st[1], st[2]):
+			await _shot(path, st[0])
+			if st[0] == "ote" and not g._prof.is_empty():  # tanssiote: vartalot eivät mene toistensa sisään
+				var deep := 0.0
+				var what := ""
+				for o: Array in Contact.overlap_pairs(g._chars[0], g._prof[0], g._chars[3], g._prof[3], 0.0):
+					if float(o[2]) > deep:
+						deep = float(o[2])
+						what = "%s-%s" % [o[0], o[1]]
+				print("LEGENDA disko ote syvin päällekkäisyys %.3f m (%s)" % [deep, what])
+				_check(deep < 0.025, "Disko: tanssiotteessa ei läpimenoa")
+				var hl: Vector3 = g._chars[0].to_global(g._chars[0].bone_position("hand_l"))
+				var kw: Vector3 = g._chars[3].to_global(g._chars[3].bone_position("spine_01"))
+				print("LEGENDA disko pelaajan käsi Katjan vyötäröltä %.2f m" % hl.distance_to(kw))
+				_check(hl.distance_to(kw) < 0.3, "Disko: pelaajan käsi Katjan vyötäröllä")
+			if st[0] == "timo":
+				_check(not g._music.playing and g._lit == 0.0, "Disko: akku loppui, musiikki ja valot pois")
+		else:
+			print("LEGENDA kuva %s jäi ottamatta" % st[0])
+			_check(false, "Disko: vaihe %s/%s" % [st[1], st[0]])
+	for i in 3000:
+		if main._kolmio_ui != null:
+			break
+		await _frames(1)
+	await _frames(30)
+	print("LEGENDA disko aamu: kerrat %d, viesti '%s'" % [int(main.endings.counts.get("sivikkidisko", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("sivikkidisko", 0)) == 1, "Disko: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Disko: päiväkirjarivi")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(60)
+	# Toinen ilta: joku muistelee akkua, voitto ilman huipennusta.
+	main.kolmio.st("vaala").done_day = maxi(0, main.day - 1)
+	main._kolmio_kiva("vaala", "disko")
+	await _frames(20)
+	g = main._rasva_game
+	_check(g != null and not g.legend and g.recall, "Disko: toinen ilta ilman legendaa")
+	var muisto := false
+	if g != null:
+		for b: String in g._bubbles:
+			if b.contains("akku"):
+				muisto = true
+	_check(muisto, "Disko: joku muistelee akkua")
+	await _shot(path, "muisto")
+	if g != null:
+		_disko_win(g)
+		var seen := false
+		while is_instance_valid(g) and main._rasva_game == g:
+			if g._phase in g.LEG:
+				seen = true
+			await _frames(1)
+		await _frames(30)
+		_check(not seen, "Disko: toisella voitolla ei huipennusta")
+	_check(int(main.endings.counts.get("sivikkidisko", 0)) == 2, "Disko: toinen voitto laskettiin hiljaa")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(30)
+	Settings.set_v("k18_pois", k18)
+
+
+## Karaoke: laulamatta suoraan loppuun pelaajan voittona (ilta_karaoke.gd _end).
+func _karaoke_win(g: CanvasLayer) -> void:
+	if g._kg != null:
+		g._kg.queue_free()
+		g._kg = null
+	g.auto = true
+	g._scores = [0.94, 0.61, 0.72]
+	g._turn = g._turns.size()
+	g._end()
+
+
+func _karaoke(path: String) -> void:
+	const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+	var k18: Variant = Settings.get_v("k18_pois")
+	Settings.set_v("k18_pois", false)
+	main.kolmio = Kolmio.new()
+	main.endings.counts.erase("karaokekunkku")
+	await _frames(10)
+	var s: Dictionary = main.kolmio.st("saloinen")
+	s.done_day = maxi(0, main.day - 1)
+	s.illat = 3
+	main._kolmio_kiva("saloinen", "karaoke")
+	await _frames(20)
+	var g: CanvasLayer = main._rasva_game
+	_check(g != null and g.legend and not g.recall, "Karaoke: ensimmäinen ilta, legenda odottaa")
+	_karaoke_win(g)
+	_check(g._phase == "kerto", "Karaoke: voitto aloitti kertosäkeen")
+	var shots := [["kerto", "kerto", 1.4], ["kerto2", "kerto", 3.6], ["ikkuna", "naapuri", 0.9], ["kop", "naapuri", 1.5],
+		["huuto", "naapuri", 3.0], ["jahmo", "naapuri", 5.6], ["finaali", "finaali", 1.2], ["pito", "finaali", 3.9],
+		["laskuri", "ennatys", 1.2], ["ennatys", "ennatys", 2.2], ["porukka", "ennatys", 3.4], ["otsikko", "otsikko", 3.0]]
+	for st: Array in shots:
+		if await _tuppi_wait(g, st[1], st[2]):
+			await _shot(path, st[0])
+			if st[0] == "kerto":  # nainen seisoo jakkaralla: jalkapohjat kannen tasolla ja kannen sisällä
+				var w: Node3D = g._leg_chars[3]
+				var stool: Vector3 = g.CENTER + g.AUDIENCE[1]
+				for b in ["foot_l", "foot_r"]:
+					var fp: Vector3 = g._hall.to_local(w.to_global(w.bone_position(b)))
+					var d := Vector2(fp.x - stool.x, fp.z - stool.z).length()
+					print("LEGENDA karaoke nainen %s: korkeus %.3f (kansi %.3f), etäisyys keskeltä %.3f" % [b, fp.y, g.STOOL_H, d])
+					_check(fp.y > g.STOOL_H - 0.01 and d < 0.19, "Karaoke: %s jakkaran kannella" % b)
+		else:
+			print("LEGENDA kuva %s jäi ottamatta" % st[0])
+	for i in 3000:
+		if main._kolmio_ui != null:
+			break
+		await _frames(1)
+	await _frames(30)
+	print("LEGENDA karaoke aamu: kerrat %d, viesti '%s'" % [int(main.endings.counts.get("karaokekunkku", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("karaokekunkku", 0)) == 1, "Karaoke: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Karaoke: päiväkirjarivi")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(60)
+	# Toinen ilta: joku muistelee naapuria, voitto ilman huipennusta.
+	main.kolmio.st("saloinen").done_day = maxi(0, main.day - 1)
+	main._kolmio_kiva("saloinen", "karaoke")
+	await _frames(20)
+	g = main._rasva_game
+	_check(g != null and not g.legend and g.recall, "Karaoke: toinen ilta ilman legendaa")
+	var muisto := false
+	if g != null:
+		for b: String in g._bubbles:
+			if b.contains("naapuri") or b.contains("Raimo"):
+				muisto = true
+	_check(muisto, "Karaoke: joku muistelee naapuria")
+	await _shot(path, "muisto")
+	_karaoke_win(g)
+	var seen := false
+	while is_instance_valid(g) and main._rasva_game == g:
+		if g._phase in g.LEG:
+			seen = true
+		await _frames(1)
+	await _frames(30)
+	_check(not seen, "Karaoke: toisella voitolla ei huipennusta")
+	_check(int(main.endings.counts.get("karaokekunkku", 0)) == 2, "Karaoke: toinen voitto laskettiin hiljaa")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(30)
+	Settings.set_v("k18_pois", k18)
+
+
+## Kesäheilan ovi: kolme mittausta kotiin ja koputus (_kolmio_knock), kuten kolmiomittaus_koti mutta suoraan.
+func _kesa_ovi() -> CanvasLayer:
+	const Kolmio := preload("res://scripts/kolmiomittaus.gd")
+	main.kolmio = Kolmio.new()
+	var t: Vector2 = main._kolmio_target("koti")
+	main.kolmio.start("koti", main._kolmio_start_point("koti"), t, "Joni")
+	main.kolmio.measure("koti", t + Vector2(260, -140), t, "Esa")
+	main.kolmio.measure("koti", t + Vector2(-70, 55), t, "Sinä")
+	main._kolmio_knock("koti", -1)
+	await _frames(10)
+	return main._kolmio_ui
+
+
+func _kesa_wait(ui: CanvasLayer, line: int, sec: float) -> bool:
+	for i in 20000:
+		if not is_instance_valid(ui):
+			return false
+		if (line < 0 and ui._title_t >= sec) or (line >= 0 and ui._title_t < 0.0 and ui._line == line and ui._line_t >= sec):
+			return true
+		await _frames(1)
+	return false
+
+
+func _kesaheila(path: String) -> void:
+	var k18: Variant = Settings.get_v("k18_pois")
+	Settings.set_v("k18_pois", false)
+	for e in ["kesaheila", "kulissit", "avoin_pelikortti"]:
+		main.endings.counts.erase(e)
+	var p: Object = main.rikos_osa("paivi")
+	if p != null:
+		p.liput.clear()
+		p.poissa_asti = -1
+		p.epaluulo = 65.0
+	await _frames(10)
+	var ui := await _kesa_ovi()
+	_check(ui != null and ui.site == "koti" and ui.legend and not ui.recall, "Kesäheila: ensimmäinen ovi lavastetaan")
+	if ui == null:
+		return
+	print("LEGENDA kesäheila ympyrät %s" % [ui.rings.map(func(r: Dictionary) -> String: return "%s %.0f m" % [r.who, r.m])])
+	var shots := [["kartta", 0, 2.4], ["neula", 1, 2.2], ["kop", 2, 0.5], ["ovi", 3, 2.4], ["sinikka", 4, 2.0], ["muisto", 5, 3.0],
+		["kaverit", 6, 1.6], ["kerma", 8, 1.6], ["otsikko", -1, 3.0]]
+	for st: Array in shots:
+		if await _kesa_wait(ui, st[1], st[2]):
+			await _shot(path, st[0])
+			if st[0] == "ovi":
+				_check(ui._hat != null and is_instance_valid(ui._hat), "Kesäheila: Päivillä lavakuvan hattu")
+		else:
+			print("LEGENDA kuva %s jäi ottamatta" % st[0])
+	for i in 2000:
+		if not is_instance_valid(ui):
+			break
+		await _frames(1)
+	await _frames(10)
+	var ids: Array = main._talk_options().map(func(x: Dictionary) -> String: return x.id)
+	print("LEGENDA kesäheila valinnat %s, kerrat %d" % [ids, int(main.endings.counts.get("kesaheila", 0))])
+	_check("paivi_kesa_nauraa" in ids and int(main.endings.counts.get("kesaheila", 0)) == 0, "Kesäheila: otsikon jälkeen valinta, ei vielä kirjattu")
+	main._talk_choose("paivi_kesa_nauraa")
+	await _frames(10)
+	main._talk_choose("paivi_kesa_jatka")
+	await _frames(20)
+	print("LEGENDA kesäheila nauraa: kerrat %d, viesti '%s'" % [int(main.endings.counts.get("kesaheila", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("kesaheila", 0)) == 1, "Kesäheila: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Kesäheila: päiväkirjarivi")
+	if main._kolmio_ui != null:
+		main._kolmio_ui._finish()
+	await _frames(60)
+	# Toinen kerta: tavallinen ovi, Päivi muistelee ja hattu naulassa; tunnustaa lasketaan hiljaa.
+	if p != null:
+		p.liput.clear()
+		p.poissa_asti = -1
+	ui = await _kesa_ovi()
+	_check(ui != null and not ui.legend and ui.recall, "Kesäheila: toinen kerta ilman legendaa")
+	if ui == null:
+		return
+	ui.auto = false
+	var muisto := false
+	for l: Array in ui.lines:
+		if String(l[1]).contains("naulassa"):
+			muisto = true
+	_check(muisto, "Kesäheila: Päivi muistelee hattua")
+	ui._line = 2
+	ui._door = 1.0
+	ui._door_to = 1.0
+	ui._line_t = 3.0
+	await _frames(30)
+	await _shot(path, "toinen")
+	ui._finish()
+	await _frames(10)
+	main._talk_choose("paivi_kesa_tunnustaa")
+	await _frames(20)
+	_check(int(main.endings.counts.get("kesaheila", 0)) == 2, "Kesäheila: toinen kerta laskettiin hiljaa")
+	main._talk_box.close()
+	await _frames(10)
 	Settings.set_v("k18_pois", k18)

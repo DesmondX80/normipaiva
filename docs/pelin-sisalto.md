@@ -117,16 +117,41 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Myöhemmät voitot lasketaan hiljaa, ja illan alussa nainen muistelee kuvaa (`TUPPI_LINES muisto`).
   - **Lettukisa** (`lettu_game.gd`): minuutissa eniten kermalettuja. Haukku (E) täyttää suuta ja suu tyhjenee
     pureskellessa; liian iso suullinen = kerma nenästä ja yskintä. Letut ovat kolmesta palasta, haarukka nousee suulle,
-    ja nainen tuo lisää lettuja pannulta. Legendaarinen hetki **Lettukunkku**.
+    ja nainen tuo lisää lettuja pannulta. Legendaarinen hetki **Lettukunkku** lavastetaan ensimmäisellä voitolla
+    (`lettu_game.gd _leg_*`): kamera liukuu kavereiden kesken jääneiltä pinoilta pelaajan tyhjälle lautaselle, pelaaja
+    nousee pöydän eteen ja nainen laskee hänen päähänsä letusta tehdyn kruunun (kermanokareet sakaroissa), kaverit
+    nousevat katsomaan, nainen surauttaa sähkövatkainta ja kunkku kumartuu nuolemaan sen: kermaviikset. Lopuksi kunkku
+    kääntyy kameraan, nainen nostaa vatkaimen kuin valtikan ja otsikko valuu kermaa. Myöhemmät voitot lasketaan hiljaa,
+    ja illan alussa kaveri muistelee vatkainta (`LETTU_LINES muisto`).
   - **Löylykisa** (`loyly_game.gd`): oma sauna (lauteet, kiuas kivineen, höyry), pyyhkeet lanteilla. Nainen heittää
     löylyä tasaisin välein; hengitä ulos (E), kun rengas on vihreällä, niin tuska laskee. Paennut nousee lauteilta, ja
-    pyyhe jää lauteille. Viimeinen lauteilla voittaa: **Löylykunkku**.
+    pyyhe jää lauteille. Viimeinen lauteilla voittaa. Legendaarinen hetki **Löylykunkku** lavastetaan ensimmäisellä
+    voitolla (`loyly_game.gd _leg_*`): kaverit ovat paenneet, nainen heittää kunkulle viimeisen kauhallisen ja höyry
+    täyttää saunan, kunkku ei hievahda ("Onks tää jo löylyä? Lisää."). Pukuhuoneen ovi aukeaa, ja kaverit kurkkivat
+    ovelta pyyhkeet kourassa. Kunkku nousee lattialle nyrkit ylhäällä, ja pyyhe putoaa nilkkoihin (kuvataan polvista
+    alas), kaverit peittävät silmänsä, nainen nauraa, ja otsikko: pyyhe putosi, ego ei. Kamera pysyy siveänä: pyyhkeen
+    pudottua kunkku kuvataan rinnasta ylös (testi tarkistaa, että lantio on kuvan ulkopuolella). Myöhemmät voitot
+    lasketaan hiljaa, ja illan alussa joku muistelee pyyhettä (`LOYLY_LINES muisto`).
   - **Sivikki-disko** (vain Vaala, `disko_game.gd`): Katjan pihalla Timon Civic ajovaloineen ja pohjavaloineen, stereoista
     oikea 90-luvun tanssibiisi (tempo mitattu). Liikkeet tulevat tahdissa neljälle kaistalle: lantio (A/D), kädet ylös (W)
-    ja pyllistys (S, hahmo pyllistää kameraan). Katja valitsee parhaan tanssijan hitaille: **Sivikki-disko**.
+    ja pyllistys (S, hahmo pyllistää kameraan). Civicin keulan vieressä on Sivikin ainoa kaiutin, jonka kartio sykkii
+    bassojen tahdissa. Katja valitsee parhaan tanssijan hitaille. Legendaarinen hetki **Sivikki-disko** lavastetaan
+    ensimmäisellä voitolla (`disko_game.gd _leg_*`): Timo vääntää stereot kaakkoon auton ikkunasta, ja basso pudottaa
+    (ajovalot välkkyvät pinkkinä ja syaanina, kaiutin ja auto pomppivat, kädet ilmaan). Katja hakee voittajan parikseen
+    ja he tanssivat sylikkäin (`PariOte.hali`: pelaajan kädet Katjan vyötäröllä, Katjan kädet hartioilla). Kesken biisin
+    Sivikin akku hyytyy: musiikki venyy hiljaiseksi, valot sammuvat ja Timo kääntää virta-avainta turhaan. Pimeällä
+    pihalla koko porukka laulaa biisin itse loppuun (nuotit nousevat laulajista), ja neonotsikko. Myöhemmät voitot
+    lasketaan hiljaa, ja illan alussa Timo tai Katja muistelee akkua (`DISKO_LINES muisto`).
   - **Karaoke** (`ilta_karaoke.gd`): mikrofoniteline olohuoneessa ja putkitelkkari sanoineen; jokainen laulaa oman rivon
     säkeistön pelin karaokella (`karaoke_game.gd`, nuottikaistat), kaverien vuoroilla tekoäly näppäilee. Paras laulaja
-    voittaa: **Karaokekunkku**.
+    voittaa. Legendaarinen hetki **Karaokekunkku** lavastetaan ensimmäisellä voitolla (`ilta_karaoke.gd _leg_*`):
+    viimeinen kertosäe koko porukalla (kaverit mikin vieressä, nainen seisoo jakkaralla, jalat IK:lla kannella), kunnes
+    ikkunan takana naapuritalossa syttyy valo, patteri kolisee ja naapuri huutaa ikkunastaan nyrkki pystyssä. Musiikki
+    katkeaa ja porukka jähmettyy (vastakuva ikkunan suunnasta); nainen huutaa takaisin, ja rivoin rivi lauletaan
+    kaksi kertaa kovempaa koko porukalla suoraan naapurin ikkunaan, jolloin naapuritalo herää ikkuna kerrallaan.
+    Telkkari laskee pisteet ja välkyttää UUSI ENNÄTYS, ja otsikosta nousee nuotteja. Säestys syntetisoidaan
+    (rumpu, basso, melodia ja kaksi epävireistä mukalaulajaa). Myöhemmät voitot lasketaan hiljaa, ja illan alussa nainen
+    tai mikillä seisova kaveri muistelee naapuria (`KARAOKE_LINES muisto`).
 - **Luku 6: Päivi epäilee (#326, aikuisille):** salaiset hommat jättävät jälkiä, ja Päivin **epäluulo 0–100**
   (`scripts/rikos/paivi.gd`) nousee niistä. Jäljet: kolmiomittaus +20, Rasvanappi, Pentin BangBus ja huumekaupan myynti
   +15, korkkikansio, rakaleiman kopio, Drakkar Noir ja Irman hälytys +10. Jälki syntyy kerran, kun ensikerta tehdään, ja
@@ -147,7 +172,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   eteisessä. Valinnat: **Nauraa yhdessä** (epäluulo 0, onnellinen loppu **Kulissit kunnossa**, aamu omassa keittiössä),
   **Tunnustaa kaikki** (pelaajan synnit oikeista teoista ja Päivin omat, mm. Zabukin tanssit; loppu **Avoin pelikortti**)
   tai **Suuttua** (Päivi äidilleen 7 päiväksi: ei lappua, rahaa eikä listaa, jääkaappi tyhjä; kukat ovella tuovat hänet
-  aiemmin, ja valinta tehdään uudelleen). Legendaarinen hetki **Kesäheila -96** tulee kummassakin onnellisessa lopussa.
+  aiemmin, ja valinta tehdään uudelleen). Legendaarinen hetki **Kesäheila -96** lavastetaan ensimmäisellä ovella
+  (`kolmio_kohtaus.gd _leg_*`): Sytkärin kartalle piirtyy kolme ympyrää oikeista mittauksista ja neula putoaa talo numero
+  1:een, KOP KOP KOP, ovi aukeaa ja Päivillä on päässä lavakuvan olkihattu. Lähikuvassa lavakuva -96 tulee viereen ja
+  sydän yhdistää kuvan hatun oikeaan ("SAMA HATTU"). Esa ja Joni kommentoivat portailta kadun ja naapurin valojen edessä,
+  Päivi ojentaa kerman ja mansikat sydänten noustessa, ja kultainen otsikko KESÄHEILA -96 tulee ennen valintaa. Hetki
+  kirjataan hiljaa (päiväkirjarivi), kun valinta päättyy onnellisesti (nauraa tai tunnustaa). Myöhemmillä kerroilla ovi
+  on tavallinen, Päivi muistelee ja hattu roikkuu eteisen naulassa.
   **K-18 pois:** vain korkkikansion ja Drakkarin jäljet, puheeksiotto ja hyvitykset toimivat; Päivi ei tutki, eikä
   huipennusta tule. Päiväkirjan Tarina-sivulla luku 6 näkyy vaiheineen ja Päivin piirretyllä ilmeellä (rauhallinen,
   kulmat koholla, kädet puuskassa, laukku pakattu). Vihjeitä: Pekka ("Päivi kyseli musta eilen..."), Sinikka ja Pentti.

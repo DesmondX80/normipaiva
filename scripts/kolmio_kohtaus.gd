@@ -12,6 +12,15 @@ extends CanvasLayer
 ## mansikkalaatikko käsissään (_box: mansikkarasia, kermavaahtopurkki pystyssä marjojen päällä). Sinikka nauraa
 ## eteisessä Päivin takana, Joni ja Esa portaiden juurella. Ei lahjojen ojentamista; valinta tulee main.gd:ltä
 ## kohtauksen jälkeen. Aamu on Päivin keittiössä (kerma ja mansikat syödään).
+## Legendaarinen hetki "kesaheila" (legend, ensimmäinen kerta endings.counts mukaan): ovikohtaus lavastetaan.
+##   kartta  Sytkärin kartalla kolme ympyrää piirtyy oikeista mittauksista (rings) ja leikkaa talon numero 1
+##   kop     KOP KOP KOP, ovi tärähtää
+##   ovi     ovi aukeaa: Päivi lavakuvan olkihattu päässä (sama hattu kuin profiilikuvassa), Sinikka nauraa takana
+##   muisto  lähikuva Päivistä ja Sytkärin lavakuva -96 vieressä, sydän yhdistää kuvan hatun ja oikean hatun
+##   kaverit vastakuva ovelta: Esa ja Joni portaiden juurella
+##   kerma   Päivi ojentaa kerman ja mansikat, kermaa ja sydämiä pöllähtää
+##   otsikko kultainen KESÄHEILA -96 ja tarina; sitten valinta (main.gd _kesaheila_valinta)
+## Toistot (recall): tavallinen ovikohtaus, ja Päivi muistelee; hattu roikkuu eteisen naulassa.
 ## Lavastuksen koordinaatit: talon julkisivu z = 0 (+Z ulos pihalle), kynnys y = 0,5; keittiössä pöytä z = 0,75 ja
 ## hahmot sen takana kasvot +Z:aan (kamera edessä). Hahmo katsoo oletuksena -Z:aan, joten rotation.y = PI = kasvot ulos.
 
@@ -22,6 +31,7 @@ const B := preload("res://scripts/build.gd")
 const Pose := preload("res://scripts/pose.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Gifts := preload("res://scripts/kolmio_lahjat_mallit.gd")
+const Sytkari := preload("res://scripts/sytkari.gd")
 
 var mode := "ovi"
 var site := "saloinen"
@@ -36,6 +46,10 @@ var photo_new := false  # polaroid otettiin tänä yönä: kertoja mainitsee sen
 var kiva := "rasvanappi"  # illan iltakiva (aamun repliikit): rasvanappi, tuppi, lettu, loyly, disko, karaoke
 var lines: Array = []  # [puhuja, teksti]; rakennetaan _ready:ssä
 var auto := true  # rivit etenevät itsestään 6,5 s välein (testi pysäyttää)
+var legend := false  # koti: kesäheilan legenda lavastetaan (main.gd _kolmio_knock, ensimmäinen kerta)
+var recall := false  # koti: legenda on jo nähty, Päivi muistelee
+var rings: Array = []  # koti: kolmiomittauksen ympyrät ({c, m, lo, hi, who}, kolmiomittaus.gd) Sytkärin kartalle
+var home := Vector2.ZERO  # koti: oma etuovi maailmassa (kartan keskipiste)
 
 var _view: Control
 var _vp: SubViewport
@@ -74,6 +88,22 @@ const GIFT_FIST := 0.07  # nyrkin yläreuna otteen (ranteen) yläpuolella (mitat
 var _pancake: Node3D
 var _pan_at := Vector3.ZERO
 var _box: Node3D  # koti: Päivin kerma- ja mansikkalaatikko (_koti_box)
+var _hat: Node3D  # koti: lavakuvan olkihattu (legendassa Päivin päässä, toistoissa eteisen naulassa)
+var _offer := 0.0  # legenda: Päivi ojentaa laatikkoa (0..1)
+var _card_vp: SubViewport  # legenda: Sytkärin lavakuva -96 (sytkari.gd studio)
+var _map: Control  # legenda: Sytkärin kartta (rajattu puhelimen näyttöön)
+var _title_t := -1.0  # legenda: otsikon aika (>= 0, kun rivit on käyty)
+var _cue := -1  # legenda: viimeisin rivi, jonka äänet ja hiukkaset on soitettu
+var _cue_t := 0.0
+var _rings_shown := 0  # legenda: kartalle piirtyneet ympyrät (ääni kunkin alussa)
+var _pin_done := false
+var _hearts: Array = []  # legenda: [paikka, nopeus, ikä] kerman ojennuksessa
+var _heart_t := 0.0
+## Legendan rivien kestot (s): kartta 2, kop, ovi 2, muisto, kaverit 2, kerma; otsikko LEG_TITLE.
+const LEG_T := [3.6, 3.0, 2.4, 3.8, 3.8, 5.0, 3.4, 3.4, 4.4]
+const LEG_TITLE := 5.5
+const LEG_SUB := "Kolme ympyrää leikkasi oman kodin. Ovella seisoi Päivi kerman ja mansikoiden kanssa."
+const RING_COL := [Color(1.0, 0.45, 0.2), Color(0.2, 0.7, 0.95), Color(0.85, 0.25, 0.75)]
 
 ## 3D-hahmojen ulkonäöt (looks.gd). Väärien ovien asukkaat tässä.
 const RESIDENTS := {
@@ -140,9 +170,18 @@ func _ready() -> void:
 		"koti_ovi":
 			_door = 0.0
 			_door_to = 0.0
-			Sfx.play("punch", -6.0, 0.7)
-			lines = _koti_lines()
+			if legend:
+				lines = _koti_legend_lines()
+			else:
+				Sfx.play("punch", -6.0, 0.7)
+				lines = _koti_lines()
+				if recall:
+					lines.insert(2, ["Päivi", "Taas sama kuva Sytkärissä? Se hattu roikkuu eteisen naulassa. Sää et vaan koskaan kato naulakkoa."])
 			_build_porch()
+			if legend or recall:
+				_hat_setup()
+			if legend:
+				_leg_setup()
 		"ovi":
 			_door = 0.0
 			_door_to = 0.0
@@ -201,6 +240,19 @@ func _koti_lines() -> Array:
 		[friends[0], "Tää on niinku ois lyöny pallon omaan ikkunaan."],
 		["Sinikka", "Hihhih! Mää näin ikkunasta, ku te mittasitte meidän pihalla harpin kanssa!"],
 		["Päivi", "Kerma ja mansikat on tässä. Nyt sää päätät, mitä tästä seuraa."]]
+
+
+## Legendan rivit (rivi = vaihe, LEG_T): kartta, kop, ovi, muisto, kaverit, kerma.
+func _koti_legend_lines() -> Array:
+	return [["", "Sytkärin kartalla kolme ympyrää: Joni kaupalta, Esa kirkolta ja sinä kotikulmilta."],
+		["", "Leikkauspiste: talo numero 1. Oma etuovi."],
+		["", "KOP KOP KOP"],
+		["Päivi", "No niin. Kolme miestä, harppi ja Sytkäri. Kesäheila -96 avaa oven."],
+		["Sinikka", "HAHAHAHAA! Mää sanoin Päiville, että se pyyhkäsee oikealle eikä tunnista omaa vaimoaan!"],
+		["Päivi", "Kuva on Saloisten lavalta, sinä kesänä ku me tavattiin. Sää et tunnistanu mua hatun alta."],
+		[friends[1], "Ympyrät ei valehtele. Leikkauspiste oli koko ajan tässä."],
+		[friends[0], "Tää on niinku ois lyöny pallon omaan ikkunaan."],
+		["Päivi", "Kerma ja mansikat, niin ku silloin lavalla. Nyt sää päätät, mitä tästä seuraa."]]
 
 
 ## Aamun kaverirepliikit iltakivan mukaan (Rasvanapin rivit ovat _morning_lines-perusrivit): [kohde][kiva] = kaksi riviä.
@@ -270,7 +322,16 @@ func _process(delta: float) -> void:
 		_finish()
 		return
 	var adv := Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("jump")
-	if (adv and _line_t > 0.4) or (auto and _line_t > 6.5):
+	if _title_t >= 0.0:
+		_title_t += delta
+		_leg_step(delta)
+		if (adv and _title_t > 0.6) or (auto and _title_t > LEG_TITLE):
+			_finish()
+		return
+	if legend:
+		_leg_step(delta)
+	var dur: float = LEG_T[_line] if legend and _line < LEG_T.size() else 6.5
+	if (adv and _line_t > 0.4) or (auto and _line_t > dur):
 		_next()
 
 
@@ -278,10 +339,14 @@ func _next() -> void:
 	_line += 1
 	_line_t = 0.0
 	if _line >= lines.size():
+		if legend:
+			_title_t = 0.0  # otsikko ennen valintaa
+			Sfx.play("win", -4.0)
+			return
 		_finish()
 		return
 	var l: Array = lines[_line]
-	if mode in ["ovi", "vaara"] and _line == 1:
+	if mode in ["ovi", "vaara"] and _line == (3 if legend else 1):
 		_door_to = 1.0
 		Sfx.play("door", -4.0, 1.0)
 	if l[0] == "lahja":
@@ -320,7 +385,11 @@ func _draw_all() -> void:
 	var s := _size()
 	var k := s.y / 720.0
 	MG.sparks_draw(_view, _sparks)
+	if legend:
+		_draw_legend(s, k)
 	_draw_text(s, k)
+	if legend and _title_t >= 0.0:
+		_draw_title(s, k)
 
 
 ## Lahjan antajan koko nimi hahmolistassa ("Tero" -> "Hevari-Tero").
@@ -416,7 +485,7 @@ func _hold(ch: Node3D, prop: Node3D) -> void:
 ## _holdin otteessa (lantio + 0,265 ylös ja 0,41 eteen; alempana 0,2 olkavarsi painui lähemmäs vartaloa), ranteet siitä.
 func _hold_under(ch: Node3D, prop: Node3D) -> void:
 	var pel: Vector3 = ch.get_meta("pelvis")
-	var bottom := pel + Vector3(0, 0.265, -0.41)
+	var bottom := pel + Vector3(0, 0.265 + 0.12 * _offer, -0.41 - 0.1 * _offer)  # legenda: ojennus ylös ja eteen
 	for sd in [1.0, -1.0]:
 		var sfx := "_r" if sd > 0.0 else "_l"
 		var wrist := bottom + Vector3(sd * PALM_UP_X, -PALM_UP, PALM_UP_FWD)
@@ -580,7 +649,8 @@ func _build_porch() -> void:
 	if koti and mode == "ovi":
 		# Päivi kynnyksellä oviaukon oikealla puolella (ovilehti aukeaa vasemmalle sisään), laatikko molemmissa käsissä.
 		# Sinikka eteisessä takana vasemmalla, ovilehden ja vaatekaapin välissä. Hahmon -Z on etu; PI = kasvot pihalle.
-		_person("Päivi", Vector3(0.25, 0.52, -0.45), PI)
+		# Legendassa olkihatun lieri (säde 0,3) ei osu karmiin (oviaukko x -0,55..0,55): Päivi 5 cm vasemmalle.
+		_person("Päivi", Vector3(0.2 if legend else 0.25, 0.52, -0.45), PI)
 		_person("Sinikka", Vector3(-0.2, 0.52, -1.8), PI - 0.15)
 		_box = _koti_box()
 		for sp: Array in [[friends[0], Vector3(-1.45, 0, 1.75), 0.4], ["Sinä", Vector3(0.6, 0, 2.0), -0.2],
@@ -804,6 +874,326 @@ func _window_photo() -> void:
 	for sx in [-1.0, 1.0]:  # teipinpalat yläkulmissa
 		var t := B.mesh(pol, B.boxm(Vector3(0.08, 0.025, 0.002)), Vector3(sx * 0.11, 0.15, 0.004), Color(0.95, 0.92, 0.75))
 		t.rotation.z = sx * -0.6
+
+
+# --- Kesäheilan legenda (koti, legend) --------------------------------------------------------------------------
+
+## Lavakuvan olkihattu (sama kuin Sytkärin profiilikuvassa: Looks.add_glam, punainen nauha). Legendassa Päivin
+## päässä ilman aurinkolaseja (kasvot näkyvät, hattu on tuntomerkki); toistoissa eteisen takaseinän naulassa
+## vaatekaapin yläpuolella, näkölinjalla oviaukon läpi Sinikan ja Päivin päiden yli.
+func _hat_setup() -> void:
+	if legend:
+		var pv: Node3D = _people["Päivi"]
+		Looks.add_glam(pv, true)
+		for n in pv.find_children("Aurinkolasit", "", true, false):
+			n.queue_free()
+		for n in pv.find_children("*", "Node3D", true, false):
+			if n.has_meta("hattu"):
+				_hat = n
+		return
+	_hat = Node3D.new()
+	_stage.add_child(_hat)
+	var straw := Color(0.93, 0.85, 0.62)
+	B.mesh(_hat, B.cyl(0.3, 0.3, 0.012, 32), Vector3.ZERO, straw)
+	B.mesh(_hat, B.cyl(0.1, 0.115, 0.11, 24), Vector3(0, 0.055, 0), straw)
+	B.mesh(_hat, B.cyl(0.117, 0.117, 0.035, 24), Vector3(0, 0.02, 0), Color(0.8, 0.03, 0.1))
+	# Naulassa lieri seinää vasten (kiekko pystyssä, +X-kierto 90°: kupu +Z eli huoneeseen). Vaatekaapin etupinta
+	# z = -2,60 ja lieri ulottuu kaapin yläreunan (y 2,3) alle, joten lieri 1,5 cm kaapin eteen.
+	_hat.position = Vector3(0.15, 2.42, -2.585)
+	_hat.rotation.x = PI / 2.0
+
+
+## Legendan valmistelu: Sytkärin lavakuva -96 (sama studio kuin puhelimessa), kartan rajaus ja kamera ensimmäiseen
+## kuvaan. Ilman mittausdataa (testit) kolme ympyrää kodin ympärille.
+func _leg_setup() -> void:
+	_card_vp = Sytkari.studio(self, Sytkari.kesaheila_look(), Color(0.3, 0.42, 0.62), Color(0.55, 0.4, 0.26), "lava")
+	_map = Control.new()
+	_map.clip_contents = true
+	_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map.draw.connect(_draw_map)
+	_view.add_child(_map)
+	if rings.size() < 3:
+		rings = []
+		for q: Array in [[Vector2(-0.8, 0.6), 220.0, "Joni"], [Vector2(0.9, 0.35), 300.0, "Esa"], [Vector2(0.1, -1.0), 120.0, "Sinä"]]:
+			var dir: Vector2 = (q[0] as Vector2).normalized()
+			rings.append({"c": home + dir * float(q[1]), "m": q[1], "lo": float(q[1]) - 25.0, "hi": float(q[1]) + 25.0, "who": q[2]})
+	_leg_street()
+	var sh: Array = _leg_shot()
+	_cam.fov = sh[2]
+	_cam_base = Transform3D(Basis.looking_at(sh[1] - sh[0], Vector3.UP), sh[0])
+
+
+## Vastakuvan tausta (ovelta pihalle): nurmikko jatkuu, pensasaita, katu, katulamppu, Päivin Hyundai pihassa ja
+## naapuritalo valaistuin ikkunoin. Tähtitaivas tummaa taustaa vasten.
+func _leg_street() -> void:
+	B.mesh(_stage, B.boxm(Vector3(30, 0.1, 10)), Vector3(0, -0.06, 14), Color(0.2, 0.33, 0.15))
+	for i in 13:  # pensasaita
+		B.mesh(_stage, B.sphere(0.65, 10), Vector3(-6.0 + i * 1.0, 0.55, 8.2), Color(0.12, 0.26, 0.1).lightened(0.05 * (i % 3)))
+	B.mesh(_stage, B.boxm(Vector3(30, 0.04, 3.0)), Vector3(0, 0.0, 10.5), Color(0.18, 0.18, 0.2))  # katu
+	for i in 8:
+		B.mesh(_stage, B.boxm(Vector3(1.0, 0.045, 0.12)), Vector3(-7.0 + i * 2.0, 0.0, 10.5), Color(0.85, 0.85, 0.8))
+	var pole := Vector3(3.2, 0, 9.3)
+	B.mesh(_stage, B.cyl(0.06, 0.08, 4.2, 10), pole + Vector3(0, 2.1, 0), Color(0.35, 0.36, 0.38))
+	var bulb := B.mesh(_stage, B.sphere(0.18, 12), pole + Vector3(0, 4.2, 0), Color(1.0, 0.88, 0.6))
+	var bm := bulb.material_override as StandardMaterial3D
+	bm.emission_enabled = true
+	bm.emission = Color(1.0, 0.8, 0.5)
+	bm.emission_energy_multiplier = 4.0
+	var sl := OmniLight3D.new()
+	sl.light_color = Color(1.0, 0.82, 0.55)
+	sl.light_energy = 1.4
+	sl.omni_range = 7.0
+	sl.position = pole + Vector3(0, 4.0, 0)
+	_stage.add_child(sl)
+	# Naapurin talo kadun toisella puolella.
+	var nh := Vector3(-1.5, 0, 14.0)
+	B.mesh(_stage, B.boxm(Vector3(8.0, 3.2, 5.0)), nh + Vector3(0, 1.6, 0), Color(0.78, 0.7, 0.5))
+	var roof := B.mesh(_stage, B.boxm(Vector3(8.4, 0.2, 3.4)), nh + Vector3(0, 3.7, -1.2), Color(0.3, 0.16, 0.12))
+	roof.rotation.x = 0.55
+	var roof2 := B.mesh(_stage, B.boxm(Vector3(8.4, 0.2, 3.4)), nh + Vector3(0, 3.7, 1.2), Color(0.3, 0.16, 0.12))
+	roof2.rotation.x = -0.55
+	for wx in [-2.5, 0.0, 2.5]:
+		var w := B.mesh(_stage, B.boxm(Vector3(1.1, 1.0, 0.05)), nh + Vector3(wx, 1.6, -2.52), Color(1.0, 0.8, 0.45))
+		var wm := w.material_override as StandardMaterial3D
+		wm.emission_enabled = true
+		wm.emission = Color(1.0, 0.72, 0.38)
+		wm.emission_energy_multiplier = 1.0
+	# Päivin auto pihassa (punainen Hyundai, laatikkomuoto ja renkaat).
+	var car := Vector3(-3.4, 0, 5.2)
+	B.mesh(_stage, B.boxm(Vector3(1.7, 0.6, 3.9)), car + Vector3(0, 0.55, 0), Color(0.62, 0.08, 0.1))
+	B.mesh(_stage, B.boxm(Vector3(1.5, 0.5, 2.0)), car + Vector3(0, 1.08, -0.2), Color(0.2, 0.24, 0.3))
+	for wx in [-0.8, 0.8]:
+		for wz in [-1.25, 1.25]:
+			B.mesh(_stage, B.cyl(0.32, 0.32, 0.22, 14), car + Vector3(wx, 0.32, wz), Color(0.06, 0.06, 0.06)).rotation.z = PI / 2.0
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1996
+	for i in 60:  # tähdet
+		var st := B.mesh(_stage, B.sphere(0.04, 6), Vector3(rng.randf_range(-15, 15), rng.randf_range(5, 12), 22.0), Color.WHITE)
+		var stm := st.material_override as StandardMaterial3D
+		stm.emission_enabled = true
+		stm.emission = Color(0.9, 0.92, 1.0)
+		stm.emission_energy_multiplier = 2.0
+
+
+## Kuva rivin mukaan: [silmä, katse, fov]. Lavastus: julkisivu z = 0, Päivi (0,2; 0,52; -0,45) kasvot +Z,
+## kolmikko portailla z 1,6..2,0 kasvot ovelle.
+func _leg_shot() -> Array:
+	if _title_t >= 0.0 or _line >= 8:
+		return [Vector3(-1.2, 1.75, 3.5), Vector3(0.35, 1.45, 0.2), 44.0]  # kerma ja otsikko: Päivi ojentaa, pelaaja etualalla
+	match _line:
+		0, 1, 2:
+			return [Vector3(0.3, 2.2, 5.6), Vector3(0.0, 1.35, 0.0), 46.0]  # talo, ovi ja kolmikko selin
+		5:
+			# Päivi lähikuvassa oikealla (hattu kokonaan tekstilaatikon alla), kortti vasemmalla.
+			return [Vector3(-0.5, 1.8, 1.25), Vector3(-0.2, 2.02, -0.45), 42.0]  # hieman alta: silmät lierin alla näkyvät
+		6, 7:
+			return [Vector3(-0.35, 1.7, 0.15), Vector3(0.1, 1.35, 1.9), 56.0]  # vastakuva ovelta portaille (taustana katu, _leg_street)
+	return [Vector3(-0.6, 1.95, 3.3), Vector3(0.0, 1.55, -0.8), 44.0]  # ovi: Päivi ja Sinikka oviaukossa
+
+
+func _leg_step(delta: float) -> void:
+	var sh: Array = _leg_shot()
+	var want := Transform3D(Basis.looking_at(sh[1] - sh[0], Vector3.UP), sh[0])
+	var cut := _cue != _line and _line in [0, 3, 5, 6, 8]  # leikkaus uuteen kuvaan, ei liukua seinän läpi
+	var a := 1.0 if cut else 1.0 - exp(-3.0 * delta)
+	_cam_base = _cam_base.interpolate_with(want, a)
+	_cam.fov = lerpf(_cam.fov, sh[2], a)
+	_offer = move_toward(_offer, 1.0 if _line >= 8 else 0.0, delta * 1.5)
+	if _line >= 3:  # ovi auki: kaverit kääntyvät katsomaan ovelle (hahmon etu -Z, rotation.y = atan2(-dx, -dz))
+		for f: String in friends:
+			var ch: Node3D = _people.get(f)
+			if ch != null:
+				var d := Vector3(0.2, 0, -0.2) - ch.position
+				ch.rotation.y = lerp_angle(ch.rotation.y, atan2(-d.x, -d.z), 1.0 - exp(-4.0 * delta))
+	if _line >= 8 and _box != null:  # sydämiä nousee laatikosta
+		_heart_t += delta
+		if _heart_t > 0.22:
+			_heart_t = 0.0
+			_hearts.append([_cam.unproject_position(_box.global_position + Vector3(0, 0.12, 0)), Vector2(randf_range(-40, 40), -110), 0.0])
+	for h: Array in _hearts:
+		h[0] += h[1] * delta
+		h[2] += delta
+	_hearts = _hearts.filter(func(h: Array) -> bool: return h[2] < 1.6)
+	var t := _line_t + (LEG_T[0] if _line == 1 else 0.0)  # kartta: rivit 0 ja 1 yhtä animaatiota
+	if _line <= 1:
+		var n := clampi(int(t / 0.9) + 1, 0, rings.size())
+		while _rings_shown < n:
+			_rings_shown += 1
+			Sfx.play("bell", -8.0, 1.6 + _rings_shown * 0.3)
+		if t > 3.4 and not _pin_done:
+			_pin_done = true
+			Sfx.play("win_small", -5.0)
+	if _cue == _line:
+		_cue_t += delta
+		if _line == 2:  # kolme koputusta
+			var k0 := int((_cue_t - delta) / 0.32)
+			var k1 := int(_cue_t / 0.32)
+			if k1 != k0 and k1 < 3:
+				Sfx.play("punch", -6.0, 0.7)
+				_shake = 0.35
+		return
+	_cue = _line
+	_cue_t = 0.0
+	match _line:
+		2:
+			Sfx.play("punch", -6.0, 0.7)
+			_shake = 0.35
+		3:
+			_shake = 0.2
+		5:
+			Sfx.play("bell", -10.0, 2.4)
+		8:
+			Sfx.play("pickup", -4.0, 1.3)
+			if _box != null:
+				var at := _cam.unproject_position(_box.global_position + Vector3(0, 0.1, 0))
+				MG.sparks_burst(_sparks, at, Color(1.0, 1.0, 0.96), 22)
+				MG.sparks_burst(_sparks, at, Color(0.9, 0.12, 0.2), 14)
+
+
+## Legendan ruudun päälle: Sytkäri-puhelin kartalla (rivit 0..2) ja lavakuva -96 sydämineen (rivi 5).
+func _draw_legend(s: Vector2, k: float) -> void:
+	var font := ThemeDB.fallback_font
+	for h: Array in _hearts:
+		var a := 1.0 - float(h[2]) / 1.6
+		_heart_at(h[0], (9.0 + 6.0 * float(h[2])) * k, Color(1.0, 0.3, 0.45, a))
+	# Puhelin nousee alhaalta oikealle ja laskee pois koputuksessa.
+	var up := 0.0
+	if _line <= 1 and _title_t < 0.0:
+		up = clampf((_line_t + (LEG_T[0] if _line == 1 else 0.0)) / 0.5, 0.0, 1.0)
+	elif _line == 2:
+		up = 1.0 - clampf(_line_t / 0.4, 0.0, 1.0)
+	_map.visible = up > 0.0
+	if up > 0.0:
+		var ph := Rect2(s.x * 0.6, s.y * 0.17 + (1.0 - up) * s.y, 330 * k, 560 * k)
+		MG.box(_view, ph.grow(6 * k), Color(0.08, 0.08, 0.1), int(34 * k), int(10 * k), Color(0.3, 0.3, 0.34), 2)
+		var scr := Rect2(ph.position + Vector2(10, 46) * k, Vector2(ph.size.x - 20 * k, ph.size.y - 74 * k))
+		_view.draw_rect(Rect2(ph.position + Vector2(10, 10) * k, Vector2(ph.size.x - 20 * k, 36 * k)), Color(1.0, 0.97, 0.95))
+		Sytkari.flame(_view, ph.position + Vector2(34, 30) * k, 11 * k, _t)
+		_view.draw_string(font, ph.position + Vector2(52, 36) * k, "Sytkäri  ·  Kesäheila -96", HORIZONTAL_ALIGNMENT_LEFT, -1,
+			int(17 * k), Color(0.15, 0.12, 0.14))
+		_map.position = scr.position
+		_map.size = scr.size
+		_map.queue_redraw()
+		var cap := "Leikkauspiste: 0 m" if _pin_done else "Ympyröitä %d / 3" % _rings_shown
+		_view.draw_string(font, Vector2(ph.position.x, ph.end.y - 10 * k), cap, HORIZONTAL_ALIGNMENT_CENTER, ph.size.x, int(17 * k),
+			Color(1.0, 0.85, 0.5) if _pin_done else Color(0.85, 0.85, 0.9))
+	# Lavakuva -96 vasemmalle ja sydänviiva kuvan hatusta Päivin hattuun.
+	if _line == 5 and _title_t < 0.0 and _card_vp != null:
+		var slide := clampf(_line_t / 0.5, 0.0, 1.0)
+		var card := Rect2(s.x * 0.05 - (1.0 - slide) * 420 * k, s.y * 0.2, 300 * k, 440 * k)
+		MG.box(_view, card, Color(1.0, 0.98, 0.96), int(16 * k), int(10 * k), Color(0.85, 0.75, 0.72), 1)
+		var pr := Rect2(card.position + Vector2(12, 12) * k, Vector2(card.size.x - 24 * k, 330 * k))
+		var src := Vector2(_card_vp.size)
+		var sc := maxf(pr.size.x / src.x, pr.size.y / src.y)
+		var crop := pr.size / sc
+		_view.draw_texture_rect_region(_card_vp.get_texture(), pr, Rect2((src - crop) / 2.0, crop))
+		_view.draw_rect(pr, MG.OUTLINE, false, 2.0)
+		Sytkari.flame(_view, card.position + Vector2(28, card.size.y - 58 * k), 10 * k, _t)
+		_view.draw_string(font, card.position + Vector2(44, card.size.y - 52 * k), "Kesäheila -96, Saloinen", HORIZONTAL_ALIGNMENT_LEFT,
+			card.size.x - 54 * k, int(19 * k), Color(0.15, 0.12, 0.14))
+		_view.draw_string(font, card.position + Vector2(18, card.size.y - 22 * k), "Lavakuva, kesä -96", HORIZONTAL_ALIGNMENT_LEFT,
+			-1, int(15 * k), Color(0.45, 0.4, 0.42))
+		if _line_t > 1.2 and _hat != null:
+			var hat := _cam.unproject_position(_hat.global_position + Vector3(0, 0.08, 0))
+			var from := Vector2(card.end.x - 30 * k, pr.position.y + 70 * k)
+			var p := clampf((_line_t - 1.2) / 0.6, 0.0, 1.0)
+			var to := from.lerp(hat, p)
+			var n := int(from.distance_to(to) / (14 * k))
+			for i in n:
+				if i % 2 == 0:
+					_view.draw_line(from.lerp(to, float(i) / n), from.lerp(to, float(i + 1) / n), Color(1.0, 0.35, 0.45), 3.0 * k)
+			if p >= 1.0:
+				var beat := 1.0 + 0.12 * sin(_line_t * 9.0)
+				_heart_at(from.lerp(hat, 0.5), 20 * k * beat, Color(1.0, 0.3, 0.42))
+				_view.draw_string_outline(font, from.lerp(hat, 0.5) + Vector2(-60, -30) * k, "SAMA HATTU", HORIZONTAL_ALIGNMENT_CENTER,
+					120 * k, int(18 * k), 5, Color(0.3, 0.02, 0.06))
+				_view.draw_string(font, from.lerp(hat, 0.5) + Vector2(-60, -30) * k, "SAMA HATTU", HORIZONTAL_ALIGNMENT_CENTER,
+					120 * k, int(18 * k), Color(1.0, 0.92, 0.6))
+
+
+func _heart_at(c: Vector2, r: float, col: Color) -> void:
+	_view.draw_circle(c + Vector2(-r * 0.5, -r * 0.2), r * 0.55, col)
+	_view.draw_circle(c + Vector2(r * 0.5, -r * 0.2), r * 0.55, col)
+	_view.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 1.02, -r * 0.05), c + Vector2(r * 1.02, -r * 0.05), c + Vector2(0, r * 1.0)]), col)
+
+
+## Sytkärin kartta: oma koti keskellä, kortteleita ja teitä, mittausten ympyränauhat (lo..hi) piirtyvät kuin harpilla
+## yksi kerrallaan (0,9 s välein) ja leikkaavat kodin; lopuksi neula putoaa kotiin ja leikkausalue sykkii.
+func _draw_map() -> void:
+	var sz := _map.size
+	var mid := sz / 2.0
+	var k := _size().y / 720.0
+	_map.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.88, 0.91, 0.82))
+	# Mittakaava toiseksi kaukaisimman keskipisteen mukaan: kaukaisimman ympyrän kaari kulkee kodin kautta, vaikka sen
+	# keskipiste jää kartan ulkopuolelle (yksi kilometrin ympyrä ei kutista kahta muuta pisteiksi).
+	var ds: Array = rings.map(func(r: Dictionary) -> float: return ((r.c as Vector2) - home).length())
+	ds.sort()
+	var far := maxf(120.0, float(ds[ds.size() - 2]) if ds.size() >= 2 else 120.0)
+	var sc := (minf(sz.x, sz.y) * 0.46) / (far * 1.08)
+	# Tiet ja korttelit (kiinteä siemen: sama kartta joka kerta).
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 96
+	for i in 7:
+		var y := sz.y * (0.08 + 0.14 * i) + rng.randf_range(-8, 8) * k
+		_map.draw_line(Vector2(0, y), Vector2(sz.x, y + rng.randf_range(-20, 20) * k), Color(1, 1, 1, 0.9), 6.0 * k)
+	for i in 4:
+		var x := sz.x * (0.12 + 0.26 * i) + rng.randf_range(-10, 10) * k
+		_map.draw_line(Vector2(x, 0), Vector2(x + rng.randf_range(-25, 25) * k, sz.y), Color(1, 1, 1, 0.9), 6.0 * k)
+	for i in 40:
+		var q := Vector2(rng.randf() * sz.x, rng.randf() * sz.y)
+		if q.distance_to(mid) > 22 * k:
+			_map.draw_rect(Rect2(q, Vector2(9, 7) * k), Color(0.72, 0.68, 0.62))
+	_map.draw_circle(Vector2(sz.x * 0.85, sz.y * 0.12), 40 * k, Color(0.55, 0.75, 0.9))  # lampi
+	var t := _line_t + (LEG_T[0] if _line == 1 else 0.0)
+	if _line >= 2:
+		t = 99.0
+	for i in rings.size():
+		var r: Dictionary = rings[i]
+		var p := clampf((t - i * 0.9) / 0.8, 0.0, 1.0)
+		if p <= 0.0:
+			continue
+		var c := mid + ((r.c as Vector2) - home) * sc
+		var col: Color = RING_COL[i % RING_COL.size()]
+		var rad := (float(r.lo) + float(r.hi)) / 2.0 * sc
+		var w := maxf(5.0 * k, (float(r.hi) - float(r.lo)) * sc)
+		_map.draw_arc(c, rad, -PI / 2.0, -PI / 2.0 + TAU * p, 160, Color(col, 0.42), w)
+		_map.draw_arc(c, rad, -PI / 2.0, -PI / 2.0 + TAU * p, 160, col.darkened(0.2), 1.5 * k)
+		_map.draw_circle(c, 5 * k, col.darkened(0.3))
+		var lbl := String(r.get("who", ""))
+		var lp := c + Vector2(8, -6) * k
+		if lp.distance_to(mid) < 40 * k:  # nimi ei kodin päälle
+			lp = c + (c - mid).normalized() * 30 * k + Vector2(-10, 0) * k
+		_map.draw_string(ThemeDB.fallback_font, lp, lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k), col.darkened(0.45))
+	# Koti: talo numero 1; leikkauksen hehku ja neula, kun kaikki ympyrät on piirretty.
+	if _pin_done:
+		var pulse := 0.5 + 0.5 * sin(_t * 6.0)
+		_map.draw_circle(mid, (18.0 + 8.0 * pulse) * k, Color(1.0, 0.85, 0.3, 0.35 + 0.25 * pulse))
+	_map.draw_rect(Rect2(mid - Vector2(9, 7) * k, Vector2(18, 14) * k), Color(0.75, 0.25, 0.18))
+	_map.draw_colored_polygon(PackedVector2Array([mid + Vector2(-11, -7) * k, mid + Vector2(11, -7) * k, mid + Vector2(0, -16) * k]),
+		Color(0.45, 0.15, 0.1))
+	_map.draw_string(ThemeDB.fallback_font, mid + Vector2(-4, 6) * k, "1", HORIZONTAL_ALIGNMENT_LEFT, -1, int(12 * k), Color.WHITE)
+	if _pin_done:
+		var drop := clampf((t - 3.4) / 0.35, 0.0, 1.0)
+		var bounce := absf(sin(drop * PI * 1.5)) * (1.0 - drop) * 14.0
+		var tip := mid + Vector2(0, -16) * k - Vector2(0, (1.0 - drop) * 160.0 + bounce) * k
+		_map.draw_circle(tip + Vector2(0, -26) * k, 13 * k, Color(1.0, 0.36, 0.2))
+		_map.draw_colored_polygon(PackedVector2Array([tip + Vector2(-11, -20) * k, tip + Vector2(11, -20) * k, tip]), Color(1.0, 0.36, 0.2))
+		_map.draw_circle(tip + Vector2(0, -26) * k, 5 * k, Color.WHITE)
+
+
+## Otsikko: ruutu himmenee, kultainen KESÄHEILA -96 ja tarina laatikossa alhaalla.
+func _draw_title(s: Vector2, k: float) -> void:
+	var a := clampf(_title_t / 0.6, 0.0, 1.0)
+	_view.draw_rect(Rect2(Vector2.ZERO, s), Color(0.02, 0.01, 0.03, 0.42 * a))
+	var font := ThemeDB.fallback_font
+	var size := int(78 * k * (1.25 - 0.25 * a))
+	var y := 118 * k  # Päivin hatun yläpuolelle
+	_view.draw_string_outline(font, Vector2(0, y), "KESÄHEILA -96", HORIZONTAL_ALIGNMENT_CENTER, s.x, size, int(12 * k),
+		Color(0.25, 0.08, 0.02, a))
+	_view.draw_string(font, Vector2(0, y), "KESÄHEILA -96", HORIZONTAL_ALIGNMENT_CENTER, s.x, size, Color(1.0, 0.82, 0.3, a))
+	var br := Rect2(s.x * 0.16, s.y - 150 * k, s.x * 0.68, 80 * k)
+	MG.box(_view, br, Color(0.06, 0.05, 0.05, 0.86 * a), int(14 * k), int(6 * k), Color(0.95, 0.8, 0.35, a), 2)
+	_wrap(br.position + Vector2(20, 34) * k, LEG_SUB, br.size.x - 40 * k, int(21 * k), Color(0.98, 0.95, 0.88, a))
 
 
 func _draw_text(s: Vector2, k: float) -> void:
