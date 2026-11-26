@@ -49,7 +49,6 @@ godot --path . -- --shot=/polku/kuva.png --scene=<nimi> [--nohud]
 ```
 
 Kuvia ottavat testit tarvitsevat näytön (tai Xvfb:n); pelkkää logiikkaa voi ajaa `--headless`.
-`--scene=kainuulista`: Gasthausin ruokalista (valinnat, nälän nollaus, köyhänä pois käytöstä).
 `--scene=ronttonen`: rönttösten leivonta (kolme vaihetta, kuva kustakin, valmis erä), vienti Päiville ja kahvipöytä (kuvat; `--shot=`).
 `--scene=kalalampi`: retkirunko ja Teeriniemen kalalampi (taksivalikko, matka, lupa, onkiminen, paluu ja kello; kuvat `_alue`, `_tiski`, `_ranta`, `_koho`, `_kirjolohi`, `_taimen`; `--shot=`).
 `--scene=matkaopas`: matkaopas B (`tools/testit/matkaopas.gd`: ei opasta, saaminen taksikuskilta kerran ja tallennus, tyhjä opas, osa kuultu, kaikki käyty: hinnat = taksivalikko ja leimat latauksen jälkeen, uusi rekisteririvi, Esc sekä O ja M oppaan kanssa; kuvat `_ei_opasta`, `_saatu`, `_tyhja_<aukeama>`, `_osa_<aukeama>`, `_kaikki_<aukeama>`, `_vertailu`, `_rajaus_sivu`, `_rajaus_leima`, `_rajaus_sisallys`; `--shot=`).
