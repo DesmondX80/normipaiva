@@ -47,11 +47,11 @@ const ENDINGS := [
 	["kulissit", "Kulissit kunnossa", "Kesäheila -96 oli Päivi. Naurettiin yhdessä, ja aamulla kerma ja mansikat syötiin keittiössä."],
 	["avoin_pelikortti", "Avoin pelikortti", "Kaikki kortit pöytään: sinun syntisi ja Päivin Zabukin tanssit. Kukaan ei lähtenyt."],
 	["rasytuppi", "Räsytuppi", "Viimeinen ässä pöytään, ja kaverit pantiin tuppeen kalsareissa naisen olohuoneessa. Nainen otti polaroidin, ja kuva teipattiin keittiön ikkunaan."],
-	["lettukunkku", "Lettukunkku", "Eniten kermalettuja minuutissa naisen pöydässä. Voittaja nuoli vatkaimen."],
-	["loylykunkku", "Löylykunkku", "Viimeisenä lauteilla, kun kaverit pakenivat pyyhkeet kourassa. Pyyhe putosi, ego ei."],
-	["sivikkidisko", "Sivikki-disko", "Pihadisko Sivikin bassojen tahtiin. Katja tanssi sinun kanssasi, ja Timon akku loppui."],
-	["karaokekunkku", "Karaokekunkku", "Olohuoneen karaokessa parhaat pisteet rivoimmalla laululla. Naapurit kuulivat sanat."],
-	["kesaheila", "Kesäheila -96", "Kolme ympyrää leikkasi oman kodin. Ovella seisoi Päivi kerman ja mansikoiden kanssa."],
+	["lettukunkku", "Lettukunkku", "Eniten kermalettuja minuutissa naisen pöydässä. Voittaja kruunattiin letusta tehdyllä kruunulla ja nuoli vatkaimen kavereiden silmien edessä."],
+	["loylykunkku", "Löylykunkku", "Viimeisenä lauteilla viimeisen kauhallisen jälkeen, kun kaverit kurkkivat ovelta pyyhkeet kourassa. Kunkku nousi, pyyhe putosi, ego ei."],
+	["sivikkidisko", "Sivikki-disko", "Viimeinen biisi Sivikin stereoista kaakkoon. Katja haki sinut parikseen, Timon akku hyytyi kesken, ja koko piha lauloi biisin loppuun pimeässä."],
+	["karaokekunkku", "Karaokekunkku", "Viimeinen kertosäe koko porukalla, kunnes naapuri hakkasi patteria ja huusi ikkunastaan. Rivoin rivi laulettiin suoraan sen ikkunaan, ja telkkari näytti ennätystä."],
+	["kesaheila", "Kesäheila -96", "Kolme ympyrää leikkasi oman kodin. Ovella seisoi Päivi lavakuvan olkihattu päässä, kerma ja mansikat käsissä."],
 	# Kaisuan tila (kaisua.gd): työketjut loppuun.
 	["kaisuan_heinatalkoot", "Kaisuan heinätalkoot", "Niitetty, karhottu, paalattu ja paalit latoon. Emännän lihakeitto ja isännän saunakaljat."],
 	["kaisuan_sato", "Kaisuan sato", "Ohra puitu vanhalla puimurilla ja kuivurissa. Isäntä haistoi jyviä ja nyökkäsi."],
@@ -68,7 +68,7 @@ const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet"
 
 ## Legendaariset hetket, jotka koetaan lavastettuna kohtauksena (cutscene.gd): ei erillistä ilmoitusta, vaan kohtauksen
 ## jälkeen hillitty rivi päiväkirjan uudesta tarinasta. Muut hetket näyttävät vielä vanhan ilmoituksen.
-const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti", "rasytuppi"]
+const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti", "rasytuppi", "lettukunkku", "loylykunkku", "sivikkidisko", "karaokekunkku", "kesaheila"]
 
 ## [id, nimi, kuvaus] -> kuvaus.
 static func desc_of(id: String) -> String:

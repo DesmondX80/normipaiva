@@ -141,7 +141,19 @@ Iltakivat (kolmiomittauksen toinen ilta eteenpäin): `godot --headless --path . 
 säännöt ja tekoäly 30 jaolla, laittomat kortit ja tikkimäärät = TESTI VIKA), `tools/testit/aja.sh tscn tools/testit/tuppi_kuvat.tscn`
 (räsytupin vaiheet, riisuminen, pöydän kortti vähintään 40 px ja läpimenot), `tools/testit/aja.sh scene kolmio_tuppi`
 (räsytuppi pelimaailmassa ovelta aamuun, legenda ja sivutehtävän "iltakivat" edistyminen), `tools/testit/aja.sh scene tuppi_eka`
-(räsytupin legendaarinen hetki vaiheittain kuvina, polaroid aamulla ikkunassa ja toisen illan muisto), `tools/testit/aja.sh scene kolmio_iltakivat` (lettukisa, löylykisa, disko ja karaoke
+(räsytupin legendaarinen hetki vaiheittain kuvina, polaroid aamulla ikkunassa ja toisen illan muisto), `tools/testit/aja.sh scene lettu_eka`
+(lettukunkun hetki: tyhjä lautanen, kruunaus, vatkain, nuolaisu ja otsikko kuvina, toisen illan muisto ja hiljainen
+toinen voitto), `tools/testit/aja.sh scene loyly_eka` (löylykunkun hetki: viimeinen kauha, kaverit ovella, pyyhkeen
+putoaminen polvista alas ja siveä kaksoiskuva laskettuna, otsikko, toisen illan muisto ja hiljainen toinen voitto),
+`tools/testit/aja.sh scene disko_eka` (Sivikki-diskon hetki Vaalassa: stereot ja droppi, tanssiote ja sen läpimenot
+mitattuna, akun hyytyminen, laulu ja otsikko kuvina, toisen illan muisto ja hiljainen toinen voitto),
+`tools/testit/aja.sh scene karaoke_eka` (karaokekunkun hetki: kertosäe ja naisen jalat jakkaran kannella mitattuna,
+naapurin ikkuna ja patteri, jähmettynyt porukka, finaali ikkunaan, ennätys ja otsikko kuvina, toisen illan muisto ja
+hiljainen toinen voitto),
+`tools/testit/aja.sh scene kesaheila_eka` (kesäheilan ensimmäinen ovi kotona: Sytkärin kartta ympyröineen ja neula,
+koputus, Päivi lavakuvan hatussa, lavakuva ja sydän, kaverit, kerman ojennus ja otsikko kuvina; hetki kirjataan vasta
+onnellisessa valinnassa, toisella kerralla Päivi muistelee ja hattu on eteisen naulassa),
+`tools/testit/aja.sh scene kolmio_iltakivat` (lettukisa, löylykisa, disko ja karaoke
 pelimaailmassa peräkkäin ovelta aamuun, sivutehtävän kirjaus jokaisesta) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
 [lettu,loyly,disko,karaoke]` (lettukisa, löylykisa, Sivikki-disko ja karaoke tekoälyllä molemmissa kohteissa: alku,
 toiminta, lähikuva, loppu, toiminnan kohteen koko pikseleinä `test_target`, läpimenot `Asento.views` ja tulos). Diskon

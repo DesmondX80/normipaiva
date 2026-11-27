@@ -58,6 +58,23 @@ var _cam_base: Transform3D
 var _comment_t := 6.0
 var _serve_t := 0.0
 var _rng := RandomNumberGenerator.new()
+## Legendaarinen hetki "lettukunkku" (main.gd _kolmio_ilta: ensimmäinen voitto, lines.legenda): lasku, kruunu,
+## vatkain ja otsikko omina vaiheinaan. recall: hetki on jo koettu, kaveri muistelee illan alussa (lines.muisto).
+const LEG := ["lasku", "kruunu", "vatkain", "otsikko"]
+var legend := false
+var recall := false
+var _once := {}
+var _dolly: Array = []  # lasku: [eye0, look0, eye1, look1]
+var _crown: Node3D
+var _crown_from := Vector3.ZERO
+var _mixer: Node3D
+var _beaters: Array = []
+var _blobs: Array = []  # vatkaimen kermanokareet (nuolaistaan pois)
+var _stache: Node3D
+var _spray_t := 0.0
+var _lean := 0.0
+var _lamp: OmniLight3D
+var _tongue: Node3D
 
 
 func _ready() -> void:
@@ -76,7 +93,12 @@ func _ready() -> void:
 	_keys.centered = true
 	add_child(_keys)
 	_story = "Lettukisa! Minuutti aikaa. Haukkaa, kun suussa on tilaa: liian iso suullinen ja kerma tulee nenästä."
-	_say(3, _line("alku", "Lettukisa! Kerma suuhun ja nielkää."))
+	if not (recall and lines.has("muisto")):
+		_say(3, _line("alku", "Lettukisa! Kerma suuhun ja nielkää."))
+	else:
+		var m: Array = (lines.muisto as Array).pick_random()
+		_say(int(m[0]), String(m[1]))
+		_bubble_t[int(m[0])] = 5.0
 
 
 func _exit_tree() -> void:
@@ -101,6 +123,7 @@ func _build() -> void:
 			B.mesh(_hall, B.boxm(Vector3(0.06, TABLE_H - 0.04, 0.06)), CENTER + Vector3(sx * (TABLE.x / 2.0 - 0.08),
 				(TABLE_H - 0.04) / 2.0, sz * (TABLE.y / 2.0 - 0.08)), wood.darkened(0.15))
 	var lamp := OmniLight3D.new()
+	_lamp = lamp
 	lamp.light_color = Color(1.0, 0.88, 0.66)
 	lamp.light_energy = 1.7
 	lamp.omni_range = 3.6
@@ -332,6 +355,14 @@ func _process(delta: float) -> void:
 			_bubble_t[s] -= delta
 			if _bubble_t[s] <= 0.0:
 				_bubbles[s] = ""
+	if _phase in LEG:
+		if Input.is_action_just_pressed("mount"):
+			_finish(_leg_result())
+			return
+		_leg_step(delta)
+		_keys.set_text("%s ohita" % Settings.cap("mount"))
+		_ui.queue_redraw()
+		return
 	if Input.is_action_just_pressed("mount") and _phase != "loppu" and _phase != "valmis":
 		_finish({"luovutti": true, "kiva": "lettu"})
 		return
@@ -350,7 +381,10 @@ func _process(delta: float) -> void:
 		"loppu":
 			if _pressed() or (auto and _t > 2.0):
 				var won := _winner() == 0
-				_finish({"voitto": won, "letut": _score(0), "kiva": "lettu"})
+				if won and legend and lines.has("legenda"):
+					_leg_begin()
+				else:
+					_finish({"voitto": won, "letut": _score(0), "kiva": "lettu"})
 	for s in 3:
 		var e: Dictionary = _eaters[s]
 		_arm(s, delta)
@@ -536,6 +570,9 @@ func _update_keys() -> void:
 func _draw_ui() -> void:
 	var vs := _ui.size
 	var font := ThemeDB.fallback_font
+	if _phase in LEG:
+		_draw_legend(vs)
+		return
 	# Tilanne ylhäällä: aika ja lettujen määrät.
 	var top := "LETTUKISA   %s   Sinä %d   %s %d   %s %d" % ["%d s" % ceili(_left) if _phase != "alku" else "valmiina...",
 		floori(_score(0)), people[1].name, floori(_score(1)), people[2].name, floori(_score(2))]
@@ -566,6 +603,406 @@ func _draw_ui() -> void:
 		label = "YSKIT KERMAA..."
 	Room.box(_ui, Rect2(mr.position + Vector2(mr.size.x / 2.0 - 110, -34), Vector2(220, 24)), Color(0, 0, 0, 0.7))
 	_ui.draw_string(font, mr.position + Vector2(0, -16), label, HORIZONTAL_ALIGNMENT_CENTER, mr.size.x, 16, Color.WHITE)
+
+
+# --- Legendaarinen hetki ------------------------------------------------------------------------------------------
+# Ensimmäinen voitto (main.gd _kolmio_ilta legend): kamera liukuu kavereiden kesken jääneiltä pinoilta pelaajan
+# tyhjälle lautaselle (lasku), pelaaja nousee pöydän eteen ja nainen laskee hänen päähänsä letusta tehdyn kruunun
+# (kruunu), nainen surauttaa sähkövatkainta ja kunkku nuolee sen: kermaviikset (vatkain), ja otsikko (otsikko).
+# Pöydän etupuoli on +Z (kamera), pelaaja ja nainen seisovat pöydän edessä kasvokkain X-akselilla.
+
+const P_AT := Vector3(-0.95, 0.017, 0.72)  # pelaaja seisoo pöydän edessä (y: maton paksuus)
+const W_AT := Vector3(-0.38, 0.017, 0.72)  # nainen pelaajaa vastapäätä; vasen kaveri näkyy heidän välistään
+const FRIEND_Z := -1.05  # kaverit nousevat seisomaan jakkaroidensa taakse
+
+
+func _leg_result() -> Dictionary:
+	return {"voitto": true, "letut": _score(0), "kiva": "lettu"}
+
+
+func _first(key: String) -> bool:
+	if _once.has(key):
+		return false
+	_once[key] = true
+	return true
+
+
+func _leg_cam(eye: Vector3, look: Vector3, fov: float) -> void:
+	_cam_base = Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye)
+	_cam.transform = _cam_base
+	_cam.fov = fov
+
+
+func _leg_say(i: int, sec := 3.6) -> void:
+	var r: Array = lines.legenda.rivit[i]
+	for s in 4:
+		_bubbles[s] = ""  # yksi kupla kerrallaan
+	_say(int(r[0]), String(r[1]))
+	_bubble_t[int(r[0])] = sec
+
+
+## Hahmon pään paikka hallin koordinaateissa.
+func _head(c: Node3D) -> Vector3:
+	return _hall.to_local(c.to_global(c.bone_position("Head")))
+
+
+func _leg_begin() -> void:
+	_phase = "lasku"
+	_t = 0.0
+	_story = String(lines.legenda.lasku) % floori(_score(0))
+	for s in 4:
+		_bubbles[s] = ""
+	# Pelaajan lautanen syödään tyhjäksi (viimeinen pala meni kellon soidessa), kavereille jää pinot.
+	for l: Node3D in _stacks[0]:
+		l.queue_free()
+	(_stacks[0] as Array).clear()
+	_place_kerma(0)
+	for s in 3:
+		_eaters[s].lift_t = 9.0
+		_eaters[s].cough = 0.0
+		_arm(s, 0.0)
+		(_chars[s] as Node3D).call("play", "Sitting_Idle", 0.3)
+	# Kamera liukuu kaverin pinolta pelaajan tyhjälle lautaselle pöydän tasolla.
+	var p1 := CENTER + Vector3(SEAT_X[1], TABLE_H, PLATE_Z)
+	var p0 := CENTER + Vector3(SEAT_X[0], TABLE_H, PLATE_Z)
+	_lamp.light_energy = 0.35  # lähikuvissa liina ei pala puhki
+	# Tyhjällä lautasella murusia ja hillo- ja kermajäljet (syöty puhtaaksi).
+	var pc := CENTER + Vector3(SEAT_X[0], TABLE_H + 0.021, PLATE_Z)
+	var smear := B.mesh(_hall, B.cyl(0.05, 0.05, 0.002, 14), pc + Vector3(0.03, 0, 0.02), Color(0.7, 0.06, 0.12))
+	smear.scale = Vector3(1.3, 1.0, 0.45)
+	smear.rotation.y = 0.5
+	var cream := B.mesh(_hall, B.cyl(0.035, 0.035, 0.003, 12), pc + Vector3(-0.045, 0, -0.03), Color(1.0, 0.97, 0.9))
+	cream.scale = Vector3(1.4, 1.0, 0.6)
+	for i in 9:
+		B.mesh(_hall, B.boxm(Vector3(0.008, 0.005, 0.007)), pc + Vector3(sin(i * 2.4) * 0.08, 0.002, cos(i * 3.1) * 0.07),
+			Color(0.8, 0.55, 0.25))
+	_hall._set_layers(_hall)
+	var ceil := B.mesh(_hall, B.boxm(Vector3(Room.Rasva.ROOM.x, 0.06, Room.Rasva.ROOM.y + 0.3)), Vector3(Room.Rasva.ROOM.x / 2.0,
+		Room.Hall.WALL_H + 0.03, Room.Rasva.ROOM.y / 2.0), Color(0.78, 0.74, 0.68))  # katto: ylös katsovissa kuvissa ei mustaa
+	_hall._set_layers(ceil)
+	_dolly = [p1 + Vector3(-0.12, 0.26, 0.5), p1 + Vector3(0, 0.05, -0.05), p0 + Vector3(0.05, 0.5, 0.62), p0 + Vector3(0, 0.22, -0.3)]
+	_leg_cam(_dolly[0], _dolly[1], 46.0)
+
+
+## Lettukruunu: kaksitoista letunpalaa renkaaksi, kuusi sakaraa kermanokareineen ja hillotilkka edessä (-Z = etu).
+func _make_crown() -> Node3D:
+	var k := Node3D.new()
+	var dough := Color(0.98, 0.84, 0.5)
+	var rim := Color(0.66, 0.38, 0.14)
+	var r := 0.118
+	for i in 14:
+		var a := TAU * i / 14.0
+		var seg := B.mesh(k, B.boxm(Vector3(0.05, 0.05, 0.012)), Vector3(cos(a) * r, 0.025, sin(a) * r),
+			dough if i % 2 == 0 else dough.darkened(0.06))
+		seg.rotation.y = -a + PI / 2.0
+		B.mesh(seg, B.boxm(Vector3(0.052, 0.008, 0.014)), Vector3(0, -0.024, 0), rim)  # paistettu alareuna
+	for i in 6:
+		var a := TAU * (i + 0.5) / 6.0
+		var at := Vector3(cos(a) * r, 0.05, sin(a) * r)
+		var prong := B.mesh(k, B.cyl(0.004, 0.026, 0.055, 6), at + Vector3(0, 0.027, 0), dough.lightened(0.05))
+		prong.rotation = Vector3(0, -a, 0)
+		B.mesh(k, B.sphere(0.017, 10), at + Vector3(0, 0.062, 0), Color(1.0, 0.96, 0.88))  # kermanokare sakaran kärjessä
+		B.mesh(k, B.cyl(0.0, 0.009, 0.016, 8), at + Vector3(0, 0.083, 0), Color(1.0, 0.96, 0.88))
+	var jam := B.mesh(k, B.sphere(0.02, 10), Vector3(0, 0.03, -r - 0.012), Color(0.78, 0.05, 0.12))  # hillo edessä
+	jam.scale = Vector3(1.0, 1.0, 0.45)
+	for i in 16:  # paistopilkut: kruunu on lettua, ei kultaa
+		var a := TAU * i / 16.0 + 0.2
+		var sp := B.mesh(k, B.cyl(0.009, 0.009, 0.003, 8), Vector3(cos(a) * (r + 0.006), 0.014 + fmod(i * 0.37, 1.0) * 0.026,
+			sin(a) * (r + 0.006)), Color(0.62, 0.34, 0.1))
+		sp.rotation = Vector3(0, -a, PI / 2.0)
+	return k
+
+
+## Sähkövatkain (-Y = vispilät alaspäin, -Z = nokka): runko, kahva, nopeusnappi, kaksi vispilää kermassa.
+func _make_mixer() -> Node3D:
+	var m := Node3D.new()
+	var ivory := Color(0.95, 0.94, 0.9)
+	var steel := Color(0.92, 0.92, 0.94)
+	B.mesh(m, B.boxm(Vector3(0.08, 0.075, 0.17)), Vector3(0, 0.0, 0), ivory)
+	B.mesh(m, B.boxm(Vector3(0.082, 0.02, 0.172)), Vector3(0, -0.04, 0), Color(0.75, 0.2, 0.18))  # punainen raita
+	B.mesh(m, B.cyl(0.04, 0.04, 0.08, 14), Vector3(0, 0.0, -0.085), ivory, Vector3(0, 0, PI / 2.0))  # pyöreä nokka
+	var handle := B.mesh(m, B.boxm(Vector3(0.034, 0.03, 0.15)), Vector3(0, 0.075, 0.02), ivory.darkened(0.05))
+	B.mesh(handle, B.boxm(Vector3(0.036, 0.012, 0.03)), Vector3(0, 0.0, -0.05), Color(0.2, 0.2, 0.22))  # nopeusnappi
+	for sx: float in [-0.022, 0.022]:
+		var b := Node3D.new()
+		b.position = Vector3(sx, -0.04, -0.05)
+		m.add_child(b)
+		B.mesh(b, B.cyl(0.005, 0.005, 0.08, 6), Vector3(0, -0.04, 0), steel)  # varsi
+		for k in 4:  # vispilän lankasilmukat
+			var a := PI * k / 4.0
+			var d := Vector3(cos(a), 0, sin(a))
+			B.tube(b, Vector3(0, -0.075, 0), d * 0.03 + Vector3(0, -0.12, 0), 0.0035, steel)
+			B.tube(b, d * 0.03 + Vector3(0, -0.12, 0), Vector3(0, -0.165, 0), 0.0035, steel)
+			B.tube(b, -d * 0.03 + Vector3(0, -0.12, 0), Vector3(0, -0.165, 0), 0.0035, steel)
+			B.tube(b, Vector3(0, -0.075, 0), -d * 0.03 + Vector3(0, -0.12, 0), 0.0035, steel)
+		var blob := B.mesh(b, B.sphere(0.03, 12), Vector3(0, -0.13, 0), Color(1.0, 0.98, 0.92))  # kermaa vispilässä
+		blob.scale = Vector3(1.0, 1.35, 1.0)
+		_blobs.append(blob)
+		_beaters.append(b)
+	return m
+
+
+func _leg_kruunu() -> void:
+	_phase = "kruunu"
+	_t = 0.0
+	_story = ""
+	# Pelaaja nousee pöydän eteen (jakkara jää tyhjäksi), nainen tulee vastapäätä kruunu käsissään.
+	var p: Node3D = _chars[0]
+	p.clear_ik()
+	(_eaters[0].fork as Node3D).visible = false
+	p.position = CENTER + P_AT
+	p.rotation.y = atan2(-1.0, 0.0)  # kasvot +X (naista kohti); hahmon etu on -Z
+	p.play("Idle", 0.0)
+	var w: Node3D = _chars[3]
+	w.position = CENTER + W_AT
+	w.rotation.y = atan2(1.0, 0.0)  # kasvot -X
+	w.play("Idle", 0.0)
+	# Kaverit nousevat seisomaan jakkaroidensa taakse ja katsovat kruunajaisia.
+	var mid := CENTER + (P_AT + W_AT) / 2.0
+	for s in [1, 2]:
+		(_chars[s] as Node).queue_free()
+		(_eaters[s].fork as Node3D).visible = false
+		var at := CENTER + Vector3(SEAT_X[s], 0.017, FRIEND_Z)
+		var f := (mid - at) * Vector3(1, 0, 1)
+		_chars[s] = Room.stand(_hall, people[s].look, at, f.normalized(), "Idle")
+	_crown = _make_crown()
+	_hall.add_child(_crown)
+	_hall._set_layers(_crown)
+	_crown.rotation.y = -PI / 2.0  # hillo (-Z) pelaajan etupuolelle (+X)
+	_leg_cam(CENTER + Vector3(-0.2, 1.85, 3.3), CENTER + Vector3(-0.3, 1.12, 0.0), 40.0)
+	_crown_from = Vector3.INF
+
+
+## Kruunu naisen käsissä: kädet IK:lla kruunun sivuille (naisen avaruudessa).
+func _hold_crown(at: Vector3) -> void:
+	_crown.position = at
+	var w: Node3D = _chars[3]
+	var inv := w.transform.affine_inverse()
+	var side := Vector3(0, 0, 0.11)  # kruunun sivut Z-akselilla; nainen katsoo -X:ään, joten hänen oikeansa on -Z
+	w.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * (at - side), inv * (at - side + Vector3(0.3, -0.4, -0.25)))
+	w.set_ik("arm_l", "upperarm_l", "lowerarm_l", "hand_l", inv * (at + side), inv * (at + side + Vector3(0.3, -0.4, 0.25)))
+
+
+func _leg_vatkain() -> void:
+	_phase = "vatkain"
+	_t = 0.0
+	var w: Node3D = _chars[3]
+	w.clear_ik()
+	_mixer = _make_mixer()
+	_hall.add_child(_mixer)
+	_hall._set_layers(_mixer)
+	_mixer.rotation.y = PI / 2.0  # nokka pelaajaa kohti (-X)
+	var ph := _head(_chars[0])
+	var wh := _head(w)
+	_leg_cam(CENTER + Vector3(-0.62, 1.58, 2.45), (ph + wh) / 2.0 + Vector3(0, -0.14, 0), 36.0)
+
+
+## Vatkain naisen oikeassa kädessä: kahva kohdassa at.
+func _hold_mixer(at: Vector3, tilt: float) -> void:
+	_mixer.position = at
+	_mixer.rotation = Vector3(tilt, PI / 2.0, 0)  # tilt > 0: vispilät kallistuvat pelaajaa kohti
+	var w: Node3D = _chars[3]
+	var inv := w.transform.affine_inverse()
+	var grip := _mixer.transform * Vector3(0, 0.0, 0.05)  # ote rungon takaosasta
+	w.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * grip, inv * (grip + Vector3(0.3, -0.4, -0.3)))
+	# Vatkain seuraa todellista kättä (IK ei aina ylety): kahva kämmeneen, ettei vatkain leiju.
+	var hand := _hall.to_local(w.to_global(w.bone_position("hand_r")))
+	var palm := hand + (grip - hand).normalized() * minf(0.06, hand.distance_to(grip))
+	_mixer.position += palm - grip
+
+
+## Kunkun suu hallin koordinaateissa (pään luusta eteen, +X = kunkun etu tässä kohtauksessa).
+func _mouth() -> Vector3:
+	var p: Node3D = _chars[0]
+	return _hall.to_local(p.to_global(p.bone_position("Head") + Vector3(0, 0.0, -0.11)))
+
+
+## Vatkain kunkun oikeassa kädessä: k 0 = rinnan edessä, 1 = vispilä pystyssä suun edessä (kermanokare kielen kohdalla).
+## Vispilät osoittavat ylös ja hieman suuta kohti (kierto Z:n ympäri PI + 0,35: -Y -> (-0,34, 0,94)).
+## up: kunkku nostaa vatkaimen kuin valtikan (otsikko).
+func _king_mixer(k: float, up := false) -> void:
+	var p: Node3D = _chars[0]
+	var b := Basis(Vector3(0, 0, 1), PI + 0.35)
+	var blob_off := b * Vector3(0, -0.17, -0.05)  # kermanokareiden keskikohta rungosta
+	var lick := _mouth() + Vector3(0.062, 0.02, 0.0) - blob_off
+	var chest := _head(p) + Vector3(0.24, -0.5, 0.14)
+	if up:
+		lick = _head(p) + Vector3(-0.3, 0.1, 0.12)  # oikealle sivulle (kameraan katsovan oikea on -X), ei kasvojen eteen
+		b = Basis(Vector3(0, 0, 1), PI)
+	_mixer.transform = Transform3D(b, chest.lerp(lick, k))
+	var grip := _mixer.transform * Vector3(0, 0.0, 0.05)
+	var inv := p.transform.affine_inverse()
+	p.set_ik("arm_r", "upperarm_r", "lowerarm_r", "hand_r", inv * (grip + Vector3(0, -0.02, 0.03)),
+		inv * (grip + Vector3(-0.1, -0.45, 0.35)))
+	# Vatkain seuraa todellista kättä (IK:n tulos näkyy seuraavassa ruudussa), ettei se leiju kämmenen vieressä.
+	var hand := _hall.to_local(p.to_global(p.bone_position("hand_r")))
+	_mixer.position += hand - (grip + Vector3(0, -0.02, 0.03))
+
+
+func _leg_step(delta: float) -> void:
+	_shake = maxf(0.0, _shake - delta * 1.2)
+	var j := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03
+	_cam.transform = Transform3D(_cam_base.basis, _cam_base.origin + _cam_base.basis * j)
+	match _phase:
+		"lasku":
+			var k := smoothstep(0.2, 1.9, _t)
+			_leg_cam(_dolly[0].lerp(_dolly[2], k), _dolly[1].lerp(_dolly[3], k), lerpf(46.0, 58.0, k))
+			if _t >= 2.0 and _first("kling"):
+				Sfx.play("glass", -4.0, 1.9)
+				Sfx.play("bell", -6.0, 1.2)
+				var p0 := CENTER + Vector3(SEAT_X[0], TABLE_H + 0.03, PLATE_Z)
+				_burst(_hall.to_global(p0), Color(1.0, 0.86, 0.4), 18, 0.9)
+			if _t >= 3.8:
+				_leg_kruunu()
+		"kruunu":
+			var p: Node3D = _chars[0]
+			var top := _head(p) + Vector3(0, 0.15, 0)
+			if _crown_from == Vector3.INF:
+				_crown_from = _head(_chars[3]) + Vector3(-0.18, -0.12, 0)  # rinnan edessä
+			if _crown.get_parent() == _hall:
+				var k := smoothstep(0.4, 1.5, _t)
+				_hold_crown(_crown_from.lerp(top, k) + Vector3(0, sin(k * PI) * 0.08, 0))  # kaari pään yli
+				_lean = smoothstep(0.3, 0.9, _t) * 0.35 * (1.0 - smoothstep(1.6, 2.0, _t))
+				Room.nod(p, _lean)
+			if _t >= 1.55 and _first("kruunattu"):
+				_crown.get_parent().remove_child(_crown)
+				p.attach("Head", _crown, Vector3(0, 0.115, 0.0))
+				_hall._set_layers(_crown)
+				(_chars[3] as Node3D).call("clear_ik")
+				Sfx.play("win_small", -4.0)
+				_burst(_hall.to_global(top + Vector3(0, 0.08, 0)), Color(1.0, 0.99, 0.95), 30, 1.2)
+				_burst(_hall.to_global(top + Vector3(0, 0.08, 0)), Color(1.0, 0.8, 0.3), 16, 1.0)
+			if _t >= 2.0:
+				Room.nod(p, 0.0)
+			if _t >= 1.8 and _first("r0"):
+				_leg_say(0)
+				(_chars[3] as Node3D).call("play", "Idle_Talking", 0.2)
+			if _t >= 4.6:
+				_leg_vatkain()
+		"vatkain":
+			var p: Node3D = _chars[0]
+			var w: Node3D = _chars[3]
+			var raise := _head(w) + Vector3(-0.2, -0.12, -0.1)  # naisen oikealla puolella (-Z)
+			var spin := _t < 1.7
+			if _t < 1.9:
+				_hold_mixer(raise + Vector3(0, smoothstep(0.0, 0.6, _t) * 0.1, 0), 0.0)
+			else:
+				# Kunkku ottaa vatkaimen naiselta omaan oikeaan käteensä (kameran puolelle, +Z) ja nostaa vispilän
+				# pystyyn suunsa eteen kuin jäätelön; naisen ei tarvitse yltää.
+				if _first("ojennus"):
+					w.clear_ik()
+					w.play("Idle", 0.2)
+				var k := smoothstep(1.9, 2.6, _t) * (1.0 - smoothstep(4.3, 4.9, _t))
+				_king_mixer(k)
+			for b: Node3D in _beaters:
+				if spin:
+					b.rotation.y += delta * 40.0
+			if spin:
+				_spray_t -= delta
+				if _first("surr"):
+					Sfx.play("saw", -10.0, 2.6)
+					_shake = 0.25
+				if _spray_t <= 0.0:
+					_spray_t = 0.12
+					for b: Node3D in _beaters:
+						_burst(b.global_position + Vector3(0, -0.13, 0), Color(1.0, 0.99, 0.95), 6, 0.9)
+			# Pää hieman eteen vispilää kohti nuolaisun ajaksi.
+			_lean = smoothstep(2.6, 3.0, _t) * (1.0 - smoothstep(3.6, 4.1, _t))
+			Room.nod(p, _lean * 0.25)
+			# Lähikuva sivuprofiilista: kamera kunkun edestä-sivulta (+X, +Z), tausta vasemmalla seinällä, niin ettei
+			# kukaan ole vispilän ja suun takana. Sitten takaisin kahden kuvaan kommenttia varten.
+			if _t >= 2.3 and _t < 4.4:
+				if _first("lahi"):
+					var m0 := _mouth()
+					_leg_cam(m0 + Vector3(0.19, 0.03, 0.74), m0 + Vector3(0.06, -0.04, 0), 32.0)
+			elif _t >= 4.4 and _first("takaisin"):
+				var ph := _head(p)
+				var wh := _head(w)
+				_leg_cam(CENTER + Vector3(-0.62, 1.58, 2.45), (ph + wh) / 2.0 + Vector3(0, -0.14, 0), 36.0)
+			if _t >= 3.0 and _first("kieli"):
+				_tongue = Node3D.new()
+				var t := B.mesh(_tongue, B.sphere(0.018, 10), Vector3.ZERO, Color(0.86, 0.36, 0.42))
+				t.scale = Vector3(1.0, 0.45, 2.3)
+				p.attach("Head", _tongue, Vector3(0, 0.0, -0.13))
+				_hall._set_layers(_tongue)
+			if _t >= 3.25 and _first("nuolaisu"):
+				Sfx.play("water", -12.0, 1.8)
+				Sfx.play("cloth", -6.0, 0.5)
+				for bl: Node3D in _blobs:
+					bl.create_tween().tween_property(bl, "scale", Vector3(0.3, 0.3, 0.3), 0.3)
+				_stache = Node3D.new()
+				for sx: float in [-0.026, 0.0, 0.026]:  # kermaviikset ylähuuleen
+					var m := B.mesh(_stache, B.sphere(0.022, 10), Vector3(sx, -absf(sx) * 0.4, absf(sx) * 0.5), Color(1.0, 0.97, 0.9))
+					m.scale = Vector3(1.2, 0.6, 0.7)
+				p.attach("Head", _stache, Vector3(0, 0.014, -0.095))
+				_hall._set_layers(_stache)
+				_burst(_hall.to_global(_mouth()), Color(1.0, 0.99, 0.95), 14, 0.7)
+			if _t >= 3.7 and is_instance_valid(_tongue) and _first("kieli_pois"):
+				_tongue.get_parent().queue_free()  # BoneAttachment kielineen
+			if _t >= 4.6 and _first("r1"):
+				_leg_say(1, 3.2)
+				(_chars[int(lines.legenda.rivit[1][0])] as Node3D).call("play", "Idle_Talking", 0.1)
+			if _t >= 7.4 and _first("r2"):
+				_leg_say(2, 3.0)
+			if _t >= 10.0:
+				_leg_otsikko()
+		"otsikko":
+			var k := smoothstep(0.0, 4.5, _t)
+			var face := _head(_chars[0])
+			_king_mixer(smoothstep(0.0, 0.6, _t), true)  # kunkku nostaa vatkaimen kuin valtikan
+			_leg_cam(face + Vector3(0.56 - 0.08 * k, -0.05, 2.25 - 0.3 * k), face + Vector3(0.56, -0.3, 0), 38.0)
+			if _t >= 5.5:
+				_finish(_leg_result())
+
+
+func _leg_otsikko() -> void:
+	_phase = "otsikko"
+	_t = 0.0
+	for s in 4:
+		_bubbles[s] = ""
+	# Kunkku kääntyy kameraan kruunu päässä ja kermaviikset naamassa ja nostaa vatkaimen kuin valtikan.
+	var p: Node3D = _chars[0]
+	p.rotation.y = atan2(-0.35, -1.0)
+	Room.nod(p, 0.0)
+	var w: Node3D = _chars[3]
+	w.rotation.y = atan2(0.8, -1.0)  # nainen kääntyy puoliksi kameraan ja katsoo kunkkua
+	w.play("Idle_Talking", 0.2)
+	Sfx.play("win", -4.0)
+
+
+func _draw_legend(vs: Vector2) -> void:
+	var font := ThemeDB.fallback_font
+	if _story != "":
+		var r := Rect2(vs.x / 2.0 - 420, 24, 840, 52)
+		Room.box(_ui, r)
+		_ui.draw_string(font, r.position + Vector2(16, 33), _story, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 32, 19, Color(1.0, 0.92, 0.75))
+	for s in 4:
+		Room.bubble(_ui, _cam, _chars[s], _bubbles[s], 90.0, 120.0)
+	if _phase != "otsikko":
+		return
+	_ui.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.03, 0.02, 0.01, 0.4 * clampf(_t / 0.8, 0.0, 1.0)))
+	var a := clampf((_t - 0.5) / 0.8, 0.0, 1.0)
+	var x0 := vs.x * 0.47
+	var w := vs.x * 0.5
+	var y := vs.y * 0.2
+	var title := "LETTUKUNKKU"
+	_ui.draw_string_outline(font, Vector2(x0, y), title, HORIZONTAL_ALIGNMENT_CENTER, w, 78, 10, Color(0.1, 0.05, 0.0, a))
+	_ui.draw_string(font, Vector2(x0, y), title, HORIZONTAL_ALIGNMENT_CENTER, w, 78, Color(1.0, 0.82, 0.35, a))
+	# Kermaa valuu kirjainten alareunasta (valumat kasvavat otsikon ilmestyttyä).
+	var tw := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 78).x
+	var tx := x0 + (w - tw) / 2.0
+	var cream := Color(1.0, 0.98, 0.93, a)
+	for i in 9:
+		var dx := tx + tw * (0.06 + 0.11 * i) + sin(i * 7.3) * 6.0
+		var dl := (10.0 + 22.0 * fmod(i * 0.618, 1.0)) * clampf((_t - 0.9) / 1.6, 0.0, 1.0)
+		_ui.draw_rect(Rect2(dx - 3.0, y + 2.0, 6.0, dl), cream)
+		_ui.draw_circle(Vector2(dx, y + 2.0 + dl), 4.5, cream)
+		_ui.draw_circle(Vector2(dx, y + 1.0), 6.0, cream)
+	var sr := Rect2(x0, y + 50.0, w, 112)
+	_ui.draw_rect(sr, Color(0.05, 0.04, 0.03, 0.75 * a))
+	var sub := "%d lettua minuutissa. %s" % [floori(_score(0)), String(lines.legenda.sub)]
+	_ui.draw_multiline_string(font, sr.position + Vector2(18, 34), sub, HORIZONTAL_ALIGNMENT_CENTER, w - 36, 20, 4,
+		Color(1.0, 0.94, 0.8, a))
 
 
 # --- Testi (tools/testit/iltakivat_kuvat.gd) ----------------------------------------------------------------------
