@@ -13,15 +13,15 @@ const ENDINGS := [
 	["mokkibileet", "Mökkibileet", "Paapelin kotiviini, Santtu, Sinikka ja Korpi-Kalle. Herätys jostain krapulassa."],
 	["paapeli", "Paapeliin Pekan kyydillä", "Naapurin hommat tehty, avaimet löytyi, ja Volvo kaahaa mökille."],
 	["savusauna", "Savusaunan löylyt", "Korjattu savusauna, pehmeät löylyt ja järvi perään."],
-	["lavatanssit", "Lavatanssit Oulujärvellä", "Humppaveikot soitti, ja jalka nousi kuin nuorena."],
-	["karaoke", "Karaokekuningas", "Yleisö taputti, ja baarimikko tarjosi."],
-	["kiihdytys", "Kiihdytyksen voittaja", "Vaalantien suoralla mopopojat jäi toiseksi."],
+	["lavatanssit", "Lavatanssit Oulujärvellä", "Humppaveikot soitti viimeisen humpan teille kahdelle, parit taputtivat piirissä, ja jalka nousi kuin nuorena."],
+	["karaoke", "Karaokekuningas", "Viimeinen sävel, ja koko baari nousi seisomaan. Baarimikko soitti kelloa, liu'utti tuopin tiskiä pitkin ja kirjoitti tauluun: ILLAN KUNINGAS."],
+	["kiihdytys", "Kiihdytyksen voittaja", "Vaalantien suoralla mopopojat jäi toiseksi. Hävinnyt työnsi mopon Zabukille, ja voittaja keuli koko suoran."],
 	["sahkopyora", "Saloislainen sähköpyörä", "Ruuveilla, teipillä ja toivolla kasattu sähköpyörä kulkee."],
-	["tanssit", "Seuraintalon tanssit", "Saapasjalat soitti, ja tanssi sujui."],
+	["tanssit", "Seuraintalon tanssit", "Saapasjalat soitti viimeisen valssin, valot himmenivät ja lattian keskellä taivutettiin. Valot syttyivät, ja Anna-Liisa kertoi siitä koko kylälle."],
 	["kinkku", "Bingon jättipotti", "Joulukinkku seuraintalon bingosta. Mummot ei anna ikinä anteeks."],
 	["tokolan_aarre", "Tokolan kauppiaan aarre", "Legenda todistettu: Aaro oli oikeassa."],
 	["sulon_pannu", "Vanhan Sulon pannu", "Kuparipannu nousi Pilkkarinnevalta, ja Sulo myönsi."],
-	["piirakkakuningas", "Lihapiirakkakuningas", "Reipparin ennätystauluun uusi nimi. Juntti ei usko."],
+	["piirakkakuningas", "Lihapiirakkakuningas", "Juntin ennätys rikki Reipparin pihapöydässä. Juntti laski piirakkapaperit ja mittasi piirakat rullamitalla, Raija veti tussilla viivan hänen nimensä yli, ja kuningas röyhtäisi sipulipilven. Juntti ei usko."],
 	["eramaan_laavu", "Erämaan laavu", "Viitajärven laavulla nuotio, makkara ja kalja. Kukaan ei tiedä, missä oot."],
 	["uutiset", "Kymppiuutiset nauhalta", "Video ajastettu, kalja eteisen kaapista ja sohvalle. Päivi nukkuu jo."],
 	["aarnivalkea", "Isonvihan hopeat", "Lapinraunion aarnivalkea paloi oikean aarteen päällä. Hilkka oli oikeassa."],
@@ -68,7 +68,7 @@ const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet"
 
 ## Legendaariset hetket, jotka koetaan lavastettuna kohtauksena (cutscene.gd): ei erillistä ilmoitusta, vaan kohtauksen
 ## jälkeen hillitty rivi päiväkirjan uudesta tarinasta. Muut hetket näyttävät vielä vanhan ilmoituksen.
-const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti", "rasytuppi", "lettukunkku", "loylykunkku", "sivikkidisko", "karaokekunkku", "kesaheila"]
+const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti", "rasytuppi", "lettukunkku", "loylykunkku", "sivikkidisko", "karaokekunkku", "kesaheila", "lavatanssit", "karaoke", "kiihdytys", "tanssit", "piirakkakuningas"]
 
 ## [id, nimi, kuvaus] -> kuvaus.
 static func desc_of(id: String) -> String:

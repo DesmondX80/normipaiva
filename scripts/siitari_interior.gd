@@ -414,6 +414,62 @@ func from_stage(cheer: bool, quiet := false) -> void:
 		say(_cardplayers[0], "Korvat soi vieläkin.")
 
 
+# --- Legendaarinen hetki "karaoke" (karaoke_legenda.gd) --------------------------------
+
+const KaraokeLegenda := preload("res://scripts/karaoke_legenda.gd")
+## Repliikit: hush ja cheers [puhuja, teksti], puhuja = yleisön indeksi (seurue 0-3, kortinpelaajat 4-5), "fan" (Sinikka)
+## tai "bartender". muisto: baarimikko seuraavilla käynneillä (taulu täällä), huhu: kuningas kruunattiin Raahessa.
+const KARAOKE_LEGENDA := {
+	"ruutu": "♪ ...nor-mi-yyyy-öö ♪\nRAIKUU!",
+	"savel": "Viimeinen sävel. Käsi kohti kattoa, ja ääni kantaa Vaalantielle asti.",
+	"hiljaisuus": "Sävel loppuu. Siitarissa on niin hiljaista, että kylmiön hurina kuuluu.",
+	"hush": [4, "...kuulitteko te tuon?"],
+	"aplodit": "Ja sitten koko sali nousee seisomaan.",
+	"cheers": [[0, "Bravo! Tuommosta ääntä ei oo Siitarissa kuultu sitten tukkilaisten!"],
+		["fan", "Sinikka: Mää meinasin pyörtyä! Laula mulle joskus uudestaan."]],
+	"kello": "Baarimikko tarttuu tiskin kellon naruun.",
+	"bartender": "Talo tarjoaa! Laulajalle tuoppi, ja nimi taululle!",
+	"tuoppi": "Tuoppi liukuu tiskiä pitkin suoraan kuninkaan käteen.",
+	"sub": "Siitarin sali nousi seisomaan, ja baarimikko tarjosi tuopin. Taulussa lukee vieläkin: ILLAN KUNINGAS.",
+	"taulu": "TALO TARJOAA\nILLAN\nKUNINGAS",
+	"muisto": ["Kuningas palas! Taulussa lukee vieläkin sun nimi.", "Kas, illan kuningas. Laulatko tänään taas koko salin jaloilleen?"],
+	"huhu": ["Raahessa kuulemma laulettiin koko Kellari seisomaan. Sääkö se olit?"],
+}
+var _board: Node3D
+
+
+## Liitutaulu "ILLAN KUNINGAS" vasemmalla päätyseinällä tiskin päässä (legendan jälkeen aina näkyvissä).
+func show_board(on: bool) -> Node3D:
+	if on and _board == null:
+		ensure_built()
+		_board = KaraokeLegenda.make_board(self, Vector3(-HALF.x + 0.2, 1.75, -4.55), PI / 2.0, KARAOKE_LEGENDA.taulu)
+	if _board != null:
+		_board.visible = on
+	return _board
+
+
+## Näyttelijät ja paikat legendalle: pelaaja mikkitelineen takana, sali (seurue ja kortinpelaajat), Sinikka fanina
+## tanssilattian reunalla, baarimikko kellon luona, tuopin liukurata tiskillä ja kiinniottopaikka tiskin päässä.
+func legend_cast() -> Dictionary:
+	if _singing > 0.0:  # seurueen laulaja lavalta paikalleen
+		_singing = 0.0
+		_singer.position = Vector3(2.0, 0, 3.4)
+		_singer.rotation.y = B.yaw_to(Vector3(0, 0, -1))
+		_singer.play("Sitting_Idle", 0.0)
+	sinikka_dancing = false
+	_place_sinikka()
+	var aud: Array = []
+	aud.append_array(_seurue)
+	aud.append_array(_cardplayers)
+	return {"walker": walker, "stage": Vector3(-5.92, 0.35, 2.88), "face": Vector3(1, 0, 0), "mic": Vector3(-5.52, 1.72, 3.0),
+		"audience": aud, "fan": _sinikka, "bartender": _bartender,
+		"bartender_at": Vector3(-4.35, 0, -4.55), "bell_at": Vector3(-4.62, 1.16, -4.14), "counter_out": Vector3(0, 0, 1),
+		"slide_from": Vector3(-4.85, 1.16, -3.78), "slide_to": Vector3(-6.8, 1.16, -3.72), "catch_at": Vector3(-6.9, 0, -3.27),
+		"board_at": Vector3(-HALF.x + 0.2, 1.75, -4.55),
+		"title_eye": Vector3(-5.87, 1.55, -4.94),
+		"room": {"c": Vector3.ZERO, "half": HALF, "h": WALL_H, "col": Color(0.36, 0.22, 0.13)}, "screen": _screen, "bubbles": _bubbles, "lines": KARAOKE_LEGENDA}
+
+
 # --- Rakennus ---------------------------------------------------------------------
 
 func _wall(a: Vector2, b: Vector2, h: float, col: Color, collide_h := WALL_H) -> void:

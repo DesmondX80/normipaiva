@@ -6216,6 +6216,10 @@ func _build_trees() -> void:
 	var f := Forest.new()
 	add_child(f)
 	var clear := {"thin": {"c": TOWN_THIN_C, "r": TOWN_THIN_R, "keep": TOWN_THIN_KEEP}}
+	var lv: Dictionary = data.get("lava", {})
+	if not lv.is_empty():  # siirretyn lavan alle jääneet laserpuut kasvoivat tanssilattian ja katon läpi
+		var hs := Vector2(float(lv.w), float(lv.l)) / 2.0 + Vector2(1.5, 1.5)
+		clear.rects = [Rect2(Vector2(lv.x, lv.z) - hs, hs * 2.0)]
 	if not _tree_clear.is_empty():
 		clear.merge({"mask": _tree_clear, "x0": _x0, "z0": _z0, "cell": DRIVE_CELL, "nx": _dnx, "nz": _dnz})
 	f.load_data(TREES, clear)

@@ -151,6 +151,9 @@ var haalari: Node3D  # neonpinkki hiihtohaalari Railin vaatetangossa (main.gd pi
 var slabarit: Node3D  # 90-luvun släbärit vaatetangon juurella (main.gd piilottaa ostettuna)
 var _chat_t := 4.0
 var _t := 0.0
+var hold_dancers := false  # tanssien legenda (tanssi_game.gd _leg_*): taustaparit pysähtyvät paikoilleen
+var _lamps: Array = []  # kattolamput: [OmniLight3D, varjostin MeshInstance3D (oma materiaali), energia]
+var _party: Array = []  # tanssien värivalot: [OmniLight3D, energia]
 
 
 func _ready() -> void:
@@ -276,7 +279,7 @@ func _process(delta: float) -> void:
 		if left <= 0.0:
 			b.text = ""
 			who.play(who.get_meta("pose"), 0.3)
-	if mode == "tanssit":  # parit kiertävät tanssilattiaa
+	if mode == "tanssit" and not hold_dancers:  # parit kiertävät tanssilattiaa
 		for k in _dancers.size():
 			var dp := dancer_pose(k, _dancers.size(), _t)
 			_dancers[k].position = dp[0]
@@ -342,6 +345,24 @@ func _process(delta: float) -> void:
 				say_id("raili", "Takahuone on Veksin varasto. Ei asiakkaille. Älä ees kysy.")
 		_:
 			acted.emit(best)
+
+
+## Kattolamppu i kirkkaudella k (0 = sammuksissa, 1 = normaali): valo ja varjostimen sävy (tanssien legenda).
+func set_lamp(i: int, k: float) -> void:
+	var l: Array = _lamps[i]
+	(l[0] as OmniLight3D).light_energy = float(l[2]) * k
+	var m: StandardMaterial3D = (l[1] as MeshInstance3D).material_override
+	m.albedo_color = Color(0.32, 0.3, 0.26).lerp(Color(0.95, 0.9, 0.7), clampf(k, 0.0, 1.0))
+
+
+func lamp_count() -> int:
+	return _lamps.size()
+
+
+## Tanssien värivalot kirkkaudella k.
+func set_party(k: float) -> void:
+	for l: Array in _party:
+		(l[0] as OmniLight3D).light_energy = float(l[1]) * k
 
 
 # --- Rakennus ---------------------------------------------------------------------
@@ -419,6 +440,7 @@ func _build_room() -> void:
 		light.light_energy = 0.5
 		light.light_color = [Color(1, 0.3, 0.3), Color(0.3, 0.5, 1), Color(1, 0.85, 0.3)][k % 3]
 		tg.add_child(light)
+		_party.append([light, light.light_energy])
 	# Ovi, takahuone, takaovi ja ilmoitustaulu.
 	B.mesh(self, B.boxm(Vector3(2.0, 0.08, 0.15)), Vector3(0, 0.04, HALF.y), Color(0.3, 0.3, 0.3))
 	B.label(self, "ULOS", Vector3(0, 0.9, HALF.y), 40, Color(0.3, 1.0, 0.4), true)
@@ -448,7 +470,8 @@ func _build_room() -> void:
 	_build_ceiling()
 	for i in 4:  # lamput
 		var lx := -6.0 + i * 4.0
-		B.mesh(self, B.cyl(0.25, 0.4, 0.25, 12), Vector3(lx, WALL_H - 0.3, 0), Color(0.95, 0.9, 0.7))
+		var shade := B.mesh(self, B.cyl(0.25, 0.4, 0.25, 12), Vector3(lx, WALL_H - 0.3, 0), Color(0.95, 0.9, 0.7))
+		shade.material_override = (shade.material_override as StandardMaterial3D).duplicate()  # oma: sammuu ja syttyy (set_lamp)
 		B.mesh(self, B.cyl(0.012, 0.012, 0.2, 6), Vector3(lx, WALL_H - 0.08, 0), Color(0.15, 0.15, 0.15))  # johto kattoon
 		var light := OmniLight3D.new()
 		light.position = Vector3(lx, WALL_H - 0.6, 0.5)
@@ -456,6 +479,7 @@ func _build_room() -> void:
 		light.light_energy = 0.6
 		light.light_color = Color(1.0, 0.92, 0.78)
 		add_child(light)
+		_lamps.append([light, shade, light.light_energy])
 
 
 ## Paneelikatto ja kattopalkkien alapinnat. Pinnat katsovat alas: salin sisältä (huutokaupan ja bingon kamera) näkyy katto

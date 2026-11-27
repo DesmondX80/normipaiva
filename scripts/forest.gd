@@ -81,12 +81,13 @@ func load_data(path: String, clear := {}) -> bool:
 
 ## Raivausruudukon kohdalla puut piiloon: pituus nollaan ja maan alle (lohkojen indeksit säilyvät). Valinnainen
 ## harvennus thin = {c: Vector2, r: float, keep: float}: ympyrän keskellä puista jää osuus keep, ja osuus kasvaa
-## reunaa kohti täyteen metsään (puun paikasta laskettu tiiviste: sama puu jää joka kerta).
+## reunaa kohti täyteen metsään (puun paikasta laskettu tiiviste: sama puu jää joka kerta). Valinnainen rects =
+## [Rect2, ...]: suorakaiteiden sisältä kaikki puut pois (rakennusten pohjat, jotka eivät ole raivausruudukossa).
 ## Pelkällä raivausruudukolla (ei harvennusta) käydään läpi vain lähilohkot, joiden alueelle ruudukko osuu
 ## (near_tab: lohkon ja lajin puut ovat peräkkäin): koko metsän 340 000 puuta GDScriptillä vei turhaa aikaa.
 ## Palauttaa [Vector2i(alku, määrä), ...] tai tyhjän (= kaikki puut).
 func _clear_ranges(clear: Dictionary) -> Array:
-	if clear.has("thin") or not clear.has("mask") or near_chunk <= 0.0:
+	if clear.has("thin") or clear.has("rects") or not clear.has("mask") or near_chunk <= 0.0:
 		return []
 	var x0: float = clear.x0
 	var z0: float = clear.z0
@@ -119,6 +120,7 @@ static func _clear_trees(raw_a: PackedByteArray, clear: Dictionary, ranges := []
 	var nx: int = clear.get("nx", 0)
 	var nz: int = clear.get("nz", 0)
 	var thin: Dictionary = clear.get("thin", {})
+	var rects: Array = clear.get("rects", [])
 	for i in a.size() / 4:
 		var x := a[i * 4]
 		var z := a[i * 4 + 2]
@@ -127,6 +129,11 @@ static func _clear_trees(raw_a: PackedByteArray, clear: Dictionary, ranges := []
 			var ii := int((x - x0) / cell)
 			var jj := int((z - z0) / cell)
 			gone = ii >= 0 and jj >= 0 and ii < nx and jj < nz and mask[jj * nx + ii] != 0
+		if not gone:
+			for r: Rect2 in rects:  # rakennuksen pohja (esim. Vaalan lava): puu ei kasva lattian läpi
+				if r.has_point(Vector2(x, z)):
+					gone = true
+					break
 		if not gone and not thin.is_empty():
 			var d: float = Vector2(x, z).distance_to(thin.c) / float(thin.r)
 			if d < 1.0:
