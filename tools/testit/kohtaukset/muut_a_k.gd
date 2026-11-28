@@ -23,6 +23,7 @@ const RotkoGame := preload("res://scripts/rotko_game.gd")
 const Endings := preload("res://scripts/endings.gd")
 const Quests := preload("res://scripts/quests.gd")
 
+const DrakkarKohtaus := preload("res://scripts/drakkar_kohtaus.gd")
 const KOHTAUKSET := ["hahmoeditori", "asennot", "juntti", "fight", "fight_ohjeet", "field", "bog", "asut", "asema", "bikini", "hupihommat", "kainuulista", "hanhikivi", "kajaani", "kalajoki", "hiidenportti", "drakkar", "haalari", "bikini_video", "eramaa", "junttikierto", "jemmat", "honganpalo", "honganpalo_maasto", "ideat", "hiirisisalla", "juhlat", "chocotest", "fightfx", "infoboard", "guardleave", "hedgeclose", "homeview", "homeview2", "garage", "grilli", "aloitusruutu", "found", "aidat", "hiirinapit", "hiiriohjaus", "humala_ohjaus", "heitto", "jemma_ovi"]
 
 var main: Main
@@ -431,6 +432,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.money = 80.0
 			main.clock_min = 12 * 60.0
 			main.hanhikivi = HanhikiviLegenda.new()
+			main.endings.counts["hanhikiven_rajakivi"] = 1  # kiven hetki on oma testinsä (legendat.gd hanhikiven_rajakivi_eka)
 			print("HK taksivalinnat: %s" % [main._talk_options("taksi").filter(func(o): return o.id == "hanhikivi_kerro" or o.id == "retki_hanhikivi").map(func(o): return [o.id, o.enabled, o.text])])
 			print("HK tehtävät ennen: %s" % [main._hanhikivi_tasks()])
 			main._talk_open("taksi", null, "Kyytiä?")
@@ -630,6 +632,12 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._talk_who = "raili"
 			print("DRAKKAR Railin valinnat: %s" % str(main._talk_options()).left(400))
 			main._talk_kirppis("osta_drakkar")
+			# Ensimmäinen pullo on lavastettu hetki (drakkar_kohtaus.gd, oma testi legendat.gd drakkar_eka): ohitetaan.
+			for f in 4:
+				await main.get_tree().process_frame
+			for dk in main.get_children().filter(func(c): return c is DrakkarKohtaus):
+				dk._finish()
+			await main.get_tree().process_frame
 			print("DRAKKAR ostettu: suihkauksia %d, löydetty %s, rahaa %.1f, hetki %s" % [main.drakkar, main.drakkar_found, main.money, main.endings.counts.has("drakkar")])
 			print("DRAKKAR piilossa nyt: %s" % main._kirppis_hidden("drakkar"))
 			main._on_eat("drakkar")

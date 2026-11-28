@@ -10,6 +10,11 @@ const Walker := preload("res://scripts/player_walker.gd")
 const Vehicles := preload("res://scripts/vehicles.gd")
 
 const HALF := Vector2(15.0, 10.0)
+const GUARD_LOOK := {"shirt": Color(0.9, 0.8, 0.2), "pants": Color(0.2, 0.22, 0.3),
+	"shoes": Color(0.15, 0.12, 0.1), "shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.4, 0.35, 0.3), "height": 1.78}
+const SLAB_AT := Vector3(6.5, 0.04, -1.4)  # laatta paikallaan; auki: +0,95 x, +0,2 z, kierto 25°
+const SLAB_OPEN := Vector3(7.45, 0.04, -1.2)
+const SLAB_OPEN_YAW := 25.0
 const FENCE_Z := -5.2  # tehtaan aita: kävelyraja
 
 signal exited
@@ -21,6 +26,9 @@ var walker: CharacterBody3D
 var hint := ""
 var spot := ""
 var legenda: RefCounted
+var staged := false  # kapselin hetki (kapseli_kohtaus.gd) liikuttaa laattaa itse: _refresh odottaa
+var kuski: Node3D  # taksin kuski (piiloon hetken ajaksi)
+var shelf_capsule: Node3D  # löydön jälkeen kapseli vartijakopin ikkunalaudalla
 var spots := {
 	"ovi": [Vector3(-12.0, 0, 6.4), "[E] Taksille: takaisin lähtöpaikkaan"],
 	"vartija": [Vector3(-7.0, 0, -2.0), "[E] Juttele vartijan kanssa"],
@@ -71,15 +79,19 @@ func say(text: String, t := 3.6) -> void:
 	_guard.play("Idle_Talking", 0.2)
 
 
-## Laatta kiven edessä: paikallaan ennen löytöä, sivulle työnnetty ja kolo näkyvissä löydön jälkeen.
+## Laatta kiven edessä: paikallaan ennen löytöä, sivulle työnnetty ja kolo näkyvissä löydön jälkeen. Kolo on tyhjä:
+## kapseli on vartijakopin ikkunalaudalla (shelf_capsule).
 func _refresh() -> void:
+	if staged:
+		return
 	var open: int = 1 if legenda != null and legenda.found else 0
 	if open == _opened:
 		return
 	_opened = open
 	_hole.visible = open == 1
-	_slab.position = Vector3(6.5 + (0.95 if open == 1 else 0.0), 0.04, -1.4 + (0.2 if open == 1 else 0.0))
-	_slab.rotation_degrees.y = 25.0 if open == 1 else 0.0
+	shelf_capsule.visible = open == 1
+	_slab.position = SLAB_OPEN if open == 1 else SLAB_AT
+	_slab.rotation = Vector3(0, deg_to_rad(SLAB_OPEN_YAW) if open == 1 else 0.0, 0)
 
 
 func _process(delta: float) -> void:
@@ -153,10 +165,35 @@ func _build() -> void:
 	_hall(-9.0, 9.0, 4.5, Color(0.42, 0.48, 0.56))
 	_hall(1.0, 8.0, 6.0, Color(0.5, 0.42, 0.38))
 	_hall(10.0, 7.0, 4.0, Color(0.4, 0.5, 0.45))
+	# Höyrypilli keskimmäisen hallin katolla (kapselin hetki viheltää sillä, kapseli_kohtaus.gd WHISTLE).
+	B.mesh(self, B.cyl(0.08, 0.1, 1.0, 8), Vector3(3.0, 6.75, -10.4), Color(0.35, 0.33, 0.32))
+	B.mesh(self, B.cyl(0.12, 0.1, 0.22, 10), Vector3(3.0, 7.2, -10.4), Color(0.78, 0.62, 0.3))
 	for k in 6:
 		B.mesh(self, B.cyl(0.9 - k * 0.02, 1.0 - k * 0.02, 1.6, 10), Vector3(-6.0, 0.8 + k * 1.6, -11.0), Color(0.85, 0.2, 0.15) if k % 2 == 0 else Color(0.95, 0.95, 0.95))
+	# Savu: pehmeät kameraan kääntyvät hattarat (ennen palloja, jotka näyttivät helminauhalta).
+	var sq := QuadMesh.new()
+	sq.size = Vector2(2.6, 2.6)
+	var sm := StandardMaterial3D.new()
+	sm.albedo_color = Color(0.88, 0.88, 0.9, 0.7)
+	var sg := Gradient.new()
+	sg.set_color(0, Color(1, 1, 1, 1))
+	sg.set_color(1, Color(1, 1, 1, 0))
+	var st := GradientTexture2D.new()
+	st.gradient = sg
+	st.fill = GradientTexture2D.FILL_RADIAL
+	st.fill_from = Vector2(0.5, 0.5)
+	st.fill_to = Vector2(0.5, 0.0)
+	sm.albedo_texture = st
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	sm.billboard_keep_scale = true
+	sq.material = sm
 	for i in 5:
-		var puff := B.mesh(self, B.sphere(1.0, 8), Vector3(-6.0, 10.0, -11.0), Color(0.85, 0.85, 0.88))
+		var puff := MeshInstance3D.new()
+		puff.mesh = sq
+		puff.position = Vector3(-6.0, 10.0, -11.0)
+		add_child(puff)
 		_smoke.append([puff, i * 0.2])
 	# Aita (verkko ja tolpat) ja portti.
 	for i in 31:
@@ -170,8 +207,7 @@ func _build() -> void:
 	_solid(Vector3(2.0, 2.2, 1.8), Vector3(-9.0, 1.1, -3.9), Color(0.85, 0.82, 0.72))
 	B.mesh(self, B.boxm(Vector3(1.2, 0.7, 0.05)), Vector3(-9.0, 1.4, -2.98), Color(0.5, 0.7, 0.8))
 	B.mesh(self, B.boxm(Vector3(2.3, 0.15, 2.1)), Vector3(-9.0, 2.28, -3.9), Color(0.3, 0.3, 0.33))
-	_guard = Looks.make(self, {"shirt": Color(0.9, 0.8, 0.2), "pants": Color(0.2, 0.22, 0.3),
-		"shoes": Color(0.15, 0.12, 0.1), "shoe": "tyokenka", "hair": "Hair_Buzzed", "hair_color": Color(0.4, 0.35, 0.3), "height": 1.78})
+	_guard = Looks.make(self, GUARD_LOOK)
 	_guard.position = Vector3(-7.0, 0, -3.0)
 	_guard.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_guard.play("Idle", 0.0)
@@ -193,8 +229,15 @@ func _build() -> void:
 	_hole.position = Vector3(6.5, 0.0, -1.4)
 	add_child(_hole)
 	B.mesh(_hole, B.boxm(Vector3(0.9, 0.04, 0.9)), Vector3(0, 0.01, 0), Color(0.07, 0.05, 0.04))
-	B.mesh(_hole, B.cyl(0.13, 0.13, 0.42, 10), Vector3(0, 0.16, 0), Color(0.72, 0.45, 0.25), Vector3(90, 0, 20))
-	B.mesh(_hole, B.cyl(0.14, 0.14, 0.06, 10), Vector3(0.07, 0.16, 0.19), Color(0.5, 0.3, 0.15), Vector3(90, 0, 20))
+	for e in [[Vector3(0.96, 0.03, 0.04), Vector3(0, 0.015, 0.47)], [Vector3(0.96, 0.03, 0.04), Vector3(0, 0.015, -0.47)],
+			[Vector3(0.04, 0.03, 0.96), Vector3(0.47, 0.015, 0)], [Vector3(0.04, 0.03, 0.96), Vector3(-0.47, 0.015, 0)]]:
+		B.mesh(_hole, B.boxm(e[0]), e[1], Color(0.42, 0.4, 0.38))  # kolon reunakivet
+	# Löydön jälkeen: vartija pitää kapselia kopin ikkunalaudalla (pieni hylly ikkunan alla).
+	B.mesh(self, B.boxm(Vector3(1.0, 0.04, 0.16)), Vector3(-9.0, 1.03, -2.92), Color(0.55, 0.4, 0.25))
+	shelf_capsule = build_capsule(self)
+	shelf_capsule.position = Vector3(-9.0, 1.05 + 0.066, -2.92)
+	shelf_capsule.rotation = Vector3(0, 0, PI / 2.0)
+	shelf_capsule.visible = false
 	_slab = Node3D.new()
 	add_child(_slab)
 	B.mesh(_slab, B.boxm(Vector3(1.0, 0.06, 1.0)), Vector3.ZERO, Color(0.55, 0.55, 0.58))
@@ -207,7 +250,7 @@ func _build() -> void:
 	taxi.rotation.y = PI / 2.0
 	add_child(taxi)
 	Vehicles.taxi(taxi)
-	Vehicles.kuski(taxi, "mercedes", load("res://scripts/looks.gd").TAXI_DRIVER)  # kuski odottaa paluukyytiä
+	kuski = Vehicles.kuski(taxi, "mercedes", load("res://scripts/looks.gd").TAXI_DRIVER)  # kuski odottaa paluukyytiä
 	for p in [Vector3(-14.0, 0, -1.0), Vector3(-4.0, 0, 4.5), Vector3(2.0, 0, 5.0), Vector3(10.0, 0, 2.5), Vector3(13.5, 0, -3.0)]:
 		_birch(p, 0.9 + fposmod(p.x, 0.3))
 	var lamp := OmniLight3D.new()
@@ -216,3 +259,87 @@ func _build() -> void:
 	lamp.light_energy = 0.6
 	lamp.omni_range = 14.0
 	add_child(lamp)
+
+
+## Peruskiven kuparikapseli (n. 0,33 m, akseli +Y): kupariputki, jonka pinnassa vihreää patinaa kohinatekstuurina (ei
+## kohoumia), sileä kierrekansi uurrerenkain, saumarenkaat ja leimattu vuosiluku. Kansi omana solmunaan metassa "cap".
+static func build_capsule(parent: Node3D) -> Node3D:
+	var c := Node3D.new()
+	parent.add_child(c)
+	var copper := Color(0.74, 0.45, 0.27)
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = _patina_tex()
+	m.metallic = 0.55
+	m.roughness = 0.5
+	m.uv1_scale = Vector3(1.0, 0.6, 1.0)
+	var body := MeshInstance3D.new()
+	body.mesh = B.cyl(0.062, 0.062, 0.28, 20)
+	body.position = Vector3(0, -0.02, 0)
+	body.material_override = m
+	c.add_child(body)
+	var ring := StandardMaterial3D.new()
+	ring.albedo_color = copper.darkened(0.2)
+	ring.metallic = 0.7
+	ring.roughness = 0.4
+	for y in [-0.15, 0.085]:  # pohjan saumarengas ja kannen kierteen rengas
+		var r := MeshInstance3D.new()
+		r.mesh = B.cyl(0.0655, 0.0655, 0.012, 20)
+		r.position = Vector3(0, y, 0)
+		r.material_override = ring
+		c.add_child(r)
+	var year := Label3D.new()
+	year.text = "1962"
+	year.font_size = 40
+	year.pixel_size = 0.0008
+	year.modulate = Color(0.22, 0.12, 0.07)
+	year.outline_size = 0
+	year.position = Vector3(0, -0.04, 0.0628)
+	year.rotation = Vector3(0, 0, PI / 2.0)
+	c.add_child(year)
+	var cap := Node3D.new()
+	cap.position = Vector3(0, 0.12, 0)
+	c.add_child(cap)
+	var capm := StandardMaterial3D.new()
+	capm.albedo_color = copper.darkened(0.08)
+	capm.metallic = 0.75
+	capm.roughness = 0.35
+	var cm := MeshInstance3D.new()
+	cm.mesh = B.cyl(0.067, 0.067, 0.05, 20)
+	cm.material_override = capm
+	cap.add_child(cm)
+	for y in [-0.012, 0.0, 0.012]:  # pitoa antavat uurteet
+		var g := MeshInstance3D.new()
+		g.mesh = B.cyl(0.0685, 0.0685, 0.004, 20)
+		g.position = Vector3(0, y, 0)
+		g.material_override = ring
+		cap.add_child(g)
+	var top := MeshInstance3D.new()
+	top.mesh = B.cyl(0.05, 0.062, 0.008, 20)
+	top.position = Vector3(0, 0.029, 0)
+	top.material_override = capm
+	cap.add_child(top)
+	c.set_meta("cap", cap)
+	return c
+
+
+static var _patina: NoiseTexture2D
+
+
+## Kupari, jossa vihreää patinaa läikkinä: kohina väriliukumalla (kupari -> tumma kupari -> vihreä).
+static func _patina_tex() -> NoiseTexture2D:
+	if _patina == null:
+		var n := FastNoiseLite.new()
+		n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		n.frequency = 0.03
+		n.fractal_octaves = 4
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.5, 0.62, 0.72, 1.0])
+		g.colors = PackedColorArray([Color(0.78, 0.5, 0.3), Color(0.66, 0.4, 0.24), Color(0.5, 0.42, 0.3),
+			Color(0.42, 0.62, 0.52), Color(0.5, 0.7, 0.6)])
+		_patina = NoiseTexture2D.new()
+		_patina.width = 256
+		_patina.height = 256
+		_patina.seamless = true
+		_patina.noise = n
+		_patina.color_ramp = g
+	return _patina

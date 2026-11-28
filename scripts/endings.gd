@@ -68,7 +68,7 @@ const LOPUT := ["juhlat", "viinibileet", "laavu", "legendaarinen", "mokkibileet"
 
 ## Legendaariset hetket, jotka koetaan lavastettuna kohtauksena (cutscene.gd): ei erillistä ilmoitusta, vaan kohtauksen
 ## jälkeen hillitty rivi päiväkirjan uudesta tarinasta. Muut hetket näyttävät vielä vanhan ilmoituksen.
-const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti", "rasytuppi", "lettukunkku", "loylykunkku", "sivikkidisko", "karaokekunkku", "kesaheila", "lavatanssit", "karaoke", "kiihdytys", "tanssit", "piirakkakuningas", "sahkopyora", "porron_kyltti", "aarnivalkea", "kertun_rauta", "tekojarven_ukko", "tokolan_aarre", "sulon_pannu", "palon_pyhimys", "olavinmarkkinat", "kuninkaan_tapuli"]
+const STAGED := ["kaisuan_sato", "altaan_sato", "kaisuan_heinatalkoot", "altaan_heinatalkoot", "kaisuan_kylvot", "altaan_kylvot", "paapeli", "savusauna", "pentin_kyyti", "rasytuppi", "lettukunkku", "loylykunkku", "sivikkidisko", "karaokekunkku", "kesaheila", "lavatanssit", "karaoke", "kiihdytys", "tanssit", "piirakkakuningas", "sahkopyora", "porron_kyltti", "aarnivalkea", "kertun_rauta", "tekojarven_ukko", "tokolan_aarre", "sulon_pannu", "palon_pyhimys", "olavinmarkkinat", "kuninkaan_tapuli", "pakkahuoneen_veistos", "hanhikiven_rajakivi", "peruskiven_kapseli", "manamansalon_kirkko", "kanttorin_virsi", "ukko_vapaa", "drakkar", "kinkku"]
 
 ## [id, nimi, kuvaus] -> kuvaus.
 static func desc_of(id: String) -> String:

@@ -379,6 +379,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.money = 80.0
 			main.clock_min = 12 * 60.0
 			main.pakkahuone = PakkahuoneLegenda.new()
+			main.endings.counts["pakkahuoneen_veistos"] = 1  # museon hetki on oma testinsä (legendat.gd pakkahuoneen_veistos_eka)
 			print("PH taksivalinnat: %s" % [main._talk_options("taksi").filter(func(o): return o.id == "pakkahuone_kerro" or o.id == "retki_pakkahuone").map(func(o): return [o.id, o.enabled, o.text])])
 			print("PH tehtävät ennen: %s" % [main._pakkahuone_tasks()])
 			var ph_t0 := main.clock_min
@@ -450,6 +451,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.money = 80.0
 			main.clock_min = 12 * 60.0
 			main.peruskivi = PeruskiviLegenda.new()
+			main.endings.counts["peruskiven_kapseli"] = 1  # laatan hetki on oma testinsä (legendat.gd peruskiven_kapseli_eka)
 			print("PK taksivalinnat: %s" % [main._talk_options("taksi").filter(func(o): return o.id == "peruskivi_kerro" or o.id == "retki_rojuniemi").map(func(o): return [o.id, o.enabled, o.text])])
 			print("PK tehtävät ennen: %s" % [main._peruskivi_tasks()])
 			main._talk_open("taksi", null, "Kyytiä?")

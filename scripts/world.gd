@@ -1389,6 +1389,8 @@ var lehto_plate: Node3D  # Pörrön muistokyltti (näkyy tehtävän jälkeen)
 var pingis_ulko_pos := Vector3.ZERO  # ulkopingispöytä (#143)
 var koulu_ovi_pos := Vector3.ZERO  # koulukeskuksen ovi (koulun disko perjantaisin, koulu_disko_game.gd)
 var kanttorila_pos := Vector3.ZERO  # Kanttorilan pihan etuosa (yösävel)
+var kanttorila_root: Node3D  # Kanttorilan julkisivun keskikohta, -Z ulos (kanttorin virren ikkunan kajo, kanttori_virsi.gd)
+var kanttorila_l := 0.0  # Kanttorilan julkisivun pituus (_house: ikkunat jaetaan sen mukaan)
 var kauppias_pos := Vector3.ZERO  # kauppiaan hauta
 var olavi_katko_pos := Vector3.ZERO
 var olavi_sulo_pos := Vector3.ZERO
@@ -1842,6 +1844,8 @@ func _build_kanttorila() -> void:
 	root.position = Vector3(front.x, 0, front.y)
 	root.rotation.y = f.yaw
 	add_child(root)
+	kanttorila_root = root
+	kanttorila_l = f.l
 	var plate := B.sign_plate(root, "KANTTORILA", Color(0.96, 0.94, 0.88), Color(0.25, 0.15, 0.1), 0.22, 36, Color(0.25, 0.15, 0.1), "Helvetica Neue")
 	plate.position = Vector3(0, 2.5, -0.06)
 	var dp: Vector2 = front + nrm * 3.0
