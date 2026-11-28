@@ -360,6 +360,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   pitää nimen salassa -> Aaro muistaa mummon aitan pyhän nuken -> pyhimys Tokolan vanhan varaston orsilta -> suntiolle
   kirkkoon. Palautus: loppu "Palon yön pyhimys", maine +10, kynttilä sammuu, nainen käy vuosipäivinä kirkon edessä, ja
   suntion, Pekan ja Sinikan epäilyt vaihtuvat. Testi `--scene=palonpyhimys` (toimii headlessinä).
+  Ensimmäinen palautus on legendaarinen hetki omana kohtauksenaan (`pyhimys_kohtaus.gd`), hiljainen eikä riemukas:
+  kirkon portailla pelaaja ojentaa nahkakääreen ja suntio avaa sen (naisen kaiverretut kasvot, palon noki pohjassa),
+  laskee pyhimyksen pöydälle esineluettelon viereen, kulkee sormella yliviivatun rivin yli ("Kirjoitusvirhe, minä sanoin.")
+  ja kirjoittaa viereen "palautettu". Hän kysyy talon nimeä, pelaaja vastaa "Suvun nimeä ei mainita", ja suntio sulkee
+  kirjan ja nyökkää. Ovet aukeavat kynttilänvaloon, suntio kantaa pyhimyksen sisään, ovet sulkeutuvat ja tapulin kello
+  lyö kerran. Talollisen haudalla iäkäs nainen seisoo kynttilän ääressä ja hoitaja pysähtyy haravoimasta; vire sammuttaa
+  kynttilän, savukiehkura nousee ("Nyt se on kotona."), ja nainen lähtee kirkolle päin. Suntio muistelee hetkeä
+  myöhemmin ("Muistatko, kun pyhimys palasi kirkkoon?").
 - **Legenda: Olavinmarkkinoiden hopea (#124):** oikea tausta (Visit Raahe): Saloinen sai 1616 vapaat markkinat
   Olavinpäivästä kahdeksi viikoksi, kauppiaita tuli monesta kaupungista ja talonpojat myivät mm. tervaa ja voita; Raahen
   perustamisen jälkeen markkinat siirtyivät Rantatorille. Legenda on keksitty ja pelissä totta: kauppias Olof Skyttä
@@ -372,6 +380,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   palasivat") tai Veksi (240 €, maine −8, poliisi hakee kylällä). Museovalinnan jälkeen joka Olavinpäivä 10–18
   seuraintalolla on Olavinmarkkinat: banderolli, ja kirppiksellä tervatuoppi, voita ja markkinamakkaraa. Epäilijät
   (Pekka, Arto, Anna-Liisa) vaihtavat repliikkinsä. Testi `--scene=olavinmarkkinat` (toimii headlessinä).
+  Legendaarinen hetki lavastetaan ensimmäisellä museokerralla (`olavi_markkinat.gd`): samana päivänä seuraintalon
+  pihalla on kaksi kojua (terva; voi ja makkara) ja väki. Olavi-pappa nostaa suvun myrskylyhdyn, jota Skytät kantoivat
+  Olavinpäivän yönä neljäsataa vuotta, puhaltaa sen sammuksiin ("Nyt sen saa sammuttaa") ja ripustaa sen kuistin
+  pylvääseen. Sitten hän vetää narusta: banderolli OLAVINMARKKINAT · 1616 aukeaa, kello soi ja väki nostaa kädet.
+  Pekka ostaa ensimmäisen tervatuopin, haistaa ("Haisee ihan oikeilta markkinoilta") ja nostaa sen papalle: "Anteeks,
+  pappa." Lyhty jää kuistin pylvääseen pysyvästi, ja papalta voi kysyä muistoa ("Muistatko, kun lyhty sammui
+  seuraintalon kuistilla?"). Testi `scene olavinmarkkinat_eka`.
 - **Legenda: Kuninkaan tapuli (#126):** oikea tausta (Visit Raahe): kellotapuli on vuodelta 1783 ja "sanotaan" Kustaa III:n
   suunnittelemaksi (varmistamaton; OSM antaa 1786). Legenda keksitty ja pelissä totta: kuninkaan sinetöity piirustus
   muurattiin rakenteisiin, minkä vuoksi tapuli säästyi kirkon palossa. Kello kumahtaa yöllä, koska kylän teinit pitävät
@@ -381,6 +396,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Valinta: Pirtin oppaalle (70 €, maine +12, loppu "Kuninkaan tapuli", Arton ja Pekan repliikit vaihtuvat) tai takaisin
   koloon suntion luona (maine +4, avain pysyvästi): tapuli on silloin jemma (24 kaljaa) ja kello varoittaa, kun poliisi
   on liikkeellä. Teinien bileiden jatkuminen tai loppuminen ei ole mukana. Testi `--scene=kuninkaantapuli` (headless).
+  Ensimmäinen kerta Pirtin oppaalle on lavastettu hetki tapulin juurella (`tapuli_legenda.gd`): Raahen museon
+  intendentti avaa lyijykotelon taittopöydällä ja suurentaa riippusinettiä (kruunu, G. R.). Hän ja opas avaavat rullan
+  pihalla ja nostavat kuninkaan tussipiirroksen tapulia vasten. Paperi haalistuu, ja viivat osuvat oikean tapulin reunoihin
+  viiva viivalta, koska ne on laskettu projisoimalla tapulin ääriviivat kameran pisteestä paperin tasoon. Kello heilahtaa
+  ja lyö itsestään ("...Kuninkaan tuuli"). Pekka ja Arto tulevat kaljakorin kanssa, Arto myöntää, suntiokin ottaa tölkin,
+  ja Pekka nostaa: "Gustavukselle!". Suntio muistelee hetkeä ("Muistatko, kun tapulin kello löi itsestään?").
+  Testi `scene kuninkaan_tapuli_eka`.
 - **Vaalan nuorison hupihommat (#183):** (1) *Mopon viritys*: Saloisen autotallin virittämöstä (työkalulaatikko mopon vieressä,
   E) ajokuntoiseen mopoon isompi sylinteri (14 €, +1,4 m/s), urheilupakoputki (9 €, +1,0) ja pienemmät rattaat (7 €, +0,8);
   kukin vie 30 min ja nostaa huippunopeutta (rajoittimella 15 → 18,2 m/s, ilman 21 → 24,2 m/s), ja ajossa mitataan huippunopeuden
@@ -643,14 +665,28 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   piirros vie narisevan lattialankun alle ja lappu Heinimäen latvattoman kuusen juurelle. Rahalipas näytetään
   Aarolle (legenda todistettu, maine nousee ja epäilijät joutuvat myöntämään) tai tilikirja annetaan Pannu-Sululle
   pulloja vastaan (sen isän nimikirjaimet ovat "sokerin" ostajissa). Markat myydään kirppiksen Railille.
-  Heinimäeltä näkyy terästehtaan savut. Testi `--scene=tokola`.
+  Heinimäeltä näkyy terästehtaan savut. Ensimmäinen näyttö Aarolle lavastetaan hänen pihallaan
+  (`tokola_legenda.gd`): lipas halkopölkylle halkopinon eteen, Aaro kumartuu ja vääntää ruosteisen kannen puukolla auki
+  (ruostehiutaleet, narahdukset). Lippaassa on markkanippu paperinauhassa ja kultasormus, jonka Aaro nostaa vapisevalla
+  kädellä valoon: "Hilman sormus. Kauppiaan vaimon. Se anto mulle karamellin joka lauantai." Sitten hän marssii pihan
+  laitaan nippu ylhäällä ja huutaa tielle: "KUUSKYMMENTÄ VUOTTA NE NAURO!" Pekka ja Arto tulevat tietä. Aaro heiluttaa
+  nippua ja osoittaa Pekkaa etusormella ("Kaljapuheita, häh, Pekka?"). Nipusta irtoaa seteli, joka leijailee Pekan
+  rintaan, ja Pekka lukee sen: "Sata markkaa. Painettu viiskytseittemän... No perkele. Aaro oli oikeassa." Myöhemmin
+  Aaro muistelee hetkeä. Testit `--scene=tokola` ja `--scene=tokolan_aarre_eka`.
 - **Legenda: Sulon isän kadonnut pannu:** Tokolan Aaro tietää, kuka on "S. S." kauppiaan kirjoissa: Pannu-Sulon isä,
   pitäjän paras keittäjä, upotti kuparipannunsa Pilkkarinnevan rämeeseen ratsiayönä 1966. Sulo, Pekka ja Arto
   kiistävät koko jutun. Droonin ilmakuva paljastaa rämeellä kuparin vihreän läikän (merkki karttaan), ja pannu
   kahlataan ja kaivetaan esiin. Valinta: pannu Sululle (keittää isän reseptillä, kanisteri vastaa 32 kaljaa),
   Saloisten Pirtin kotiseutumuseoon (maine, lehtijuttu, mutta Sulo nostaa kanisterin hintaa) tai Taunolle romuksi
   (20 €, Sulo ja Aaro suuttuvat). Löydön jälkeen Sulo myöntää: "No... isä keitti. Ja hyvää keitti."
-  Testi `--scene=pannu`.
+  Kun pannu viedään ensimmäistä kertaa Sululle, legendaarinen hetki lavastetaan Sulon pontikkapannun luona metsässä
+  (`sulo_legenda.gd`): vihreä pannu laakealle kivelle tulen viereen ("...Mistä sää tämän sait?"), Sulo polvistuu ja
+  hankaa hihallaan patinaa, kunnes kuparin alta paljastuu isän lyömä leima "V.S. 1952". Sulo nousee, katsoo
+  Pilkkarinnevalle päin käsi rinnalla ja myöntää kuudenkymmenen vuoden jälkeen: "Isä keitti. Ja hyvää keitti." Hän
+  heittää kuksasta ensimmäiset tipat tuleen isälle, ja liekki leimahtaa sinisenä. Pekka ja Arto tulevat savun perässä,
+  Pekka maistaa ja yskii: "...Perkele. Kaljapuhetta, mää sanoin. Taas väärin." Isän pannu jää kivelle pontikkapannun
+  viereen, ja Sulo muistelee hetkeä ("Muistatko, kun liekki leimahti siniseksi?"). Pirtin valinnalla hetki kirjataan
+  ilman kohtausta (Sulo ei ole paikalla). Testit `--scene=pannu` ja `--scene=sulon_pannu_eka`.
 - **Mökki:** mökille pääsee naapurin Pekan kyydillä (taksia ei ole: se oli aiemmin oikotie, ja nyt Volvo pitää tarvittaessa korjauttaa Korpelalla): Pekka on menossa Neittävälle kyyhkyjahtiin ja ottaa
   kyytiin kaljalla tai 10 eurolla (jalan E Pekan luona). Pekan auto odottaa mökin pihatien päässä, ja sillä
   pääsee kotipihaan ilmaiseksi (bensat maksettiin menomatkalla). Välikuvassa Pekan vihreä Volvo kaahaa kesäistä maantietä peltojen, säilörehupaalien ja männikön

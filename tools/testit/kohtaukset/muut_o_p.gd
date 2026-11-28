@@ -562,6 +562,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._on_varasto_acted("orsi")
 			print("PY löydetty %s, suntio: %s" % [main.pyhimys.found, main._talk_options("suntio").map(func(o): return o.id)])
 			var m0 := main.maine
+			main.endings.counts["palon_pyhimys"] = 1  # portaiden hetki on oma testinsä (legendat.gd palon_pyhimys_eka)
 			main._talk_pyhimys("pyhimys_anna")
 			print("PY palautettu %s, maine %.0f -> %.0f, loppu %s, tehtävät %s" % [main.pyhimys.returned, m0, main.maine, main.endings.counts.has("palon_pyhimys"), main._pyhimys_tasks()])
 			main.clock_min = 12 * 60

@@ -118,6 +118,7 @@ var taxi_pos: Vector3  # K-Marketin taksitolpalla odottava taksi
 var kirppis_door: Vector3  # Saloisten seuraintalon pääoven edusta (E: kirpputorille)
 var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
+var aaro_nrm := Vector2(1, 0)  # Aaron talon julkisivun normaali (pihalle päin), tokola_legenda.gd kehys
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
 var museum_nrm := Vector2(0, 1)  # Pirtin julkisivun ulospäin osoittava normaali (aarnivalkea_legenda.gd: pihan kehys)
@@ -1340,6 +1341,7 @@ func _build_seuraintalo() -> void:
 	root.position = Vector3(front.x, 0, front.y)  # _lift_node nostaa maastoon
 	root.rotation.y = f.yaw  # paikallinen -Z = poispäin seinästä
 	add_child(root)
+	seura_kuisti = root
 	# Kuisti portaineen ja pariovi.
 	B.box(root, Vector3(3.6, 0.35, 1.8), Vector3(0, 0.17, -0.9), Color(0.55, 0.55, 0.55))
 	B.box(root, Vector3(2.0, 2.4, 0.12), Vector3(0, 1.55, 0.02), Color(0.92, 0.9, 0.85), false)
@@ -1378,6 +1380,8 @@ const KIRKKO_COPPER := Color(0.33, 0.56, 0.5)
 const TAPULI_RED := Color(0.52, 0.14, 0.09)
 var kirkko_pos := Vector3.ZERO  # kirkon pääovi (tornin edusta)
 var tapuli_pos := Vector3.ZERO
+var tapuli_root: Node3D  # kellotapulin solmu: paikallinen -Z = ovi (kuninkaan tapulin hetki, tapuli_legenda.gd)
+var tapuli_bell: Node3D  # kellon nivel poikkipalkin alla (kello heilahtaa kohtauksessa)
 var lehto_pos := Vector3.ZERO  # Lemmikki Enkelien muistolehto: muistokyltin paikka (#148)
 var lehto_penkki_pos := Vector3.ZERO
 var lehto_portti_pos := Vector3.ZERO
@@ -1389,7 +1393,13 @@ var kauppias_pos := Vector3.ZERO  # kauppiaan hauta
 var olavi_katko_pos := Vector3.ZERO
 var olavi_sulo_pos := Vector3.ZERO
 var markkina_banner: Node3D
+var seura_kuisti: Node3D  # seuraintalon julkisivun keskikohta maan tasossa (paikallinen -Z = pihalle), olavi_markkinat.gd
 var kynttila_pos := Vector3.ZERO  # talollisen hauta (kynttilän paikka)
+var kirkko_ovi: Node3D  # kirkon pääoven kohta (oven pinta, maan taso; paikallinen -Z = ulos), pyhimys_kohtaus.gd
+var _kirkko_torni: Array = []  # [keskusta, puolileveys x, puolileveys z, kierto] (ruohomaski ja aita)
+var kirkko_torni_osat: Array[MeshInstance3D] = []  # tornin umpilaatikko, karmi ja ovilehdet: viite pitää ne erillisinä
+	# (B.merge_static ohittaa viitatut), jotta pyhimys_kohtaus.gd voi piilottaa ne ja avata oven asehuoneeseen
+var kynttila_hauta: Node3D  # talollisen haudan juurisolmu (paikallinen -Z = hautakivi), pyhimys_kohtaus.gd
 var hoitaja_pos := Vector3.ZERO
 var hautausmaa_graves := 0  # hautakivien määrä (testinäkymä)
 
@@ -1428,7 +1438,7 @@ func _build_kirkko() -> void:
 	# Länsitorni: valkoinen runko, äänirei'illä varustettu yläosa, kuparinvihreä huippu ja kulta-risti.
 	var tx := -l / 2.0 - 2.0
 	var th := 11.5
-	B.mesh(root, B.boxm(Vector3(5.2, th, 5.6)), Vector3(tx, th / 2.0, 0), KIRKKO_WALL)
+	kirkko_torni_osat.append(B.mesh(root, B.boxm(Vector3(5.2, th, 5.6)), Vector3(tx, th / 2.0, 0), KIRKKO_WALL))
 	body.add_child(B.box_shape(Vector3(5.2, th, 5.6), Vector3(tx, th / 2.0, 0)))
 	B.mesh(root, B.boxm(Vector3(5.5, 0.35, 5.9)), Vector3(tx, th, 0), KIRKKO_WALL.darkened(0.25))
 	for sgn in [-1.0, 1.0]:
@@ -1443,12 +1453,16 @@ func _build_kirkko() -> void:
 	B.mesh(root, B.boxm(Vector3(0.8, 0.14, 0.14)), Vector3(l / 2.0 + 0.2, h + 5.9, 0), Color(0.85, 0.7, 0.25))
 	# Pääovi tornin länsipäädyssä: kaksipuolinen ruskea ovi, valkoiset karmit ja portaat.
 	var dx := tx - 2.6
-	B.mesh(root, B.boxm(Vector3(0.14, 3.5, 2.8)), Vector3(dx, 1.95, 0), Color.WHITE)
-	B.mesh(root, B.boxm(Vector3(0.16, 3.2, 1.2)), Vector3(dx - 0.02, 1.8, -0.62), Color(0.4, 0.22, 0.1))
-	B.mesh(root, B.boxm(Vector3(0.16, 3.2, 1.2)), Vector3(dx - 0.02, 1.8, 0.62), Color(0.4, 0.22, 0.1))
+	kirkko_torni_osat.append(B.mesh(root, B.boxm(Vector3(0.14, 3.5, 2.8)), Vector3(dx, 1.95, 0), Color.WHITE))
+	kirkko_torni_osat.append(B.mesh(root, B.boxm(Vector3(0.16, 3.2, 1.2)), Vector3(dx - 0.02, 1.8, -0.62), Color(0.4, 0.22, 0.1)))
+	kirkko_torni_osat.append(B.mesh(root, B.boxm(Vector3(0.16, 3.2, 1.2)), Vector3(dx - 0.02, 1.8, 0.62), Color(0.4, 0.22, 0.1)))
 	B.mesh(root, B.boxm(Vector3(1.4, 0.3, 3.4)), Vector3(dx - 0.7, 0.15, 0), Color(0.55, 0.55, 0.55))
 	var door_w := root.to_global(Vector3(dx - 2.4, 0, 0))
 	kirkko_pos = Vector3(door_w.x, T.h(door_w.x, door_w.z), door_w.z)
+	kirkko_ovi = Node3D.new()  # juuren lapsena: nousee maastoon juuren mukana
+	kirkko_ovi.position = Vector3(dx, 0, 0)
+	kirkko_ovi.rotation.y = PI / 2.0  # paikallinen -Z = juuren -x = ovesta ulos
+	root.add_child(kirkko_ovi)
 	# Nimikyltti tien puolella: taustalevy ja reunus tolpassa.
 	var stand := Node3D.new()
 	stand.position = Vector3(-l / 2.0 + 1.5, 0, -d / 2.0 - 3.0)
@@ -1460,10 +1474,24 @@ func _build_kirkko() -> void:
 	name_sign.position = Vector3(0, 1.25, 0)
 	blockers.append([f.c, Vector2(l / 2.0, d / 2.0), f.yaw])
 	_add_house(f.c)
+	# Tornin pohja: ruoho ei kasva sen sisällä eikä hautausmaan aita kulje sen läpi (pyhimys_kohtaus.gd avaa oven
+	# asehuoneeseen, jolloin tornin sisus näkyy).
+	var tc := root.to_global(Vector3(tx, 0, 0))
+	_kirkko_torni = [Vector2(tc.x, tc.z), 2.6 + 0.3, 2.8 + 0.3, f.yaw]
+	_mask_clear.append(_kirkko_torni)
 	_build_tapuli()
 	_build_hautausmaa(f.c)
 	_build_kynttilahauta()
 	_build_olavi()
+
+
+## Onko piste (x, z) kirkon tornin pohjalla (_kirkko_torni: keskusta, puolileveydet, kierto)?
+func _in_kirkko_torni(p: Vector2) -> bool:
+	if _kirkko_torni.is_empty():
+		return false
+	var c: Vector2 = _kirkko_torni[0]
+	var lv: Vector3 = Basis(Vector3.UP, _kirkko_torni[3]).inverse() * Vector3(p.x - c.x, 0, p.y - c.y)
+	return absf(lv.x) < float(_kirkko_torni[1]) and absf(lv.z) < float(_kirkko_torni[2])
 
 
 ## Kellotapuli (1786): punainen lautaverhoiltu tapuli, avoin kellokerros, kello ja jyrkkä huopakatto risteineen.
@@ -1491,11 +1519,16 @@ func _build_tapuli() -> void:
 		for pz in [-1.0, 1.0]:
 			B.mesh(root, B.boxm(Vector3(0.38, 3.0, 0.38)), Vector3(px * (s / 2.0 - 0.3), 5.6, pz * (s / 2.0 - 0.3)), TAPULI_RED)
 	B.mesh(root, B.boxm(Vector3(s - 0.4, 0.3, 0.3)), Vector3(0, 6.9, 0), TAPULI_RED.darkened(0.3))
-	B.mesh(root, B.cyl(0.2, 0.75, 1.0, 14), Vector3(0, 6.2, 0), Color(0.62, 0.45, 0.2))
-	B.mesh(root, B.sphere(0.12, 8), Vector3(0, 5.6, 0), Color(0.3, 0.25, 0.2))
+	# Kello ja kieli nivelen alla (nivel poikkipalkin alapinnassa), jotta kello voi heilahtaa.
+	tapuli_bell = Node3D.new()
+	tapuli_bell.position = Vector3(0, 6.75, 0)
+	root.add_child(tapuli_bell)
+	B.mesh(tapuli_bell, B.cyl(0.2, 0.75, 1.0, 14), Vector3(0, -0.55, 0), Color(0.62, 0.45, 0.2))
+	B.mesh(tapuli_bell, B.sphere(0.12, 8), Vector3(0, -1.15, 0), Color(0.3, 0.25, 0.2))
 	B.mesh(root, B.cyl(0.0, s * 0.78, 3.6, 4), Vector3(0, 7.1 + 1.8, 0), Color(0.18, 0.15, 0.14), Vector3(0, 45, 0))
 	B.mesh(root, B.boxm(Vector3(0.1, 1.2, 0.1)), Vector3(0, 11.3, 0), Color(0.15, 0.12, 0.1))
 	B.mesh(root, B.boxm(Vector3(0.6, 0.1, 0.1)), Vector3(0, 11.55, 0), Color(0.15, 0.12, 0.1))
+	tapuli_root = root
 	var door_w := root.to_global(Vector3(0, 0, -s / 2.0 - 1.5))
 	tapuli_pos = Vector3(door_w.x, T.h(door_w.x, door_w.z), door_w.z)
 	blockers.append([f.c, Vector2(s / 2.0, s / 2.0), f.yaw])
@@ -1523,7 +1556,7 @@ func _build_hautausmaa(church: Vector2) -> void:
 			var mid := p + dir * step / 2.0
 			var rd := _nearest_road(mid)
 			var open: bool = not rd.is_empty() and mid.distance_to(rd[0]) < rd[1] + 1.5
-			if not open and not _near_way(mid, 1.5):
+			if not open and not _near_way(mid, 1.5) and not _in_kirkko_torni(mid):
 				var batch: B.Batch = batch_for.call(mid)
 				batch.add(B.boxm(Vector3(0.1, 1.0, 0.1)), Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x, 0.5, p.y)), white)
 				for y in [0.4, 0.85]:
@@ -1583,6 +1616,7 @@ func _build_kynttilahauta() -> void:
 	body.add_child(B.box_shape(Vector3(0.9, 1.4, 0.3), Vector3(0, 0.7, -0.8)))
 	root.add_child(body)
 	kynttila_pos = Vector3(g.x, T.h(g.x, g.y), g.y)
+	kynttila_hauta = root
 	var h := M.w2(M.HOITAJA)
 	hoitaja_pos = Vector3(h.x, T.h(h.x, h.y), h.y)
 
@@ -1845,6 +1879,7 @@ func _build_tokola() -> void:
 	if not f.is_empty():
 		var ap: Vector2 = f.c + f.nrm * (f.d / 2.0 + 3.0)
 		aaro_pos = Vector3(ap.x, T.h(ap.x, ap.y), ap.y)
+		aaro_nrm = f.nrm
 	# Heinimäen laki: kuollut, latvaton kuusi ja muutama kuiva oksa.
 	var hp := M.w2(M.HEINIMAKI)
 	heinimaki_pos = Vector3(hp.x, T.h(hp.x, hp.y), hp.y)

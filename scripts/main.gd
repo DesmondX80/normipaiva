@@ -321,6 +321,9 @@ const SahkopyoraLegenda := preload("res://scripts/sahkopyora_legenda.gd")
 const PorroLegenda := preload("res://scripts/porro_legenda.gd")
 const AarnivalkeaLegenda := preload("res://scripts/aarnivalkea_legenda.gd")
 const TekojarviLegenda := preload("res://scripts/tekojarvi_legenda.gd")
+const TokolaLegenda := preload("res://scripts/tokola_legenda.gd")
+const TapuliLegenda := preload("res://scripts/tapuli_legenda.gd")
+const SuloLegenda := preload("res://scripts/sulo_legenda.gd")
 const KertunLegenda := preload("res://scripts/kertun_legenda.gd")
 const OmaMopo := preload("res://scripts/oma_mopo.gd")
 const MopoKickGame := preload("res://scripts/mopo_kick_game.gd")
@@ -344,7 +347,9 @@ const KertunRauta := preload("res://scripts/kertun_rauta.gd")
 const Aarnivalkea := preload("res://scripts/aarnivalkea.gd")
 const UkkoLegenda := preload("res://scripts/ukko_legenda.gd")
 const PyhimysLegenda := preload("res://scripts/pyhimys_legenda.gd")
+const PyhimysKohtaus := preload("res://scripts/pyhimys_kohtaus.gd")
 const OlaviLegenda := preload("res://scripts/olavi_legenda.gd")
+const OlaviMarkkinat := preload("res://scripts/olavi_markkinat.gd")
 const KuningasLegenda := preload("res://scripts/kuningas_legenda.gd")
 const HanhikiviLegenda := preload("res://scripts/hanhikivi_legenda.gd")
 const PakkahuoneLegenda := preload("res://scripts/pakkahuone_legenda.gd")
@@ -507,6 +512,7 @@ var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
 var _journal: Control  # Normipäiväkirja ja reppu yhtenä vihkona (O / I), journal.gd
 var _matkaopas: Control  # Matkaopas (B), matkaopas.gd; saadaan taksikuskilta
 var _pannu_node: Node3D  # kuparin läikkä Pilkkarinnevalla (näkyy kun legenda on kuultu)
+var _isan_pannu: Node3D  # Vanhan Sulon pannu kivellä pontikkapannun vieressä (pannu Sululle, sulo_legenda.gd)
 var raahe_int: Node3D
 var retki_int: Node3D  # käynnissä olevan retken kohtaus (retket.gd), muuten null
 var _raahe := {}  # illan tapahtumat Raahen baarissa (kädenvääntö, visa, karaoke)
@@ -7290,11 +7296,15 @@ func _kuningas_pirtti() -> void:
 		_hint.text = "[E] Saloisten Pirtti: näytä Kustaa III:n piirustus oppaalle"
 		if Input.is_action_just_pressed("interact"):
 			kuningas.choice = "museo"
-			_ending("kuninkaan_tapuli")
 			tilat.first("kuningas_museo", 0.5)
 			money += KuningasLegenda.MUSEO_PALKKIO
 			maine = clampf(maine + KuningasLegenda.MUSEO_MAINE, 0.0, 100.0)
 			tilat.add("moraali", 0.3)
+			if int(endings.counts.get("kuninkaan_tapuli", 0)) == 0:
+				_save_game()
+				_tapuli_legend()  # museo vahvistaa tapulin juurella (tapuli_legenda.gd), hetki kirjataan lopuksi
+				return
+			_ending("kuninkaan_tapuli")
 			Sfx.play("win", -4.0)
 			_save_game()
 			_show_message("Raahen museo vahvistaa sinetin: Kustaa III:n oma piirustus! Löytöpalkkio %s €, juttu paikallislehdessä ja maine +%d. Arto joutuu myöntämään."
@@ -7309,8 +7319,31 @@ func _kuningas_pirtti() -> void:
 				+ "Mutta piirustus on sanottu muuratun ylimpään palkkiin.", 7.5)
 
 
+## Legendaarinen hetki "kuninkaan_tapuli": Raahen museon intendentti vahvistaa sinetin kellotapulin juurella, kuninkaan
+## piirustus nostetaan tapulia vasten (viivat osuvat), kello lyö itsestään ja Pekka tarjoaa kierroksen (tapuli_legenda.gd).
+## Oikea pelaaja, suntio, Pekka ja Arto piiloon kopioiden ajaksi.
+func _tapuli_legend() -> void:
+	var w := _active_walker()
+	w.controls_enabled = false
+	_hud.visible = false
+	var lg := TapuliLegenda.new()
+	lg.world = world
+	lg.hide_nodes = [player, suntio, pekka, arto].filter(func(n): return n != null)
+	lg.suntio_look = SUNTIO_LOOK
+	lg.finished.connect(func() -> void:
+		w.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_ending("kuninkaan_tapuli")
+		_queue_message("Raahen museo vahvisti: Kustaa III:n oma piirustus! Löytöpalkkio %s €, juttu paikallislehdessä ja maine +%d."
+			% [_eur(KuningasLegenda.MUSEO_PALKKIO), roundi(KuningasLegenda.MUSEO_MAINE)], 5.0))
+	add_child(lg)
+
+
 func _talk_kuningas(id: String) -> void:
 	match id:
+		"kuningas_muisto":
+			_talk_box.reply(TapuliLegenda.MUISTO.pick_random(), _talk_options())  # tapulin hetki muistetaan
 		"kuningas_kerro":
 			kuningas.heard = true
 			tilat.first("kuningas_legenda", 0.2)
@@ -7358,6 +7391,10 @@ func _olavi_logic() -> void:
 	if olavi == null or world == null or world.kauppias_pos == Vector3.ZERO:
 		return
 	_olavi_nodes()
+	if _olavi_scene != null and is_instance_valid(_olavi_scene):
+		return  # markkinoiden avaus käynnissä: kopio näyttelee pappaa, oikea pysyy piilossa
+	if _olavi_lyhty == null and olavi.proven() and int(endings.counts.get("olavinmarkkinat", 0)) > 0:
+		_olavi_keepsake()  # ladattu tallennus: papan lyhty kuistille
 	if world.markkina_banner != null:
 		world.markkina_banner.visible = _markkinat_paiva() and _between(clock_min, MARKKINA_OPEN)
 	var night := _between(clock_min, OlaviLegenda.NIGHT)
@@ -7435,13 +7472,16 @@ func _olavi_museum() -> void:
 		if Input.is_action_just_pressed("interact"):
 			olavi.choice = "museo"
 			_kertun_sync()
-			_ending("olavinmarkkinat")
 			tilat.first("olavinmarkkinat_palasivat", 0.5)
 			money += OlaviLegenda.MUSEO_PALKKIO
 			maine = clampf(maine + OlaviLegenda.MUSEO_MAINE, 0.0, 100.0)
 			tilat.add("moraali", 0.3)
-			Sfx.play("win", -4.0)
 			_save_game()
+			if int(endings.counts.get("olavinmarkkinat", 0)) == 0:
+				_olavi_legend()  # markkinoiden avaus lavastetaan seuraintalon pihalla (olavi_markkinat.gd), hetki kirjataan lopuksi
+				return
+			_ending("olavinmarkkinat")
+			Sfx.play("win", -4.0)
 			_show_message("Raahen museo vahvistaa taalerit aidoiksi: vuosi 1616. Löytöpalkkio jaetaan Olavi-papan kanssa, sinun osuutesi %s €. Lehtijuttu kuvan "
 				+ "kera, maine +%d. Olavi-pappa antaa osuutensa markkinoille: Olavinmarkkinat järjestetään joka Olavinpäivä (joka 7. päivä)." % [_eur(OlaviLegenda.MUSEO_PALKKIO), roundi(OlaviLegenda.MUSEO_MAINE)], 8.0)
 	elif not olavi.kirje:
@@ -7452,6 +7492,46 @@ func _olavi_museum() -> void:
 			_save_game()
 			_show_message("Pirtin opas kaivaa esiin kauppias %s:n kirjeen: \"Markkinarahat on kätketty kirkon rannan luodolle. Kun hopea löytyy, markkinat palaavat.\" "
 				% OlaviLegenda.SUKUNIMI + "Sukunimi on tuttu hautausmaan vanhasta kivestä. Kirkkoluodontie on lähellä.", 7.0)
+
+
+## Legendaarinen hetki "olavinmarkkinat": Olavi-pappa sammuttaa suvun lyhdyn, avaa markkinat banderollilla ja Pekka
+## ostaa ensimmäisen tervatuopin (olavi_markkinat.gd). Oikea pelaaja ja Olavi-pappa piiloon kopioiden ajaksi.
+func _olavi_legend() -> void:
+	player.controls_enabled = false
+	_hud.visible = false
+	var lg := OlaviMarkkinat.new()
+	_olavi_scene = lg
+	lg.world = world
+	lg.hide_nodes = [player]
+	if olavi_pappa != null:
+		lg.hide_nodes.append(olavi_pappa)
+	lg.finished.connect(func() -> void:
+		player.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_olavi_keepsake()
+		_ending("olavinmarkkinat")
+		_queue_message("Löytöpalkkio %s €, lehtijuttu ja maine +%d. Olavinmarkkinat joka Olavinpäivä (joka 7. päivä), ja papan lyhty jäi kuistille."
+			% [_eur(OlaviLegenda.MUSEO_PALKKIO), roundi(OlaviLegenda.MUSEO_MAINE)], 5.0))
+	add_child(lg)
+
+
+## Papan sammunut lyhty seuraintalon kuistin pylväässä, kun markkinat ovat palanneet (olavi_markkinat.gd HOOK).
+var _olavi_lyhty: Node3D
+var _olavi_scene: Node  # käynnissä oleva olavi_markkinat.gd
+
+
+func _olavi_keepsake() -> void:
+	if world == null or world.seura_kuisti == null or olavi == null or not olavi.proven():
+		return
+	if _olavi_lyhty == null:
+		_olavi_lyhty = OlaviMarkkinat.build_lantern(world)
+		(_olavi_lyhty.get_meta("flame") as Node3D).visible = false
+		(_olavi_lyhty.get_meta("light") as OmniLight3D).visible = false
+	var k: Node3D = world.seura_kuisti
+	var h: Vector3 = OlaviMarkkinat.HOOK
+	_olavi_lyhty.global_position = k.to_global(Vector3(h.x, h.y, h.z)) - Vector3(0, 0.36, 0)
+	_olavi_lyhty.global_rotation = Vector3(0, k.global_rotation.y, 0)
 
 
 func _olavi_sell() -> void:
@@ -7485,6 +7565,8 @@ func _talk_olavi(id: String) -> void:
 			_talk_box.reply("Kirkkoluodontien länsipuolella, sammaloituneen kiven vieressä. Lapio, kaiva ja rahat markkinoille.", _talk_options())
 		"olavi_kiitos":
 			_talk_box.reply("Markkinat palasi. Joka Olavinpäivä, kun aurinko nousee. Kiitos, poika.", _talk_options())
+		"olavi_muisto":
+			_talk_box.reply(OlaviMarkkinat.MUISTO.pick_random(), _talk_options())  # seuraintalon pihan avaus muistetaan
 
 
 func _pyhimys_tasks() -> Array:
@@ -7508,6 +7590,8 @@ func _pyhimys_logic() -> void:
 	if pyhimys == null or world == null or world.hoitaja_pos == Vector3.ZERO:
 		return
 	_pyhimys_nodes()
+	if is_instance_valid(_pyhimys_scene):
+		return  # kohtauksen ajan oikeat hahmot pysyvät piilossa (kopiot näyttelevät)
 	var evening := _between(clock_min, PyhimysLegenda.KYNTTILA)
 	var anniv: bool = pyhimys.vuosipaiva(day)
 	var candle: bool = pyhimys.heard and anniv and evening and not pyhimys.returned
@@ -7541,6 +7625,8 @@ func _talk_pyhimys(id: String) -> void:
 				+ "palauttaa, kun pelkäsi varkaudesta syytettävän. Joka palon vuosipäivän iltana tuolla haudalla palaa kynttilä, "
 				+ "kun pyhimys etsii kotiaan. Suntio sanoo, että satua. Kysy häneltä luetteloa.", _talk_options(),
 				"Legenda: Palon yön pyhimys. Kirkko on kartan länsilaidalla, vuosipäivä on joka kuudes päivä.")
+		"pyhimys_muisto":
+			_talk_box.reply(PyhimysKohtaus.MUISTO.pick_random(), _talk_options())  # portaiden hetki muistetaan
 		"pyhimys_kiitos":
 			_talk_box.reply("Hyvä, että se pääsi kotiin. Kynttilä ei ole palanut enää kertaakaan.", _talk_options())
 		"pyhimys_luettelo":
@@ -7573,12 +7659,44 @@ func _talk_pyhimys(id: String) -> void:
 			tilat.first("pyhimys_palautettu", 0.5)
 			tilat.add("moraali", 0.3)
 			tilat.add("stressi", 0.2)
+			if int(endings.counts.get("palon_pyhimys", 0)) == 0:
+				_save_game()
+				_talk_box.close()
+				_pyhimys_legend()  # kirkon portaiden ja haudan hetki lavastetaan (pyhimys_kohtaus.gd), hetki kirjataan lopuksi
+				return
 			_ending("palon_pyhimys")
 			Sfx.play("win", -4.0)
 			_save_game()
 			_talk_box.reply("Hetkinen. Luettelo... \"pieni pyhimyskuva, puuta\". Kaiverrettu naisen kasvot, palon noki vielä pohjassa. No. Olin väärässä. "
 				+ "Raahen museo vahvistaa iän, mutta kyllä minä sen tunnen. Kiitos. Suvun nimeä ei mainita.", _talk_options(),
 				"Pyhimys palasi kirkkoon. Maine +%d. Iäkäs nainen tulee jatkossa kirkkoon." % int(PyhimysLegenda.MAINE))
+
+
+## Legendaarinen hetki "palon_pyhimys": pyhimys suntiolle kirkon portailla, yliviivattu rivi luettelossa ja "palautettu",
+## suvun nimi pysyy salassa, ovet sulkeutuvat pyhimyksen takana ja kynttilä sammuu talollisen haudalla (pyhimys_kohtaus.gd).
+## Oikea pelaaja, suntio, hoitaja ja nainen piiloon kopioiden ajaksi.
+var _pyhimys_scene: Node
+
+
+func _pyhimys_legend() -> void:
+	var w := _active_walker()
+	w.controls_enabled = false
+	_hud.visible = false
+	_pyhimys_nodes()
+	var lg := PyhimysKohtaus.new()
+	lg.world = world
+	lg.hide_nodes = [player, suntio, hoitaja, kynttilanainen]
+	lg.suntio_look = SUNTIO_LOOK
+	lg.nainen_look = NAINEN_LOOK
+	lg.hoitaja_look = HOITAJA_LOOK
+	_pyhimys_scene = lg
+	lg.finished.connect(func() -> void:
+		w.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_ending("palon_pyhimys")
+		_queue_message("Pyhimys palasi kirkkoon. Maine +%d. Iäkäs nainen tulee jatkossa kirkkoon." % int(PyhimysLegenda.MAINE), 4.5))
+	add_child(lg)
 
 
 func _aarni_logic() -> void:
@@ -8802,6 +8920,12 @@ func _pannu_update() -> void:
 		patch.transparency = 0.35
 		B.mesh(_pannu_node, B.cyl(0.05, 0.05, 0.5, 8), Vector3(0.2, 0.15, 0.1), Color(0.35, 0.6, 0.45), Vector3(60, 0, 20))  # kahva pilkottaa
 	_pannu_node.visible = pannu.heard and not pannu.found
+	# Isän pannu Sulon pontikkapannun vieressä kivellä, kun se annettiin Sululle (sulo_legenda.gd).
+	if pannu.choice == "sulo" and _isan_pannu == null:
+		_isan_pannu = SuloLegenda.build_keepsake(self)
+	elif pannu.choice != "sulo" and _isan_pannu != null:
+		_isan_pannu.queue_free()
+		_isan_pannu = null
 
 
 func _pannu_logic() -> void:
@@ -8849,7 +8973,9 @@ func _pannu_museum(p: Vector3) -> void:
 
 func _pannu_to_sulo() -> void:
 	pannu.choice = "sulo"
-	_ending("sulon_pannu")
+	var first := int(endings.counts.get("sulon_pannu", 0)) == 0
+	if not first:
+		_ending("sulon_pannu")
 	tilat.add("moraali", 0.2)
 	Sfx.play("glass", -4.0, 0.8)
 	_save_game()
@@ -8866,9 +8992,32 @@ func _pannu_to_sulo() -> void:
 		walker_out.set_kanister(true)
 		gift = " Ilmainen kanisteri mukana (= %d kaljaa)." % _kanister_beers()
 	_save_game()
+	_pannu_update()
+	if first:
+		_talk_box.close()
+		_sulo_legend("Sulo keittää isän reseptillä: kanisteri vastaa nyt %d kaljaa.%s" % [SuloPannu.RESEPTI_BEERS, gift])
+		return
 	_talk_box.reply("...Isän pannu. Kuuskymmentä vuotta suossa. No... isä keitti. Ja hyvää keitti. Tästä lähtien keitän hänen "
 		+ "reseptillään, ja sinä saat ekat kanisterit." + extra, _talk_options(),
 		"Sulo keittää isän reseptillä: kanisteri vastaa nyt %d kaljaa.%s" % [SuloPannu.RESEPTI_BEERS, gift])
+
+
+## Legendaarinen hetki "sulon_pannu": isän pannu Sulon pontikkapannun luo metsään, leima kuparin alta, Sulon myöntö,
+## ensimmäiset tipat tuleen isälle ja Pekan maistiaiset (sulo_legenda.gd). Oikea pelaaja ja Sulo piiloon kopioiden ajaksi.
+func _sulo_legend(after: String) -> void:
+	var w := _active_walker()
+	w.controls_enabled = false
+	_hud.visible = false
+	var lg := SuloLegenda.new()
+	lg.world = world
+	lg.hide_nodes = [player, sulo]
+	lg.finished.connect(func() -> void:
+		w.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_ending("sulon_pannu")
+		_queue_message(after, 4.5))
+	add_child(lg)
 
 
 func _pannu_scrap() -> void:
@@ -8915,6 +9064,8 @@ func _talk_aaro(id: String) -> void:
 			_talk_box.reply("Lihapiirakka! Kasikutosen jälkeen ensimmäinen. Tässä avain. Ja kuule: kauppias ei koskaan vieny "
 				+ "rahojaan pankkiin. Ne on vieläkin jossain. Kaikki nauraa mulle, mutta mää tiän.", _talk_options(),
 				"Tokolan varaston avain mukana.")
+		"tokola_muisto":
+			_talk_box.reply(TokolaLegenda.MUISTO.pick_random(), _talk_options())  # pihan hetki muistetaan
 		"kauppias":
 			_talk_box.reply("Kauppias myi tiskin alta sokeria koko pitäjälle, jos ymmärrät mitä tarkotan. Rahat ja kirjanpito "
 				+ "katos, kun kauppa lopetti. Pekka sanoo kaljapuheeks. Kato hyllyiltä, siellä on hänen kirjojaan.", _talk_options())
@@ -8931,12 +9082,35 @@ func _talk_aaro(id: String) -> void:
 			maine = clampf(maine + 10.0, 0.0, 100.0)
 			tilat.add("moraali", 0.3)
 			tilat.first("tokolan_legenda", 0.8)
+			if int(endings.counts.get("tokolan_aarre", 0)) == 0:
+				_save_game()
+				_talk_box.close()
+				_tokola_legend()  # Aaron pihan hetki lavastetaan (tokola_legenda.gd), hetki kirjataan lopuksi
+				return
 			_ending("tokolan_aarre")
 			Sfx.play("win_small", -4.0)
 			_save_game()
 			_talk_box.reply("KYLLÄ MÄÄ SANOIN! Kuuskymmentä vuotta ne on nauranu! Sormus oli kauppiaan vaimon, se jää mulle "
 				+ "muistoks. Markat on sun, keräilijät maksaa niistä. Ja tilikirja menee kotiseutumuseoon.", _talk_options(),
 				"Legenda todistettu! Maine +10. Kyläläiset joutuvat myöntämään.")
+
+
+## Legendaarinen hetki "tokolan_aarre": rahalipas Aaron pihan halkopölkylle, sormus valoon, Aaron huuto tielle ja Pekan
+## käteen leijaileva seteli (tokola_legenda.gd). Oikea pelaaja ja oikea Aaro piiloon kopioiden ajaksi.
+func _tokola_legend() -> void:
+	var w := _active_walker()
+	w.controls_enabled = false
+	_hud.visible = false
+	var lg := TokolaLegenda.new()
+	lg.world = world
+	lg.hide_nodes = [player, aaro]
+	lg.finished.connect(func() -> void:
+		w.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_ending("tokolan_aarre")
+		_queue_message("Legenda todistettu! Maine +10. Sormus jää Aarolle, markat sulle ja tilikirja kotiseutumuseoon.", 4.5))
+	add_child(lg)
 
 
 ## Aarolle kelpaa kaupan lihapiirakka tai Reipparin "kaikilla": repun avain tai tyhjä, jos ei kumpaakaan.
@@ -14626,6 +14800,8 @@ func _talk_options(who := "") -> Array:
 		"olavi_pappa":
 			if olavi.choice == "museo":
 				o.append(_opt("olavi_kiitos", "Markkinat palasivat"))
+				if int(endings.counts.get("olavinmarkkinat", 0)) > 0:
+					o.append(_opt("olavi_muisto", "Muistatko, kun lyhty sammui seuraintalon kuistilla?", true, "", true))
 			elif not olavi.pappa:
 				o.append(_opt("olavi_kukat", "Kuka tuo tuoreet kukat kauppiaan haudalle?", olavi.kivi, "kivi on vielä lukematta", true))
 			elif not olavi.lupa:
@@ -14646,12 +14822,16 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("kuningas_kolo", "Pane piirustus takaisin tapulin koloon (onni säilyy)", true, "", true))
 			elif not kuningas.avain:
 				o.append(_opt("kuningas_avain", "Pyydä tapulin avainta", pyhimys.returned, "suntio auttaa, kun kirkon pyhimysasia on selvä", true))
+			if kuningas.choice == "museo" and int(endings.counts.get("kuninkaan_tapuli", 0)) > 0:
+				o.append(_opt("kuningas_muisto", "Muistatko, kun tapulin kello löi itsestään?"))
 			if pyhimys.found and not pyhimys.returned:
 				o.append(_opt("pyhimys_anna", "Anna löytämäsi pieni puinen pyhimys", true, "", true))
 			elif pyhimys.heard and not pyhimys.luettelo:
 				o.append(_opt("pyhimys_luettelo", "Saisinko nähdä seurakunnan vanhan esineluettelon?", true, "", true))
 			elif pyhimys.luettelo and not pyhimys.returned:
 				o.append(_opt("pyhimys_vaita", "Luettelossa on yliviivattu rivi"))
+			elif pyhimys.returned and int(endings.counts.get("palon_pyhimys", 0)) > 0:
+				o.append(_opt("pyhimys_muisto", "Muistatko, kun pyhimys palasi kirkkoon?"))
 		"kynttilanainen":
 			if not pyhimys.lupaus:
 				o.append(_opt("pyhimys_lupaa", "Lupaan, ettei suvun nimeä vedetä lokaan", true, "", true))
@@ -14672,6 +14852,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("lipas", "Näytä kauppiaan rahalipas ja tilikirja", true, "", true))
 			elif tokola.legend == "":
 				o.append(_opt("kauppias", "Kerro siitä Tokolan kauppiaasta"))
+			elif tokola.legend == "kyla" and int(endings.counts.get("tokolan_aarre", 0)) > 0:
+				o.append(_opt("tokola_muisto", "Muistatko, kun Pekka sieppasi sen setelin?"))
 			if kertun.malmi and not kertun.malmi_known:
 				o.append(_opt("malmi", "Näytä Kertunkankaan suolta nostettu ruosteinen möykky", true, "", true))
 			if tokola.tilikirja and not pannu.heard:  # nimikirjaimet S. S. luetaan varaston tilikirjasta
@@ -14786,6 +14968,8 @@ func _talk_options(who := "") -> Array:
 				why == "", why, _sulo_free))
 			if pannu.found and pannu.choice == "":
 				o.append(_opt("pannu", "Tässä on isäsi kuparipannu Pilkkarinnevalta", true, "", true))
+			elif pannu.choice == "sulo" and int(endings.counts.get("sulon_pannu", 0)) > 0:
+				o.append(_opt("pannu_muisto", "Muistatko, kun liekki leimahti siniseksi?"))
 			if _has_kaasu:
 				o.append(_opt("sulo_kaasu", "Toin kaasupullon Heiskaselta", true, "", true))
 			if tokola.tilikirja and tokola.lipas and tokola.legend == "":
@@ -15046,6 +15230,9 @@ func _talk_choose(id: String) -> void:
 				return
 			if id == "pannu":
 				_pannu_to_sulo()
+				return
+			if id == "pannu_muisto":
+				_talk_box.reply(SuloLegenda.MUISTO.pick_random(), _talk_options())  # metsän hetki muistetaan
 				return
 			if id == "sulo_kaasu":
 				_sulo_kaasu()
