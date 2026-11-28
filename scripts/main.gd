@@ -321,6 +321,7 @@ const SahkopyoraLegenda := preload("res://scripts/sahkopyora_legenda.gd")
 const PorroLegenda := preload("res://scripts/porro_legenda.gd")
 const AarnivalkeaLegenda := preload("res://scripts/aarnivalkea_legenda.gd")
 const TekojarviLegenda := preload("res://scripts/tekojarvi_legenda.gd")
+const UkkoVapaa := preload("res://scripts/ukko_vapaa_legenda.gd")
 const TokolaLegenda := preload("res://scripts/tokola_legenda.gd")
 const TapuliLegenda := preload("res://scripts/tapuli_legenda.gd")
 const SuloLegenda := preload("res://scripts/sulo_legenda.gd")
@@ -352,7 +353,11 @@ const OlaviLegenda := preload("res://scripts/olavi_legenda.gd")
 const OlaviMarkkinat := preload("res://scripts/olavi_markkinat.gd")
 const KuningasLegenda := preload("res://scripts/kuningas_legenda.gd")
 const HanhikiviLegenda := preload("res://scripts/hanhikivi_legenda.gd")
+const HanhikiviKohtaus := preload("res://scripts/hanhikivi_kohtaus.gd")
+const KapseliKohtaus := preload("res://scripts/kapseli_kohtaus.gd")
+const ManamansaloKohtaus := preload("res://scripts/manamansalo_kohtaus.gd")
 const PakkahuoneLegenda := preload("res://scripts/pakkahuone_legenda.gd")
+const VeistosKohtaus := preload("res://scripts/veistos_kohtaus.gd")
 const PeruskiviLegenda := preload("res://scripts/peruskivi_legenda.gd")
 const ManamansaloLegenda := preload("res://scripts/manamansalo_legenda.gd")
 const WanharaaheLegenda := preload("res://scripts/wanharaahe_legenda.gd")
@@ -374,6 +379,9 @@ const Korkit := preload("res://scripts/korkit.gd")
 const RantapalloGame := preload("res://scripts/rantapallo_game.gd")
 const RotkoGame := preload("res://scripts/rotko_game.gd")
 const KanttoriLegenda := preload("res://scripts/kanttori_legenda.gd")
+const KanttoriVirsi := preload("res://scripts/kanttori_virsi.gd")
+const DrakkarKohtaus := preload("res://scripts/drakkar_kohtaus.gd")
+const KinkkuKohtaus := preload("res://scripts/kinkku_kohtaus.gd")
 const LemmikkiEnkelit := preload("res://scripts/lemmikki_enkelit.gd")
 const MuistokylttiGame := preload("res://scripts/muistokyltti_game.gd")
 const ShoreFishGame := preload("res://scripts/shore_fish_game.gd")
@@ -512,6 +520,7 @@ var quests: RefCounted  # tarinan luvut ja sivutehtävät (quests.gd, #132)
 var _journal: Control  # Normipäiväkirja ja reppu yhtenä vihkona (O / I), journal.gd
 var _matkaopas: Control  # Matkaopas (B), matkaopas.gd; saadaan taksikuskilta
 var _pannu_node: Node3D  # kuparin läikkä Pilkkarinnevalla (näkyy kun legenda on kuultu)
+var _ukko_rauniot: Node3D  # vanhan ladon rauniot tekojärvessä Kaitasaaren kärjen edessä (ukko_vapaa_legenda.gd)
 var _isan_pannu: Node3D  # Vanhan Sulon pannu kivellä pontikkapannun vieressä (pannu Sululle, sulo_legenda.gd)
 var raahe_int: Node3D
 var retki_int: Node3D  # käynnissä olevan retken kohtaus (retket.gd), muuten null
@@ -3087,6 +3096,10 @@ func _enter_kirppis(mode := "kirppis") -> void:
 		tilat.first("seura_" + mode, 0.3)
 	if mode == "tanssit" and int(endings.counts.get("tanssit", 0)) > 0 and _once_today("tanssit_muisto"):
 		kirppis_int.say_id("annaliisa", TanssiGame.LEG_MUISTO.pick_random(), 5.0)  # tanssien legenda muistetaan
+	if mode == "kirppis" and int(endings.counts.get("drakkar", 0)) > 0 and _once_today("drakkar_muisto"):
+		kirppis_int.say_id("raili", DrakkarKohtaus.MUISTO.pick_random(), 5.5)  # Drakkarin pilvi muistetaan (drakkar_kohtaus.gd)
+	if mode == "bingo" and int(endings.counts.get("kinkku", 0)) > 0 and _once_today("kinkku_muisto"):
+		kirppis_int.say_id("hilkka", KinkkuKohtaus.MUISTO.pick_random(), 5.5)  # mummot ei anna anteeks (kinkku_kohtaus.gd)
 
 
 func _on_kirppis_exited() -> void:
@@ -3141,6 +3154,7 @@ const BINGO_PRIZES := [["kahvipaketti", "Kahvipaketti! Juhla Mokka, Päivi tykk�
 var _tanssi_paid_day := -1
 var _danced := {}  # pari -> päivä
 var _bingo_day := -1
+var bingo_jackpot := 0.15  # jättipotin (kinkku) todennäköisyys voitetussa bingossa (testi pakottaa 1,0)
 var _ukot_day := -1
 
 
@@ -3260,7 +3274,7 @@ func _start_bingo() -> void:
 		if not won:
 			_show_message("Mummo Elvi vei bingon.%s Ensi tiistaina uudestaan." % (" Ja väärät huudot nolottaa." if false_calls > 0 else ""), 3.5)
 			return
-		var prize: Array = BINGO_PRIZES[3] if randf() < 0.15 else BINGO_PRIZES[randi() % 3]
+		var prize: Array = BINGO_PRIZES[3] if randf() < bingo_jackpot else BINGO_PRIZES[randi() % 3]
 		match prize[0]:
 			"kahvipaketti":
 				tilat.add("vireys", 0.2)
@@ -3270,10 +3284,16 @@ func _start_bingo() -> void:
 			"lahjakortti":
 				money += 10.0
 			"kinkku":
-				_ending("kinkku")
 				tilat.add("moraali", 0.3)
 				tilat.add("stressi", 0.3)
 				maine = clampf(maine + 5.0, 0.0, 100.0)
+				if int(endings.counts.get("kinkku", 0)) == 0:
+					# Ensimmäinen jättipotti on lavastettu legendaarinen hetki (kinkku_kohtaus.gd), kirjataan lopuksi;
+					# myöhemmät lasketaan hiljaa ja Hilkka muistelee bingoon tultaessa.
+					_save_game()
+					_kinkku_legend()
+					return
+				_ending("kinkku")
 		Sfx.play("win_small", -4.0)
 		_show_message("BINGO! " + prize[1], 4.5)
 		_save_game())
@@ -3362,6 +3382,9 @@ func _talk_kirppis(id: String) -> void:
 		return
 	if id == "ukko_muisto":
 		_talk_box.reply(TekojarviLegenda.MUISTO.pick_random(), _talk_options())  # Pirtin pihan punnitus muistetaan
+		return
+	if id == "ukko_vapaa_muisto":
+		_talk_box.reply(UkkoVapaa.MUISTO.pick_random(), _talk_options())  # hyppy ladon raunioilla ja kahvit muistetaan
 		return
 	if id == "aarni_muisto":
 		_talk_box.reply(AarnivalkeaLegenda.MUISTO.pick_random(), _talk_options())  # Pirtin pihan hetki muistetaan
@@ -3500,7 +3523,9 @@ func _kirppis_give(k: String) -> String:
 			drakkar_found = true
 			drakkar = DRAKKAR_SPRAYS
 			if first:
-				_ending("drakkar")
+				# Ensimmäinen pullo on lavastettu legendaarinen hetki (drakkar_kohtaus.gd): suihkaus, pilvi salin yli ja
+				# Seurantielle; hetki kirjataan kohtauksen lopussa. Myöhemmät pullot ilman kohtausta, Raili muistelee.
+				call_deferred("_drakkar_legend")
 				return "Drakkar Noir! Musta pullo, puolillaan. Ysäri tuoksuu taas. Suihkaise T-valikosta."
 			return "Toinen Drakkar Noir! Raili: \"Mistä näitä tulee? Kuolinpesistä, kulta.\""
 		"haalari":
@@ -6345,14 +6370,21 @@ func _talk_kanttori(id: String) -> void:
 			tilat.first("kanttori_kuoro", 0.5)
 			tilat.add("moraali", 0.3)
 			tilat.add("stressi", 0.2)
-			_ending("kanttorin_virsi")
 			_kt_stop()
+			if int(endings.counts.get("kanttorin_virsi", 0)) == 0:
+				_save_game()
+				_talk_box.close()
+				_kanttori_legend()  # virsi lavastetaan seuraintalon saliin ja Kanttorilan pihalle (kanttori_virsi.gd)
+				return
+			_ending("kanttorin_virsi")
 			_kt_choir.stream = _kt_stream("kuoro")
 			_kt_choir.volume_db = -6.0
 			_kt_choir.play()
 			_save_game()
 			_talk_box.reply("Voi että! Kuoro harjoittelee viikon, ja sitten seuraintalolla kanttorin virsi saa vihdoin soida.", _talk_options(),
 				"Sinikan kuoro laulaa virren seuraintalolla, lehtijuttu ja maine +%d. Kanttorilan yösävel vaikenee." % int(KanttoriLegenda.KUORO_MAINE))
+		"kanttori_muisto":
+			_talk_box.reply(KanttoriVirsi.MUISTO.pick_random(), _talk_options())  # seuraintalon virsi muistetaan (kanttori_virsi.gd)
 		"kanttori_myy":
 			kanttori.choice = "kerailija"
 			money += KanttoriLegenda.KERAILIJA_HINTA
@@ -6361,6 +6393,80 @@ func _talk_kanttori(id: String) -> void:
 			_save_game()
 			_talk_box.reply("Veksi silmäilee nuotit. \"Satakaksikymmentä... no, satakaksikymmentäviisikymmentä. Hyvä keräilykohde.\"", _talk_options(),
 				"+%s €. Yösävel jatkuu ikuisesti, eikä Sinikka anna anteeksi." % _eur(KanttoriLegenda.KERAILIJA_HINTA))
+
+
+## Legendaarinen hetki "kanttorin_virsi": Sinikan kuoro laulaa virren seuraintalolla, vanha harmooni soittaa mukana
+## itsestään ja Kanttorilan yösävel vaikenee (kanttori_virsi.gd). Oikea pelaaja piiloon, salin väki konserttitilaan.
+func _kanttori_legend() -> void:
+	var w := _active_walker()
+	w.controls_enabled = false
+	_hud.visible = false
+	var lg := KanttoriVirsi.new()
+	lg.world = world
+	lg.hall = kirppis_int
+	lg.hide_nodes = [player]
+	lg.finished.connect(func() -> void:
+		if w == player:
+			player.controls_enabled = true
+			player.activate_camera()
+		else:
+			w.activate()
+		_hud.visible = true
+		_ending("kanttorin_virsi")
+		_queue_message("Lehtijuttu ja maine +%d. Kanttorilan yösävel on vaiennut: talo on öisin hiljaa." % int(KanttoriLegenda.KUORO_MAINE), 5.0))
+	add_child(lg)
+
+
+## Drakkar Noirin ensimmäinen pullo (drakkar_kohtaus.gd): salin väki, kävelijä ja ulkona odottava pelaaja piiloon
+## kohtauksen ajaksi; lopuksi hetki päiväkirjaan.
+func _drakkar_legend() -> void:
+	_talk_box.close()
+	var w := _active_walker()
+	w.controls_enabled = false
+	_hud.visible = false
+	kirppis_int.busy = true
+	var lg := DrakkarKohtaus.new()
+	lg.world = world
+	lg.hall = kirppis_int
+	lg.hide_nodes = [player]
+	lg.finished.connect(func() -> void:
+		kirppis_int.busy = false
+		kirppis_int.drakkar.visible = drakkar <= 0
+		if w == player:
+			player.controls_enabled = true
+			player.activate_camera()
+		else:
+			w.controls_enabled = true
+			w.activate()
+		kirppis_int.block_interact()
+		_hud.visible = true
+		_ending("drakkar")
+		_queue_message("Drakkar Noir taskussa (%d suihkausta, %s-valikko). Tuoksu kestää päivän: Sinikka huomaa, tansseissa onnistaa." % [drakkar, Settings.cap("eat")], 5.0))
+	add_child(lg)
+
+
+## Bingon jättipotti ensimmäistä kertaa (kinkku_kohtaus.gd): tarkistus, kinkku ja mummojen mulkoilu salissa.
+func _kinkku_legend() -> void:
+	var w := _active_walker()
+	w.controls_enabled = false
+	_hud.visible = false
+	kirppis_int.busy = true
+	var lg := KinkkuKohtaus.new()
+	lg.hall = kirppis_int
+	lg.hide_nodes = [player]
+	lg.finished.connect(func() -> void:
+		kirppis_int.busy = false
+		if w == player:
+			player.controls_enabled = true
+			player.activate_camera()
+		else:
+			w.controls_enabled = true
+			w.activate()
+		kirppis_int.block_interact()
+		_hud.visible = true
+		_ending("kinkku")
+		_queue_message("Joulukinkku kotiin Päiville. Moraali ja maine nousee, mutta tiistain bingossa mummot muistaa.", 5.0))
+	add_child(lg)
 
 
 func _hanhikivi_tasks() -> Array:
@@ -6429,12 +6535,39 @@ func _hanhikivi_kivi() -> void:
 		maine = clampf(maine + HanhikiviLegenda.MAINE, 0.0, 100.0)
 		tilat.first("hanhikivi_loppu", 0.5)
 		tilat.add("moraali", 0.2)
+		if not endings.counts.has("hanhikiven_rajakivi"):
+			_save_game()
+			_hanhikivi_legend()  # ensimmäinen kerta lavastetaan (hanhikivi_kohtaus.gd), hetki kirjataan lopuksi
+			return
 		Sfx.play("win_small", -4.0)
 		_ending("hanhikiven_rajakivi")
 		_show_message("Kivi on kuin on ollut. Moni sanoo, että se on ollut rajalla ja joku siirsi sen, eikä kukaan voi todistaa mitään. "
 			+ "Ehkä juuri siksi tarina elää. Maine +%d." % int(HanhikiviLegenda.MAINE), 7.5)
 	else:
 		_show_message("Hanhikivi. Sanotaan, että joku siirsi sen. Kukaan ei tiedä, kuka.", 4.0)
+
+
+## Legendaarinen hetki "hanhikiven_rajakivi": pelaaja kiven juurella ja rannan painaumalla, hanhi laskeutuu kiven
+## päälle, kuski ja kalastaja näkevät, eikä kukaan voi todistaa mitään (hanhikivi_kohtaus.gd). Oikea pelaaja,
+## kalastaja ja kuski piiloon kopioiden ajaksi; retken vuorovaikutus odottaa (retki_int.busy). Sulka jää kivelle.
+func _hanhikivi_legend() -> void:
+	var r := retki_int
+	r.walker.controls_enabled = false
+	r.busy = true
+	_hud.visible = false
+	var lg := HanhikiviKohtaus.new()
+	lg.interior = r
+	lg.finished.connect(func() -> void:
+		if not is_instance_valid(r):
+			return
+		r.busy = false
+		r.feather.visible = true
+		r.walker.activate()
+		r.block_interact()
+		_hud.visible = true
+		_ending("hanhikiven_rajakivi")
+		_queue_message("Legenda: hanhi istui Hanhikiven päällä. Kukaan ei voi todistaa mitään. Maine +%d." % int(HanhikiviLegenda.MAINE), 4.5))
+	add_child(lg)
 
 
 func _pakkahuone_tasks() -> Array:
@@ -6483,7 +6616,7 @@ func _pakkahuone_acted(kind: String) -> void:
 				retki_int.say("Veistos on poissa! Vitriini oli lukossa, eikä kukaan tiedä, miten. Kellarin avain on ollut kadoksissa viikon.", 7.0)
 				_show_message("Kuraattori kertoi veistoksen katoamisesta. Vierailijakirjassa voi olla jotain. (Päiväkirjaan tuli uutta.)", 5.0)
 			elif pakkahuone.found:
-				retki_int.say("Veistos on taas paikallaan! Kiitos. Sanotaan, että Pakkahuone pitää omansa.", 5.0)
+				retki_int.say(VeistosKohtaus.MUISTO.pick_random(), 5.5)  # kuraattori muistelee kantamista
 			else:
 				retki_int.say("Veistos on edelleen poissa. Kellari on ainoa paikka, jota en ole tarkistanut.", 5.0)
 		"kirja":
@@ -6510,11 +6643,39 @@ func _pakkahuone_acted(kind: String) -> void:
 				maine = clampf(maine + PakkahuoneLegenda.MAINE, 0.0, 100.0)
 				tilat.first("pakkahuone_loppu", 0.5)
 				tilat.add("moraali", 0.2)
+				if not endings.counts.has("pakkahuoneen_veistos"):
+					_save_game()
+					_veistos_legend()  # ensimmäinen kerta lavastetaan (veistos_kohtaus.gd), hetki kirjataan lopuksi
+					return
 				Sfx.play("win_small", -4.0)
 				_ending("pakkahuoneen_veistos")
 				_save_game()
 				_show_message("Kunnostajan avain oli vierailijakirjan välissä. Kellarin laatikossa oli puupyhimys, ja kuraattori kantoi sen takaisin jalustalle. "
 					+ "Sanotaan, että niin kävi. Maine +%d." % int(PakkahuoneLegenda.MAINE), 7.5)
+
+
+## Legendaarinen hetki "pakkahuoneen_veistos": kellarin luukku aukeaa, kuraattori nostaa laatikon ja pyhimyksen,
+## kantaa sen itse salin poikki jalustalle ja aurinko osuu siihen (veistos_kohtaus.gd). Oikea pelaaja ja kuraattori
+## piiloon kopioiden ajaksi; museon näyttö odottaa (retki_int.staged).
+func _veistos_legend() -> void:
+	var r := retki_int
+	r.walker.controls_enabled = false
+	r.staged = true
+	_hud.visible = false
+	var lg := VeistosKohtaus.new()
+	lg.interior = r
+	lg.finished.connect(func() -> void:
+		if not is_instance_valid(r):
+			return
+		r.staged = false
+		r._shown = -1
+		r._lid_open = false
+		r.walker.activate()
+		r.block_interact()
+		_hud.visible = true
+		_ending("pakkahuoneen_veistos")
+		_queue_message("Legenda: kuraattori kantoi veistoksen itse jalustalle. Maine +%d." % int(PakkahuoneLegenda.MAINE), 4.5))
+	add_child(lg)
 
 
 func _peruskivi_tasks() -> Array:
@@ -6562,6 +6723,8 @@ func _peruskivi_acted(kind: String) -> void:
 				_save_game()
 				retki_int.say("Kiven edessä laatta on joskus ollut löysällä. Kuulemma sen alle jäi jotain 1962. Kyltti kertoo lisää.", 7.0)
 				_show_message("Vartija muistaa löysän laatan kiven edessä. Lue vielä opaskyltti. (Päiväkirjaan tuli uutta.)", 5.0)
+			elif peruskivi.found and endings.counts.has("peruskiven_kapseli"):
+				retki_int.say(KapseliKohtaus.MUISTO.pick_random(), 5.5)  # vartija muistelee kapselin hetkeä
 			else:
 				retki_int.say("Laatta on kiven edessä. En ole koskenut, ei kuulu minulle.", 4.0)
 		"kyltti":
@@ -6585,11 +6748,38 @@ func _peruskivi_acted(kind: String) -> void:
 				maine = clampf(maine + PeruskiviLegenda.MAINE, 0.0, 100.0)
 				tilat.first("peruskivi_loppu", 0.5)
 				tilat.add("moraali", 0.2)
+				if not endings.counts.has("peruskiven_kapseli"):
+					_save_game()
+					_kapseli_legend()  # ensimmäinen kerta lavastetaan (kapseli_kohtaus.gd), hetki kirjataan lopuksi
+					return
 				Sfx.play("coin", -4.0)
 				_ending("peruskiven_kapseli")
 				_save_game()
 				_show_message("Laatta liikkui. Kolossa oli kuparikapseli: lehtileike, vanha kolikko ja kirje. Löytäjäispalkkio +%s €, maine +%d. "
 					% [_eur(PeruskiviLegenda.RAHA), int(PeruskiviLegenda.MAINE)] + "Sanotaan, että niin kävi.", 7.5)
+
+
+## Legendaarinen hetki "peruskiven_kapseli": laatta nousee, vartija hölkkää paikalle, kapselin kirje sanoo "Älä kerro
+## vartijalle. Se kertoo kaikille.", ja vartija kuuluttaa löydön radiopuhelimeen (kapseli_kohtaus.gd). Oikea pelaaja,
+## vartija ja kuski piiloon kopioiden ajaksi; retken vuorovaikutus odottaa (retki_int.busy). Kapseli jää kopin ikkunalle.
+func _kapseli_legend() -> void:
+	var r := retki_int
+	r.walker.controls_enabled = false
+	r.busy = true
+	_hud.visible = false
+	var lg := KapseliKohtaus.new()
+	lg.interior = r
+	lg.finished.connect(func() -> void:
+		if not is_instance_valid(r):
+			return
+		r.busy = false
+		r.walker.activate()
+		r.block_interact()
+		_hud.visible = true
+		_ending("peruskiven_kapseli")
+		_queue_message("Legenda: kapseli löytyi laatan alta, ja kirje tunsi vartijan. Löytäjäispalkkio +%s €, maine +%d."
+			% [_eur(PeruskiviLegenda.RAHA), int(PeruskiviLegenda.MAINE)], 4.5))
+	add_child(lg)
 
 
 ## Wanha Raahe -kävelykierros (wanharaahe_legenda.gd): viisi pysähdystä, kuva jokaisesta; ovikuva Päiville.
@@ -7192,6 +7382,8 @@ func _manamansalo_acted(kind: String) -> void:
 				tilat.first("manamansalo_opas", 0.2)
 				_save_game()
 				retki_int.say("Kuulemma täällä oli ensimmäinen kirkko 1559. Nimestä en tiedä varmasti. Lue infotaulu. (Päiväkirjaan tuli uutta.)", 7.0)
+			elif manamansalo.found and endings.counts.has("manamansalon_kirkko"):
+				retki_int.say(ManamansaloKohtaus.MUISTO.pick_random(), 5.5)  # opas muistelee kivijalan hetkeä
 			else:
 				retki_int.say("Kirkon kivijalka on hautausmaan mäellä. En ole kaivanut, eikä kuulu minulle.", 4.5)
 		"infotaulu":
@@ -7214,11 +7406,37 @@ func _manamansalo_acted(kind: String) -> void:
 				maine = clampf(maine + ManamansaloLegenda.MAINE, 0.0, 100.0)
 				tilat.first("manamansalo_loppu", 0.5)
 				tilat.add("moraali", 0.2)
+				if not endings.counts.has("manamansalon_kirkko"):
+					_save_game()
+					_manamansalo_legend()  # ensimmäinen kerta lavastetaan (manamansalo_kohtaus.gd), hetki kirjataan lopuksi
+					return
 				Sfx.play("win_small", -4.0)
 				_ending("manamansalon_kirkko")
 				_save_game()
 				_show_message("Seisot kivijalalla, jonka sanotaan olleen Kainuun ensimmäisen kirkon. Panit kynttilän palamaan vainajien muistoksi. "
 					+ "Sanotaan, että niin kävi. Maine +%d." % int(ManamansaloLegenda.MAINE), 7.5)
+
+
+## Legendaarinen hetki "manamansalon_kirkko": kynttilä alttarikivelle, opas panee lyhdyt nurkkakiville, kultainen
+## hirsikirkko nousee hetkeksi kivijalalle, ja kuski ja opas kiistelevät nimestä (manamansalo_kohtaus.gd). Oikea pelaaja,
+## opas ja kuski piiloon kopioiden ajaksi; retken vuorovaikutus odottaa (retki_int.busy). Kynttilä ja lyhdyt jäävät palamaan.
+func _manamansalo_legend() -> void:
+	var r := retki_int
+	r.walker.controls_enabled = false
+	r.busy = true
+	_hud.visible = false
+	var lg := ManamansaloKohtaus.new()
+	lg.interior = r
+	lg.finished.connect(func() -> void:
+		if not is_instance_valid(r):
+			return
+		r.busy = false
+		r.walker.activate()
+		r.block_interact()
+		_hud.visible = true
+		_ending("manamansalon_kirkko")
+		_queue_message("Legenda: kivijalalla palaa kynttilä, ja nimestä saa kiistellä. Maine +%d." % int(ManamansaloLegenda.MAINE), 4.5))
+	add_child(lg)
 
 
 func _kuningas_tasks() -> Array:
@@ -7880,6 +8098,7 @@ func _kala_spot(id: String) -> Array:
 
 
 func _kalastus_logic() -> void:
+	_ukko_ruins_update()
 	if _hint.text != "" or player != walker_out or player.is_stunned() or _in_vaala or _at_mokki():
 		return
 	for id in ["orava", "tekojarvi"]:
@@ -8023,14 +8242,57 @@ func _ukko_sell() -> void:
 func _ukko_release() -> void:
 	ukko.choice = "vapaa"
 	_kertun_sync()
-	_ending("ukko_vapaa")
 	maine = clampf(maine + 5.0, 0.0, 100.0)
 	tilat.add("moraali", 0.35)
 	tilat.add("stressi", 0.2)
-	Sfx.play("water", -2.0, 0.6)
 	_save_game()
+	if int(endings.counts.get("ukko_vapaa", 0)) == 0:
+		_ukko_vapaa_legend()  # ranta, Tauno, isän lusikka, hyppy ladon raunioilla ja kahvit (ukko_vapaa_legenda.gd)
+		return
+	_ending("ukko_vapaa")
+	Sfx.play("water", -2.0, 0.6)
 	_show_message("Lasket Ukon veteen. Se makaa hetken kaislikon reunassa, katsoo, ja liukuu kohti ladon raunioita. "
 		+ "Taunolle kerrot huomenna. Se tarjoaa kahvit, eikä kukaan muu usko kumpaakaan.", 6.5)
+
+
+## Legendaarinen hetki "ukko_vapaa": Ukko päästetään Kaitasaaren kärjestä, Tauno ottaa isänsä lusikan, Ukko hyppää
+## ladon raunioilla ja Tauno tarjoaa kahvit (ukko_vapaa_legenda.gd). Oikea pelaaja piiloon kopion ajaksi; hetki
+## kirjataan lopuksi.
+func _ukko_vapaa_legend() -> void:
+	var sp: Array = _kala_spot("tekojarvi")
+	if sp.is_empty():
+		_ending("ukko_vapaa")
+		return
+	_ukko_ruins_update()
+	var w := _active_walker()
+	w.controls_enabled = false
+	_hud.visible = false
+	var lg := UkkoVapaa.new()
+	lg.world = world
+	lg.spot = sp[0]
+	lg.dir = sp[1]
+	lg.hide_nodes = [player]
+	lg.finished.connect(func() -> void:
+		w.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_ending("ukko_vapaa")
+		_queue_message("Ukko ui ladon raunioille. Tauno tarjosi kahvit, ja isän lusikka lähti hänen taskussaan kotiin. Maine +5.", 4.5))
+	add_child(lg)
+
+
+## Vanhan ladon rauniot tekojärvessä (Taunon isän mukaan Ukko asuu niillä): rakennetaan kerran, kun kalapaikka tunnetaan.
+func _ukko_ruins_update() -> void:
+	if _ukko_rauniot != null or world == null:
+		return
+	var sp: Array = _kala_spot("tekojarvi")
+	if sp.is_empty():
+		return
+	var c := UkkoVapaa.ruins_center(world, sp[0], sp[1])
+	if c == Vector3.INF:
+		return
+	_ukko_rauniot = UkkoVapaa.build_ruins(world, c, sp[1])
+	_ukko_rauniot.name = "LadonRauniot"
 
 
 ## --- Kertunkankaan rauta (#122): kehäröykkiöt, opastaulu ja legenda viimeisen sepän kirveestä ------------------
@@ -14044,7 +14306,7 @@ func _enter_retki(id: String) -> void:
 	retki_int.acted.connect(_on_retki_acted)
 	tilat.first("retki_" + id, 0.4)
 	if "legenda" in retki_int:
-		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut, "hiidenportti": hiidenportti, "pyhakoski": pyhakoski, "kajaani": messenius, "kalajoki": kalajoki, "raate": raate}.get(id, pakkahuone)
+		retki_int.legenda = {"rojuniemi": peruskivi, "manamansalo": manamansalo, "wanharaahe": wanharaahe, "paltaniemi": kuvakirkko, "tietokonemuseo": tietokonemuseo, "vanhaherra": vanhaherra, "kuhmo": karhut, "hiidenportti": hiidenportti, "pyhakoski": pyhakoski, "kajaani": messenius, "kalajoki": kalajoki, "raate": raate, "hanhikivi": hanhikivi}.get(id, pakkahuone)
 	if id == "kalajoki":
 		retki_int.set_juhannus(_juhannus())
 	retki_int.enter()
@@ -14769,6 +15031,8 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("aarni_muisto", "Muistatko, kun aarnivalkea sammui Pirtin pihalla?", true, "", true))
 				if who == "tauno" and ukko.choice == "museo":
 					o.append(_opt("ukko_muisto", "Muistatko, kun Ukko punnittiin Pirtin pihalla?", true, "", true))
+				if who == "tauno" and ukko.choice == "vapaa":
+					o.append(_opt("ukko_vapaa_muisto", "Muistatko, kun Ukko hyppäsi ladon raunioilla?", true, "", true))
 				if who == "tauno" and not ukko.heard:
 					o.append(_opt("ukko", "Onko tekojärvessä kalaa?", true, "", has_virveli or has_onki))
 				if who == "tauno" and pannu.found and pannu.choice == "":
@@ -14915,6 +15179,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("kanttori_legenda", "Kuuluuko Kanttorilasta öisin jotain?", true, "", true))
 			elif kanttori.nuotit() and kanttori.choice == "":
 				o.append(_opt("kanttori_kuoro", "Anna nuotit kuorolle: kanttorin virsi", true, "", true))
+			elif kanttori.choice == "kuoro" and int(endings.counts.get("kanttorin_virsi", 0)) > 0:
+				o.append(_opt("kanttori_muisto", "Muistatko, kun harmooni soitti itsestään?", true))
 			var berries: int = bucket.get("mustikka", 0)
 			if sinikka_taimet == 1 and _has_taimet:
 				o.append(_opt("taimet", "Toin tomaatintaimet säästöpihasta", true, "", true))

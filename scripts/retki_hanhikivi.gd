@@ -8,6 +8,7 @@ const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Walker := preload("res://scripts/player_walker.gd")
 const Vehicles := preload("res://scripts/vehicles.gd")
+const Kohtaus := preload("res://scripts/hanhikivi_kohtaus.gd")
 
 const HALF := Vector2(15.0, 10.0)
 const SHORE_Z := -4.6  # rantaviiva: joki on tämän takana (kävelyraja)
@@ -16,7 +17,11 @@ signal exited
 signal acted(kind: String)
 
 var active := false
-var busy := false
+var busy := false  # main.gd: legendan hetki käynnissä (hanhikivi_kohtaus.gd), ei vuorovaikutusta
+var legenda: RefCounted  # hanhikivi_legenda.gd (main.gd _enter_retki): löydön jälkeen sulka kivellä ja kalastaja muistelee
+var boulder: MeshInstance3D
+var kuski: Node3D
+var feather: Node3D  # hanhen sulka kiven päällä legendan jälkeen (hanhikivi_kohtaus.gd)
 var walker: CharacterBody3D
 var hint := ""
 var spot := ""
@@ -32,6 +37,9 @@ var _bubble: Label3D
 var _bubble_t := 0.0
 var _foam: Array = []  # [Node3D, vaihe, perus-y]
 var _t := 0.0
+## Kalastaja (myös hanhikivi_kohtaus.gd käyttää samaa ulkonäköä).
+const FISHER_LOOK := {"shirt": Color(0.3, 0.45, 0.3), "pants": Color(0.3, 0.3, 0.35),
+	"shoes": Color(0.13, 0.3, 0.14), "shoe": "kumisaapas", "hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.5, 0.5), "height": 1.74}
 const FISHER_LINES := ["Hourunkoski on kaunis, kun vettä tulee. Lohta ei oo näkynyt.", "Hanhikivi? Sanotaan, että se oli ennen rajalla. Joku sen siirsi.",
 	"Mun isä sano, ettei kiveen kosketa. En tiedä miksi.", "Kuulemma vaakunassakin on hanhi. En oo tarkistanut."]
 
@@ -46,6 +54,7 @@ func _ready() -> void:
 
 func enter() -> void:
 	active = true
+	feather.visible = legenda != null and legenda.found
 	_enter_frame = Engine.get_process_frames()
 	walker.position = spots.ovi[0] + Vector3(1.6, 0, -1.0)
 	walker.rotation.y = B.yaw_to(Vector3(1, 0, -1))
@@ -99,7 +108,10 @@ func _process(delta: float) -> void:
 		"ovi":
 			exited.emit()
 		"onkija":
-			say(FISHER_LINES.pick_random(), 4.5)
+			if legenda != null and legenda.found and randf() < 0.6:
+				say(Kohtaus.MUISTO.pick_random(), 5.5)  # kalastaja muistelee hanhea kivellä
+			else:
+				say(FISHER_LINES.pick_random(), 4.5)
 		_:
 			acted.emit(best)
 
@@ -157,10 +169,10 @@ func _build() -> void:
 	var sx := 4.0
 	var sz := -3.4
 	B.mesh(self, B.sphere(1.0, 16), Vector3(sx + 0.1, 0.012, sz + 0.15), Color(0.1, 0.22, 0.1)).scale = Vector3(2.5, 0.01, 1.7)
-	var boulder := MeshInstance3D.new()
+	boulder = MeshInstance3D.new()
 	boulder.mesh = _boulder_mesh(Vector3(1.75, 0.95, 1.05), 7)
 	boulder.material_override = B.vcol_srgb_mat()
-	boulder.position = Vector3(sx, 0.78, sz)
+	boulder.position = Vector3(sx, 0.6, sz)  # pohja 1-2 cm maan alla (oli 0,78: kivi leijui 19 cm ilmassa)
 	boulder.rotation.y = 0.25
 	add_child(boulder)
 	for r in [[Vector3(-1.75, 0.0, 0.85), 0.32, 3], [Vector3(1.9, 0.0, 0.55), 0.26, 5], [Vector3(-0.6, 0.0, 1.0), 0.18, 9]]:
@@ -174,6 +186,15 @@ func _build() -> void:
 	body.position = Vector3(sx, 0.7, sz)
 	body.add_child(B.box_shape(Vector3(3.6, 1.4, 1.8)))
 	add_child(body)
+	# Hanhen sulka kiven päällä (näkyy legendan jälkeen): paikka lasketaan kiven pinnasta.
+	feather = Kohtaus.build_feather(self)
+	var top := Kohtaus.stone_top(self)
+	feather.position = top + Vector3(0, 0.006, 0)
+	feather.rotation = Vector3(0, 0.9, 0)
+	feather.visible = false
+	# Kiven entinen sija rannassa (tarina: joku siirsi sen): matala kiven muotoinen painauma, jossa ruoho kasvaa harvana,
+	# ja reunalla pieniä kiviä kuin entisen pohjan jäljiltä. Sama asento kuin kivellä. Ei todista mitään.
+	_hollow(Vector3(9.0, 0, -3.35), 0.25)
 	# Hanhikiven laatta (kyltti kiven edessä).
 	B.sign_pole(self, Vector3(sx, 0, sz + 1.45), 0.5)
 	var stone_plate := B.sign_plate(self, "HANHIKIVI\nsanotaan: rajakivi", Color(0.88, 0.86, 0.8), Color(0.12, 0.12, 0.16), 0.3, 64, Color(0.4, 0.4, 0.42))
@@ -186,8 +207,7 @@ func _build() -> void:
 	info.position = Vector3(-3.0, 2.0, -3.05)
 	info.rotation.x = -0.25
 	# Kalastaja rannalla (seisoo, ei erikoisasentoa).
-	_fisher = Looks.make(self, {"shirt": Color(0.3, 0.45, 0.3), "pants": Color(0.3, 0.3, 0.35),
-		"shoes": Color(0.13, 0.3, 0.14), "shoe": "kumisaapas", "hair": "Hair_Buzzed", "hair_color": Color(0.5, 0.5, 0.5), "height": 1.74})
+	_fisher = Looks.make(self, FISHER_LOOK)
 	_fisher.position = Vector3(-9.0, 0, -3.8)
 	_fisher.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_fisher.play("Idle", 0.0)
@@ -206,7 +226,7 @@ func _build() -> void:
 	taxi.rotation.y = PI / 2.0
 	add_child(taxi)
 	Vehicles.taxi(taxi)
-	Vehicles.kuski(taxi, "mercedes", load("res://scripts/looks.gd").TAXI_DRIVER)  # kuski odottaa paluukyytiä
+	kuski = Vehicles.kuski(taxi, "mercedes", Looks.TAXI_DRIVER)  # kuski odottaa paluukyytiä
 	for p in [Vector3(-14.0, 0, -1.0), Vector3(-6.0, 0, 3.5), Vector3(0.5, 0, 4.0), Vector3(9.0, 0, 1.5), Vector3(13.5, 0, -2.5), Vector3(12.0, 0, 5.0)]:
 		_birch(p, 0.9 + fposmod(p.x, 0.3))
 	var lamp := OmniLight3D.new()
@@ -215,6 +235,37 @@ func _build() -> void:
 	lamp.light_energy = 0.6
 	lamp.omni_range = 14.0
 	add_child(lamp)
+
+
+## Kiven muotoinen painauma: tumma multa ja harva ruoho soikiona, reunalla nurmivalli ja pieniä kiviä.
+func _hollow(at: Vector3, yaw: float) -> void:
+	var h := Node3D.new()
+	h.position = at
+	h.rotation.y = yaw
+	add_child(h)
+	var rim := B.mesh(h, B.sphere(1.0, 24), Vector3(0, 0.0, 0), Color(0.3, 0.5, 0.22))
+	rim.scale = Vector3(1.95, 0.05, 1.2)
+	var soil := B.mesh(h, B.sphere(1.0, 24), Vector3(0, 0.012, 0), Color(0.36, 0.3, 0.2))
+	soil.scale = Vector3(1.7, 0.02, 0.98)
+	var inner := B.mesh(h, B.sphere(1.0, 24), Vector3(0, 0.02, 0), Color(0.3, 0.25, 0.17))
+	inner.scale = Vector3(1.3, 0.012, 0.7)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1742
+	for i in 26:  # harvat ruohotupsut multapohjassa
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * 0.85
+		var tuft := B.mesh(h, B.cyl(0.0, 0.05, 0.12 + rng.randf() * 0.08, 5), Vector3(cos(a) * r * 1.6, 0.06, sin(a) * r * 0.9),
+			Color(0.38, 0.55, 0.24).darkened(rng.randf() * 0.25))
+		tuft.rotation = Vector3(rng.randf_range(-0.3, 0.3), 0, rng.randf_range(-0.3, 0.3))
+	for i in 11:  # reunakivet
+		var a := TAU * i / 11.0 + rng.randf_range(-0.15, 0.15)
+		var sm := MeshInstance3D.new()
+		var rr := rng.randf_range(0.09, 0.16)
+		sm.mesh = _boulder_mesh(Vector3(rr * 1.3, rr * 0.7, rr), 20 + i)
+		sm.material_override = B.vcol_srgb_mat()
+		sm.position = Vector3(cos(a) * 1.78, rr * 0.25, sin(a) * 1.05)
+		sm.rotation.y = rng.randf() * TAU
+		h.add_child(sm)
 
 
 ## Rosoinen lohkare: kuutiopallo (6 ruudukkoa, ei napoja eikä viuhkoja), pyöristetty särmiö (superellipsoidi) + sileä

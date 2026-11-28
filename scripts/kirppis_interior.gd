@@ -143,6 +143,7 @@ var _people: Array[Node3D] = []  # hahmot PEOPLE-järjestyksessä
 var _holders: Array[Node3D] = []  # hahmo, jakkara, soitin ja törmäys yhdessä (näkyvyys tilan mukaan)
 var _bubbles := {}
 var _groups := {}  # tila -> Node3D (tilan omat kalusteet ja kyltit)
+var _side_tables: Node3D  # Hilkan ja Taunon pöydät sivuilla (kaikissa tiloissa)
 var _no_dance: Node3D  # keskipöytä: pois tansseista
 var _lot: Node3D
 var _dancers: Array[Node3D] = []
@@ -260,6 +261,43 @@ func _apply_mode() -> void:
 		_lot.visible = mode == "kirppis" and lot_visible
 	for d in _dancers:
 		d.visible = mode == "tanssit"
+
+
+## Kanttorin virren konsertti (kanttori_virsi.gd): salin kalusteet, väki ja kävelijä piiloon, jotta kohtaus voi lavastaa
+## tuolirivit ja kuoron tyhjään saliin. Pois päältä palauttaa tilan mukaisen näkymän.
+func concert(on: bool) -> void:
+	if on:
+		for h in _holders:
+			_set_on(h, false)
+		for m in _groups:
+			_set_on(_groups[m], false)
+		_set_on(_no_dance, false)
+		_set_on(_side_tables, false)
+		if _lot != null:
+			_lot.visible = false
+		for d in _dancers:
+			d.visible = false
+		for who in _bubbles:
+			_bubbles[who].text = ""
+		walker.visible = false
+	else:
+		walker.visible = true
+		_set_on(_side_tables, true)
+		_apply_mode()
+
+
+## Lavastettu legendan kohtaus salin omilla kalusteilla (drakkar_kohtaus.gd, kinkku_kohtaus.gd): salin väki,
+## puhekuplat ja kävelijä piiloon, kalusteet ja tilan esineet jäävät; kohtaus tuo omat hahmonsa. Lopuksi tila palaa.
+func stage(on: bool) -> void:
+	if on:
+		for h in _holders:
+			_set_on(h, false)
+		for who in _bubbles:
+			_bubbles[who].text = ""
+		walker.visible = false
+	else:
+		walker.visible = true
+		_apply_mode()
 
 
 static func _set_on(n: Node3D, on: bool) -> void:
@@ -503,11 +541,13 @@ func _table(at: Vector3, size: Vector2, parent: Node3D = null) -> void:
 func _build_tables() -> void:
 	var kg: Node3D = _groups.kirppis
 	# Hilkan liinapöytä ja Taunon työkalupöytä sivuilla (kaikissa tiloissa; tavarat vain kirppiksellä).
-	_table(Vector3(-5.2, 0, -1.4), Vector2(1.0, 2.6))
+	_side_tables = Node3D.new()  # konsertissa pois (kanttori_virsi.gd: harmooni ja tuolirivit)
+	add_child(_side_tables)
+	_table(Vector3(-5.2, 0, -1.4), Vector2(1.0, 2.6), _side_tables)
 	for i in 6:
 		var col: Color = [Color(0.95, 0.95, 0.9), Color(0.9, 0.6, 0.7), Color(0.6, 0.75, 0.9)][i % 3]
 		B.mesh(kg, B.cyl(0.18, 0.18, 0.02, 12), Vector3(-5.2, 0.77 + (i / 3) * 0.02, -2.2 + (i % 3) * 0.8), col)
-	_table(Vector3(5.2, 0, -1.4), Vector2(1.0, 2.6))
+	_table(Vector3(5.2, 0, -1.4), Vector2(1.0, 2.6), _side_tables)
 	var jar := B.mesh(kg, B.cyl(0.11, 0.11, 0.22, 12), Vector3(5.2, 0.86, -2.2), Color(0.75, 0.8, 0.85))
 	jar.transparency = 0.3
 	for z in [-1.5, -1.1]:

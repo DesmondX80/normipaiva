@@ -217,6 +217,43 @@ juuren hetki: taittopöytä ja lyijykotelo, riippusinetti suurennuslasin takaa, 
 tapulia vasten ja haalistuva paperi, kellon heilahdus, Pekan kaljakori, tölkit ja "Gustavukselle" sekä otsikko kuvina;
 kuninkaan viivojen ero oikeaan tapuliin pikseleinä (ristin kärki, harja, räystäät, vyölauta), kädet rullilla, sinetin
 koko ja kellon heilunta mitataan; lopuksi kello lepoon, hetki päiväkirjaan ja suntiolle muistelukysymys),
+`tools/testit/aja.sh scene pakkahuoneen_veistos_eka` (Pakkahuoneen kellarin luukku ensimmäistä kertaa molempien vihjeiden
+jälkeen -> museon hetki: avain luukussa, kansi ja pöly, kuraattorin tulo, laatikon nosto, kansi ja puulastut, pyhimyksen
+nosto ja lähikuva, kanto salin poikki ja väistävät kävijät, jalustalle nosto ja säätö, kyltin käännös, auringonsäde ja
+taputus sekä otsikko kuvina; avainkäsi, kädet laatikolla ja pyhimyksellä, pyhimyksen koko lähikuvassa ja paikka
+jalustalla mitataan; lopuksi pyhimys jää jalustalle, hetki päiväkirjaan ja kuraattori muistelee),
+`tools/testit/aja.sh scene hanhikiven_rajakivi_eka` (Hanhikivi ensimmäistä kertaa molempien vihjeiden jälkeen ->
+Koskipuiston hetki: kämmen kiven kyljellä, painauma ja kalastaja, aura, laskeutuminen, hanhi kivellä ja huuto, kuskin tulo,
+lähtö ja sulka sekä otsikko kuvina; kiven pohja maassa, kämmen kiven pinnalla, hanhen jalat kiven huipulla ja koko kuvassa
+sekä sulka kivellä mitataan; lopuksi sulka jää kivelle, hetki päiväkirjaan ja kalastaja muistelee),
+`tools/testit/aja.sh scene peruskiven_kapseli_eka` (Rojuniemen laatta ensimmäistä kertaa molempien vihjeiden jälkeen ->
+kapselin hetki: vartijan huomaaminen, laatan nousu ja pöly, kapseli kolossa, nosto, kannen kierto, kolikko ja rulla, kirje
+vartijan silmin ja kasvot, radiokuulutus, höyrypilli ja kuski sekä otsikko kuvina; kädet laatan reunalla, kapselin koko,
+kirjeen koko kuvassa ja höyrypilli kuvassa mitataan; lopuksi laatta sivussa, kolo tyhjä, kapseli kopin ikkunalla, hetki
+päiväkirjaan ja vartija muistelee),
+`tools/testit/aja.sh scene manamansalon_kirkko_eka` (Manamansalon kivijalka ensimmäistä kertaa molempien vihjeiden
+jälkeen -> kivijalan hetki: kynttilä alttarikivelle ja tikulla sytytys, oppaan tulo, lyhtykierros, haamukirkon nousu ja
+haalistuminen, nimikiista ja otsikko kuvina; käsi kynttilällä, tikun liekki sydämellä, oppaan käsi lyhdyn kahvassa,
+kirkon leveys ja risti kuvassa sekä kolme hahmoa kuvassa mitataan; lopuksi kynttilä ja lyhdyt palavat, hetki päiväkirjaan
+ja opas muistelee),
+`tools/testit/aja.sh scene kanttorin_virsi_eka` (kanttorin nuotit ensimmäistä kertaa Sinikan kuorolle -> seuraintalon
+konsertti: sali, Sinikan esittely, laulu, Hilkan kyynel, harmoonin kansi ja itsestään painuvat koskettimet, eturivin
+kääntyminen, Sinikan vilkaisu, aamen ja katkaisu, Kanttorilan ikkunan kajo ja sen sammuminen sekä otsikko kuvina;
+kuorolaisten kädet kansioilla, Sinikan johtava käsi, Hilkan käsi silmällä, koskettimiston koko, painetut koskettimet, kansi
+ja ikkunan kajo mitataan; lopuksi sali palaa ennalleen, hetki päiväkirjaan ja Sinikalle muistelukysymys),
+`tools/testit/aja.sh scene ukko_vapaa_eka` (Tekojärven Ukko ensimmäistä kertaa takaisin järveen Kaitasaaren kärjestä:
+Ukko vedessä käsien varassa, Taunon tulo termarin kanssa, isän lusikan irrotus ja lähikuva, pyrstön roiske, vanavesi
+raunioille, hyppy tolppien välissä, vilkutus, kahvin kaato, mukin ojennus ja juonti sekä otsikko kuvina; kädet Ukon
+kyljellä, Taunon käsi lusikalla, Ukon koko ja puoliksi vedessä, hypyn korkeus ja koko, muki kädessä ja höyry mitataan;
+lopuksi hetki päiväkirjaan, ladon rauniot järvessä ja Taunolle muistelukysymys),
+`tools/testit/aja.sh scene drakkar_eka` (Drakkar Noirin ensimmäinen osto Railin pöydältä: ojennus, pullo silmien
+korkeudella, suihkaus kaulaan, Raili haistaa, tuoksupilvi salin yli ja reaktiot (Anna-Liisa, Hilkka, Tauno), pilvi
+Seurantiellä (Sinikka, Pekka) ja otsikko kuvina; kädet pullolla, pullon koko, pilven reuna reagoijan kohdalla ja hahmot
+kuvassa mitataan; lopuksi sali palaa, hetki päiväkirjaan, pullossa suihkaukset ja Raili muistelee),
+`tools/testit/aja.sh scene kinkku_eka` (bingon ensimmäinen jättipotti, `bingo_jackpot` pakotettu: BINGO-huuto ja
+mulkoilu, Erkin tarkistus ja lapun lähikuva, Elvin kynä katkeaa, kinkun kanto ja luovutus, kinkku sylissä, mummojen
+puuskat ja selän käännös sekä otsikko kuvina; lappu ja kinkku käsissä, lapun ja kinkun koko ja hahmot kuvassa
+mitataan; lopuksi sali palaa, hetki päiväkirjaan ja Hilkka muistelee),
 `tools/testit/aja.sh scene kolmio_iltakivat` (lettukisa, löylykisa, disko ja karaoke
 pelimaailmassa peräkkäin ovelta aamuun, sivutehtävän kirjaus jokaisesta) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
 [lettu,loyly,disko,karaoke]` (lettukisa, löylykisa, Sivikki-disko ja karaoke tekoälyllä molemmissa kohteissa: alku,

@@ -7,6 +7,7 @@ extends Node3D
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Walker := preload("res://scripts/player_walker.gd")
+const Veistos := preload("res://scripts/veistos_kohtaus.gd")
 
 const HALF := Vector2(7.0, 5.0)
 
@@ -30,7 +31,9 @@ var _enter_frame := -1
 var _curator: Node3D
 var _bubble: Label3D
 var _bubble_t := 0.0
-var _special: Node3D  # kadonnut veistos
+var _special: Node3D  # kadonnut veistos (pelkkä pyhimys, jalusta jää paikalleen)
+var _footprint: Node3D  # pölyttömät jalan jäljet tyhjällä jalustalla
+var staged := false  # legendaarinen hetki (veistos_kohtaus.gd) käynnissä: näyttö ja vuorovaikutus odottavat
 var _plate_on: Node3D
 var _plate_off: Node3D
 var _lid: Node3D
@@ -74,10 +77,13 @@ func say(text: String, t := 3.6) -> void:
 
 ## Näyttö vastaa legendan tilaa: veistos jalustalla vai tyhjä jalusta, luukku auki löydön jälkeen.
 func _refresh() -> void:
+	if staged:
+		return
 	var on: int = 1 if legenda == null or legenda.on_display() else 0
 	if on != _shown:
 		_shown = on
 		_special.visible = on == 1
+		_footprint.visible = on == 0
 		_plate_on.visible = on == 1
 		_plate_off.visible = on == 0
 	var open: bool = legenda != null and legenda.found
@@ -92,7 +98,7 @@ func _process(delta: float) -> void:
 		_bubble.text = ""
 		_curator.play("Idle", 0.3)
 	_refresh()
-	if not active or busy or not walker.controls_enabled:
+	if not active or busy or staged or not walker.controls_enabled:
 		hint = ""
 		return
 	var p := walker.position
@@ -126,16 +132,22 @@ func _solid(size: Vector3, pos: Vector3, col: Color) -> MeshInstance3D:
 	return B.solid(self, size, pos, col)
 
 
+## Jalusta (0,9 m), juuri lattiassa.
+func _pedestal(root: Node3D) -> void:
+	var wood := Color(0.45, 0.3, 0.17)
+	var ped_h := Veistos.PED_H
+	B.mesh(root, B.boxm(Vector3(0.8, 0.12, 0.8)), Vector3(0, 0.06, 0), wood.darkened(0.25))
+	B.mesh(root, B.boxm(Vector3(0.62, ped_h - 0.24, 0.62)), Vector3(0, 0.06 + (ped_h - 0.24) / 2.0, 0), wood)
+	B.mesh(root, B.boxm(Vector3(0.74, 0.12, 0.74)), Vector3(0, ped_h - 0.06, 0), wood.lightened(0.1))
+
+
 ## Puuveistos jalustalla (katsoo +Z:aan): kaapu, hartiat, pää, kehä ja ristityt kädet. Palauttaa juurisolmun (jalusta mukana).
 func _statue(at: Vector3, robe: Color, tall := 1.0) -> Node3D:
 	var root := Node3D.new()
 	root.position = at
 	add_child(root)
-	var wood := Color(0.45, 0.3, 0.17)
-	var ped_h := 0.9
-	B.mesh(root, B.boxm(Vector3(0.8, 0.12, 0.8)), Vector3(0, 0.06, 0), wood.darkened(0.25))
-	B.mesh(root, B.boxm(Vector3(0.62, ped_h - 0.24, 0.62)), Vector3(0, 0.06 + (ped_h - 0.24) / 2.0, 0), wood)
-	B.mesh(root, B.boxm(Vector3(0.74, 0.12, 0.74)), Vector3(0, ped_h - 0.06, 0), wood.lightened(0.1))
+	var ped_h := Veistos.PED_H
+	_pedestal(root)
 	B.mesh(root, B.cyl(0.11 * tall, 0.26 * tall, 0.9 * tall, 10), Vector3(0, ped_h + 0.45 * tall, 0), robe)
 	var sh := B.mesh(root, B.sphere(0.17 * tall, 10), Vector3(0, ped_h + 0.88 * tall, 0), robe.lightened(0.08))
 	sh.scale = Vector3(1.2, 0.7, 0.8)
@@ -170,7 +182,19 @@ func _build() -> void:
 	# Veistokset: kaksi vakiota, yksi kadonnut, ristiinnaulittu seinällä.
 	_statue(Vector3(-5.5, 0, -3.9), Color(0.25, 0.35, 0.55))
 	_statue(Vector3(0.8, 0, -3.9), Color(0.55, 0.2, 0.2), 0.9)
-	_special = _statue(Vector3(4.5, 0, -3.9), Color(0.2, 0.45, 0.3), 1.05)
+	# Kadonnut pieni puupyhimys (veistos_kohtaus.gd build_saint): jalusta pysyy, vain pyhimys katoaa ja palaa.
+	var ped := Node3D.new()
+	ped.position = Veistos.PED_AT
+	add_child(ped)
+	_pedestal(ped)
+	_special = Veistos.build_saint(self)
+	_special.position = Veistos.PED_AT + Vector3(0, Veistos.PED_H, 0)
+	_footprint = Node3D.new()
+	_footprint.position = Veistos.PED_AT + Vector3(0, Veistos.PED_H + 0.001, 0)
+	add_child(_footprint)
+	B.mesh(_footprint, B.boxm(Vector3(0.7, 0.002, 0.7)), Vector3.ZERO, Color(0.6, 0.52, 0.42))  # pöly
+	B.mesh(_footprint, B.boxm(Vector3(Veistos.BASE.x, 0.003, Veistos.BASE.z)), Vector3.ZERO, Color(0.42, 0.29, 0.17))  # jälki
+	_footprint.visible = false
 	var cross_c := Color(0.35, 0.22, 0.12)
 	B.mesh(self, B.boxm(Vector3(0.14, 1.5, 0.1)), Vector3(2.9, 2.0, -HALF.y + 0.25), cross_c)
 	B.mesh(self, B.boxm(Vector3(0.9, 0.14, 0.1)), Vector3(2.9, 2.5, -HALF.y + 0.25), cross_c)

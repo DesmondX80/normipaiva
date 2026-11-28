@@ -12,6 +12,15 @@ const Vehicles := preload("res://scripts/vehicles.gd")
 const SIGN_TILT := 38.0  # asteita: levyn normaali kääntyy +Z:sta ylös kameraa kohti
 const HALF := Vector2(15.0, 10.0)
 const SHORE_Z := -6.4  # rantaviiva: kävelyraja
+const FJ := Vector3(9.0, 0, -2.2)  # kirkon kivijalan keskusta (kivirivi x 7,4..10,6, z -3,3..-1,1)
+const ALTAR := Vector3(10.6, 0, -2.2)  # alttarikivi kivijalan itäpäädyn keskellä (kivirivissä); yläpinta y ALTAR_TOP
+const ALTAR_TOP := 0.34
+const CANDLE_AT := Vector3(10.68, 0.34, -2.2)  # kynttilä alttarikivellä (itäreunan puolella, jotta ulkopuolelta ylettyy)
+## Hautalyhdyt kivijalan nurkkakivillä (rivien päätykivet, yläpinta y 0,3): opas ja pelaaja panevat ne
+## (manamansalo_kohtaus.gd), ja ne jäävät löydön jälkeen. Järjestys: lounais, luoteis, koillis, kaakko.
+const LANTERNS := [Vector3(7.5, 0.3, -1.1), Vector3(7.5, 0.3, -3.3), Vector3(10.51, 0.3, -3.3), Vector3(10.51, 0.3, -1.1)]
+const GUIDE_LOOK := {"shirt": Color(0.2, 0.42, 0.3), "pants": Color(0.25, 0.25, 0.3),
+	"shoes": Color(0.15, 0.12, 0.1), "shoe": "kavelykenka", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.5, 0.45), "height": 1.7}
 
 signal exited
 signal acted(kind: String)
@@ -22,6 +31,9 @@ var walker: CharacterBody3D
 var hint := ""
 var spot := ""
 var legenda: RefCounted
+var staged := false  # manamansalo_kohtaus.gd: kohtaus hallitsee kynttilää ja lyhtyjä
+var kuski: Node3D  # taksikuski (piilotetaan kohtauksen ajaksi)
+var lanterns: Array[Node3D] = []
 var spots := {
 	"ovi": [Vector3(-12.0, 0, 6.4), "[E] Taksille: takaisin lähtöpaikkaan"],
 	"opas": [Vector3(-3.0, 0, 2.1), "[E] Juttele oppaan kanssa"],
@@ -76,7 +88,11 @@ func _process(delta: float) -> void:
 	if _bubble.text != "" and (_bubble_t <= 0.0 or (active and walker.position.distance_to(_guide.position) > BUBBLE_FAR)):
 		_bubble.text = ""
 		_guide.play("Idle", 0.3)
-	_candle.visible = legenda != null and legenda.found
+	if not staged:
+		var lit: bool = legenda != null and legenda.found
+		_candle.visible = lit
+		for l in lanterns:
+			l.visible = lit
 	if not active or busy or not walker.controls_enabled:
 		hint = ""
 		return
@@ -194,8 +210,7 @@ func _build() -> void:
 	B.mesh(self, B.boxm(Vector3(0.12, 1.3, 0.12)), church + Vector3(0, 5.2, 2.9), Color(0.95, 0.94, 0.9))
 	B.mesh(self, B.boxm(Vector3(0.7, 0.12, 0.12)), church + Vector3(0, 5.5, 2.9), Color(0.95, 0.94, 0.9))
 	# Opas kirkon oven edessä.
-	_guide = Looks.make(self, {"shirt": Color(0.2, 0.42, 0.3), "pants": Color(0.25, 0.25, 0.3),
-		"shoes": Color(0.15, 0.12, 0.1), "shoe": "kavelykenka", "hair": "Hair_Buzzed", "hair_color": Color(0.55, 0.5, 0.45), "height": 1.7})
+	_guide = Looks.make(self, GUIDE_LOOK)
 	_guide.position = Vector3(-3.0, 0, 1.4)
 	_guide.rotation.y = B.yaw_to(Vector3(0, 0, 1))
 	_guide.play("Idle", 0.0)
@@ -224,30 +239,33 @@ func _build() -> void:
 		else:
 			B.mesh(self, B.boxm(Vector3(0.5, 0.8, 0.12)), gp + Vector3(0, 0.4, 0), stone, Vector3(0, fposmod(i * 11.0, 16.0) - 8.0, 0))
 		B.mesh(self, B.boxm(Vector3(0.7, 0.04, 1.4)), gp + Vector3(0, 0.02, 0.8), Color(0.3, 0.45, 0.2))
-	# Kirkon kivijalka: matala kumpu, jonka päällä kivirivi suorakaiteena (sanotaan 1559); kynttilä ilmestyy löydön jälkeen.
-	var fj := Vector3(9.0, 0, -2.2)
+	# Kirkon kivijalka: matala kumpu, jonka päällä kivirivi suorakaiteena (sanotaan 1559) ja itäpäässä laakea alttarikivi;
+	# kynttilä alttarikivellä ja hautalyhdyt nurkissa ilmestyvät löydön jälkeen (manamansalo_kohtaus.gd).
+	var fj := FJ
 	B.mesh(self, B.boxm(Vector3(3.6, 0.12, 2.6)), fj + Vector3(0, 0.04, 0), Color(0.33, 0.48, 0.22))
 	for i in 8:
 		B.mesh(self, B.sphere(0.3, 6), fj + Vector3(-1.5 + i * 0.43, 0.14, -1.1), Color(0.5, 0.5, 0.52)).scale = Vector3(1.0, 0.55, 0.8)
 		B.mesh(self, B.sphere(0.3, 6), fj + Vector3(-1.5 + i * 0.43, 0.14, 1.1), Color(0.46, 0.46, 0.5)).scale = Vector3(1.0, 0.55, 0.8)
 	for i in 5:
 		B.mesh(self, B.sphere(0.3, 6), fj + Vector3(-1.6, 0.14, -0.9 + i * 0.45), Color(0.5, 0.5, 0.52)).scale = Vector3(0.8, 0.55, 1.0)
-		B.mesh(self, B.sphere(0.3, 6), fj + Vector3(1.6, 0.14, -0.9 + i * 0.45), Color(0.46, 0.46, 0.5)).scale = Vector3(0.8, 0.55, 1.0)
-	B.sign_pole(self, fj + Vector3(2.4, 0, 1.0), 1.0)
-	var fj_sign := B.sign_plate(self, "KIVIJALKKA\nSanotaan: ensimmäinen kirkko 1559", Color(0.95, 0.93, 0.82), Color(0.1, 0.2, 0.3), 0.22, 26, Color(0.15, 0.25, 0.45))
-	fj_sign.position = fj + Vector3(2.4, 1.0, 1.0)
-	_candle = Node3D.new()
-	_candle.position = fj + Vector3(0, 0.2, 0)
-	add_child(_candle)
-	B.mesh(_candle, B.cyl(0.06, 0.06, 0.28, 8), Vector3(0, 0.14, 0), Color(0.95, 0.92, 0.8))
-	B.mesh(_candle, B.sphere(0.06, 8), Vector3(0, 0.34, 0), Color(1.0, 0.8, 0.3))
-	var cl := OmniLight3D.new()
-	cl.position = Vector3(0, 0.5, 0)
-	cl.light_color = Color(1.0, 0.8, 0.45)
-	cl.light_energy = 1.2
-	cl.omni_range = 4.0
-	_candle.add_child(cl)
+		if i == 0 or i == 4:  # itäpäädyn keskellä alttarikivi
+			B.mesh(self, B.sphere(0.3, 6), fj + Vector3(1.6, 0.14, -0.9 + i * 0.45), Color(0.46, 0.46, 0.5)).scale = Vector3(0.8, 0.55, 1.0)
+	# Alttarikivi: laakea, sammaloitunut lohkare itäpäädyn kivirivissä (yläpinta ALTAR_TOP).
+	B.mesh(self, B.boxm(Vector3(0.56, ALTAR_TOP - 0.06, 0.92)), ALTAR + Vector3(0, (ALTAR_TOP - 0.06) / 2.0 + 0.02, 0), Color(0.52, 0.52, 0.55), Vector3(0, 3.0, 0))
+	B.mesh(self, B.boxm(Vector3(0.52, 0.05, 0.86)), ALTAR + Vector3(0, ALTAR_TOP - 0.035, 0), Color(0.6, 0.6, 0.62), Vector3(0, 3.0, 0))
+	for m in [[Vector3(-0.14, 0, 0.28), 0.09], [Vector3(-0.2, 0, 0.12), 0.06], [Vector3(-0.17, 0, -0.3), 0.05]]:  # sammalläikät
+		B.mesh(self, B.cyl(m[1], m[1] * 1.15, 0.006, 9), ALTAR + m[0] + Vector3(0, ALTAR_TOP + 0.001, 0), Color(0.26, 0.34, 0.18))
+	B.sign_pole(self, fj + Vector3(-2.6, 0, 1.6), 1.0)  # länsipuolella: ei kivijalan ja alttarikiven edessä
+	var fj_sign := B.sign_plate(self, "KIVIJALKA\nSanotaan: ensimmäinen kirkko 1559", Color(0.95, 0.93, 0.82), Color(0.1, 0.2, 0.3), 0.22, 26, Color(0.15, 0.25, 0.45))
+	fj_sign.position = fj + Vector3(-2.6, 1.0, 1.6)
+	_candle = build_candle(self)
+	_candle.position = CANDLE_AT
 	_candle.visible = false
+	for p in LANTERNS:
+		var l := build_lantern(self)
+		l.position = p
+		l.visible = false
+		lanterns.append(l)
 	# Infotaulu hautausmaan portilla (vihje 2): tarina huhuna, nimen tulkinta epävarma.
 	# Kyltit mitoitetaan pelikameralle: fontti 64, taulu kallistettu kameraa kohti (TILT yhdestä luvusta), ei puiden takana.
 	var info := B.sign_plate(self, "MANAMANSALO\nSanotaan: metsästäjien\nhautausmaa, kirkko 1559.\nNimen tulkinta epävarma.",
@@ -261,7 +279,7 @@ func _build() -> void:
 	taxi.rotation.y = PI / 2.0
 	add_child(taxi)
 	Vehicles.taxi(taxi)
-	Vehicles.kuski(taxi, "mercedes", load("res://scripts/looks.gd").TAXI_DRIVER)  # kuski odottaa paluukyytiä
+	kuski = Vehicles.kuski(taxi, "mercedes", load("res://scripts/looks.gd").TAXI_DRIVER)  # kuski odottaa paluukyytiä
 	for p in [Vector3(-14.0, 0, -2.0), Vector3(-3.6, 0, -4.8), Vector3(0.5, 0, -5.0), Vector3(14.0, 0, -4.8), Vector3(14.0, 0, 4.5)]:
 		_spruce(p, 1.0 + fposmod(p.x, 0.4))
 	for p in [Vector3(-14.0, 0, 3.5), Vector3(-0.8, 0, 5.8), Vector3(10.5, 0, 5.4), Vector3(-6.0, 0, 5.0)]:
@@ -272,3 +290,85 @@ func _build() -> void:
 	lamp.light_energy = 0.6
 	lamp.omni_range = 16.0
 	add_child(lamp)
+
+
+## Alttarikynttilä: valkoinen kynttilä, sydän, liekki (sisä- ja ulkokerros) ja lämmin valo; jalka y 0. Liekki "flame" ja
+## valo "light" metatiedoissa (manamansalo_kohtaus.gd sytyttää ne).
+static func build_candle(parent: Node3D) -> Node3D:
+	var c := Node3D.new()
+	parent.add_child(c)
+	B.mesh(c, B.cyl(0.05, 0.055, 0.03, 12), Vector3(0, 0.015, 0), Color(0.35, 0.33, 0.3))  # aluslevy
+	B.mesh(c, B.cyl(0.035, 0.037, 0.22, 12), Vector3(0, 0.14, 0), Color(0.96, 0.94, 0.86))
+	B.mesh(c, B.cyl(0.03, 0.035, 0.02, 12), Vector3(0, 0.255, 0), Color(0.98, 0.96, 0.9))  # sulanut reuna
+	B.mesh(c, B.cyl(0.003, 0.003, 0.025, 4), Vector3(0, 0.27, 0), Color(0.1, 0.08, 0.06))
+	var flame := Node3D.new()
+	flame.position = Vector3(0, 0.3, 0)
+	c.add_child(flame)
+	var fm := StandardMaterial3D.new()
+	fm.albedo_color = Color(1.0, 0.62, 0.18)
+	fm.emission_enabled = true
+	fm.emission = Color(1.0, 0.55, 0.15)
+	fm.emission_energy_multiplier = 3.0
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var outer := B.mesh(flame, B.sphere(0.02, 10), Vector3.ZERO, Color.WHITE)
+	outer.scale = Vector3(1.0, 2.2, 1.0)
+	outer.material_override = fm
+	var im := fm.duplicate()
+	im.albedo_color = Color(1.0, 0.95, 0.7)
+	im.emission = Color(1.0, 0.9, 0.6)
+	var inner := B.mesh(flame, B.sphere(0.011, 8), Vector3(0, -0.008, 0), Color.WHITE)
+	inner.scale = Vector3(1.0, 2.0, 1.0)
+	inner.material_override = im
+	var cl := OmniLight3D.new()
+	cl.position = Vector3(0, 0.35, 0)
+	cl.light_color = Color(1.0, 0.78, 0.42)
+	cl.light_energy = 1.2
+	cl.omni_range = 4.0
+	c.add_child(cl)
+	c.set_meta("flame", flame)
+	c.set_meta("light", cl)
+	return c
+
+
+## Hautalyhty: musta metallikehys, lasiseinät, harjakatto ja kantorengas; sisällä kynttilä ja valo. Jalka y 0, korkeus n. 0,34 m.
+static func build_lantern(parent: Node3D) -> Node3D:
+	var l := Node3D.new()
+	parent.add_child(l)
+	var frame := Color(0.1, 0.1, 0.11)
+	B.mesh(l, B.boxm(Vector3(0.16, 0.025, 0.16)), Vector3(0, 0.0125, 0), frame)
+	for sx in [-0.07, 0.07]:
+		for sz in [-0.07, 0.07]:
+			B.mesh(l, B.boxm(Vector3(0.014, 0.22, 0.014)), Vector3(sx, 0.135, sz), frame)
+	B.mesh(l, B.boxm(Vector3(0.17, 0.02, 0.17)), Vector3(0, 0.255, 0), frame)
+	B.mesh(l, B.cyl(0.0, 0.11, 0.07, 4), Vector3(0, 0.3, 0), frame, Vector3(0, 45.0, 0))
+	B.mesh(l, B.cyl(0.018, 0.018, 0.006, 10), Vector3(0, 0.345, 0), frame, Vector3(90.0, 0, 0))
+	var gm := StandardMaterial3D.new()
+	gm.albedo_color = Color(1.0, 0.9, 0.7, 0.28)
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gm.roughness = 0.1
+	var glass := MeshInstance3D.new()
+	var gb := BoxMesh.new()
+	gb.size = Vector3(0.13, 0.21, 0.13)
+	glass.mesh = gb
+	glass.position = Vector3(0, 0.135, 0)
+	glass.material_override = gm
+	l.add_child(glass)
+	B.mesh(l, B.cyl(0.022, 0.022, 0.09, 10), Vector3(0, 0.07, 0), Color(0.96, 0.93, 0.85))
+	var fm := StandardMaterial3D.new()
+	fm.albedo_color = Color(1.0, 0.7, 0.25)
+	fm.emission_enabled = true
+	fm.emission = Color(1.0, 0.6, 0.2)
+	fm.emission_energy_multiplier = 3.0
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var flame := B.mesh(l, B.sphere(0.014, 8), Vector3(0, 0.135, 0), Color.WHITE)
+	flame.scale = Vector3(1.0, 2.0, 1.0)
+	flame.material_override = fm
+	var ll := OmniLight3D.new()
+	ll.position = Vector3(0, 0.2, 0)
+	ll.light_color = Color(1.0, 0.75, 0.4)
+	ll.light_energy = 0.8
+	ll.omni_range = 2.5
+	l.add_child(ll)
+	l.set_meta("flame", flame)
+	l.set_meta("light", ll)
+	return l

@@ -335,7 +335,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     jos ne ovat jalassa, ne riisutaan ensin eteisen matolle. Pelkkä ulkonäkö. Testi `--scene=slabarit`.
     Testi `--scene=haalari`.
   - **Drakkar Noir (legendaarinen hetki):** Railin pöydällä puolillaan oleva musta pullo (12 €). Kun pullo loppuu,
-    Railin pöydälle tulee uusi (legendaarinen hetki vain ensimmäisestä).
+    Railin pöydälle tulee uusi (legendaarinen hetki vain ensimmäisestä, lavastettu `drakkar_kohtaus.gd`).
     Pullossa 10 suihkausta, suihkaus T-valikosta. Tuoksu kestää päivän: moraali ja mielihyvä nousevat, Sinikka
     huomaa sen ("Tuu vähän lähemmäs, komistus"), Päivi haistaa sen kotiovella, ja seuraintalon tansseissa ja
     lavalla tulos paranee. Toinen suihkaus samana päivänä on jo liikaa. Testi `--scene=drakkar`.
@@ -439,28 +439,68 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   palkeesta nuottiarkin ensimmäinen puolikas -> Pirtin arkistosta toinen puolikas -> Sinikalle (kuoro laulaa virren,
   maine +12, loppu "Kanttorin virsi", yösävel vaikenee) tai Veksille (150 €, maine −5, yösävel jatkuu). Epäilijät (Pekka,
   Arto, Anna-Liisa) vaihtavat repliikkinsä. Testi `--scene=kanttorinyosavel` (headless).
+  Ensimmäinen kerta kuorolle lavastetaan (legendaarinen hetki "Kanttorin virsi", `scripts/kanttori_virsi.gd`): viikon
+  päästä seuraintalon sali on täynnä tuolirivejä, kuoro seisoo lavalla mustat kansiot käsissä ja Sinikka johtaa
+  nuottitelineen takaa (nuottiarkin puolikkaat teipillä yhteen). Pekka kysyy kummitusvirrestä, Sinikka esittelee virren ja
+  kuoro laulaa; Hilkka pyyhkii silmää. Kesken virren lavan vieressä oleva vanha harmooni (huutokaupan harmooni) avaa kantensa
+  itsestään ja soittaa mukana: koskettimet painuvat sävelen mukaan, polkimet liikkuvat ja jakkara on tyhjä. Eturivi
+  kääntyy ("Kuka sitä soittaa?" – "Kanttori."), Sinikka vilkaisee harmoonia, nyökkää ja jatkaa. Aamenen jälkeen kansi
+  laskeutuu kiinni, ja Kanttorilan pihalla ikkunoiden kajo sammuu viimeisen urkusoinnun mukana: urut vaikenivat. Lopuksi sali
+  nousee taputtamaan ja kuoro kumartaa. Hetki kirjataan päiväkirjaan, ja Sinikalta voi myöhemmin kysyä harmoonista
+  (muistelu).
 - **Legenda: Hanhikiven rajakivi (#250 P4, tarkistettava):** Pyhäjoen Hanhikivi, Koskipuisto ja Hourunkosken kosket ovat
   oikeita paikkoja; rajakiviteoria ("kivi oli ennen rajamerkki ja joku siirsi sen") on epävarma ja esitetään vain huhuna
   ("sanotaan", "kuulemma"), kukaan ei tiedä kuka. Ketju: taksikuski kertoo (valinta "Mikä se Hanhikivi oikein on?") ->
   vihje 1: Kapteenin Kulman kapteeni Raahessa -> vihje 2: Koskipuiston opaskyltti Pyhäjoella (retki taksilla 20 €, 35 min,
   `retki_hanhikivi.gd`: puisto, kosket, kivi ja laatta, kalastaja, penkki) -> kiveä tutkimalla, kun molemmat vihjeet on kuultu,
   loppu "Hanhikiven rajakivi" (maine +3, ei rahaa, kerran). Näkyy päiväkirjassa. Tila `hanhikivi_legenda.gd`. Testi `--scene=hanhikivi`.
+  Rannassa on kiven muotoinen painauma (harva ruoho, reunakivet), kuin kiven entinen sija; se ei todista mitään.
+  **Legendaarinen hetki (lavastettu, `hanhikivi_kohtaus.gd`):** ensimmäisellä kerralla pelaaja kyykistyy kiven juurelle ja
+  painaa kämmenen kylkeen ("Kivi on kuin on ollut."), kävelee rantaan painaumalle, ja kalastaja tulee viereen ("Mun isä sano,
+  ettei kiveen kosketa." – "Kuka sen tänne toi?" – "Ei kukaan tiedä."). Hanhiaura lentää joen yli, yksi hanhi irtoaa, liukuu
+  alas ja laskeutuu Hanhikiven päälle, taittaa siipensä ja huutaa ("Sanotaan, että sama hanhi on Pyhäjoen vaakunassa.").
+  Taksikuski tulee katsomaan ("Ei oo totta."), kalastaja laskee käden rinnalle ("Kukaan ei voi todistaa mitään."), hanhi lähtee
+  Hourunkosken yli ja sulka leijuu kiven päälle ("...Ja hyvä niin."). Otsikko HANHIKIVEN RAJAKIVI. Sulka jää kivelle pysyvästi,
+  ja kalastaja muistelee hanhea myöhemmin (`MUISTO`). Samalla korjattiin kivi, joka leijui 19 cm maan yllä.
 - **Legenda: Pakkahuoneen veistos (#250 P5, tarkistettava):** Raahen Pakkahuone on museona, sanotaan Suomen vanhin paikallismuseo,
   ja siellä on 1600-luvun uskonnollisia veistoksia (esitetään "sanotaan"-muodossa). Kadonnut veistos on keksitty. Ketju: taksikuski kertoo
   (valinta "Mikä se Pakkahuone oikein on?") -> veistos katoaa jalustaltaan museossa (retki taksilla 12 €, 20 min, `retki_pakkahuone.gd`) ->
   kuraattori ja vierailijakirja vihjeinä -> kellarin luukku, kun molemmat on kuultu: veistos löytyy ja palaa jalustalle, loppu
   "Pakkahuoneen veistos" (maine +3, ei rahaa, kerran). Näkyy päiväkirjassa. Tila `pakkahuone_legenda.gd`. Testi `--scene=pakkahuone`.
+  Kadonnut pyhimys on pieni (n. 0,6 m) maalattu puupyhimys omalla jalustallaan; poissa ollessa jalusta jää tyhjäksi ja pölyssä
+  näkyy jalan jälki. **Legendaarinen hetki (lavastettu, `veistos_kohtaus.gd`):** ensimmäisellä kerralla pelaaja kääntää
+  kunnostajan avainta luukussa ja kansi narahtaa auki pölypilven kera; kuraattori kiiruhtaa paikalle ("Avain! Missä se oli?"),
+  nostaa kunnostuslaatikon kellarista, avaa sen ja nostaa pyhimyksen puulastujen seasta ("Siinähän sinä olet."), kantaa sen
+  itse salin poikki kävijöiden väistäessä, nostaa jalustalle ja säätää ("Noin. ...Ei. Noin."), kääntää POISSA-kyltin, ja
+  ikkunasta osuu auringonsäde pyhimykseen kävijöiden taputtaessa. Hetki kirjataan päiväkirjaan lopuksi; myöhemmin kuraattori
+  muistelee kantamista (`MUISTO`).
 - **Legenda: Rautaruukin peruskivi (#250 P6, tarkistettava):** Rautaruukin Raahen terästehtaan Rojuniemen peruskiveä sanotaan paljastetun
   25.8.1962 (Kekkonen) ja ensimmäinen lähetys sanotaan 5.9.1964 (päivämäärät tarkistettava, esitetään "sanotaan"-muodossa). Kätkö (kuparikapseli
   laatan alla) on keksitty, kuten Tokolan aarre. Ketju: taksikuski kertoo (valinta "Mikä se Rautaruukin peruskivi oikein on?") -> vihje 1: vartija
   Rojuniemessä (retki taksilla 4 €, 10 min, `retki_rojuniemi.gd`: tehdas, aita, vartijakoppi, peruskivi, laatta) -> vihje 2: opaskyltti ->
   laatta kiven edessä, kun molemmat on kuultu: kätkö aukeaa, löytäjäispalkkio 30 € ja maine +3, loppu "Peruskiven kapseli". Palkkio vain kerran
   (`found`-lippu). Näkyy päiväkirjassa. Tila `peruskivi_legenda.gd`. Testi `--scene=peruskivi`.
+  **Legendaarinen hetki (lavastettu, `kapseli_kohtaus.gd`):** legendan ydin on tarina, jonka vartija on kertonut kerran liikaa.
+  Ensimmäisellä kerralla vartija huomaa kopilta pelaajan laatan kimpussa ("Hei! Älä koske siihen!") ja hölkkää paikalle; laatan
+  etureuna nousee takareunan varassa, kolosta pöllähtää pölyä ja laatta työnnetään sivuun ("...Ai. Se liikkuu."). Pelaaja nostaa
+  patinoituneen kuparikapselin ("Kuuskymmentä vuotta mää oon kertonu tästä kapselista."), kiertää kannen auki, markka vuodelta
+  1962 kilahtaa maahan ja vartija vetää esiin paperirullan. Kirje näytetään vartijan silmin: "Löytäjälle. Tämä kapseli on laatan
+  alla. Älä kerro vartijalle. Se kertoo kaikille. – Rojuniemen portinvartija, 25.8.1962." Vartija nauraa ("Ne tiesi jo silloin.")
+  ja kuuluttaa radiopuhelimeen koko tehtaalle ("Peruskiven kapseli LÖYTY!"); hallin katolla höyrypilli viheltää, ja taksikuski
+  tulee katsomaan ("Mää oon kuullu tän tarinan sata kertaa." – "Ja nyt se on totta."). Otsikko PERUSKIVEN KAPSELI. Kolo jää
+  tyhjäksi, kapseli jää vartijakopin ikkunalaudalle, ja vartija muistelee hetkeä myöhemmin (`MUISTO`). Samalla tehtaan piipun
+  savupallot vaihdettiin pehmeiksi hattaroiksi.
 - **Legenda: Manamansalon muistokirkko (#250 P7, tarkistettava):** Oulujärven suurin saari Vaalassa; sen sanotaan olleen metsästäjien hautausmaasaari ja
   Kainuun ensimmäisen kirkon sanotaan rakennetun sinne 1559. Nimen "kuolemansaari" tulkinta on epävarma, ja peli esittää sen vain taksikuskin ja oppaan
   tulkintana. Ketju: taksikuski kertoo (valinta "Mikä se Manamansalon kuolemansaari oikein on?") -> vihje 1: opas kirkon edessä (retki taksilla 30 €, 60 min,
   `retki_manamansalo.gd`: muistokirkko, hautausmaa, laituri) -> vihje 2: hautausmaan infotaulu -> kirkon kivijalka mäellä: legendan loppu, kynttilä
   syttyy, maine +3 (ei rahaa). Näkyy päiväkirjassa. Tila `manamansalo_legenda.gd`. Testi `--scene=manamansalo`.
+  Ensimmäinen kerta on lavastettu legendaarinen hetki (`manamansalo_kohtaus.gd`): pelaaja laskee kynttilän itäpäädyn
+  laakealle alttarikivelle ja sytyttää sen tikulla; opas on nähnyt valon kirkolta ja panee hautalyhdyt kolmeen nurkkakiveen,
+  pelaaja neljänteen. Lyhtyjen välissä nousee hetkeksi kultainen hirsikirkko hirsi hirreltä (salvotut nurkat, harjakatto,
+  risti länsipäädyssä), ja opas laskee käden rinnalle. Kuski tulee tieltä ("Näittekö te tuon?" – "...Ei mitään"), ja nimestä
+  kiistellään: kuolemansaari on yksi tulkinta, kuskin mummo tiesi muttei kertonut, "siitä saa kiistellä". Kynttilä ja lyhdyt
+  jäävät palamaan kivijalalle, ja opas muistelee hetkeä. Testi `manamansalon_kirkko_eka`.
 - **Retki: Wanha Raahe, kävelykierros (#250 P8, tarkistettava):** taksilla Raahen vanhaan puutalokaupunkiin (valinta "Raahen Wanhaan kaupunkiin", 12 €, 20 min,
   `retki_wanharaahe.gd`). Viisi pysähdystä järjestyksessä: Brahen patsas Pekkatorilla (sanotaan 1888, Raahen perustaja 1649), vanhat ovet, kauppiaan kaksikerroksinen talo,
   rantakuja ja katulyhty sekä punamullattu makasiini. Pysähdyspaikalla E ottaa valokuvan, jos hahmo katsoo kohdetta kohti (sama kulma- ja etäisyystarkistus kuin
@@ -559,7 +599,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   punavalkoista lusikkaa: isä veisti sen itse, ja Ukko vei sen kesällä -79. Hän kääntyy pois ja pyyhkii silmää, ja
   kyynel valuu poskelle: "Isä oli oikeassa." Tauno ja pelaaja nostavat Ukon vaakaan lehtikuvaan, Pekka ja Arto
   myöntävät, ja Anna-Liisa ottaa kuvan puhelimella. Otsikko on lehtikuva. Myöhemmin Tauno muistelee punnitusta
-  kirppiksellä. Testit `--scene=kalastus` ja `--scene=tekojarven_ukko_eka`.
+  kirppiksellä. Ensimmäinen vapautus lavastetaan Kaitasaaren kärjessä (`ukko_vapaa_legenda.gd`): pelaaja pitää Ukkoa
+  vedessä vesirajassa, ja Tauno tulee rantaa pitkin termari kainalossa ("Päästätkö sen?" – "Päästän."). Tauno
+  kurottaa Ukon selän yli ja ottaa isänsä punavalkoisen lusikan ("Loput saa Ukko pitää."). Pyrstö läimäyttää, ja Ukko
+  liukuu selkä pinnassa vanavesi perässään kohti vanhan ladon raunioita. Huipennuksena se hyppää kerran tolppien välissä
+  ja Tauno vilkuttaa ("Kiitti, Ukko."). Lopuksi Tauno kaataa termarista kahvit emalimukiin pelaajalle ja kanteen
+  itselleen. Ladon rauniot (harmaantuneet tolpat, harjapuu, ulpukat) jäävät järveen pysyvästi, ja Tauno muistelee
+  hyppyä kirppiksellä. Testit `--scene=kalastus`, `--scene=tekojarven_ukko_eka` ja `--scene=ukko_vapaa_eka`.
 - **Rauniot:** länsilaidan metsässä sammaloituneet kivijalat ja sortunut kiviaita (OSM:n nimetön raunio). Kivijalan
   kolo on uusi kaljajemma, iltaisin (20–01) teinit istuvat nuotiolla, ja kaljaa vastaan he vinkkaavat uunin
   raunioista: vanha valokuva, joka pääsee Saloisten Pirtin seinälle (maine). Testi `--scene=eramaa`.
@@ -658,7 +704,7 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   Anna-Liisa voi nähdä). Tiistaisin klo 18–20 bingo: lappu 2 €, pelaaja istuu bingopöydän päässä mummojen rivissä, ja Erkki
   pyörittää lavalla pallokonetta ja huutaa numerot puhekuplassa. Huudetut numerot
   merkitään omaan lappuun, ja täysi rivi BINGO-napilla voittaa (kahvipaketti, virkkuuliina, lahjakortti tai
-  harvoin joulukinkku), jos ehtii ennen mummoja (tarkka merkitsijä noin joka neljäs ilta). Kesken lopetettu bingo tai tanssi ei kuittaa seurailtaa. Väärä bingohuuto nolaa (pöydän väki kääntyy mulkoilemaan) ja vie mainetta. Testi `--scene=seurailta`.
+  harvoin joulukinkku; ensimmäinen jättipotti on lavastettu legendaarinen hetki `kinkku_kohtaus.gd`), jos ehtii ennen mummoja (tarkka merkitsijä noin joka neljäs ilta). Kesken lopetettu bingo tai tanssi ei kuittaa seurailtaa. Väärä bingohuuto nolaa (pöydän väki kääntyy mulkoilemaan) ja vie mainetta. Testi `--scene=seurailta`.
 - **Tokola ja kauppiaan aarre:** Tokolantien varressa Tokolan kaupan vanha varasto (kauppa lopetti 1950–60-luvulla;
   varasto on pelin keksintö). Avain on vanhalla Aarolla, joka antaa sen lihapiirakkaa vastaan ja kertoo
   legendan: kauppias ei vienyt rahojaan pankkiin. Varastosta ohjain, rautalankaa ja kauppiaan tilikirja, jonka
@@ -1505,6 +1551,22 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
     kerrallaan naksahtaen, ja Anna-Liisa lupaa kertoa koko kylälle (Railin vuoro, kun Anna-Liisa on itse pari).
     Lopuksi kultainen SEURAINTALON TANSSIT viirinauhan alla. Myöhemmissä tansseissa Anna-Liisa muistelee ovella
     (`LEG_MUISTO`), ja hyvä tanssi lasketaan hiljaa. Testi `--scene=tanssit_eka`.
+  - **Drakkar Noir** (`drakkar_kohtaus.gd`): ensimmäinen pullo Railin pöydältä lavastetaan saliin. Raili ojentaa mustan
+    pullon pöydän yli ("Puolillaan, mutta riittää koko kylälle"), pelaaja nostaa sen silmien korkeudelle ja suihkaisee
+    kaulaan: violetti tuoksupilvi pöllähtää, ja Raili haistaa silmät kiinni ("Voi... -94. Zabukin tanssit."). Pilvi
+    leviää salin yli renkaana, ja kukin reagoi, kun reuna saavuttaa: Anna-Liisa leyhyttää, Hilkka aivastaa ja Tauno
+    oikaisee selkänsä, sipaisee tukkaa ja muistaa oman Drakkarinsa -89. Pihalla pilvi valuu pariovesta Seurantielle:
+    Sinikka pysähtyy ja haistaa, ja Pekka kysyy, kuka on noin laittautunut. Lopuksi DRAKKAR NOIR salissa, jossa
+    Anna-Liisa pitelee nenäänsä, Hilkka niistää ja Raili leyhyttää VHS-kasetilla. Myöhemmät pullot ilman kohtausta;
+    Raili muistelee kirppikselle tultaessa (`MUISTO`). Testi `--scene=drakkar_eka`.
+  - **Bingon jättipotti** (`kinkku_kohtaus.gd`): ensimmäinen joulukinkku bingosta lavastetaan saliin. Pelaaja ponnahtaa
+    pöydän päästä seisomaan lappu ylhäällä, ja mummojen päät kääntyvät. Erkki tulee lavalta ja lukee ympyröidyt
+    numerot (lähikuva lapusta): "Se on bingo." Mummo Elvi katkaisee kynän käsissään. Raili kantaa kahviosta kiiltävän
+    joulukinkun vadilla (ristiviillot, neilikat, paperikrusidi ja punainen rusetti), Erkki julistaa jättipotin, ja
+    kinkun paino notkauttaa pelaajan selän. Mummot nousevat tuoliensa taakse kädet puuskassa ja sanovat sanansa
+    ("Kolkytkaks vuotta mää oon tullu tiistaisin"), Tauno lysähtää, ja lopuksi mummot kääntävät selkänsä: "Hmph!"
+    BINGON JÄTTIPOTTI, kinkku pään yllä. Myöhemmät jättipotit lasketaan hiljaa; Hilkka muistelee bingoon tultaessa
+    (`MUISTO`). Testi `--scene=kinkku_eka`.
 - Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 10, kerrat yhteensä; matalat kortit tiiviinä riveinä) ja legendaariset hetket oikealla
   (X / 16, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
 

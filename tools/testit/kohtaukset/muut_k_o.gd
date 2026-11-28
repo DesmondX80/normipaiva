@@ -757,6 +757,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await mm_close.call("kirkko_edesta", Vector3(-3.0, 2.2, 7.5), Vector3(-3.0, 2.0, -2.5))
 			await mm_close.call("kirkko_sivusta", Vector3(6.0, 3.0, 1.0), Vector3(-3.0, 2.0, -2.5))
 			await mm_close.call("kivijalka_ennen", Vector3(9.0, 3.2, 4.2), Vector3(9.0, 0.0, -2.2))
+			main.endings.counts["manamansalon_kirkko"] = 1  # lavastettu ensikerta (manamansalo_kohtaus.gd) on oma testinsä legendat.gd manamansalon_kirkko_eka
 			main._on_retki_acted("jaanteet")
 			for i in 3:
 				await main.get_tree().process_frame

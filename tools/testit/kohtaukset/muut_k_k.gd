@@ -353,6 +353,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			# Kuoro
 			var m0 := main.maine
 			main._talk_who = "sinikka"
+			main.endings.counts["kanttorin_virsi"] = 1  # ensikerran lavastus testataan erikseen (legendat.gd kanttorin_virsi_eka)
 			main._talk_kanttori("kanttori_kuoro")
 			print("KT kuoro: valinta '%s', maine %.0f -> %.0f, kuoro soi %s, loppu %s" % [main.kanttori.choice, m0, main.maine, main._kt_choir.playing, main.endings.counts.has("kanttorin_virsi")])
 			main.clock_min = 23 * 60
@@ -1495,6 +1496,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await frames.call(5)
 			await snap.call("_kala_reppu.png")
 			main._inventory.toggle()
+			main.endings.counts["ukko_vapaa"] = 1  # ohitetaan rannan hetki (legendat.gd ukko_vapaa_eka)
 			main._ukko_release()
 			print("KALA valinta %s, loppu %s, todistettu %s" % [main.ukko.choice, main.endings.counts.has("ukko_vapaa"), main.ukko.proven()])
 			if not saved.is_empty():
