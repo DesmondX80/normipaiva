@@ -495,8 +495,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   sipuli), lautasella keko lisää, ja Raija, grillin omistaja Reiska, Juntti, rekkamies ja mummo kerääntyvät pöydän
   ympärille kommentoimaan, kannustamaan ja epäilemään puhekuplissa. Välilyönti haukkaa (pala lähtee), A ja D
   vuorotellen pureskelevat (kamera nyökkää) ja W juo limua (pullo huulille), ennen kuin vatsa täyttyy (kuva huojuu
-  ja reunat vihertävät). Juntin seitsemän piirakan ennätyksen rikkominen on oma onnellinen loppunsa "Lihapiirakkakuningas", ja
-  Päivi haistaa sipulin aamulla. Testi `--scene=reippari`.
+  ja reunat vihertävät). Juntin seitsemän piirakan ennätyksen rikkominen on legendaarinen hetki "Lihapiirakkakuningas": ensimmäisellä
+  kerralla se lavastetaan pihapöydässä (`piirakka_legenda.gd`). Viimeinen pala menee alas ja koko pöytä huutaa luvun,
+  Juntti laskee rypistetyt piirakkapaperit sormella ja mittaa Raijan tuoman vertailupiirakan rullamitalla (23 cm,
+  niinku aina), Raija vetää tussilla viivan Juntin nimen yli ja teippaa taulun alle keltaisen lapun uudella nimellä,
+  Juntti vaatii uusintaa naama kuninkaan naamassa ja saa vastaukseksi röyhtäyksen sipulipilven, ja lopuksi kultainen
+  otsikko taulun edessä. Myöhemmät ennätykset lasketaan hiljaa, ja haasteen alussa Juntti tai Raija muistelee
+  mittausta. Päivi haistaa sipulin aamulla. Testit `--scene=reippari` ja `--scene=piirakka_eka`.
 - **Korjaamot:** P. Korpelan moottoriajoneuvohuolto (Volvo nostimella), Simo Niemelän liikkuva autosähkö
   (pakettiauto Pirtin lähellä), Heiskasen kaasu- ja sammutinhuolto sekä Huhtalan auto ja varaosat romuautoineen
   (auki 8–17). Pekan Volvo ei lähde joka kuudes päivä: Korpela korjaa sen kahdella kaljalla tai 25 €:lla, ja sen
@@ -1055,7 +1060,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     Vaalantien suoralla (Tunturi-Jani 5 € tai viritetyllä mopolla ajava Pakoputki-Pete 20 €): kolme punaista ja
     vihreä, W kaasu (ennen vihreää = vilppilähtö), välilyönti vaihtaa ylös kierrosmittarin vihreällä alueella
     (aikaisin moottori tukehtuu, rajoittimella aika valuu, kännissä vihreä alue heiluu). Voitto tuplaa panoksen
-    ja nostaa mainetta (`--scene=mokkikiihdytys`).
+    ja nostaa mainetta (`--scene=mokkikiihdytys`). **Legendaarinen hetki "Kiihdytyksen voittaja"**
+    (`kiihdytys_legenda.gd`): ensimmäinen voitto lavastetaan suoralla. Maaliviiva näytetään hidastettuna tien vierestä
+    (punainen keula ylittää viivan ensin, kuva pysähtyy salaman ajaksi, lipputyttö laskee ruutulipun ja vastustaja
+    tulee perässä), sitten vastustajan lähikuva (pudistaa päätään ja tuijottaa tankkiaan). Voittaja ajaa takaisin
+    keula pystyssä nyrkki ilmassa, ja maalin luona hurraavat lipputyttö, lähettäjä ja pikkupoika mopoineen.
+    Mopopoikien sääntö: hävinnyt työntää mopon jalan takaisin Zabukille pää painuksissa. Lopuksi voittaja
+    maaliviivalla katsojien keskellä ja kultainen otsikko ajan kanssa. Myöhemmät voitot lasketaan hiljaa, ja
+    mopopojat muistelevat keulintaa, kun pelaaja tulee seuraavan kerran Zabukin pihaan.
   - **Karaoke (Frets on Fire -näppäily):** Siitarin ja Kapteenin Kellarin karaokessa kappale valitaan ennen laulua (W/S ja E,
     tai hiirellä). Pelitapa on kuin Frets on Firessa: neljä nuottiraitaa (A S K L tai nuolinäppäimet) laskeutuvat perspektiivikaistaa
     osumalinjalle, ja nuotti painetaan tahtiin (täydellinen ±0,08 s, hyvä ±0,15 s, ok ±0,25 s). Pitkät nuotit pidetään pohjassa
@@ -1067,6 +1079,13 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
     ensimmäinen verso ja kertosäe sekä loppukertosäe, ristiinhäivytetty) ja trailerin karaokeen ajoitetuilla sanoilla
     (`assets/music/normipaiva_sanat_lyhyt.json`, 58 sanaa; raita arvotaan sanasta). Esc lopettaa. Testi `--scene=karaokeaito`
     (botti pelaa molemmat kappaleet, kuvat; ei `--headless`).
+  - **Legendaarinen hetki Karaokekuningas** (`karaoke_legenda.gd`): baarin karaoken ensimmäinen raikuva veto (Siitari tai
+    Kapteenin Kellari) lavastetaan baarissa. Viimeinen sävel mikkitelineen takana käsi kohti kattoa, sitten hiljaisuus, kun koko
+    sali kääntyy katsomaan ("...kuulitteko te tuon?"). Sali nousee seisomaan ja taputtaa, fani (Siitarissa Sinikka, Kellarissa
+    vakiolaulaja) huutaa lavan edestä ja kuningas kumartaa. Baarimikko soittaa tiskin messinkikelloa ("Talo tarjoaa!"), tuoppi
+    liukuu tiskiä pitkin kuninkaan käteen, ja kuningas nostaa sen, kun seinän liitutauluun kirjoittuu "TALO TARJOAA, ILLAN
+    KUNINGAS". Taulu jää sen baarin seinälle (ensikerta `karaoke_taulu_<baari>`), ja baarimikko muistelee seuraavilla
+    käynneillä (toisessa baarissa on kuultu huhu). Myöhemmät raikuvat vedot lasketaan kuten ennenkin ilman kohtausta.
   - **Räkäleima (pummin leima teinin kädestä):** lavan pihalla juovilta teineiltä (E, "Kopioi tuore leima teinin kädestä", kerran
     päivässä) voi kopioida portsarin tuoreen leiman omaan käteensä (`rakaleima_game.gd`, hiirellä). Käsi viedään leiman
     päälle ja vasen nappi painaa: muste kuivuu 16 sekunnissa ja tarttuu sitä paremmin, mitä tuoreempaa se on, ja R kostuttaa
@@ -1378,7 +1397,7 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
   legendaarinen normipäivä, mökkibileet, erämaan laavu (Viitajärven laavu auringonlaskussa), Kymppiuutiset nauhalta
   (video ajastetaan olohuoneessa ennen klo 22, ja klo 22.25 jälkeen sohvalle eteisen kaapin kaljan kanssa), Mirkun
   teltassa sekä kolmiomittaus Saloisissa ja Vaalassa. Ilmoitus "ONNELLINEN LOPPU".
-- **Legendaariset hetket** (saavutukset, peli jatkuu): Paapeliin Pekan kyydillä, savusaunan löylyt, lavatanssit,
+- **Legendaariset hetket** (saavutukset, peli jatkuu): Paapeliin Pekan kyydillä, savusaunan löylyt,
   karaokekuningas, kiihdytyksen voittaja, sähköpyörä, seuraintalon tanssit, bingon jättipotti, lihapiirakkakuningas,
   Drakkar Noir ja legendat (Tokolan aarre, Vanhan Sulon pannu, viimeisen sepän kirves, Isonvihan hopeat, Tekojärven
   Ukko, Ukko vapaaksi). Ilmoitus "LEGENDAARINEN HETKI".
@@ -1396,6 +1415,23 @@ Wanha Raahe -retken talot ovat ennallaan. Keltainen Raahen puutalo (K5) esiintyy
     korjattiin tää!". Perään pelaaja ja Santtu juoksevat höyryten laiturin päähän ja hyppäävät Likaseen, päät
     nousevat pintaan, ja kamera nousee järven ylle. Myöhemmillä löylyillä Santtu muistelee lauteilla
     (`SAUNA_MUISTO`). Testit `--scene=mokki_paapeli` ja `--scene=mokki_savusauna_eka`.
+  - **Lavatanssit Oulujärvellä** (`lava_game.gd _leg_*`): illan ensimmäinen hyvä humppa (yli 0,6; disko ei käy)
+    ei pääty tavalliseen tulokseen. Humppaveikkojen laulaja pysäyttää lattian mikkiin ("Vielä yks humppa, ja se
+    soitetaan tuolle parille"), ja koko lava kääntyy katsomaan. Parit vetäytyvät piiriin pelaajan ja parin ympärille
+    ja taputtavat tahtia, ja pari humppaa keskellä. Sitten rinta rinnan, kädet ilmassa, jalka nousee kolmesti, ja
+    kolmas potku räsähtää lattiaan kipinöiden. Piirissä seisova vaalalainen ukko huutaa, että jalka nousee niin kuin
+    heillä Vaalan lavalla -72, ja mummo kuittaa, ettei hänellä noussut jalka vaan tukka. Lopuksi laulaja pyytää
+    aplodit, ja kultainen LAVATANSSIT. Hetki kirjataan lavalta lähtiessä. Myöhemmillä käynneillä pari muistelee
+    illan alussa (`LEG_MUISTO`). Testi `--scene=lava_eka`.
+  - **Seuraintalon tanssit** (`tanssi_game.gd _leg_*`): ensimmäinen hyvä tanssi (vähintään 0,65 Drakkar mukaan)
+    ei pääty tulokseen. Saapasjalat jatkaa biisistä suoraan illan viimeiseen valssiin: salin kattolamput ja
+    värivalot himmenevät, kohdevalo syttyy parin päälle ja muut parit pysähtyvät katsomaan. Pari sanoo sanansa
+    (Hilkka tanssi viimeisen valssin samalla lattialla viisikymmentäluvulla). Viimeisellä soinnulla pelaaja
+    taivuttaa parin lattian keskellä: pari kaartuu taakse pelaajan käden varaan, vapaa käsi kaartuu alas, lattia
+    narahtaa ja pölyää, ja pari sanoo taivutuksen repliikin ("Lonkka kesti!"). Sitten kattolamput syttyvät yksi
+    kerrallaan naksahtaen, ja Anna-Liisa lupaa kertoa koko kylälle (Railin vuoro, kun Anna-Liisa on itse pari).
+    Lopuksi kultainen SEURAINTALON TANSSIT viirinauhan alla. Myöhemmissä tansseissa Anna-Liisa muistelee ovella
+    (`LEG_MUISTO`), ja hyvä tanssi lasketaan hiljaa. Testi `--scene=tanssit_eka`.
 - Päiväkirjan Loput-välilehdellä onnelliset loput vasemmalla (X / 10, kerrat yhteensä; matalat kortit tiiviinä riveinä) ja legendaariset hetket oikealla
   (X / 16, tähtirivi), löytämättömät ???. Testi `--scene=paivakirja`.
 

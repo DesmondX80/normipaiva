@@ -784,6 +784,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 				await main.get_tree().create_timer(0.2).timeout
 				await snap.call("_vaihe_%d.png" % b)
 			g._pies = 8
+			g.legend = false  # vanha ennätysviesti (legenda: --scene=piirakka_eka)
 			g._finish("testi")
 			await main.get_tree().create_timer(2.5).timeout
 			print("RE ennätys: %s %d, viesti '%s', loput %d/%d" % [main._piirakka_holder, main._piirakka_record, main._msg.text.left(60), main.endings.distinct(), Endings.max_count()])

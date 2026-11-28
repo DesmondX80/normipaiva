@@ -3049,6 +3049,8 @@ func _enter_kirppis(mode := "kirppis") -> void:
 			"Pinkki haalari keskellä kesää! Nyt mää kerron kaikille.", "Hahhah! Lähdeksää Leville vai seuraintaloon?"].pick_random(), 4.5)
 	if mode != "kirppis":
 		tilat.first("seura_" + mode, 0.3)
+	if mode == "tanssit" and int(endings.counts.get("tanssit", 0)) > 0 and _once_today("tanssit_muisto"):
+		kirppis_int.say_id("annaliisa", TanssiGame.LEG_MUISTO.pick_random(), 5.0)  # tanssien legenda muistetaan
 
 
 func _on_kirppis_exited() -> void:
@@ -3147,12 +3149,16 @@ func _start_tanssi(who: String) -> void:
 	g.partner = who
 	g.drunk = _hand_shake()
 	g.interior = kirppis_int  # tanssitaan salin lattialla salin omien ihmisten kanssa
-	g.finished.connect(func(score: float) -> void: _tanssi_done(who, score, g.quit))
+	# Ensimmäinen hyvä tanssi on lavastettu legendaarinen hetki "tanssit" (tanssi_game.gd _leg_*: viimeinen valssi,
+	# taivutus, valot syttyvät); myöhemmät lasketaan hiljaa ja Anna-Liisa muistelee tansseihin tultaessa.
+	g.legend = int(endings.counts.get("tanssit", 0)) == 0
+	g.bonus = DRAKKAR_DANCE if drakkar_day == day else 0.0
+	g.finished.connect(func(score: float) -> void: _tanssi_done(who, score, g.quit, g.staged))
 	kirppis_int.add_child(g)
 
 
 ## Tanssin tulos: moraali ja maine, Sinikan kanssa Päivi kuulee, Anna-Liisa juoruaa varpaista.
-func _tanssi_done(who: String, score: float, quit := false) -> void:
+func _tanssi_done(who: String, score: float, quit := false, staged := false) -> void:
 	kirppis_int.busy = false
 	kirppis_int.walker.controls_enabled = true
 	kirppis_int.walker.activate()
@@ -3173,6 +3179,10 @@ func _tanssi_done(who: String, score: float, quit := false) -> void:
 		_ending("tanssit")
 	else:
 		tilat.add("stressi", -0.05)
+	if staged:  # legendan kohtaus oli tulos: ei tavallista viestiä päiväkirjarivin päälle
+		if who == "sinikka_seura":
+			_sinikka_flirt()
+		return
 	match who:
 		"sinikka_seura":
 			_sinikka_flirt()  # Päivi kuulee siitä pian puhelimessa
@@ -8213,6 +8223,8 @@ func _start_piirakka() -> void:
 	g.record_holder = _piirakka_holder
 	g.drunk = _hand_shake()
 	g.raija = world.reippari_raija
+	g.legend = int(endings.counts.get("piirakkakuningas", 0)) == 0  # ensimmäinen ennätys lavastetaan (piirakka_legenda.gd)
+	g.recall = not g.legend  # Juntti tai Raija muistelee mittausta haasteen alussa
 	g.finished.connect(func(pies: int) -> void:
 		state = _minigame_prev
 		_hazards.set_deferred("process_mode", Node.PROCESS_MODE_INHERIT)
@@ -8231,7 +8243,8 @@ func _start_piirakka() -> void:
 			maine = clampf(maine + 5.0, 0.0, 100.0)
 			_reippari_update()
 			_ending("piirakkakuningas")
-			_show_message("UUSI ENNÄTYS: %d lihapiirakkaa! Raija kirjoittaa tussilla taululle \"Järvikuja 1\". Juntti ei tule uskomaan." % pies, 5.0)
+			if not g.legend_seen:  # legendan jälkeen vain päiväkirjarivi (kohtaus näytti taulun)
+				_show_message("UUSI ENNÄTYS: %d lihapiirakkaa! Raija kirjoittaa tussilla taululle \"Järvikuja 1\". Juntti ei tule uskomaan." % pies, 5.0)
 		else:
 			tilat.add("stressi", -0.05)
 			_show_message("%d lihapiirakkaa. Ennätys (%s %d) jäi elämään. Vatsa on eri mieltä." % [pies, _piirakka_holder, _piirakka_record], 4.0)
@@ -13908,6 +13921,7 @@ func _enter_raahe() -> void:
 	_ensure_raahe()
 	raahe_int.kapteeni_vihje = hanhikivi.heard and not hanhikivi.kapteeni
 	raahe_int.enter()
+	_karaoke_recall(raahe_int, "raahe")
 	_show_message("Kapteenin Kulma, Kirkkokatu 32, Raahe. Kellarissa karaoke, iltaisin visa ja Tero odottaa kädenvääntöä.", 4.0)
 
 
@@ -14078,10 +14092,15 @@ func _raahe_karaoke() -> void:
 			money += RAAHE_KARAOKE_PRICE
 			_show_message("Et valinnutkaan kappaletta. Rahat takaisin.", 2.5)
 			return
-		raahe_int.from_stage(score >= 0.5)
 		_raahe.karaoke = maxf(_raahe.karaoke, score)
 		tilat.first("karaoke_raahe", 0.3)
 		var pct := roundi(score * 100.0)
+		if score >= KARAOKE_RAIKUU and int(endings.counts.get("karaoke", 0)) == 0:
+			_karaoke_legend(raahe_int, "raahe", func() -> void:
+				tilat.add("moraali", 0.25)
+				mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0))
+			return
+		raahe_int.from_stage(score >= 0.5)
 		if score >= KARAOKE_RAIKUU:
 			_ending("karaoke")
 			Sfx.play("win", -4.0)
@@ -14245,6 +14264,9 @@ func _talk_hello(who: String) -> String:
 		return SANTTU_FIRST_DAY
 	if who == "santtu" and _santtu_offers_lava():
 		return SANTTU_LAVA_HELLO
+	if who == "mopopojat" and int(endings.counts.get("kiihdytys", 0)) > 0 \
+			and (tilat.first("kiihdytys_muisto", 0.0) or randf() < 0.35):
+		return MopoRace.LEG_MUISTO.pick_random()  # kiihdytyksen legenda: pojat muistelevat keulintaa ja työntöä
 	if who == "pekka" and story.step in ["pekka_kutsuu", "pekka_avaimet"]:
 		return "Hei! Tuu tänne, mulla ois asiaa!"
 	if who == "pekka" and is_instance_valid(vaino) and vaino.mode == "follow":
@@ -17289,6 +17311,7 @@ func _on_mopo_arrived() -> void:
 	# Lauantaina Raahen jätkät pelaavat pajatsoa ja haastavat riitaa (kerran päivässä tappelu pihalla).
 	siitari_int.raahe_on = _weekday() == 5 and not ("siitari_tappelu" in _today)
 	siitari_int.enter()
+	_karaoke_recall(siitari_int, "siitari")
 
 
 ## Hotellisiiven ovelta: mopo Siitarin parkkiin kuten ravintolaan tultaessa, ja sisälle vastaanottoon.
@@ -17454,6 +17477,41 @@ func _karaoke_game() -> CanvasLayer:
 	return null
 
 
+## Legendaarinen hetki "karaoke" (Karaokekuningas): baarin karaoken ensimmäinen raikuva veto lavastetaan baarissa
+## (karaoke_legenda.gd: viimeinen sävel, hiljaisuus, sali seisomaan, talo tarjoaa, tuoppi tiskiä pitkin, taulu). Taulu
+## jää sille seinälle (ensikerta "karaoke_taulu_<baari>"), ja baarimikko muistelee seuraavilla käynneillä
+## (_karaoke_recall). Myöhemmät raikuvat vedot lasketaan kuten ennenkin ilman kohtausta.
+const KaraokeLegenda := preload("res://scripts/karaoke_legenda.gd")
+var _karaoke_leg: CanvasLayer
+
+
+func _karaoke_legend(interior: Node3D, venue: String, effects: Callable) -> void:
+	_hud.visible = false
+	var g := KaraokeLegenda.new()
+	g.interior = interior
+	g.cast = interior.legend_cast()
+	g.finished.connect(func() -> void:
+		_karaoke_leg = null
+		_hud.visible = true
+		interior.from_stage(true, true)
+		tilat.first("karaoke_taulu_" + venue, 0.0)
+		effects.call()
+		_ending("karaoke"))
+	add_child(g)
+	_karaoke_leg = g
+
+
+## Baariin tultaessa: taulu seinälle, jos kuningas kruunattiin täällä, ja baarimikko muistelee (tai on kuullut huhun).
+func _karaoke_recall(interior: Node3D, venue: String) -> void:
+	var here: bool = ("karaoke_taulu_" + venue) in tilat.firsts
+	if here or interior.has_method("show_board") and interior._board != null:
+		interior.show_board(here)
+	if int(endings.counts.get("karaoke", 0)) == 0:
+		return
+	var L: Dictionary = interior.KARAOKE_LEGENDA
+	interior.bartender_say((L.muisto if here else L.huhu).pick_random())
+
+
 ## Karaoke: lavalle, laulu (karaoke_game.gd), yleisön reaktio ja tilavaikutukset.
 func _start_karaoke() -> void:
 	_jukebox_stop()
@@ -17471,9 +17529,15 @@ func _start_karaoke() -> void:
 			money += KARAOKE_PRICE
 			_show_message("Et valinnutkaan kappaletta. Rahat takaisin.", 2.5)
 			return
-		siitari_int.from_stage(score >= 0.5)
 		tilat.first("karaoke", 0.3)
 		var pct := roundi(score * 100.0)
+		if score >= KARAOKE_RAIKUU and int(endings.counts.get("karaoke", 0)) == 0:
+			_karaoke_legend(siitari_int, "siitari", func() -> void:
+				tilat.add("moraali", 0.25)
+				tilat.add("stressi", 0.15)
+				mielihyva = clampf(mielihyva + 10.0, 0.0, 100.0))
+			return
+		siitari_int.from_stage(score >= 0.5)
 		if score >= KARAOKE_RAIKUU:
 			_ending("karaoke")
 			Sfx.play("win", -4.0)
@@ -19502,6 +19566,9 @@ func _lava_start() -> void:
 	_lava_game.buddy = Mokki.SANTTU_LOOK if _santtu_riding else {}
 	_lava_game.juhannus = _juhannus()
 	_lava_game.tv = _juhannus() and _tv_day != day
+	# Legendaarinen hetki "lavatanssit": illan ensimmäinen hyvä humppa lavastetaan (lava_game.gd _leg_*), toistoilla pari muistelee.
+	_lava_game.legend = int(endings.counts.get("lavatanssit", 0)) == 0
+	_lava_game.recall = not _lava_game.legend
 	if _lava_game.juhannus:
 		_lava_game.band = LavaGame.JUHANNUS_BAND
 	_tv_shot = null
@@ -20009,6 +20076,7 @@ func _start_race(bet: float, big: bool) -> void:
 	_race.drunk = tilat.value("humala")
 	_race.opp_skill = randf_range(0.6, 0.85) if big else randf_range(0.15, 0.45)
 	_race.opp_name = "Pakoputki-Pete" if big else "Tunturi-Jani"
+	_race.legend = int(endings.counts.get("kiihdytys", 0)) == 0  # ensimmäinen voitto lavastetaan (kiihdytys_legenda.gd)
 	_race.finished.connect(_on_race_finished)
 	vl.add_child(_race)
 
@@ -20030,12 +20098,16 @@ func _on_race_finished(won: bool, my_time: float, opp_time: float) -> void:
 		mielihyva = clampf(mielihyva + 4.0, 0.0, 100.0)
 		tilat.add("moraali", 0.15)
 		var first_win: bool = tilat.first("mopokisa_voitto", 0.3)
-		_ending("kiihdytys")
+		var staged := int(endings.counts.get("kiihdytys", 0)) == 0
+		_ending("kiihdytys")  # STAGED: ensimmäinen voitto lavastettiin suoralla, nyt päiväkirjarivi ja tulos jonossa
 		# Luku 4 alkaa: pojat ohjaavat Gasthausiin, jonka emäntä kertoo junista (quests.gd luku4 vihje).
 		var tip := "\nMopopojat: \"Ja kotiin pääsee junalla. Kysy Gasthausin emännältä, se tietää junat.\"" \
 			if first_win and not "asema_vaala" in tilat.firsts else ""
-		_show_message("Voitit kiihdytyksen (%s)! +%s €. Mopopojat katsoo mopoa uusin silmin.%s" % [t, _eur(_race_bet), tip],
-			5.5 if tip != "" else 4.0)
+		var win_msg := "Voitit kiihdytyksen (%s)! +%s €. Mopopojat katsoo mopoa uusin silmin.%s" % [t, _eur(_race_bet), tip]
+		if staged:
+			_queue_message(win_msg, 5.5 if tip != "" else 4.0)  # päiväkirjarivi ensin
+		else:
+			_show_message(win_msg, 5.5 if tip != "" else 4.0)
 	else:
 		money -= _race_bet
 		tilat.add("moraali", -0.05)
@@ -20194,6 +20266,7 @@ func _lava_bar() -> Array:
 
 
 func _on_lava_finished(score: float) -> void:
+	var humppa: float = _lava_game.humppa_best  # hetki vaatii hyvän humpan (Humppaveikot), ei diskoa
 	_lava_game.queue_free()
 	_lava_game = null
 	score = _drakkar_dance(score)
@@ -20201,10 +20274,13 @@ func _on_lava_finished(score: float) -> void:
 		tilat.add("moraali", 0.1 + score * 0.25)
 		tilat.add("stressi", 0.1 + score * 0.15)
 		mielihyva += 2.0 + score * 6.0
-		if score > 0.6:
-			_ending("lavatanssit")
+	var first := int(endings.counts.get("lavatanssit", 0)) == 0
 	var msg := "Lavatanssit Oulujärven lavalla! %s" % ("Ilta jää mieleen." if score > 0.6 else ("Varpaat muistavat illan." if score >= 0.0 else
 		"Tällä kertaa ei tanssittu."))
+	if humppa > 0.6:
+		_ending("lavatanssit")  # STAGED: ensimmäinen kerta lavastettiin lavalla, nyt vain päiväkirjarivi
+		if first:
+			msg = ""
 	if _tv_pending != null:
 		# Kesäillan valssi: samaan aikaan Järvikujalla Päivi katsoo lähetystä.
 		var tex: Texture2D = _tv_pending
@@ -20230,7 +20306,8 @@ func _lava_resume(msg: String) -> void:
 	_mopo_label.visible = true
 	_compass.visible = true
 	_mopo_resume()
-	_show_message(msg, 3.5)
+	if msg != "":
+		_show_message(msg, 3.5)
 
 
 ## Kaupan sisätila uudeksi (kuten uutena päivänä): edellisen käynnin tila ei siirry seuraavaan käyntiin.

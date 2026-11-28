@@ -21,6 +21,8 @@ const B := preload("res://scripts/build.gd")
 const Headphones := preload("res://scripts/headphones.gd")
 const Band := preload("res://scripts/humppa_band.gd")
 const MG := preload("res://scripts/mg_draw.gd")
+const Pose := preload("res://scripts/pose.gd")
+const Room := preload("res://scripts/ilta_room.gd")
 
 const BPM := 104.0
 const DISCO_BPM := 126.0
@@ -65,6 +67,7 @@ var _misses := 0
 var _last_press := -1.0
 var _song := ""
 var _best := -1.0  # illan paras tanssi
+var humppa_best := -1.0  # illan paras humppa (lavatanssit-hetki, main.gd _on_lava_finished)
 
 var _cam: Camera3D
 var _prev_cam: Camera3D
@@ -96,6 +99,38 @@ var _menu_kind := "band"  # band = bändin iskelmät, dj = DJ:n diskobiisit
 var _menu_items: Array = []  # bändi: kappaleet (repertoire), DJ: tiedostopolut
 var _wish := ""  # pelaajan toivoma kappale (soi seuraavaksi)
 
+# Legendaarinen hetki "lavatanssit" (endings.gd STAGED): illan ensimmäinen hyvä humppa (pisteet yli LEG_SCORE) ei pääty
+# tavalliseen tulokseen, vaan laulaja pysäyttää lattian (kutsu), parit vetäytyvät piiriin taputtamaan (piiri), pari
+# heittää jalkaa kuin nuorena ja vanha pari muistelee (potku), ja kultainen otsikko (otsikko). Toistoilla (recall)
+# pari muistelee illan alussa. Kutsuja (main.gd _lava_start) asettaa legend ja recall endings-laskurista.
+const LEG := ["kutsu", "piiri", "potku", "otsikko"]
+const LEG_SCORE := 0.6  # sama raja kuin main.gd _on_lava_finished (lavatanssit-hetki)
+const LEG_LINES := {
+	"kutsu": "Seis, pojat! Vielä yks humppa, ja se soitetaan tuolle parille tuossa keskellä!",
+	"pari": "Nyt näytetään niille, miten Oulujärvellä humpataan!",
+	"ukko": "Kato äiti! Jalka nousee niinku meillä Vaalan lavalla -72!",
+	"mummo": "Ei sulla noussu jalka -72, sulla nousi vaan tukka.",
+	"kiitos": "Antakaa aplodit! Toi jalka nousi niinku nuorena!",
+	"sub": "Humppaveikot soitti viimeisen humpan teille kahdelle. Parit taputtivat piirissä, ja jalka nousi kuin nuorena.",
+}
+const LEG_MUISTO := ["Hei, sä oot se, jolta jalka nousi viimeks! Humppaveikot puhuu sustä vieläki.",
+	"Muistatko, ku koko lava teki meille piirin? Mää muistan joka askeleen."]
+var legend := false
+var recall := false
+var _leg_t := 0.0
+var _leg_c := Vector3(0, 0.06, 2.0)  # parin keskipiste legendan ajan
+var _leg_once := {}
+var _leg_story := ""
+var _leg_bub := {}  # hahmo -> repliikki (puhekupla puhujaan, Room.bubble)
+var _leg_walk: Array = []  # piiri: [hahmo, mistä, mihin]
+var _leg_ring: Array[Node3D] = []  # piirissä taputtavat (ja kaukaiset parit paikallaan)
+var _leg_singer: Node3D
+var _ukko: Node3D
+var _mummo: Node3D
+var _leg_sparks: Array = []
+var _ui: Control
+var _keys: Node
+
 
 func _ready() -> void:
 	_prev_cam = get_viewport().get_camera_3d()
@@ -118,6 +153,11 @@ func _ready() -> void:
 	_build_hud()
 	_title.text = "OULUJÄRVEN LAVA"
 	_intro_text()
+	if recall:  # lavatanssien legenda koettu: pari muistelee illan alussa
+		_leg_bub[_partner] = "Pari: " + LEG_MUISTO.pick_random()
+		get_tree().create_timer(7.0).timeout.connect(func() -> void:
+			if not _phase in LEG:
+				_leg_bub.clear())
 	if _band != null:
 		if _band.current_song.is_empty():
 			_band.request(Band.repertoire().pick_random())
@@ -392,6 +432,12 @@ func _spawn_people() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_ui.queue_redraw()
+	if _phase in LEG:
+		_leg_step(delta)
+		_update_disco_floor()
+		_ball.rotation.y += delta * 1.2
+		return
 	# Kamera kiertää hitaasti paria.
 	var a := _t * 0.12
 	var focus := (_me.position + _partner.position) / 2.0 + Vector3(0, 1.2, 0)
@@ -670,16 +716,27 @@ func _dance(_delta: float) -> void:
 		_phase = "result"
 		var s := _score()
 		_best = maxf(_best, s)
+		if _mode == "humppa":
+			humppa_best = maxf(humppa_best, s)
 		danced.emit(s, _mode)
-		_me.play("Idle", 0.4)
-		_partner.play("Idle", 0.4)
-		_say("Kiitos tanssista!" if s > 0.5 else "No... kiitos.")
-		_title.text = "KAPPALE PÄÄTTYI"
-		if _buddy != null:
-			_say("Santtu: \"Kyllä kannatti tulla!\"" if s > 0.45 else "Santtu: \"Hyvin se meni. Melkein.\"")
-		_info.text = (("Diskon kunkku! Nuoret hurraa." if _mode == "disco" else "Humppasit kuin Humppaveikot itse! Parisi hymyilee.") if s > 0.75 else
-			("Ihan kelpo tanssi." if s > 0.45 else "Varpaat kärsivät, mutta ilta oli hauska.")) + \
-			"\n\n%s Takaisin saliin (tanssi, baaritiski)\n%s Lavalta ulos" % [Settings.cap("interact"), Settings.cap("bell")]
+		if legend and _mode == "humppa" and s > LEG_SCORE:
+			legend = false
+			_leg_begin()
+			return
+		_show_result(s)
+
+
+## Kappaleen tulos: pari kiittää ja valikko (takaisin saliin tai ulos).
+func _show_result(s: float) -> void:
+	_me.play("Idle", 0.4)
+	_partner.play("Idle", 0.4)
+	_say("Kiitos tanssista!" if s > 0.5 else "No... kiitos.")
+	_title.text = "KAPPALE PÄÄTTYI"
+	if _buddy != null:
+		_say("Santtu: \"Kyllä kannatti tulla!\"" if s > 0.45 else "Santtu: \"Hyvin se meni. Melkein.\"")
+	_info.text = (("Diskon kunkku! Nuoret hurraa." if _mode == "disco" else "Humppasit kuin Humppaveikot itse! Parisi hymyilee.") if s > 0.75 else
+		("Ihan kelpo tanssi." if s > 0.45 else "Varpaat kärsivät, mutta ilta oli hauska.")) + \
+		"\n\n%s Takaisin saliin (tanssi, baaritiski)\n%s Lavalta ulos" % [Settings.cap("interact"), Settings.cap("bell")]
 
 
 func _score() -> float:
@@ -737,6 +794,16 @@ func _build_hud() -> void:
 	_score_bar.offset_bottom = -54
 	_score_bar.visible = false  # tanssin onnistuminen piirretään tahtimerkin alle (_draw_pulse)
 	_layer.add_child(_score_bar)
+	_ui = Control.new()
+	_ui.anchor_right = 1.0
+	_ui.anchor_bottom = 1.0
+	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.draw.connect(_draw_legend)
+	_layer.add_child(_ui)
+	_keys = preload("res://scripts/hint_bar.gd").new()
+	_keys.compact = true
+	_keys.centered = true
+	_layer.add_child(_keys)
 
 
 
@@ -800,3 +867,409 @@ func _foot(c: Vector2, side: float, col: Color) -> void:
 	_pulse.draw_circle(Vector2(0, -10), 12.0, col)  # päkiä
 	_pulse.draw_circle(Vector2(1, 13), 8.5, col)  # kanta
 	_pulse.draw_set_transform(Vector2.ZERO)
+
+
+# --- Legendaarinen hetki: lavatanssit ------------------------------------------------------------------------------
+
+var _leg_score := 0.0
+var _leg_r := 3.3  # piirin säde
+const LEG_GAP := 62.0  # piirin aukko etelään (+Z) asteina keskeltä kumpaankin suuntaan: kamerat kuvaavat aukosta
+const LEG_KAMERA := 28.0  # potkun kameran suunta keskeltä (astetta +Z:sta itään), aukon sisällä
+const LEG_OLD := [165.0, 178.0]  # ukon ja mummon paikka piirissä (potkukuvan taustalla parin vieressä)
+
+
+## Suunta (rotation.y), jolla hahmo katsoo kohti pistettä (hahmon etu on -Z).
+static func _face(from: Vector3, to: Vector3) -> float:
+	var f := to - from
+	return atan2(-f.x, -f.z)
+
+
+## Kamera lavan avaruuden pisteestä toiseen (tärähdys mukaan).
+func _leg_cam(eye: Vector3, look: Vector3, fov := 50.0) -> void:
+	var sh := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * 0.06 * _shake
+	_cam.fov = fov
+	_cam.look_at_from_position(to_global(eye + sh), to_global(look))
+
+
+## Laulajan pää lavan avaruudessa (bändi on vaala.gd:n esiintymislavalla; testissä ilman bändiä kuvitteellinen paikka).
+func _singer_head() -> Vector3:
+	if _leg_singer != null:
+		return to_local(_leg_singer.to_global(_leg_singer.bone_position("Head")))
+	return Vector3(0, 2.7, -L / 2.0 + 4.9)
+
+
+## Olan yli -kuvan rajaus lasketaan: kamera laulajan takana, katse parin keskelle; fov niin, että pari on noin
+## 230 px korkea, ja sivusiirto niin, että laulajan pää osuu kuvan vasempaan reunaan (x 9-17 % leveydestä).
+## Palauttaa [silmä, katse, fov].
+func _olka_cam(h: Vector3, d: Vector3, side: Vector3) -> Array:
+	var vs := get_viewport().get_visible_rect().size
+	var look := _leg_c + Vector3(0, 0.9, 0)
+	var best := []
+	for k in 30:
+		var sd := 0.2 + k * 0.04
+		var eye := h - d * 1.7 + side * sd + Vector3(0, 0.32, 0)
+		var dist := eye.distance_to(look)
+		var fov := rad_to_deg(2.0 * atan(1.8 / (2.0 * dist) * vs.y / 230.0))
+		_leg_cam(eye, look, fov)
+		var hx := _cam.unproject_position(to_global(h)).x / vs.x
+		best = [eye, look, fov]
+		if not _cam.is_position_behind(to_global(h)) and hx > 0.09 and hx < 0.17:
+			break
+	return best
+
+
+func _leg_begin() -> void:
+	_phase = "kutsu"
+	_leg_t = 0.0
+	_leg_score = _score()
+	_leg_once.clear()
+	_leg_bub.clear()
+	_leg_walk.clear()
+	_leg_ring.clear()
+	_bubble.text = ""
+	_pulse.visible = false
+	_title.visible = false
+	_info.visible = false
+	_keys.set_text("%s ohita" % Settings.cap("interact"))
+	_leg_c = Vector3(0, 0.06, 2.0)
+	_me.position = _leg_c + Vector3(-0.42, 0, 0)
+	_partner.position = _leg_c + Vector3(0.42, 0, 0)
+	for c: Node3D in [_me, _partner]:
+		c.rotation.y = 0.0  # kasvot bändiin (-Z)
+		c.play("Idle", 0.3)
+	for d in _dancers:
+		d.play("Idle", 0.5)
+		d.rotation.y = _face(d.position, Vector3(d.position.x * 0.5, 0, -L / 2.0))
+	if _buddy != null:
+		_buddy.play("Idle", 0.5)
+	_leg_singer = null
+	if _band != null:
+		for m: Dictionary in _band._members:
+			if m.role == "laulu":
+				_leg_singer = m.ch
+	_leg_story = "Kappale loppuu, mutta Humppaveikkojen laulaja ei päästä lattiaa tyhjäksi."
+	if _leg_singer != null:
+		_leg_singer.play("Idle_Talking", 0.2)
+		_leg_bub[_leg_singer] = "Laulaja: " + LEG_LINES.kutsu
+	else:
+		_leg_story = "Laulaja mikkiin: \"%s\"" % LEG_LINES.kutsu
+	Sfx.play("whoosh", -10.0, 0.8)
+
+
+func _leg_piiri() -> void:
+	_phase = "piiri"
+	_leg_t = 0.0
+	_leg_bub.clear()
+	_leg_story = "Parit vetäytyvät piiriin ja taputtavat tahtia. Lattia on teidän kahden."
+	if _leg_singer != null:
+		_leg_singer.play("Idle", 0.3)
+	_me.position = _leg_c + Vector3(-0.28, 0, 0)
+	_me.rotation.y = -PI / 2.0  # kasvot +X:ään, pariin
+	_partner.position = _leg_c + Vector3(0.28, 0, 0)
+	_partner.rotation.y = PI / 2.0
+	_me.play("Dance", 0.3, 1.15)
+	_partner.play("Dance", 0.3, 1.15)
+	# Piirin paikat: aukko etelään (+Z), josta potkun kamera kuvaa. Vanha pari takaoikealle (potkukuvan taustalle).
+	var spots: Array[Vector3] = []
+	var n := 16
+	for k in n:
+		var th := deg_to_rad(lerpf(LEG_GAP, 360.0 - LEG_GAP, k / float(n - 1)))
+		spots.append(_leg_c + Vector3(sin(th), 0, cos(th)) * _leg_r)
+	var old_at: Array[Vector3] = []
+	for th_deg: float in LEG_OLD:
+		var th := deg_to_rad(th_deg)
+		old_at.append(_leg_c + Vector3(sin(th), 0, cos(th)) * _leg_r)
+	spots = spots.filter(func(p: Vector3) -> bool: return p.distance_to(old_at[0]) > 0.7 and p.distance_to(old_at[1]) > 0.7)
+	if _ukko == null:
+		_ukko = Looks.make(self, {"shirt": Color(0.52, 0.42, 0.3), "pants": Color(0.28, 0.28, 0.3), "hair": "Hair_Buzzed",
+			"hair_color": Color(0.85, 0.85, 0.83), "beard": true, "height": 1.74, "belly": 0.55, "shoe": "nauhakenka", "stripes": false})
+		_mummo = Looks.make(self, {"model": "female", "shirt": Color(0.6, 0.22, 0.42), "pants": Color(0.32, 0.28, 0.42),
+			"hair": "Hair_Buns", "hair_color": Color(0.88, 0.88, 0.9), "height": 1.6, "shoe": "sandaali", "stripes": false})
+	for k in 2:
+		var o: Node3D = [_ukko, _mummo][k]
+		var out := (old_at[k] - _leg_c).normalized()
+		o.position = old_at[k] + out * 2.0
+		_leg_walk.append([o, o.position, old_at[k]])
+	# Lähimmät parit kävelevät piiriin, kaukaisemmat kääntyvät paikoillaan ja taputtavat.
+	var free: Array[Node3D] = _dancers.duplicate()
+	for p in spots:
+		var best: Node3D = null
+		for d in free:
+			if best == null or d.position.distance_to(p) < best.position.distance_to(p):
+				best = d
+		if best == null:
+			break
+		free.erase(best)
+		_leg_walk.append([best, best.position, p])
+	for d in free:
+		d.rotation.y = _face(d.position, _leg_c)
+		_leg_ring.append(d)
+	if _buddy != null:
+		_buddy.rotation.y = _face(_buddy.position, _leg_c)
+		_leg_ring.append(_buddy)
+	for w: Array in _leg_walk:
+		var c: Node3D = w[0]
+		c.play("Walk", 0.2, 1.1)
+		c.rotation.y = _face(w[1], w[2])
+	Sfx.play("win_small", -12.0, 0.9)
+
+
+func _leg_potku() -> void:
+	_phase = "potku"
+	_leg_t = 0.0
+	_leg_bub.clear()
+	_leg_story = "Rinta rinnan, kädet ilmaan, ja jalka nousee tahtiin."
+	# Rinta rinnan kameran poikittaissuunnassa, kasvot kolme neljäsosaa kameraan päin (potku näkyy sivuttain).
+	var u := Vector3(sin(deg_to_rad(LEG_KAMERA)), 0, cos(deg_to_rad(LEG_KAMERA)))
+	var p := Vector3(u.z, 0, -u.x)  # kuvan oikealle
+	var f := u.rotated(Vector3.UP, deg_to_rad(-40.0))
+	_me.position = _leg_c - p * 0.45
+	_partner.position = _leg_c + p * 0.45
+	for c: Node3D in [_me, _partner]:
+		c.rotation.y = atan2(-f.x, -f.z)
+		c.play("Idle", 0.2)
+	for w: Array in _leg_walk:  # kesken jääneet kävelyt perille
+		_leg_arrive(w)
+	_leg_walk.clear()
+
+
+func _leg_otsikko() -> void:
+	_phase = "otsikko"
+	_leg_t = 0.0
+	_leg_bub.clear()
+	_leg_story = "Laulaja: \"%s\"" % LEG_LINES.kiitos
+	for c: Node3D in [_me, _partner]:
+		c.clear_ik()
+	_me.position = _leg_c + Vector3(-0.28, 0, 0)
+	_me.rotation.y = -PI / 2.0
+	_partner.position = _leg_c + Vector3(0.28, 0, 0)
+	_partner.rotation.y = PI / 2.0
+	_me.play("Dance", 0.3, 0.9)
+	_partner.play("Dance", 0.3, 0.9)
+	Sfx.play("win", -4.0)
+
+
+func _leg_end() -> void:
+	for w: Array in _leg_walk:
+		_leg_arrive(w)
+	_leg_walk.clear()
+	for c: Node3D in _leg_ring:
+		c.clear_ik()
+	_me.clear_ik()
+	_partner.clear_ik()
+	for c: Node3D in _leg_ring:
+		c.play("Dance", 0.4, 0.9)
+	_leg_bub.clear()
+	_leg_story = ""
+	_keys.set_text("")
+	_title.visible = true
+	_info.visible = true
+	_cam.fov = 60.0
+	_phase = "result"
+	_show_result(_leg_score)
+
+
+## Kävelijä perille: kasvot piirin keskelle ja taputtamaan.
+func _leg_arrive(w: Array) -> void:
+	var c: Node3D = w[0]
+	c.position = w[2]
+	c.rotation.y = _face(c.position, _leg_c)
+	c.play("Idle", 0.25)
+	if not c in _leg_ring:
+		_leg_ring.append(c)
+
+
+## Taputus käsien IK:lla: kämmenet vastakkain rinnan edessä, väli sykkii (rate taputusta sekunnissa, off vaihe).
+func _clap(c: Node3D, t: float, off: float) -> void:
+	var rx := signf((c.bone_position("upperarm_r") as Vector3).x)
+	if rx == 0.0:
+		rx = 1.0
+	var chest: Vector3 = c.bone_position("spine_03")
+	var mid: Vector3 = chest + Vector3(0, 0.02, -0.34)
+	var sep := 0.035 + 0.085 * absf(sin(PI * (t * 1.75 + off)))
+	for lr in ["_l", "_r"]:
+		var s := rx if lr == "_r" else -rx
+		var sh: Vector3 = c.bone_position("upperarm" + lr)
+		c.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, mid + Vector3(s * sep, 0, 0),
+			sh + Vector3(s * 0.35, -0.45, 0.05))
+		c.set_ik_orient("arm" + lr, Pose.palm_on(Vector3(0, 0.75, -0.65), Vector3(-s, 0, 0), lr == "_l"), 1.0)
+
+
+## Kädet ilmaan V:ksi.
+func _arms_up(c: Node3D) -> void:
+	var rx := signf((c.bone_position("upperarm_r") as Vector3).x)
+	if rx == 0.0:
+		rx = 1.0
+	for lr in ["_l", "_r"]:
+		var s := rx if lr == "_r" else -rx
+		var sh: Vector3 = c.bone_position("upperarm" + lr)
+		c.set_ik("arm" + lr, "upperarm" + lr, "lowerarm" + lr, "hand" + lr, sh + Vector3(s * 0.3, 0.5, -0.12),
+			sh + Vector3(s * 0.5, 0.1, 0.3))
+		c.set_ik_orient("arm" + lr, Pose.palm_on(Vector3(s * 0.35, 1.0, 0), Vector3(0, 0, -1), lr == "_l"), 1.0)
+
+
+## Oikean jalan potku eteen: k 0 = jalka lattialla, 1 = suora jalka vaakaa vähän alempana.
+func _kick(c: Node3D, k: float) -> void:
+	if k <= 0.001:
+		c._ik.erase("leg_r")
+		return
+	var hip: Vector3 = c.bone_position("thigh_r")
+	var rest := Vector3(hip.x, 0.09, hip.z + 0.02)
+	var top: Vector3 = hip + Vector3(0.0, -0.32, -0.8)
+	var pole: Vector3 = hip + Vector3(0, 0.25, -1.0)
+	c.set_ik("leg_r", "thigh_r", "calf_r", "foot_r", rest.lerp(top, k), pole)
+
+
+func _leg_step(delta: float) -> void:
+	_leg_t += delta
+	var t := _leg_t
+	_shake = maxf(0.0, _shake - delta * 2.5)
+	for pf: Array in _leg_sparks:  # pöly: [maailman piste, liike, ikä, koko]
+		pf[2] += delta
+	_leg_sparks = _leg_sparks.filter(func(pf: Array) -> bool: return pf[2] < 1.1)
+	if Input.is_action_just_pressed("interact"):
+		_leg_end()
+		return
+	# Piiri taputtaa koko ajan.
+	for i in _leg_ring.size():
+		_clap(_leg_ring[i], _t, i * 0.13)
+	match _phase:
+		"kutsu":
+			var h := _singer_head()
+			var d := Vector3(_leg_c.x - h.x, 0, _leg_c.z - h.z).normalized()
+			var side := d.cross(Vector3.UP)
+			if t < 2.8:
+				_leg_cam(h + d * 2.4 + side * 0.7 + Vector3(0, -0.3, 0), h + Vector3(0, -0.3, 0), 45.0)
+			else:
+				# Laulajan olan yli lattialle: koko lava kääntyy katsomaan paria (rajaus _olka_cam).
+				if not _leg_once.has("olka"):
+					_leg_once.olka = _olka_cam(h, d, side)
+				var oc: Array = _leg_once.olka
+				_leg_cam(oc[0], oc[1], oc[2])
+				if not _leg_once.has("katse"):
+					_leg_once.katse = true
+					for dd in _dancers:
+						dd.rotation.y = _face(dd.position, _leg_c)
+			if t > 5.2:
+				_leg_piiri()
+		"piiri":
+			var u := clampf(t / 6.0, 0.0, 1.0)
+			_leg_cam((_leg_c + Vector3(2.4, 4.4, 6.2)).lerp(_leg_c + Vector3(1.8, 4.0, 5.0), u), _leg_c + Vector3(0, 0.2, -0.8), 55.0)
+			var turn := t * 1.1
+			_me.position = _leg_c + Vector3(-cos(turn), 0, sin(turn)) * 0.28
+			_partner.position = _leg_c + Vector3(cos(turn), 0, -sin(turn)) * 0.28
+			_me.rotation.y = _face(_me.position, _partner.position)
+			_partner.rotation.y = _face(_partner.position, _me.position)
+			var arrived: Array = []
+			for w: Array in _leg_walk:
+				var dur: float = clampf((w[1] as Vector3).distance_to(w[2]) / 2.2, 1.0, 3.2)
+				var k := clampf(t / dur, 0.0, 1.0)
+				(w[0] as Node3D).position = (w[1] as Vector3).lerp(w[2], k)
+				if k >= 1.0:
+					arrived.append(w)
+			for w: Array in arrived:
+				_leg_arrive(w)
+				_leg_walk.erase(w)
+			if t > 1.4 and not _leg_once.has("pari"):
+				_leg_once.pari = true
+				_leg_bub[_partner] = "Pari: " + LEG_LINES.pari
+			if t > 4.4:
+				_leg_bub.erase(_partner)
+			if t > 6.2:
+				_leg_potku()
+		"potku":
+			var u := Vector3(sin(deg_to_rad(LEG_KAMERA)), 0, cos(deg_to_rad(LEG_KAMERA)))
+			_leg_cam(_leg_c + u * 4.4 + Vector3(0, 1.2, 0), _leg_c + Vector3(0, 0.95, 0), 50.0)
+			var k := 0.0
+			for i in 3:
+				var t0: float = [0.5, 1.45, 2.4][i]
+				var amp: float = [0.7, 0.85, 1.0][i]
+				var x := clampf((t - t0) / 0.8, 0.0, 1.0)
+				k = maxf(k, amp * sin(PI * x))
+			for c: Node3D in [_me, _partner]:
+				_arms_up(c)
+				_kick(c, k)
+			for i in 3:
+				var peak: float = [0.9, 1.85, 2.8][i]
+				if t >= peak and not _leg_once.has("isku%d" % i):
+					_leg_once["isku%d" % i] = true
+					Sfx.play("step_wood", -2.0 + i * 2.0, 0.8)
+					if i == 2:
+						_shake = 1.0
+						Sfx.play("win_small", -6.0, 1.2)
+						for c: Node3D in [_me, _partner]:  # pölypöllähdys lattiasta tukijalan ympäriltä
+							var st: Vector3 = c.to_global(c.bone_position("foot_l"))
+							st.y = global_position.y + 0.06
+							for j in 9:
+								var a := TAU * j / 9.0 + randf() * 0.4
+								_leg_sparks.append([st, Vector3(cos(a), 0, sin(a)) * randf_range(0.25, 0.55), 0.0, randf_range(0.7, 1.2)])
+			if t > 3.1 and not _leg_once.has("ukko"):
+				_leg_once.ukko = true
+				_leg_bub[_ukko] = "Ukko: " + LEG_LINES.ukko
+				_ukko.play("Idle_Talking", 0.2)
+			if t > 5.6 and not _leg_once.has("mummo"):
+				_leg_once.mummo = true
+				_leg_bub.erase(_ukko)
+				_ukko.play("Idle", 0.3)
+				_leg_bub[_mummo] = "Mummo: " + LEG_LINES.mummo
+				_mummo.play("Idle_Talking", 0.2)
+			if t > 8.2:
+				_mummo.play("Idle", 0.3)
+				_leg_otsikko()
+		"otsikko":
+			var u := smoothstep(0.0, 1.0, clampf(t / 5.0, 0.0, 1.0))
+			_leg_cam((_leg_c + Vector3(0.5, 1.4, 4.4)).lerp(_leg_c + Vector3(2.2, 2.9, 5.4), u),
+				(_leg_c + Vector3(0, 1.0, 0)).lerp(_leg_c + Vector3(0, 2.0, -1.0), u), 52.0)
+			var turn := t * 0.9
+			_me.position = _leg_c + Vector3(-cos(turn), 0, sin(turn)) * 0.28
+			_partner.position = _leg_c + Vector3(cos(turn), 0, -sin(turn)) * 0.28
+			_me.rotation.y = _face(_me.position, _partner.position)
+			_partner.rotation.y = _face(_partner.position, _me.position)
+			if t > 6.4:
+				_leg_end()
+
+
+func _draw_legend() -> void:
+	if not _phase in LEG and _leg_bub.is_empty():
+		return
+	var vs := _ui.size
+	var font := ThemeDB.fallback_font
+	if _leg_story != "" and _phase in LEG and not (_phase == "otsikko" and _leg_t > 0.9):
+		var r := Rect2(vs.x / 2.0 - 440, 24, 880, 52)
+		Room.box(_ui, r)
+		_ui.draw_string(font, r.position + Vector2(16, 33), _leg_story, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 32, 19,
+			Color(1.0, 0.92, 0.75))
+	for c: Node3D in _leg_bub:
+		if is_instance_valid(c):
+			Room.bubble(_ui, _cam, c, _leg_bub[c], 90.0, 120.0)
+	for pf: Array in _leg_sparks:
+		var age: float = pf[2]
+		var wp: Vector3 = pf[0] + (pf[1] as Vector3) * (1.0 - exp(-age * 3.0)) + Vector3(0, 0.12 * age, 0)
+		if _cam.is_position_behind(wp):
+			continue
+		var sp := _cam.unproject_position(wp)
+		var rr := (10.0 + 26.0 * age) * float(pf[3])
+		var al := 0.4 * clampf(1.0 - age / 1.1, 0.0, 1.0)
+		_ui.draw_circle(sp, rr, Color(0.72, 0.62, 0.5, al))
+		_ui.draw_circle(sp + Vector2(-rr * 0.25, -rr * 0.3), rr * 0.6, Color(0.85, 0.77, 0.66, al * 0.7))
+	if _phase != "otsikko":
+		return
+	var a := clampf((_leg_t - 0.8) / 0.8, 0.0, 1.0)
+	_ui.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.03, 0.02, 0.05, 0.35 * a))
+	var y := vs.y * 0.17
+	var title := "LAVATANSSIT"
+	# Nuotit nousevat otsikon takaa.
+	for i in 7:
+		var f := fmod(_leg_t * 0.35 + i * 0.37, 1.0)
+		var nx := vs.x * (0.24 + 0.085 * i)
+		var ny := y - 40.0 - f * 120.0
+		var col := Color(1.0, 0.85, 0.4, a * (1.0 - f))
+		_ui.draw_circle(Vector2(nx, ny), 7.0, col)
+		_ui.draw_line(Vector2(nx + 6, ny), Vector2(nx + 6, ny - 26), col, 2.5)
+		_ui.draw_line(Vector2(nx + 6, ny - 26), Vector2(nx + 15, ny - 19), col, 2.5)
+	_ui.draw_string_outline(font, Vector2(0, y), title, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 82, 12, Color(0.12, 0.04, 0.02, a))
+	_ui.draw_string(font, Vector2(0, y), title, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 82, Color(1.0, 0.82, 0.35, a))
+	var sr := Rect2(vs.x / 2.0 - 380, y + 36.0, 760, 74)
+	_ui.draw_rect(sr, Color(0.05, 0.04, 0.03, 0.75 * a))
+	_ui.draw_multiline_string(font, sr.position + Vector2(18, 30), LEG_LINES.sub, HORIZONTAL_ALIGNMENT_CENTER, sr.size.x - 36, 19, 3,
+		Color(1.0, 0.94, 0.8, a))

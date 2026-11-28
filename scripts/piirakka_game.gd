@@ -12,6 +12,7 @@ extends Node3D
 signal finished(pies: int)
 
 const MG := preload("res://scripts/mg_draw.gd")
+const Legenda := preload("res://scripts/piirakka_legenda.gd")
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const TIME := 40.0
@@ -63,6 +64,9 @@ var record := 7
 var record_holder := "Juntti"
 var drunk := 0.0
 var raija: Node3D  # world.reippari_raija: piiloon luukulta, Raija tulee pöydän ääreen
+var legend := false  # ensimmäinen ennätyksen rikkominen lavastetaan (piirakka_legenda.gd), main.gd asettaa
+var recall := false  # legenda nähty: Juntti tai Raija muistelee haasteen alussa
+var legend_seen := false  # tämä haaste päättyi legendaan (main.gd ei näytä ennätysviestiä päiväkirjarivin päälle)
 
 var _hud: CanvasLayer
 var _ui: Control
@@ -90,6 +94,8 @@ var _bitten: Array[Node3D] = []  # puraisupinnat (näkyy edessä olevassa palass
 var _bottle: Node3D
 var _crumbs: CPUParticles3D
 var _plate_pies: Array[Node3D] = []
+var _plate: MeshInstance3D
+var _apron: Node3D
 var _people := {}  # avain -> hahmo
 var _bubbles := {}  # avain -> [Label3D, aika]
 
@@ -107,14 +113,18 @@ func _ready() -> void:
 	_build_hand()
 	_build_hud()
 	_tip.text = "Raija: \"Ennätys on %s, %d piirakkaa. Kello käy kun sanon nyt...\"" % [record_holder, record]
-	_event("start")
+	if recall:  # Lihapiirakkakuninkaan legenda muistetaan: mittaus ja paperit
+		var m: Array = Legenda.MUISTO.pick_random()
+		_speak(m[0], m[1], 4.0)
+	else:
+		_event("start")
 
 
 # --- Rakennus ------------------------------------------------------------------
 
 func _build_scene() -> void:
 	# Lautanen ja pino piirakoita pöydällä.
-	B.mesh(self, B.cyl(0.2, 0.17, 0.02, 20), PLATE, Color(0.97, 0.97, 0.95))
+	_plate = B.mesh(self, B.cyl(0.2, 0.17, 0.02, 20), PLATE, Color(0.97, 0.97, 0.95))
 	for k in 9:
 		var p := Node3D.new()
 		# Kuusi pohjalle kahteen riviin ja kolme päälle: keko lautasella.
@@ -138,6 +148,7 @@ func _build_scene() -> void:
 	# Reiskan esiliina ja mummon kahvikuppi.
 	var apron := B.mesh(_people.reiska, B.boxm(Vector3(0.38, 0.6, 0.02)), Vector3(0, 0.95, -0.2), Color(0.98, 0.98, 0.98))
 	apron.rotation.x = 0.1
+	_apron = apron
 	var cup := Node3D.new()
 	_people.mummo.attach("hand_r", cup, Vector3(0, -0.05, 0))
 	B.mesh(cup, B.cyl(0.04, 0.035, 0.08, 10), Vector3.ZERO, Color(0.95, 0.95, 0.92))
@@ -548,11 +559,40 @@ func _process(delta: float) -> void:
 func _finish(text: String) -> void:
 	_done = true
 	_tip.text = text
+	if legend and _pies > record:
+		get_tree().create_timer(1.1).timeout.connect(_legend_begin)
+		return
 	get_tree().create_timer(2.2).timeout.connect(func() -> void:
 		if raija != null:
 			raija.visible = true  # takaisin luukulle
 		finished.emit(_pies)
 		queue_free())
+
+
+## Lihapiirakkakuninkaan lavastettu hetki (piirakka_legenda.gd): FPS-käsi ja HUD piiloon, kuplat tyhjiksi, haasteen
+## lautanen pois (legendassa oma tyhjä lautanen ja paperit). Lopuksi kuten tavallinen loppu.
+func _legend_begin() -> void:
+	legend_seen = true
+	_hud.visible = false
+	_pie.visible = false
+	_bottle.visible = false
+	_plate.visible = false
+	for p in _plate_pies:
+		p.visible = false
+	for k in _bubbles:
+		(_bubbles[k][0] as Label3D).text = ""
+		_bubbles[k][1] = 0.0
+	var lg := Legenda.new()
+	lg.game = self
+	lg.people = _people
+	lg.pies = _pies
+	lg.apron = _apron
+	lg.finished.connect(func() -> void:
+		if raija != null:
+			raija.visible = true
+		finished.emit(_pies)
+		queue_free())
+	add_child(lg)
 
 
 # --- Animaatio -----------------------------------------------------------------

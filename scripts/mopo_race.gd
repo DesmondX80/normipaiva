@@ -14,6 +14,7 @@ signal finished(won: bool, my_time: float, opp_time: float)
 const B := preload("res://scripts/build.gd")
 const Looks := preload("res://scripts/looks.gd")
 const Mopo := preload("res://scripts/mopo.gd")
+const Legenda := preload("res://scripts/kiihdytys_legenda.gd")
 
 const DIST := 150.0
 const LANE := 1.4
@@ -26,6 +27,26 @@ var track: Array[Vector3] = []
 var drunk := 0.0
 var opp_skill := 0.5  # 0 aloittelija .. 1 viritetyn mopon kuningas
 var opp_name := "Tunturi-Jani"
+## Legendaarinen hetki "kiihdytys" (kiihdytys_legenda.gd): ensimmäinen voitto lavastetaan suoralla ennen finished-
+## signaalia. Kutsuja (main.gd _start_race) asettaa endings-laskurista.
+var legend := false
+
+## Vastustajan ulkonäkö (sama kuin Zabukin pihan mopopojalla, vaala.gd _build_race_crew).
+const OPP_LOOK := {"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari",
+	"hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5,
+	"tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}}
+## Legendan repliikit vastustajan mukaan (ilme: vastustaja, keuli ja tyonto: lähettäjä, sub: otsikon tarina).
+const LEG_LINES := {
+	"Pete": {"ilme": "Ei voi olla... Mää porasin sen seiskytkuutoseks!", "keuli": "KEULII! Ukko keulii koko suoran!",
+		"tyonto": "Sääntö on sääntö, Pete! Hävinny työntää Zabukille!",
+		"sub": "Vaalantien suoralla mopopojat jäi toiseksi. Pakoputki-Pete työnsi mopon Zabukille, ja voittaja keuli ohi."},
+	"Jani": {"ilme": "Mun Tunturi hävis tolle romulle? Isä tappaa mut.", "keuli": "KEULII! Kattokaa, ukko keulii!",
+		"tyonto": "Sääntö on sääntö, Jani! Hävinny työntää Zabukille!",
+		"sub": "Vaalantien suoralla mopopojat jäi toiseksi. Tunturi-Jani työnsi mopon Zabukille, ja voittaja keuli ohi."}}
+## Mopopojat muistelevat legendaa, kun pelaaja tulee seuraavan kerran Zabukin pihaan (main.gd _talk_hello).
+const LEG_MUISTO := ["Se on se ukko, joka keuli koko Vaalantien suoran! Hävinny työnsi mopon Zabukille asti.",
+	"Hei, kiihdytyksen voittaja! Meiän Tunturit ei oo vieläkään toipunu.",
+	"Muistatko ku sää keulit meiän ohi? Koko Zabukin piha puhuu siitä vieläki."]
 
 var _cum: Array[float] = []
 var _phase := "lights"  # lights | race | done
@@ -37,6 +58,8 @@ var _opp_react := 0.3
 var _opp_shift_at := 0.9
 var _my_model: Node3D
 var _opp_model: Node3D
+var _flagger: Node3D
+var _starter: Node3D
 var _cam: Camera3D
 var _prev_cam: Camera3D
 var _layer: CanvasLayer
@@ -58,9 +81,7 @@ func _ready() -> void:
 		_cum.append(_cum[i - 1] + track[i - 1].distance_to(track[i]))
 	_prev_cam = get_viewport().get_camera_3d()
 	_my_model = _make_mopo(Looks.player(), Color(0.72, 0.08, 0.06), true)
-	_opp_model = _make_mopo({"shirt": Color(0.1, 0.35, 0.6), "pants": Color(0.25, 0.32, 0.5), "shoes": Color(0.9, 0.9, 0.9), "shoe": "lenkkari",
-		"hair": "Hair_Buzzed", "hair_color": Color(0.7, 0.55, 0.3), "height": 1.76, "bulk": -0.6, "shoulders": -0.5,
-		"tracksuit": {"a": Color(0.9, 0.2, 0.3), "b": Color(0.1, 0.35, 0.6)}}, Color(0.85, 0.72, 0.08), false)
+	_opp_model = _make_mopo(OPP_LOOK.duplicate(true), Color(0.85, 0.72, 0.08), false)
 	# Lähtö- ja maaliviiva tiehen, sekä kaverit tien varressa.
 	for at: float in [0.0, DIST]:
 		var p := _at(at)
@@ -73,6 +94,7 @@ func _ready() -> void:
 	flagger.position = fl
 	flagger.rotation.y = B.yaw_to(-_side(DIST))
 	flagger.play("Idle", 0.0)
+	_flagger = flagger
 	var st := _at(0) - _side(0) * (LANE + 2.0) + _dir(0) * 2.0
 	var starter := Looks.make(self, {"shirt": Color(0.2, 0.45, 0.2), "pants": Color(0.15, 0.15, 0.17), "hair": "Hair_Long",
 		"hair_color": Color(0.15, 0.1, 0.08), "height": 1.82, "bulk": -0.7, "shoe": "tyokenka"})
@@ -80,6 +102,7 @@ func _ready() -> void:
 	starter.position = st
 	starter.rotation.y = B.yaw_to(_side(0))
 	starter.play("Idle_Talking", 0.0)
+	_starter = starter
 	_cam = Camera3D.new()
 	_cam.fov = 70.0
 	_cam.far = 1500.0
@@ -112,6 +135,7 @@ func _make_mopo(look: Dictionary, col: Color, me: bool) -> Node3D:
 	r.anim.advance(0.01)
 	r.position = Vector3(0, 0.92, 0.25) - r.bone_position("pelvis")
 	r.set_override("spine_01", Vector3.RIGHT, -0.35)  # kumarassa tankin päällä
+	root.set_meta("rider", r)
 	return root
 
 
@@ -289,8 +313,17 @@ func _finish(won: bool, why: String) -> void:
 	var opp_t: float = _opp.time if _opp.time >= 0.0 else 99.0
 	_big.text = why if why != "" else ("VOITIT!" if won else "HÄVISIT!")
 	_info.text = "Sinä %s · %s %s" % ["%.2f s" % my_t if my_t < 90.0 else "–", opp_name, "%.2f s" % opp_t if opp_t < 90.0 else "–"]
-	Sfx.play("win" if won else "lose", -4.0)
-	await get_tree().create_timer(2.5).timeout
+	if won and legend:
+		_layer.visible = false
+		var lg := Legenda.new()
+		lg.race = self
+		lg.opp_short = "Pete" if opp_name.begins_with("Pakoputki") else "Jani"
+		lg.lines = LEG_LINES[lg.opp_short]
+		add_child(lg)
+		await lg.finished
+	else:
+		Sfx.play("win" if won else "lose", -4.0)
+		await get_tree().create_timer(2.5).timeout
 	_layer.queue_free()
 	if is_instance_valid(_prev_cam):
 		_prev_cam.current = true

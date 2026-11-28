@@ -461,6 +461,56 @@ func from_stage(cheer: bool, quiet := false) -> void:
 		say(_kellari[1], "No... ei sitä kaikki voi olla Ruukin Raijoja.")
 
 
+# --- Legendaarinen hetki "karaoke" (karaoke_legenda.gd) --------------------------------
+
+const KaraokeLegenda := preload("res://scripts/karaoke_legenda.gd")
+## Repliikit: puhuja = Kellarin porukan indeksi (0 nainen, 1 ruukkilainen), "fan" (vakiolaulaja) tai "bartender".
+const KARAOKE_LEGENDA := {
+	"ruutu": "♪ ...Raa-hen yö on lau-lu-aaa ♪\nSKOOLI!",
+	"savel": "Viimeinen sävel. Käsi kohti holvia, ja ääni kantaa Kulmaan asti.",
+	"hiljaisuus": "Sävel loppuu. Kellarissa on niin hiljaista, että yläkerran tuoppien kilinä kuuluu.",
+	"hush": [1, "...no nyt. Kuulitteko?"],
+	"aplodit": "Ja sitten koko Kellari nousee seisomaan.",
+	"cheers": [[0, "Skooli! Tuommosta ei oo Kellarissa kuultu sitten laivanrakennusaikojen!"],
+		["fan", "Vakiolaulaja: Kakskymmentä vuotta mää oon täällä laulanu, eikä kukaan oo noussu seisomaan!"]],
+	"kello": "Baarimikko tarttuu tiskin kellon naruun.",
+	"bartender": "Talo tarjoaa! Laulajalle tuoppi, ja nimi taululle!",
+	"tuoppi": "Tuoppi liukuu tiskiä pitkin suoraan kuninkaan käteen.",
+	"sub": "Kapteenin Kellari nousi seisomaan, ja baarimikko tarjosi tuopin. Taulussa lukee vieläkin: ILLAN KUNINGAS.",
+	"taulu": "TALO TARJOAA\nILLAN\nKUNINGAS",
+	"muisto": ["Kuningas palas! Kellarin taulussa lukee vieläkin sun nimi.", "Kas, illan kuningas. Kellari odottaa."],
+	"huhu": ["Kuulin, että Vaalassa joku lauloi Siitarin salin jaloilleen. Oliko se sää?"],
+}
+var _board: Node3D
+
+
+## Liitutaulu "ILLAN KUNINGAS" Kellarin takaseinällä verkon oikealla puolella.
+func show_board(on: bool) -> Node3D:
+	if on and _board == null:
+		_board = KaraokeLegenda.make_board(self, CELLAR + Vector3(4.85, 1.55, -CELLAR_HALF.y + 0.16), 0.0, KARAOKE_LEGENDA.taulu)
+	if _board != null:
+		_board.visible = on
+	return _board
+
+
+## Näyttelijät ja paikat legendalle (karaoke_legenda.gd): pelaaja lavalla, Kellarin porukka, baarimikko kellon luona,
+## tuopin liukurata tiskillä ja kiinniottopaikka tiskin oikeassa päässä.
+func legend_cast() -> Dictionary:
+	_singing = 0.0  # vakiolaulaja omalle paikalleen pöytään
+	_singer.position = CELLAR + Vector3(3.2, 0.02, 2.0)
+	_singer.rotation.y = B.yaw_to(Vector3(-1, 0, 0))
+	_singer.play("Sitting_Idle", 0.0)
+	_singer.set_meta("sitting", true)
+	var c := CELLAR
+	return {"walker": walker, "stage": c + Vector3(-5.32, 0.3, 2.48), "face": Vector3(1, 0, 0), "mic": c + Vector3(-4.92, 1.67, 2.6),
+		"audience": _kellari.filter(func(k: Node3D) -> bool: return k != _singer), "fan": _singer, 
+		"bartender": _cellar_bartender,
+		"bartender_at": c + Vector3(1.25, 0, -4.28), "bell_at": c + Vector3(1.0, 1.16, -3.9), "counter_out": Vector3(0, 0, 1),
+		"slide_from": c + Vector3(1.5, 1.16, -3.55), "slide_to": c + Vector3(2.95, 1.16, -3.45), "catch_at": c + Vector3(3.05, 0, -3.1),
+		"board_at": c + Vector3(4.85, 1.55, -CELLAR_HALF.y + 0.16), "title_eye": c + Vector3(5.2, 1.55, -1.92),
+		"room": {"c": c, "half": CELLAR_HALF, "h": 2.4, "col": Color(0.16, 0.11, 0.08)}, "screen": _screen, "bubbles": _bubbles, "lines": KARAOKE_LEGENDA}
+
+
 # --- Rakennus ---------------------------------------------------------------------
 
 func _wall(a: Vector2, b: Vector2, h: float, col: Color, collide_h := WALL_H) -> void:

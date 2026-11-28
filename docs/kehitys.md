@@ -153,6 +153,24 @@ hiljainen toinen voitto),
 `tools/testit/aja.sh scene kesaheila_eka` (kesäheilan ensimmäinen ovi kotona: Sytkärin kartta ympyröineen ja neula,
 koputus, Päivi lavakuvan hatussa, lavakuva ja sydän, kaverit, kerman ojennus ja otsikko kuvina; hetki kirjataan vasta
 onnellisessa valinnassa, toisella kerralla Päivi muistelee ja hattu on eteisen naulassa),
+`tools/testit/aja.sh scene lava_eka` (lavatanssien hetki Oulujärven lavalla: laulaja mikillä, olan yli lattialle,
+piiri taputtaa ja kädet mitataan, rinta rinnan potku ja jalan korkeus mitattuna, ukko ja mummo, otsikko; toisella
+käynnillä pari muistelee ja hyvä humppa lasketaan hiljaa),
+`tools/testit/aja.sh scene karaoke_baari_eka` (Karaokekuninkaan hetki ensin Kapteenin Kellarissa ja sitten Siitarissa:
+viimeinen sävel, hiljaisuus, sali seisoo ja taputtaa, kumarrus, kello, tuopin liuku ja kiinniotto, taulu ja otsikko kuvina;
+käsi mikissä, taputus, kellon naru, kumarrus ja tuopin korva mitataan; taulu jää seinälle, toisella käynnillä baarimikko
+muistelee ja raikuva veto lasketaan hiljaa),
+`tools/testit/aja.sh scene kiihdytys_eka` (Kiihdytyksen voittajan hetki Vaalantien suoralla: hidastettu maali,
+salama viivalla ja vastustaja perässä, vastustajan ilme, keulinta ja hurraavat mopopojat, työntö Zabukille ja otsikko
+kuvina; keulinnan takapyörä tiessä ja keula ylhäällä, lippu kädessä sekä ajajan ja työntäjän kädet tangossa mitataan;
+toisella käynnillä mopopojat muistelevat ja voitto lasketaan hiljaa),
+`tools/testit/aja.sh scene tanssit_eka` (seuraintalon tanssien hetki Sinikan kanssa: viimeinen valssi valot
+himmeinä, taivutus, lamput syttyvät ja Anna-Liisa, otsikko kuvina; parin koko kuvassa, valot, taivutuksen kädet,
+jalat ja läpimenot mitataan; sali palautuu, toisella käynnillä Anna-Liisa muistelee ja hyvä tanssi lasketaan hiljaa),
+`tools/testit/aja.sh scene piirakka_eka` (Lihapiirakkakuninkaan hetki Reipparin pihapöydässä: viimeinen pala ja
+lasku, Juntin paperilaskenta, rullamitta ja vertailupiirakka, Raijan tussiviiva ja lappu, röyhtäys ja otsikko kuvina;
+Juntin osoitus, mitan kädet, kohteiden koko kuvassa, istuva kuningas ja röyhtäyksen etäisyys mitataan; taulussa uusi
+nimi, toisessa haasteessa Juntti tai Raija muistelee ja ennätys lasketaan hiljaa),
 `tools/testit/aja.sh scene kolmio_iltakivat` (lettukisa, löylykisa, disko ja karaoke
 pelimaailmassa peräkkäin ovelta aamuun, sivutehtävän kirjaus jokaisesta) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
 [lettu,loyly,disko,karaoke]` (lettukisa, löylykisa, Sivikki-disko ja karaoke tekoälyllä molemmissa kohteissa: alku,

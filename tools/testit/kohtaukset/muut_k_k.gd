@@ -219,6 +219,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 						shot_done = true
 						await snap.call("_%s.png" % label)
 				print("KARAOKE bot %s: osumia %d / %d, huteja %d, paras putki %d, tulos %.2f" % [label, st.hit, st.n, st.miss, st.combo, st.score])
+			main.endings.counts["karaoke"] = maxi(1, int(main.endings.counts.get("karaoke", 0)))  # ei legendaa (karaoke_baari_eka)
 			main.money = 50.0
 			main._on_siitari_acted("karaoke")
 			var kg: CanvasLayer = main._karaoke_game()
