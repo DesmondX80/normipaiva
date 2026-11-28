@@ -171,6 +171,27 @@ jalat ja läpimenot mitataan; sali palautuu, toisella käynnillä Anna-Liisa mui
 lasku, Juntin paperilaskenta, rullamitta ja vertailupiirakka, Raijan tussiviiva ja lappu, röyhtäys ja otsikko kuvina;
 Juntin osoitus, mitan kädet, kohteiden koko kuvassa, istuva kuningas ja röyhtäyksen etäisyys mitataan; taulussa uusi
 nimi, toisessa haasteessa Juntti tai Raija muistelee ja ennätys lasketaan hiljaa),
+`tools/testit/aja.sh scene sahkopyora_eka` (Saloislaisen sähköpyörän ensimmäinen koeajo tallin edessä: nosturiovi ja
+naapurit, kaasukahva ja kipinä, keulan nousu, Järvikujan ajo ja Sinikka, paluu ja osoitukset, otsikko kuvina; pyörän
+paikka ja koko kuvassa, kaasukäsi kahvassa, keula, teipinpätkä ja osoitukset mitataan; lopuksi pelaaja pyörän selässä
+tallin edessä, naapurit ennallaan ja Pekka tai Arto muistelee jutellessa),
+`tools/testit/aja.sh scene porron_kyltti_eka` (Pörrön muistolaudan jälkeen lehdon hetki: pojat ja pikkuveli
+kyltillä, voikukka juurelle, kivet yksi kerrallaan, "Setä on ihan ok" ja otsikko kuvina; kyltin ja päiden paikka
+kuvassa, kukka kädessä ja kivien lasku kädestä mitataan; lopuksi kivet ja kukka tolpan juurella, pojat palaavat ja
+pojille uusi kysymys kyltistä),
+`tools/testit/aja.sh scene aarnivalkea_eka` (Isonvihan hopeat ensimmäistä kertaa Saloisten Pirttiin: pihapöydän
+tuohikontti ja pöytäkirja, kannen nosto ja viimeinen sininen liekki, hätkähdys, hopeat liinalla ja taalerin välähdys,
+Hilkka ja epäilijät sekä otsikko kuvina; kontin, liekin, taalerin ja päiden paikka kuvassa ja oppaan käsi kannella
+mitataan; lopuksi pelaaja palaa, hetki päiväkirjaan ja Hilkalle uusi kysymys Pirtin pihasta),
+`tools/testit/aja.sh scene kertun_rauta_eka` (Kertunkankaan kirves Pirttiin, tehtävä "näytä lehtijuttu", ja lehti
+kodalle: sisääntulo ja ojennus, Raimon lukeminen ja etusivu ilmassa, Veikon "Perkele" ja kiroilukyltti, kaljakassi ja
+kilistys, leike seinälle ja otsikko kuvina; lehden koko ja suunta kuvassa, kädet lehden reunoilla, ojennus kädestä
+käteen, osoitus kylttiin ja tölkit yhdessä mitataan; lopuksi kaljat, leike seinällä, oikeat Raimo ja Veikko takaisin,
+tuli kuten ennen, hetki päiväkirjaan ja muistelu kodan jutuissa),
+`tools/testit/aja.sh scene tekojarven_ukko_eka` (Tekojärven Ukko ensimmäistä kertaa Saloisten Pirttiin: punnituspukki
+ja heiluva Ukko, puntarin taulu ja viisari 18,4:ssä, uistimet kyljessä, Taunon tulo ja kosketus isän lusikkaan, kyynel,
+lehtikuva ja otsikko kuvina; Ukon paikka ja koko kuvassa, taulun koko, viisarin lukema, Taunon käsi lusikalla, kyynel
+ja kädet hauen alla mitataan; lopuksi pelaaja palaa, hetki päiväkirjaan ja Taunolle uusi kysymys punnituksesta),
 `tools/testit/aja.sh scene kolmio_iltakivat` (lettukisa, löylykisa, disko ja karaoke
 pelimaailmassa peräkkäin ovelta aamuun, sivutehtävän kirjaus jokaisesta) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
 [lettu,loyly,disko,karaoke]` (lettukisa, löylykisa, Sivikki-disko ja karaoke tekoälyllä molemmissa kohteissa: alku,

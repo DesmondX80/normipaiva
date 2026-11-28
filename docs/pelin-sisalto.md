@@ -269,7 +269,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   sähköteippiä oikosulkevat vedessä ja rämeessä. Ajossa avustus nostaa kiihtyvyyttä ja huippunopeutta, eikä
   avustettu spurtti väsytä; akku (palkki kunnon alla) tyhjenee ja latautuu tallissa ja kotona yön yli (Päivi
   huomaa sähkölaskun). Tyhjä tai irronnut akku tekee pyörästä raskaan. Irronnut osa teipataan tien varressa
-  jalan E:llä, oikosulku korjataan tallissa. Testi `--scene=sahkopyora`.
+  jalan E:llä, oikosulku korjataan tallissa. Viimeinen liitos tekee pyörästä legendaarisen hetken "Saloislainen
+  sähköpyörä", ja ensimmäinen koeajo lavastetaan tallin edessä (`sahkopyora_legenda.gd`): nosturiovi nousee ja
+  pyörä rullaa pimeästä tallista nurmelle, jossa Pekka (akut) ja Arto (johdot) odottavat kädet puuskassa ("No?
+  Kulukeeko se?"). Lähikuvassa kaasukahva kiertyy, Makitan akun valo vaihtuu vihreäksi, moottori vinkuu ja johdoista
+  sinkoaa kipinä, jolloin Arto perääntyy. Pyörä nykäisee keulan ilmaan, nurmea lentää ja naapurit väistävät
+  ("PERKELE!"). Järvikujaa mennään polkematta jalat levällään, jeesusteipin pätkä liehuu tarakalla ja Sinikka
+  vilkuttaa kadun toiselta puolelta. Pihaan palatessa Pekka osoittaa akkua ("Ne on mun Makitan akut!") ja Arto
+  johtoja ("Ja mun johdot!"), ja lopuksi tulee kultainen otsikko. Pelaaja jää pyörän selkään tallin eteen. Pyörä
+  kasataan vain kerran, ja myöhemmin Pekka ja Arto muistelevat koeajoa jutellessa. Testit `--scene=sahkopyora` ja
+  `--scene=sahkopyora_eka`.
 - **Oma mopo (#155):** Sepon pressun alla ollut Hopeanuoli. Seppo myy sen vasta tutulle: ostokset, marjat, Nokia ja
   yllätyslaatikot kasvattavat luottamusta, ja Kekkosen rintamerkin palauttaminen ("isävainaan merkki!") avaa kaupan
   heti puoleen hintaan. Hinta riippuu Sepon mielialasta. Mopo tulee talliin romuna: ketju ja ratas Huhtalan
@@ -392,8 +401,14 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   vanhan Väinön pelosta. Sivutehtävä (jalkapallopojat, vain jos pojat ovat kentällä): pojat kertovat pikkuveljen hamsteri Pörrön
   kuolleen, ja pelaaja maalaa lehtoon muistokyltin pienellä minipelillä (muistokyltti_game.gd: kirjaimet P, Ö, R, R, Ö
   näppäimillä, sydän, käpälä ja lauta tolppaan; ei aikapainetta). Valmistuttua Pörrön kyltti näkyy lehdossa, pojat eivät heitä
-  enää koskaan kiviä ("Setä on ihan ok") ja maine +5. Sävy on kunnioittava: ei vitsejä kuolleista lemmikeistä. Testi
-  `--scene=lemmikkienkelit`.
+  enää koskaan kiviä ("Setä on ihan ok") ja maine +5. Legendaarinen hetki "Pörrön muistokyltti" lavastetaan lehdossa
+  (`porro_legenda.gd`): pojat tuovat pikkuveljen kyltille ("Onko toi Pörrön?"), pikkuveli laskee voikukan juurelle isoveljien
+  painaessa päänsä, pojat kaivavat taskuistaan kivet, jotka oli tarkoitettu sedälle, ja asettavat ne yksi kerrallaan kyltin
+  juurelle ("Nää oli setää varten." / "Nyt ne on Pörrön." / "Ei heitetä enää."), kääntyvät pelaajaan ("Setä on ihan ok.")
+  ja lähtevät portille; otsikkona PÖRRÖN MUISTOKYLTTI. Voikukka ja kolme kiveä jäävät tolpan juurelle pysyvästi, ja pojilta
+  voi myöhemmin kysyä kyltistä (muistelevat lehdon hetkeä). Tehtävä tehdään vain kerran. Lehto on leikattua nurmea (ei pitkää
+  ruohoa), lyhdyt ovat metallikehyksisiä kynttilälyhtyjä. Sävy on kunnioittava: ei vitsejä kuolleista lemmikeistä. Testit
+  `--scene=lemmikkienkelit` ja `--scene=porron_kyltti_eka`.
 - **Legenda: Kanttorilan yösävel (#144):** Kanttorila on OSM-talo kylän länsiosassa (nimikyltti seinässä). Sen historiaa ei
   löytynyt (Saloisten seurakunta perustettiin 1912, nykyinen kirkko valmistui 1932), joten kaikki talosta kerrottu on
   keksittyä ja Pirtiltä tai museolta tarkistamatta. Legenda (pelissä totta): kanttorin virren nuotit katosivat, ja talosta
@@ -512,6 +527,17 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   onnellisen lopun "Erämaan laavu" (18 loppua), ja Viitajärvessä voi uida. Kaitasaaren kärjestä auringonlasku
   tekojärvellä (19–23), luonnonsuojelualueen kyltit (maastopyöräily paheksutaan) ja metson soidin aamuisin (8–10),
   Puntarimäeltä maisema.
+  **Legenda: Tekojärven Ukko** (keksitty, pelissä totta, `ukko_legenda.gd`): kirppiksen Tauno kertoo isänsä
+  hauesta ladon raunioilla. Virvelillä tekojärvellä jokin katkaisee siiman, ja droonin iltakuvassa näkyy varjo. Tauno
+  myy isänsä kuparilusikan, ja illalla (19–23) Kaitasaaren kärjestä Ukko tarttuu. Sen voi viedä Saloisten Pirttiin
+  täytettäväksi (loppu "Tekojärven Ukko"), myydä Veksille tai päästää samana iltana järveen (loppu "Ukko vapaaksi").
+  Ensimmäinen vienti Pirttiin lavastetaan pihalla (`tekojarvi_legenda.gd`). Ukko roikkuu punnituspukin puntarissa ja
+  heilahtelee, ja viisari asettuu taulun lähikuvassa 18,4 kiloon. Opas mittaa 132 cm ja osoittaa kylkeä: kolme vanhaa
+  uistinta kuin mitalit, suupielessä isän kuparilusikka. Tauno tulee pihalle ("...Se on se.") ja koskettaa
+  punavalkoista lusikkaa: isä veisti sen itse, ja Ukko vei sen kesällä -79. Hän kääntyy pois ja pyyhkii silmää, ja
+  kyynel valuu poskelle: "Isä oli oikeassa." Tauno ja pelaaja nostavat Ukon vaakaan lehtikuvaan, Pekka ja Arto
+  myöntävät, ja Anna-Liisa ottaa kuvan puhelimella. Otsikko on lehtikuva. Myöhemmin Tauno muistelee punnitusta
+  kirppiksellä. Testit `--scene=kalastus` ja `--scene=tekojarven_ukko_eka`.
 - **Rauniot:** länsilaidan metsässä sammaloituneet kivijalat ja sortunut kiviaita (OSM:n nimetön raunio). Kivijalan
   kolo on uusi kaljajemma, iltaisin (20–01) teinit istuvat nuotiolla, ja kaljaa vastaan he vinkkaavat uunin
   raunioista: vanha valokuva, joka pääsee Saloisten Pirtin seinälle (maine). Testi `--scene=eramaa`.
@@ -540,7 +566,12 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   epäilevät. Yöllä (22–4) raunion luona liekin takana on ensin Pannu-Sulo kaasupolttimineen, Saloisten Pirtin
   käräjäpöytäkirja kertoo "kivien alle, sammalen sekaan", ja sitten oikea aarnivalkea palaa sammaloituneen kivikasan
   päällä (tai näkyy droonin yökuvassa). Hopeat Pirttiin (loppu "Isonvihan hopeat") tai Veksille (rahaa, poliisi).
-  Testi `--scene=honganpalo`.
+  Ensimmäinen luovutus Pirttiin lavastetaan pihalla (`aarnivalkea_legenda.gd`): opas lukee käräjäpöytäkirjaa
+  sammaleisen tuohikontin äärellä ja nostaa kannen, kontista lehahtaa viimeinen sininen liekki ja sammuu (aarnivalkea
+  sammuu, kun aarre nostetaan), rahat, lusikat ja pikari levitetään liinalle ja opas nostaa taalerin valoon: "Juuri
+  nämä!" Mummo Hilkka tulee pihalle epäilijät perässään ("No? Mitäs minä sanoin."), Arto myöntää, Anna-Liisa lupaa
+  lehtijutun ja Pekka tarjoaa kierroksen. Myöhemmin Hilkka muistelee hetkeä kirppiksellä.
+  Testit `--scene=honganpalo` ja `--scene=aarnivalkea_eka`.
 - **Saloisten kenttä ja kaukalo:** Seuranmäellä jalkapallokenttä viivoineen, maalit verkkoineen, katsomo ja
   valomastot, vieressä jääkiekkokaukalo laitoineen. Pojat pelaavat päivisin (10–20): rankkarit pelataan oikealla
   kentällä oikeaa maalia kohti (myös Honganpalon koulun kentällä), viisi laukausta pelaajan takaa (tähtäin heiluu
@@ -583,10 +614,16 @@ päivän tilat: [tilat.md](tilat.md), kehitys ja testit: [kehitys.md](kehitys.md
   (keksitty, pelissä totta): kodan Raimo kertoo, että kankaan väki teki rautaa suomalmista ennen Raahea ja viimeinen
   seppä kätki kirveensä. Arto, Anna-Liisa, Pekka ja Reipparin Raija epäilevät. Opastaulun pohjakartan
   merkitsemätön kivi, droonin ilmakuva suorasta kivirivistä, suon ruosteveden suomalmi Tokolan Aarolle ja kuona
-  pajakiven juurelta johtavat kirveeseen isokiven alla. Saloisten Pirttiin: museo vahvistaa, lehtijuttu, maine ja
-  uusi loppu "Viimeisen sepän kirves", Veikko tarjoaa kaljat ja epäilijät perääntyvät. Kirppiksen takahuoneen
-  Veksille: 150 €, mutta legenda jää todistamatta, Raimo naurunalaiseksi ja poliisi perään. Testi
-  `--scene=kertunkangas`.
+  pajakiven juurelta johtavat kirveeseen isokiven alla. Saloisten Pirttiin: museo vahvistaa, lehtijuttu ja maine, ja
+  tehtäväksi jää viedä lehti kodalle. Kodalla legendaarinen hetki "Viimeisen sepän kirves" lavastetaan
+  (`kertun_legenda.gd`, tulta ei tarvita, hetki sytyttää sen): pelaaja ojentaa lehden istuvalle Raimolle, Raimo lukee,
+  nousee ja nostaa etusivun ("Rautakautinen kirves Kertunkankaalta") ilmaan: "No? NO? Mitä mää sanoin!" Veikko lukee
+  pitkään: "...Museo sano, että rautakautinen. Perkele.", ja Raimo osoittaa kylttiä "Kiroilu kielletty". Veikko kaivaa
+  penkillä olevasta kassista kaljat, kolme tölkkiä kilahtaa yhteen ja tuli räiskähtää, ja Raimo painaa lehden seinään
+  "Tarinoiden liioittelu kielletty" -kyltin viereen: "Ei ollu liioittelua." Leike jää kodan seinälle, Veikon kolme
+  kaljaa tulevat mukaan ja hetki kirjataan päiväkirjaan; epäilijät perääntyvät. Kirves viedään vain kerran, joten
+  Raimo ja Veikko muistelevat hetkeä kodan jutuissa. Kirppiksen takahuoneen Veksille: 150 €, mutta legenda jää
+  todistamatta, Raimo naurunalaiseksi ja poliisi perään. Testit `--scene=kertunkangas` ja `--scene=kertun_rauta_eka`.
 - **Seuraintalon tanssit ja bingo:** päivillä on viikonpäivät (päivä 1 = maanantai, näkyy repun tiedoissa).
   Lauantaisin klo 21–01 tanssit (lippu 8 €): lavalla Saloisten Saapasjalat, viirit ja värivalot, lattialla pareja.
   Tanssiin voi hakea Sinikan (Päivi soittaa hetken päästä perään, ja aamulla on motkotusta), Hilkan tai Anna-Liisan: tanssitaan salin

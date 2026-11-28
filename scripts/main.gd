@@ -317,6 +317,11 @@ const SaunaKorjaus := preload("res://scripts/saunakorjaus_game.gd")
 const RonttonenGame := preload("res://scripts/ronttonen_game.gd")
 const EBike := preload("res://scripts/ebike.gd")
 const EBikeGame := preload("res://scripts/ebike_game.gd")
+const SahkopyoraLegenda := preload("res://scripts/sahkopyora_legenda.gd")
+const PorroLegenda := preload("res://scripts/porro_legenda.gd")
+const AarnivalkeaLegenda := preload("res://scripts/aarnivalkea_legenda.gd")
+const TekojarviLegenda := preload("res://scripts/tekojarvi_legenda.gd")
+const KertunLegenda := preload("res://scripts/kertun_legenda.gd")
 const OmaMopo := preload("res://scripts/oma_mopo.gd")
 const MopoKickGame := preload("res://scripts/mopo_kick_game.gd")
 const KirppisInterior := preload("res://scripts/kirppis_interior.gd")
@@ -2851,16 +2856,41 @@ func _start_ebike_game(todo: Array) -> void:
 		_save_game()
 		if ebike.built() and not was_built:
 			tilat.first("sahkopyora", 0.5)
-			_ending("sahkopyora")
 			tilat.add("moraali", 0.3)
-			Sfx.play("win_small", -4.0)
-			_show_message("SÄHKÖPYÖRÄ VALMIS! Ruuveilla, teipillä ja toivolla. Akku %d %%. Kaasu pohjaan ja Saloisten teille!" % roundi(ebike.battery * 100.0), 5.0)
+			if int(endings.counts.get("sahkopyora", 0)) == 0:
+				_ebike_legend()  # ensimmäinen koeajo lavastetaan (sahkopyora_legenda.gd), hetki kirjataan lopuksi
+			else:
+				_ending("sahkopyora")
+				Sfx.play("win_small", -4.0)
+				_show_message("SÄHKÖPYÖRÄ VALMIS! Ruuveilla, teipillä ja toivolla. Akku %d %%. Kaasu pohjaan ja Saloisten teille!" % roundi(ebike.battery * 100.0), 5.0)
 		elif ebike.todo().is_empty():
 			Sfx.play("win_small", -6.0)
 			_show_message("Sähköpyörä korjattu. Avustus toimii taas.", 3.0)
 		elif not results.is_empty():
 			_show_message("Liitoksia tehty %d. Jäljellä: %s." % [results.size(), ", ".join(ebike.todo().map(func(j): return EBike.JOINT_SHORT[j]))], 3.5))
 	add_child(g)
+
+
+## Legendaarinen hetki "sahkopyora": ensimmäinen koeajo tallin edestä Järvikujalle (sahkopyora_legenda.gd). Talli
+## jätetään, oikeat naapurit piiloon kopioiden ajaksi; lopuksi pelaaja on pyörän selässä tallin edessä.
+func _ebike_legend() -> void:
+	garage_int.busy = true
+	garage_int.walker.controls_enabled = false
+	_hud.visible = false
+	var lg := SahkopyoraLegenda.new()
+	lg.world = world
+	lg.bike = bike
+	lg.battery = ebike.battery
+	lg.joints = ebike.joints.duplicate()
+	lg.hide_nodes = [arto, pekka, sinikka, walker_out].filter(func(n): return n != null)
+	lg.finished.connect(func() -> void:
+		garage_int.busy = false
+		_hud.visible = true
+		if state == "in_garage":
+			_store_bike(true)
+			_on_garage_exited(true)  # pyörän selkään tallin eteen
+		_ending("sahkopyora"))
+	add_child(lg)
 
 
 ## Kaupan rautahyllyn tarvikkeet ostoskassista sähköpyörän tarvikkeiksi (kassalla maksetut).
@@ -3323,6 +3353,12 @@ func _talk_kirppis(id: String) -> void:
 			+ "kauppias ei suostunut: kätki markkinarahansa ja vannoi, että markkinat palaa, kun hopea löytyy. Olavinpäivän yönä "
 			+ "Kirkkoluodontiellä kulkee lyhty. Käy Pirtissä kyselemässä kirjeitä.", _talk_options(),
 			"Legenda: Olavinmarkkinoiden hopea. Kysy kauppiaan kirjettä Saloisten Pirtistä.")
+		return
+	if id == "ukko_muisto":
+		_talk_box.reply(TekojarviLegenda.MUISTO.pick_random(), _talk_options())  # Pirtin pihan punnitus muistetaan
+		return
+	if id == "aarni_muisto":
+		_talk_box.reply(AarnivalkeaLegenda.MUISTO.pick_random(), _talk_options())  # Pirtin pihan hetki muistetaan
 		return
 	if id == "aarnivalkea":
 		aarni.heard = true
@@ -6154,11 +6190,31 @@ func _start_muistokyltti() -> void:
 		tilat.first("lemmikki_kyltti", 0.5)
 		tilat.add("moraali", 0.3)
 		tilat.add("stressi", 0.2)
-		_ending("porron_kyltti")
-		Sfx.play("win", -4.0)
 		_save_game()
-		_show_message("Pörrön muistokyltti seisoo lehdossa. Pojat lupaavat, etteivät heitä enää koskaan kiviä: \"Setä on ihan ok.\" Maine +5.", 6.0))
+		if int(endings.counts.get("porron_kyltti", 0)) == 0:
+			_porro_legend()  # lehdon hetki lavastetaan (porro_legenda.gd), hetki kirjataan lopuksi
+		else:
+			_ending("porron_kyltti")
+			Sfx.play("win", -4.0)
+			_show_message("Pörrön muistokyltti seisoo lehdossa. Pojat lupaavat, etteivät heitä enää koskaan kiviä: \"Setä on ihan ok.\" Maine +5.", 6.0))
 	add_child(g)
+
+
+## Legendaarinen hetki "porron_kyltti": voikukka ja poikien kivet kyltin juurelle (porro_legenda.gd). Oikeat pojat ja
+## jalan kulkija piiloon kopioiden ajaksi; kivet ja kukka jäävät lehtoon (world.gd).
+func _porro_legend() -> void:
+	player.controls_enabled = false
+	_hud.visible = false
+	var lg := PorroLegenda.new()
+	lg.world = world
+	lg.hide_nodes = [boys if is_instance_valid(boys) else null, walker_out].filter(func(n): return n != null)
+	lg.finished.connect(func() -> void:
+		player.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_ending("porron_kyltti")
+		_queue_message("Maine +5. Pojat eivät heitä enää kiviä.", 3.5))
+	add_child(lg)
 
 
 func _talk_lemmikki(id: String) -> void:
@@ -6172,6 +6228,8 @@ func _talk_lemmikki(id: String) -> void:
 				"Pörrön muistokyltti: maalaa se Lemmikki Enkelien muistolehtoon (kylän länsiosassa, Pirtin lähellä).")
 		"lemmikki_muistuta":
 			_talk_box.reply("Lemmikki Enkelien pihalla, lehdossa. Siellä on jo Misun ja Rekun kyltit. Tarvitaan vaan nimi: Pörrö.", _talk_options())
+		"lemmikki_porro":
+			_talk_box.reply(PorroLegenda.MUISTO.pick_random(), _talk_options())  # lehdon hetki muistetaan (porro_legenda.gd)
 
 
 func _kanttori_tasks() -> Array:
@@ -7596,12 +7654,15 @@ func _aarni_museum() -> void:
 		if Input.is_action_just_pressed("interact"):
 			aarni.choice = "museo"
 			_kertun_sync()
-			_ending("aarnivalkea")
 			money += Aarnivalkea.MUSEO_PALKKIO
 			maine = clampf(maine + Aarnivalkea.MUSEO_MAINE, 0.0, 100.0)
 			tilat.add("moraali", 0.3)
-			Sfx.play("win_small", -4.0)
 			_save_game()
+			if int(endings.counts.get("aarnivalkea", 0)) == 0:
+				_aarni_legend()  # Pirtin pihan hetki lavastetaan (aarnivalkea_legenda.gd), hetki kirjataan lopuksi
+				return
+			_ending("aarnivalkea")
+			Sfx.play("win_small", -4.0)
 			_show_message("Opas vertaa rahoja käräjäpöytäkirjaan: \"Juuri nämä!\" Raahen museo vahvistaa 1700-luvun alun hopeat. Löytöpalkkio "
 				+ "%s €, lehtijuttu kuvan kera ja maine +%d. Hilkka saa kuulla tästä." % [_eur(Aarnivalkea.MUSEO_PALKKIO), roundi(Aarnivalkea.MUSEO_MAINE)], 6.5)
 	elif not aarni.poytakirja and aarni.sulo:  # ensin Pannu-Sulo yöllä raunioilla (tehtävän järjestys)
@@ -7612,6 +7673,23 @@ func _aarni_museum() -> void:
 			_save_game()
 			_show_message("Pirtin opas kaivaa esiin vanhan käräjäpöytäkirjan jäljennöksen: talollinen \"ei tiennyt, mihin hopeat "
 				+ "jäivät, kun kasakat tuli\". Hopeat piilotettiin \"Lapinraunion luo, kivien alle, sammalen sekaan\". Ei raunion sisään!", 6.5)
+
+
+## Legendaarinen hetki "aarnivalkea": hopeat Pirtin pihapöydälle, viimeinen sininen liekki kontista, Hilkka ja epäilijät
+## (aarnivalkea_legenda.gd). Oikea pelaaja piiloon kopion ajaksi; hopeat jäävät museoon.
+func _aarni_legend() -> void:
+	player.controls_enabled = false
+	_hud.visible = false
+	var lg := AarnivalkeaLegenda.new()
+	lg.world = world
+	lg.hide_nodes = [player]
+	lg.finished.connect(func() -> void:
+		player.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_ending("aarnivalkea")
+		_queue_message("Löytöpalkkio %s €, lehtijuttu kuvan kera ja maine +%d. Hilkka oli oikeassa." % [_eur(Aarnivalkea.MUSEO_PALKKIO), roundi(Aarnivalkea.MUSEO_MAINE)], 4.5))
+	add_child(lg)
 
 
 func _aarni_sell() -> void:
@@ -7782,14 +7860,34 @@ func _ukko_museum() -> void:
 	if Input.is_action_just_pressed("interact"):
 		ukko.choice = "museo"
 		_kertun_sync()
-		_ending("tekojarven_ukko")
 		money += UkkoLegenda.MUSEO_PALKKIO
 		maine = clampf(maine + UkkoLegenda.MUSEO_MAINE, 0.0, 100.0)
 		tilat.add("moraali", 0.3)
-		Sfx.play("win_small", -4.0)
 		_save_game()
+		if int(endings.counts.get("tekojarven_ukko", 0)) == 0:
+			_ukko_legend()  # Pirtin pihan punnitus ja Tauno lavastetaan (tekojarvi_legenda.gd), hetki kirjataan lopuksi
+			return
+		_ending("tekojarven_ukko")
+		Sfx.play("win_small", -4.0)
 		_show_message("Opas mittaa: 132 cm, 18,4 kg, kyljessä kolme vanhaa uistinta. Täytetty Ukko pääsee Pirtin seinälle, "
 			+ "lehteen tulee kuva, ja Taunolle soitetaan. Palkkio %s €, maine +%d." % [_eur(UkkoLegenda.MUSEO_PALKKIO), roundi(UkkoLegenda.MUSEO_MAINE)], 6.5)
+
+
+## Legendaarinen hetki "tekojarven_ukko": Ukko puntarin koukkuun Pirtin pihalla, viisari 18,4, uistimet kyljessä, Tauno
+## koskettaa isänsä lusikkaa ja itkee vähän, lehtikuva (tekojarvi_legenda.gd). Oikea pelaaja piiloon kopion ajaksi.
+func _ukko_legend() -> void:
+	player.controls_enabled = false
+	_hud.visible = false
+	var lg := TekojarviLegenda.new()
+	lg.world = world
+	lg.hide_nodes = [player]
+	lg.finished.connect(func() -> void:
+		player.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_ending("tekojarven_ukko")
+		_queue_message("Täytetty Ukko pääsee Pirtin seinälle, lehteen tulee kuva. Palkkio %s €, maine +%d." % [_eur(UkkoLegenda.MUSEO_PALKKIO), roundi(UkkoLegenda.MUSEO_MAINE)], 4.5))
+	add_child(lg)
 
 
 func _ukko_sell() -> void:
@@ -7864,6 +7962,8 @@ func _kertun_sync() -> void:
 		world.kertun_kuona.visible = not kertun.kuona
 	if world.kertun_isokivi != null:
 		world.kertun_isokivi.rotation.z = 0.35 if kertun.found else 0.0
+	if world.kota != null:
+		world.kota.set_clipping(kertun.kiitetty)  # lehtileike kodan seinällä (kertun_legenda.gd)
 	if kirppis_int != null and "veksi_open" in kirppis_int:
 		kirppis_int.veksi_open = (kertun.found and kertun.choice == "") or (aarni != null and aarni.found and aarni.choice == "") or (olavi != null and olavi.found and olavi.choice == "") or (kanttori != null and kanttori.nuotit() and kanttori.choice == "") \
 			or (ukko != null and ukko.caught and ukko.choice == "") \
@@ -7878,18 +7978,41 @@ func _kertun_heard() -> void:
 		+ "Lue opastaulu, ja suolla on ruosteista vettä...", 6.0)
 
 
-func _kertun_thanks() -> void:
+func _kertun_thanks(msg := true) -> void:
 	kertun.kiitetty = true
 	beers += 3
 	player.set_carrying(true)
 	tilat.add("moraali", 0.3)
 	tilat.first("kertun_kiitos", 0.3)
-	Sfx.play("glass", -4.0, 0.8)
+	_kertun_sync()
 	_save_game()
-	_show_message("Veikko antaa kolme kaljaa. Raimo on oikeassa, ja koko kota tietää sen. Kaljoja mukana %d." % beers, 4.5)
+	if msg:
+		Sfx.play("glass", -4.0, 0.8)
+		_show_message("Veikko antaa kolme kaljaa. Raimo on oikeassa, ja koko kota tietää sen. Kaljoja mukana %d." % beers, 4.5)
+
+
+## Legendaarinen hetki "kertun_rauta": lehtijuttu kodalle Raimolle ja Veikolle (kertun_legenda.gd). Oikea pelaaja piiloon
+## kopion ajaksi; lopuksi Veikon kaljat, lehtileike seinälle ja hetki päiväkirjaan.
+func _kertun_legend() -> void:
+	player.controls_enabled = false
+	_hud.visible = false
+	var lg := KertunLegenda.new()
+	lg.kota = world.kota
+	lg.hide_nodes = [player]
+	_kertun_lg = lg
+	lg.finished.connect(func() -> void:
+		player.controls_enabled = true
+		player.activate_camera()
+		_hud.visible = true
+		_kertun_thanks(false)
+		_ending("kertun_rauta")
+		_queue_message("Veikko tarjosi kolme kaljaa (mukana %d). Lehtileike on kodan seinällä, tarinoiden liioittelukiellon vieressä." % beers, 4.5))
+	add_child(lg)
 
 
 func _kertun_tasks() -> Array:
+	if kertun.proven() and not kertun.kiitetty:
+		return [["Kertunkankaan rauta: näytä lehtijuttu Raimolle ja Veikolle kodalla", false]]
 	if not kertun.heard or kertun.choice != "":
 		return []
 	var step := "kaiva kivirivin päästä isokiven alta"
@@ -8056,11 +8179,17 @@ func _kertun_museum() -> void:
 	if Input.is_action_just_pressed("interact"):
 		kertun.choice = "museo"
 		_kertun_sync()
-		_ending("kertun_rauta")
 		money += KertunRauta.MUSEO_PALKKIO
 		maine = clampf(maine + KertunRauta.MUSEO_MAINE, 0.0, 100.0)
 		tilat.add("moraali", 0.3)
 		Sfx.play("win_small", -4.0)
+		if int(endings.counts.get("kertun_rauta", 0)) == 0:
+			# Hetki lavastetaan kodalla, kun lehti näytetään Raimolle ja Veikolle (kertun_legenda.gd).
+			_save_game()
+			_show_message("Opas soittaa Raahen museoon, ja museo vahvistaa: rautakautinen kirves! Löytöpalkkio %s €, ja lehteen tulee "
+				% _eur(KertunRauta.MUSEO_PALKKIO) + "juttu kuvan kera. Maine +%d. Vie lehti kodalle Raimolle ja Veikolle." % roundi(KertunRauta.MUSEO_MAINE), 6.5)
+			return
+		_ending("kertun_rauta")
 		_save_game()
 		_show_message("Opas soittaa Raahen museoon, ja museo vahvistaa: rautakautinen kirves! Löytöpalkkio %s €, ja lehteen tulee "
 			% _eur(KertunRauta.MUSEO_PALKKIO) + "juttu kuvan kera. Maine +%d. Raimo ja Veikko haluu varmaan nähdä lehden." % roundi(KertunRauta.MUSEO_MAINE), 6.5)
@@ -14462,6 +14591,10 @@ func _talk_options(who := "") -> Array:
 					o.append(_opt("olavi_legenda", "Onko vanhoista Saloisten markkinoista jotain juttuja?", true, "", true))
 				if who == "hilkka" and not aarni.heard:
 					o.append(_opt("aarnivalkea", "Onko Lapinrauniosta jotain juttuja?", true, "", "juoru_aarnivalkea" in tilat.firsts))
+				if who == "hilkka" and aarni.proven():
+					o.append(_opt("aarni_muisto", "Muistatko, kun aarnivalkea sammui Pirtin pihalla?", true, "", true))
+				if who == "tauno" and ukko.choice == "museo":
+					o.append(_opt("ukko_muisto", "Muistatko, kun Ukko punnittiin Pirtin pihalla?", true, "", true))
 				if who == "tauno" and not ukko.heard:
 					o.append(_opt("ukko", "Onko tekojärvessä kalaa?", true, "", has_virveli or has_onki))
 				if who == "tauno" and pannu.found and pannu.choice == "":
@@ -14662,6 +14795,8 @@ func _talk_options(who := "") -> Array:
 				o.append(_opt("lemmikki_kysy", "Pojat, miksi te olette ihan hiljaa?", true, "", _ball_quest != "search"))
 			elif lemmikki.stage == "kerrottu":
 				o.append(_opt("lemmikki_muistuta", "Missä se Pörrön muistokyltti pitikään tehdä?"))
+			elif lemmikki.valmis():
+				o.append(_opt("lemmikki_porro", "Mitäs Pörrön kyltille kuuluu?"))
 			if _ball_quest != "search":
 				o.append(_opt("kori", "Lyödäänkö vetoa koriksesta? Kuustoista putkeen.", true, "", true))
 			if _ball_quest == "":
@@ -15419,8 +15554,12 @@ func _talk_chat_line() -> String:
 				tilat.first(j[1], 0.0)
 			return j[0]
 		"arto":
+			if endings.counts.has("sahkopyora") and randf() < 0.3:
+				return SahkopyoraLegenda.MUISTO.arto.pick_random()  # koeajo muistetaan (sahkopyora_legenda.gd)
 			return ARTO_LINES.pick_random()
 		"pekka":
+			if endings.counts.has("sahkopyora") and story.step != "tehtavat" and randf() < 0.3:
+				return SahkopyoraLegenda.MUISTO.pekka.pick_random()
 			if story.step == "tehtavat":
 				# Sieniin viittaava odotusrepliikki vain, jos sienet on vielä tuomatta.
 				return Story.PEKKA_WAITING.filter(func(l: String) -> bool: return not (story.done.sienet and "sienet" in l)).pick_random()
@@ -18774,6 +18913,20 @@ func _smoker_tick(delta: float) -> void:
 		mokki.say("Savustin on valmis! Tuoksuu jo tänne asti.")
 
 
+## Kodan jutustelu: [puhuja, repliikki]. Kirves Veksillä -> naurua, legenda todistettu -> muistelu (kertun_legenda.gd MUISTO).
+func _kota_chat_line() -> Array:
+	var k: Node3D = world.kota
+	if kertun.choice == "kerailija" and randf() < 0.4:
+		return [["raimo", "veikko"][randi() % 2], ["Joku löys sen kirveen ja myi pimeesti. Nyt kukaan ei usko mua.",
+			"Raimon sepän kirves on jossain takahuoneessa. Hah!"][randi() % 2]]
+	if kertun.kiitetty and randf() < 0.35:
+		return KertunLegenda.MUISTO.pick_random()
+	if k.fire_on:
+		return [["raimo", "veikko"].pick_random(), ["Tule istumaan, kerrotaan tarina.", "Hyvin palaa.", "Kato ettei tipu makkara tuleen. Siitä on kyltti."].pick_random()]
+	return [["raimo", "veikko"].pick_random(), ["Hae puita, niin kerrotaan tarinoita.", "Kylmä kota ilman tulta.",
+		"Saha on pukilla ja kirves pölkyssä.", "Kylttiä pitää lukea."].pick_random()]
+
+
 ## Kota: sahaa tukki pölkyiksi, pilko pölkyt haloiksi, sytytä tuli ja kuuntele tarinoita. Lintutornista lintuja.
 func _kota_logic() -> void:
 	var k: Node3D = world.kota
@@ -18782,19 +18935,13 @@ func _kota_logic() -> void:
 	var p := player.global_position
 	var kc := k.global_position
 	var dk := Vector2(p.x - kc.x, p.z - kc.z).length()
-	if dk > 30.0:
+	if dk > 30.0 or is_instance_valid(_kertun_lg):
 		return
 	_kota_chat_t -= get_process_delta_time()
 	if _kota_chat_t <= 0.0 and dk < 9.0:
 		_kota_chat_t = randf_range(9.0, 15.0)
-		if kertun.choice == "kerailija" and randf() < 0.4:
-			k.say(["raimo", "veikko"][randi() % 2], ["Joku löys sen kirveen ja myi pimeesti. Nyt kukaan ei usko mua.",
-				"Raimon sepän kirves on jossain takahuoneessa. Hah!"][randi() % 2])
-		elif k.fire_on:
-			k.say(["raimo", "veikko"].pick_random(), ["Tule istumaan, kerrotaan tarina.", "Hyvin palaa.", "Kato ettei tipu makkara tuleen. Siitä on kyltti."].pick_random())
-		else:
-			k.say(["raimo", "veikko"].pick_random(), ["Hae puita, niin kerrotaan tarinoita.", "Kylmä kota ilman tulta.",
-				"Saha on pukilla ja kirves pölkyssä.", "Kylttiä pitää lukea."].pick_random())
+		var line := _kota_chat_line()
+		k.say(line[0], line[1])
 	if _hint.text != "":
 		return
 	if player == bike:
@@ -18832,6 +18979,14 @@ func _kota_logic() -> void:
 		if e:
 			_start_chop()
 		return
+	if dk < 2.7 and kertun.proven() and not kertun.kiitetty:
+		_hint.text = "[E] Näytä Raimolle ja Veikolle lehtijuttu kirveestä"
+		if e:
+			if int(endings.counts.get("kertun_rauta", 0)) == 0:
+				_kertun_legend()  # ensimmäinen kerta lavastetaan kodassa (kertun_legenda.gd)
+			else:
+				_tell_story(KERTUN_KIITOS, _kertun_thanks)
+		return
 	if dk < 2.7:
 		if not k.fire_on:
 			if kota_halot >= FIRE_HALOT:
@@ -18852,11 +19007,6 @@ func _kota_logic() -> void:
 				kota_halot -= 1
 				k.fire_time = minf(k.fire_time + 70.0, 420.0)
 				Sfx.play("whoosh", -6.0, 0.5)
-			return
-		if kertun.proven() and not kertun.kiitetty:
-			_hint.text = "[E] Näytä Raimolle ja Veikolle lehtijuttu kirveestä"
-			if e:
-				_tell_story(KERTUN_KIITOS, _kertun_thanks)
 			return
 		if not kertun.heard and tarinat_kuultu.size() >= 1:
 			_hint.text = "[E] Kuuntele tarina (Raimolla on uusi)"
@@ -21508,6 +21658,7 @@ var kota_halot := 0
 var _minigame_prev := "ulkona"
 var tarinat_kuultu: Array = []  # kuultujen tarinoiden indeksit (tallentuu)
 var _kota_chat_t := 6.0
+var _kertun_lg: Node  # kodan legendaarinen hetki käynnissä (kertun_legenda.gd)
 var _edge_cd := 0.0
 
 ## Kartan reunalla: hahmon kommentit (alue, repliikit).
