@@ -88,6 +88,8 @@ var fire_on := false
 var fire_time := 0.0  # sekunteja jäljellä
 var raimo: Node3D
 var veikko: Node3D
+var name_tags := {}  # "raimo"/"veikko" -> nimilappu (Label3D), piiloon lavastetun hetken ajaksi
+var clipping: Node3D  # Kertunkankaan lehtileike seinällä (legenda todistettu, main.gd _kertun_sync)
 var _bubbles := {}
 var _bubble_t := {}
 var _birds: Array[Node3D] = []
@@ -153,6 +155,107 @@ func set_fire(on: bool, seconds := 240.0) -> void:
 	fire.visible = on
 	if on:
 		fire_time = seconds
+
+
+## Kertunkankaan lehtileike sisäseinällä "Tarinoiden liioittelu kielletty" -kyltin vieressä (seinä k = 7, kohti
+## "Kaljan juonti kielletty" -kylttiä). Raimo kiinnittää sen legendaarisessa hetkessä (kertun_legenda.gd).
+const CLIP_K := 7
+const CLIP_SIDE := 0.68  # kyltistä seinän suuntaan (ei kyltin levyn taakse)
+const CLIP_Y := 1.45
+
+
+static func clip_transform() -> Transform3D:
+	var apo := R * cos(PI / 8.0)
+	var a := PI / 2.0 + CLIP_K * PI / 4.0
+	var dir := Vector3(cos(a), 0, -sin(a))
+	var tan := Vector3(dir.z, 0, -dir.x) * -1.0  # kohti seinää k = 6
+	var p := dir * (apo - 0.135) + tan * CLIP_SIDE + Vector3(0, CLIP_Y, 0)
+	return Transform3D(Basis(Vector3.UP, B.yaw_to(dir)), p)  # +Z (etusivu) kohti tulta
+
+
+func set_clipping(on: bool) -> void:
+	if on and clipping == null:
+		clipping = lehti()
+		clipping.transform = clip_transform()
+		add_child(clipping)
+		# Nastat kulmissa.
+		for sx in [-0.16, 0.16]:
+			B.mesh(clipping, B.sphere(0.008, 8), Vector3(sx, 0.22, 0.004), Color(0.8, 0.12, 0.1))
+	if clipping != null:
+		clipping.visible = on
+
+
+## Sanomalehden etusivu (0,36 x 0,48 m, etusivu +Z): lehden nimi, otsikko, valokuva kirveestä, kuvateksti ja palstat.
+## Painomuste mustavalkoisena; Label3D varjostettuna, jotta kodan hämärässä teksti ei hehku paperia kirkkaampana.
+static func lehti() -> Node3D:
+	var g := Node3D.new()
+	var paper := Color(0.9, 0.88, 0.81)
+	var ink := Color(0.08, 0.08, 0.08)
+	B.mesh(g, B.boxm(Vector3(0.36, 0.48, 0.003)), Vector3.ZERO, paper)
+	B.mesh(g, B.boxm(Vector3(0.36, 0.002, 0.0032)), Vector3(0, 0.0, 0), paper.darkened(0.12))  # taitos
+	var txt := func(t: String, y: float, x: float, size: int, px: float, bold: bool, col: Color, w: float) -> Label3D:
+		var l := Label3D.new()
+		l.text = t
+		l.font_size = size
+		l.pixel_size = px
+		l.modulate = col
+		l.outline_size = 0
+		l.double_sided = false
+		l.shaded = true
+		l.alpha_cut = Label3D.ALPHA_CUT_DISCARD
+		l.position = Vector3(x, y, 0.0022)
+		l.font = B.sys_font(PackedStringArray(["Georgia", "Times New Roman", "serif"] if not bold else ["Helvetica Neue", "Arial"]), 800 if bold else 400)
+		if w > 0.0:
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			l.width = w / px
+		g.add_child(l)
+		return l
+	txt.call("SALOISTEN VIIKKO", 0.205, 0.0, 64, 0.00046, false, ink, 0.0)
+	B.mesh(g, B.boxm(Vector3(0.33, 0.004, 0.001)), Vector3(0, 0.18, 0.0018), ink)
+	B.mesh(g, B.boxm(Vector3(0.33, 0.0015, 0.001)), Vector3(0, 0.174, 0.0018), ink)
+	txt.call("RAUTAKAUTINEN KIRVES\nKERTUNKANKAALTA", 0.135, 0.0, 64, 0.00036, true, ink, 0.0)
+	# Valokuva: harmaa rasteri, sammalmaata, isokivi ja ruosteinen kirves.
+	var ph := Vector3(-0.06, 0.012, 0.0018)
+	B.mesh(g, B.boxm(Vector3(0.2, 0.15, 0.001)), ph, Color(0.62, 0.62, 0.6))
+	B.mesh(g, B.boxm(Vector3(0.2, 0.06, 0.0012)), ph + Vector3(0, -0.045, 0.0002), Color(0.42, 0.42, 0.4))
+	B.mesh(g, B.sphere(0.5, 10), ph + Vector3(0.055, -0.02, 0.0004), Color(0.5, 0.5, 0.49)).scale = Vector3(0.07, 0.05, 0.001)
+	var handle := B.mesh(g, B.boxm(Vector3(0.11, 0.011, 0.001)), ph + Vector3(-0.015, -0.03, 0.0008), Color(0.25, 0.24, 0.22))
+	handle.rotation.z = 0.35
+	var blade := B.mesh(g, B.boxm(Vector3(0.03, 0.042, 0.001)), ph + Vector3(0.04, -0.01, 0.0009), Color(0.12, 0.12, 0.12))
+	blade.rotation.z = 0.35
+	B.mesh(g, B.boxm(Vector3(0.2, 0.15, 0.0006)), ph + Vector3(0, 0, -0.0003), ink).scale = Vector3(1.03, 1.04, 1.0)  # kehys
+	txt.call("Raahen museo vahvisti: kirves on rautakaudelta.", -0.074, -0.06, 32, 0.00028, false, ink.lightened(0.15), 0.2)
+	# Palstat: kuvan oikealla ja alla harmaita rivejä.
+	for i in 9:
+		B.mesh(g, B.boxm(Vector3(0.115 if i % 4 != 3 else 0.07, 0.004, 0.0008)), Vector3(0.115 - (0.0225 if i % 4 == 3 else 0.0), 0.075 - i * 0.017, 0.0018), Color(0.45, 0.45, 0.44))
+	for col in 3:
+		for i in 7:
+			var w := 0.098 if i != 6 else 0.05
+			B.mesh(g, B.boxm(Vector3(w, 0.004, 0.0008)), Vector3(-0.11 + col * 0.11 - (0.098 - w) / 2.0, -0.105 - i * 0.017, 0.0018), Color(0.45, 0.45, 0.44))
+	# Takasivu: urheilusivun otsikko, kuva ja palstat (lukijan puolelta katsottaessa näkyy painettu sivu, ei tyhjä levy).
+	var back := Node3D.new()
+	back.rotation.y = PI
+	g.add_child(back)
+	var lb := Label3D.new()
+	lb.text = "URHEILU"
+	lb.font_size = 64
+	lb.pixel_size = 0.0004
+	lb.modulate = ink
+	lb.outline_size = 0
+	lb.double_sided = false
+	lb.shaded = true
+	lb.alpha_cut = Label3D.ALPHA_CUT_DISCARD
+	lb.font = B.sys_font(PackedStringArray(["Helvetica Neue", "Arial"]), 800)
+	lb.position = Vector3(-0.07, 0.2, 0.0022)
+	back.add_child(lb)
+	B.mesh(back, B.boxm(Vector3(0.33, 0.003, 0.001)), Vector3(0, 0.18, 0.0018), ink)
+	B.mesh(back, B.boxm(Vector3(0.14, 0.1, 0.001)), Vector3(0.085, 0.11, 0.0018), Color(0.55, 0.55, 0.53))
+	for col in 3:
+		for i in 18:
+			if col == 2 and i < 5:
+				continue
+			B.mesh(back, B.boxm(Vector3(0.098, 0.004, 0.0008)), Vector3(-0.11 + col * 0.11, 0.155 - i * 0.021 - (0.02 if col < 2 and i > 0 else 0.0), 0.0018), Color(0.45, 0.45, 0.44))
+	return g
 
 
 func say(who: String, text: String, seconds := 3.2) -> void:
@@ -301,6 +404,7 @@ func _build_kota() -> void:
 	smoke.initial_velocity_max = 1.1
 	smoke.scale_amount_min = 0.4
 	smoke.scale_amount_max = 1.3
+	smoke.gravity = Vector3(0.15, 0.2, 0.0)  # savu nousee ja ajautuu tuulen mukana (oletuspainovoima pudotti pallot katon läpi kotaan)
 	smoke.position.y = APEX + 0.4
 	var sm := SphereMesh.new()
 	sm.radius = 0.25
@@ -560,6 +664,7 @@ func _build_people() -> void:
 		_bubble_t[sp[1]] = 0.0
 		var name := B.guide(self, sp[3], c.position + Vector3(0, 1.3, 0), 12, Color(1, 0.9, 0.6), true)
 		name.no_depth_test = false
+		name_tags[sp[1]] = name
 
 
 ## Linnut järven yllä ja joutsenet vedessä.

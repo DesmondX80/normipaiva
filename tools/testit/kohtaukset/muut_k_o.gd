@@ -354,6 +354,10 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			var m0 := main.maine
 			mg._end(true)
 			await main.get_tree().create_timer(0.5).timeout
+			# Ensimmäisellä kerralla lehdon hetki lavastetaan (porro_legenda.gd, oma testi legendat porron_kyltti_eka): ohitetaan.
+			for lg in main.get_children().filter(func(c): return c.has_signal("finished") and c.get_script() == preload("res://scripts/porro_legenda.gd")):
+				lg._finish()
+			await main.get_tree().create_timer(0.3).timeout
 			print("LE valmis: stage %s, maine %.0f -> %.0f, loppu %s, Pörrön kyltti näkyy %s, pojat rauhallisia %s, viesti '%s'" % [main.lemmikki.stage, m0, main.maine,
 				main.endings.counts.has("porron_kyltti"), main.world.lehto_plate.visible, main.boys.calm, main._msg.text.replace("\n", " ")])
 			main.boys.mode = "idle"

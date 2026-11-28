@@ -1133,6 +1133,10 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			await at.call(main.world.museum_door)
 			print("HO pirtti 2: '%s'" % main._hint.text)
 			await press.call("interact")
+			# Ensimmäisellä kerralla Pirtin pihan hetki lavastetaan (aarnivalkea_legenda.gd, oma testi legendat aarnivalkea_eka): ohitetaan.
+			for lg in main.get_children().filter(func(c): return c.get_script() == preload("res://scripts/aarnivalkea_legenda.gd")):
+				lg._finish()
+			await frames.call(3)
 			print("HO museo: %s, loppu %s, loput %d/%d" % [main.aarni.choice, main.endings.counts.has("aarnivalkea"), main.endings.distinct(), Endings.max_count()])
 			var pr := {}
 			for who in ["arto", "annaliisa", "pekka"]:

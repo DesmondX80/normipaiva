@@ -50,6 +50,32 @@ extends Node
 ##   piirakkaan, kuvat viimeisestä palasta ja laskusta, Juntin paperilaskennasta, rullamitasta, Raijan tussiviivasta ja
 ##   lapusta, röyhtäyksestä ja otsikosta; kädet (paperi, mitta, nenä), kohteiden koko kuvassa ja asennot mitataan.
 ##   Hetki päiväkirjaan, taulussa uusi nimi. Toinen haaste: Juntti tai Raija muistelee, ennätys lasketaan hiljaa.
+## sahkopyora_eka: sähköpyörän viimeinen liitos autotallissa (main.gd _start_ebike_game) -> ensimmäinen koeajo
+##   (sahkopyora_legenda.gd): kuvat nosturiovesta ja naapureista, kaasukahvasta ja kipinästä, keulan noususta,
+##   Järvikujan ajosta (Sinikka vilkuttaa), paluusta (Pekka ja Arto osoittavat osiaan) ja otsikosta; pyörän koko ja
+##   paikka kuvassa, keula, osoitukset ja teipinpätkä mitataan. Lopuksi pelaaja pyörän selässä tallin edessä,
+##   naapurit palaavat ja hetki päiväkirjaan. Pyörä kasataan vain kerran, joten toista kertaa ei ole: Pekka tai Arto
+##   muistelee koeajoa jutellessa.
+## porron_kyltti_eka: Pörrön muistolaudan maalaus valmis (muistokyltti_game.gd) -> lehdon hetki (porro_legenda.gd):
+##   kuvat poikien tulosta, pikkuveljen voikukasta, kivien asettamisesta yksi kerrallaan, "Setä on ihan ok" -hetkestä
+##   ja otsikosta; kyltin ja hahmojen paikka kuvassa, kädet kiven laskussa ja kivien paikat mitataan. Lopuksi kivet ja
+##   kukka jäävät tolpan juurelle, oikeat pojat palaavat ja hetki päiväkirjaan. Tehtävä tehdään vain kerran: pojat
+##   muistelevat ("Mitäs Pörrön kyltille kuuluu?").
+## aarnivalkea_eka: Lapinraunion hopeat ensimmäistä kertaa Saloisten Pirttiin (main.gd _aarni_museum) -> Pirtin pihan
+##   hetki (aarnivalkea_legenda.gd): kuvat kontista ja pöytäkirjasta, kannen nostosta ja viimeisestä sinisestä liekistä
+##   (lehahtaa ja sammuu), hätkähdyksestä, hopeista liinalla ja taalerin välähdyksestä, Hilkasta ja epäilijöistä sekä
+##   otsikosta; kontin, liekin, hopeiden ja hahmojen paikka kuvassa mitataan. Lopuksi oikea pelaaja palaa ja hetki
+##   päiväkirjaan. Hopeat viedään vain kerran: Hilkka muistelee ("Muistatko, kun aarnivalkea sammui Pirtin pihalla?").
+## kertun_rauta_eka: Kertunkankaan kirves Saloisten Pirttiin (ei vielä hetkeä, tehtävä "näytä lehtijuttu") -> lehti
+##   kodalle Raimolle ja Veikolle (kertun_legenda.gd): kuvat sisääntulosta ja lehden ojennuksesta, Raimon lukemisesta ja
+##   etusivusta ilmassa, Veikon "Perkele" ja kiroilukyltistä, kaljakassista ja kilistyksestä, leikkeestä seinällä ja
+##   otsikosta; lehden koko kuvassa, kädet (ojennus, lehti, tölkit, kilistys, osoitus) ja hahmot mitataan. Lopuksi
+##   Veikon kaljat, leike jää seinälle, oikeat Raimo ja Veikko palaavat ja hetki päiväkirjaan. Muistelu kodan jutuissa.
+## tekojarven_ukko_eka: Tekojärven Ukko ensimmäistä kertaa Saloisten Pirttiin (main.gd _ukko_museum) -> Pirtin pihan
+##   hetki (tekojarvi_legenda.gd): kuvat kolmijalasta ja heiluvasta Ukosta, puntarin taulusta (viisari asettuu 18,4:ään),
+##   uistimista kyljessä, Taunon tulosta ja kosketuksesta isän lusikkaan, kyyneleestä, lehtikuvasta ja otsikosta; Ukon
+##   pituus ja paikka kuvassa, taulun koko, Taunon käsi lusikalla, kyynel ja kädet hauen alla mitataan. Lopuksi
+##   oikea pelaaja palaa, hetki päiväkirjaan ja Taunolle uusi kysymys punnituksesta.
 
 const Main := preload("res://scripts/main.gd")
 const Kuva := preload("res://tools/testit/kuva.gd")
@@ -57,9 +83,18 @@ const TanssiGame := preload("res://scripts/tanssi_game.gd")
 const Contact := preload("res://scripts/contact.gd")
 const PiirakkaGame := preload("res://scripts/piirakka_game.gd")
 const PiirakkaLegenda := preload("res://scripts/piirakka_legenda.gd")
+const SahkopyoraLegenda := preload("res://scripts/sahkopyora_legenda.gd")
+const EBikeGame := preload("res://scripts/ebike_game.gd")
+const PorroLegenda := preload("res://scripts/porro_legenda.gd")
+const Terrain := preload("res://scripts/terrain.gd")
+const MuistokylttiGame := preload("res://scripts/muistokyltti_game.gd")
+const AarnivalkeaLegenda := preload("res://scripts/aarnivalkea_legenda.gd")
+const KertunLegenda := preload("res://scripts/kertun_legenda.gd")
+const TekojarviLegenda := preload("res://scripts/tekojarvi_legenda.gd")
 
 const KOHTAUKSET := ["mokki_paapeli", "mokki_savusauna_eka", "pentti_eka", "tuppi_eka", "lettu_eka", "loyly_eka", "disko_eka", "karaoke_eka",
-	"kesaheila_eka", "lava_eka", "karaoke_baari_eka", "kiihdytys_eka", "tanssit_eka", "piirakka_eka"]
+	"kesaheila_eka", "lava_eka", "karaoke_baari_eka", "kiihdytys_eka", "tanssit_eka", "piirakka_eka", "sahkopyora_eka", "porron_kyltti_eka",
+	"aarnivalkea_eka", "kertun_rauta_eka", "tekojarven_ukko_eka"]
 
 var main: Main
 var _viat := 0
@@ -98,6 +133,16 @@ func aja(scene: String, path: String, _nohud: bool) -> int:
 			await _tanssit(path)
 		"piirakka_eka":
 			await _piirakka(path)
+		"sahkopyora_eka":
+			await _sahkopyora(path)
+		"porron_kyltti_eka":
+			await _porro(path)
+		"aarnivalkea_eka":
+			await _aarni(path)
+		"kertun_rauta_eka":
+			await _kerttu(path)
+		"tekojarven_ukko_eka":
+			await _ukko(path)
 	FileAccess.open(Main.SAVE_PATH, FileAccess.WRITE).store_buffer(saved)
 	return 1
 
@@ -1529,3 +1574,662 @@ func _piirakka(path: String) -> void:
 	main._piirakka_record = 7
 	main._piirakka_holder = "Juntti"
 	main._reippari_update()
+
+
+
+func _sp_wait(lg: CanvasLayer, phase: String, sec: float) -> bool:
+	for i in 6000:
+		if not is_instance_valid(lg) or lg.phase == "":
+			return false
+		if lg.phase == phase and lg._t >= sec:
+			return true
+		if lg.ORDER.find(lg.phase) > lg.ORDER.find(phase):
+			return false
+		await _frames(1)
+	return false
+
+
+func _sp_sp(lg: CanvasLayer, p: Vector3) -> Vector2:
+	return lg._cam.unproject_position(p) / main.get_viewport().get_visible_rect().size
+
+
+func _sahkopyora(path: String) -> void:
+	main.endings.counts.erase("sahkopyora")
+	if main.player == main.bike:
+		main._toggle_mount()
+	main.day = 3
+	main.clock_min = 13 * 60
+	var eb = main.ebike
+	eb.started = true
+	eb.board_taken = true
+	for k in eb.PARTS:
+		eb.parts[k] = true
+	eb.joints = {"moottori": "ruuvi", "akku": "teippi", "ohjain": "nippu", "kaasu": "ruuvi"}
+	eb.loose = {}
+	eb.shorted = false
+	eb.battery = 0.86
+	eb.supplies.sahkoteippi = 2
+	main.bike.set_ebike({"joints": eb.joints, "loose": eb.loose})
+	main.walker_out.global_position = main.world.garage_door + main.world.garage_out * 1.0 + Vector3(0, 0.3, 0)
+	await _frames(15)
+	main._store_bike(true)
+	main._enter_garage()
+	await _frames(15)
+	var vis_before := [main.pekka.visible, main.arto.visible, main.sinikka.visible]
+	main._start_ebike_game(["johdot"])
+	await _frames(5)
+	var gs: Array = main.get_children().filter(func(c): return c is EBikeGame)
+	_check(not gs.is_empty(), "Sähköpyörä: kasaus auki")
+	if gs.is_empty():
+		return
+	var g: CanvasLayer = gs.front()
+	g.finished.emit({"johdot": "sahkoteippi"})
+	g.queue_free()
+	await _frames(3)
+	var ls: Array = main.get_children().filter(func(c): return c is SahkopyoraLegenda)
+	_check(not ls.is_empty() and main.ebike.built(), "Sähköpyörä: koeajo alkoi viimeisestä liitoksesta")
+	if ls.is_empty():
+		return
+	var lg: CanvasLayer = ls.front()
+	_check(int(main.endings.counts.get("sahkopyora", 0)) == 0, "Sähköpyörä: hetki kirjataan vasta lopuksi")
+	_check(not main.pekka.visible and not main.arto.visible and not main.walker_out.visible, "Sähköpyörä: oikeat naapurit ja jalan kulkija piilossa")
+	var near: Array = []
+	for c in main.find_children("*", "Node3D", true, false):
+		if c.has_method("bone_position") and c.is_visible_in_tree() and (c as Node3D).global_position.distance_to(main.world.garage_door) < 40.0:
+			near.append("%s %.0f m" % [c.get_parent().name + "/" + c.name, (c as Node3D).global_position.distance_to(main.world.garage_door)])
+	print("LEGENDA sähköpyörä hahmot lähellä: ", near)
+	var vs: Vector2 = main.get_viewport().get_visible_rect().size
+	var bk = main.bike
+	var head := func(c: Node3D) -> Vector3: return c.to_global(c.bone_position("Head"))
+	var inside := func(v: Vector2) -> bool: return v.x > 0.04 and v.x < 0.96 and v.y > 0.08 and v.y < 0.96
+	var shots := [["ovi", "ovi", 1.0], ["ovi2", "ovi", 3.6], ["kaasu", "kaasu", 1.4], ["kaasu2", "kaasu", 2.45],
+		["lahto", "lahto", 0.45], ["lahto2", "lahto", 1.6], ["ajo", "ajo", 1.2], ["ajo2", "ajo", 2.6],
+		["paluu", "paluu", 2.5], ["paluu2", "paluu", 4.4], ["otsikko", "otsikko", 3.0]]
+	for st: Array in shots:
+		if not await _sp_wait(lg, st[1], st[2]):
+			_check(false, "Sähköpyörä: vaihe %s/%s" % [st[1], st[0]])
+			continue
+		await _shot(path, st[0])
+		var top: Vector2 = _sp_sp(lg, bk.to_global(Vector3(0, 1.85, 0)))
+		var bot: Vector2 = _sp_sp(lg, bk.to_global(Vector3(0, 0.0, 0)))
+		var fw: Vector2 = _sp_sp(lg, bk.to_global(Vector3(0, 0.35, -0.9)))
+		var rw: Vector2 = _sp_sp(lg, bk.to_global(Vector3(0, 0.35, 0.9)))
+		var size := maxf((top - bot).length() * vs.y, (fw - rw).length() * vs.x)
+		var mid := (top + bot) / 2.0
+		print("LEGENDA sähköpyörä %s: pyörä kuvassa %s, koko %.0f px, Pekka %s, Arto %s, Sinikka %s" % [st[0], mid, size,
+			_sp_sp(lg, head.call(lg.pekka)), _sp_sp(lg, head.call(lg.arto)), _sp_sp(lg, head.call(lg.sinikka))])
+		match st[0]:
+			"ovi2":
+				_check(inside.call(mid) and inside.call(_sp_sp(lg, head.call(lg.pekka))) and inside.call(_sp_sp(lg, head.call(lg.arto))),
+					"Sähköpyörä: pyörä ja naapurit ovella kuvassa")
+			"kaasu", "kaasu2":
+				var gp: Vector2 = _sp_sp(lg, bk.to_global(lg.GRIP))
+				var bat: Vector2 = _sp_sp(lg, bk.to_global(Vector3(0, 0.88, 0.5)))
+				var ctl: Vector2 = _sp_sp(lg, bk.to_global(lg.CTRL))
+				print("LEGENDA sähköpyörä kaasu: kahva %s, akku %s, ohjain %s, kuski %s" % [gp, bat, ctl, _sp_sp(lg, head.call(bk._rider))])
+				_check(inside.call(gp) and inside.call(bat) and inside.call(ctl), "Sähköpyörä: kahva, akku ja ohjain lähikuvassa")
+				var rr: Node3D = bk._rider
+				var palm: Vector3 = (rr.to_global(rr.bone_position("hand_r")) + rr.to_global(rr.bone_position("index_01_r"))) / 2.0
+				var gd: float = palm.distance_to(bk._visual.to_global(lg.GRIP))
+				print("LEGENDA sähköpyörä kaasukäsi kahvasta %.3f m (käsi %s, sormi %s, kahva %s, korjaus %s, olka %s)" % [gd, rr.bone_position("hand_r"), rr.bone_position("index_01_r"),
+					rr.to_local(bk._visual.to_global(lg.GRIP)), lg._grip_off, rr.bone_position("upperarm_r")])
+				_check(gd < 0.05, "Sähköpyörä: kaasukäsi kahvassa")
+				if st[0] == "kaasu2":
+					_check(lg._once.has("spark"), "Sähköpyörä: kipinä")
+			"lahto":
+				print("LEGENDA sähköpyörä keula %.2f rad" % lg.pitch)
+				_check(lg.pitch > 0.25 and inside.call(mid), "Sähköpyörä: keula nousee kuvassa")
+			"ajo", "ajo2":
+				_check(inside.call(mid) and size > 250.0, "Sähköpyörä: ajossa pyörä isona kuvassa")
+				if not lg._tape.is_empty():
+					var tz: float = lg._tape[5].position.z - lg._tape[0].position.z
+					var ty: float = lg._tape[5].position.y - lg._tape[0].position.y
+					print("LEGENDA sähköpyörä teippi: taakse %.2f, alas %.2f" % [tz, ty])
+					_check(tz > 0.25 and ty > -0.15, "Sähköpyörä: teipinpätkä liehuu taaksepäin")
+				if st[0] == "ajo2":
+					_check(inside.call(_sp_sp(lg, head.call(lg.sinikka))) and lg._bub.has(lg.sinikka), "Sähköpyörä: Sinikka vilkuttaa kuvassa")
+			"paluu2":
+				var ang := func(c: Node3D, at: Vector3) -> float:
+					var sh: Vector3 = c.to_global(c.bone_position("upperarm_r"))
+					var hd: Vector3 = c.to_global(c.bone_position("hand_r"))
+					return rad_to_deg((hd - sh).angle_to(at - sh))
+				var pa: float = ang.call(lg.pekka, bk.to_global(Vector3(0, 0.88, 0.5)))
+				var aa: float = ang.call(lg.arto, bk.to_global(lg.CTRL))
+				var gap := minf(lg.pekka.global_position.distance_to(bk.global_position), lg.arto.global_position.distance_to(bk.global_position))
+				print("LEGENDA sähköpyörä osoitus: Pekka %.1f°, Arto %.1f°, lähin naapuri pyörästä %.2f m" % [pa, aa, gap])
+				_check(pa < 15.0 and aa < 15.0, "Sähköpyörä: Pekka osoittaa akkua, Arto johtoja")
+				_check(gap > 0.7, "Sähköpyörä: naapurit eivät ole pyörän sisällä")
+				_check(inside.call(mid) and inside.call(_sp_sp(lg, head.call(lg.pekka))) and inside.call(_sp_sp(lg, head.call(lg.arto))),
+					"Sähköpyörä: paluussa kaikki kuvassa")
+			"otsikko":
+				_check(inside.call(mid) and size > 160.0, "Sähköpyörä: pyöräilijä otsikossa")
+	for i in 900:
+		if not is_instance_valid(lg):
+			break
+		await _frames(1)
+	await _frames(10)
+	print("LEGENDA sähköpyörä jälkeen: kerrat %d, viesti '%s', tila %s, pyörällä %s" % [int(main.endings.counts.get("sahkopyora", 0)),
+		main._msg.text, main.state, main.player == main.bike])
+	_check(int(main.endings.counts.get("sahkopyora", 0)) == 1, "Sähköpyörä: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Sähköpyörä: päiväkirjarivi")
+	_check(main.state != "in_garage" and main.player == main.bike and main.bike.visible, "Sähköpyörä: pelaaja pyörän selässä tallin edessä")
+	_check([main.pekka.visible, main.arto.visible, main.sinikka.visible] == vis_before and not main.walker_out.visible,
+		"Sähköpyörä: naapurit palasivat ennalleen, jalan kulkija piilossa")
+	await _frames(20)
+	await _shot(path, "jalkeen")
+	# Muisto: Pekka tai Arto muistelee jutellessa (30 %), kokeillaan kunnes osuu.
+	var said := ""
+	var muisto: Array = SahkopyoraLegenda.MUISTO.pekka + SahkopyoraLegenda.MUISTO.arto
+	main.story.step = "valmis" if main.story.step == "tehtavat" else main.story.step
+	for who in ["pekka", "arto"]:
+		main._talk_who = who
+		for i in 60:
+			var l: String = main._talk_chat_line()
+			if l in muisto:
+				said = l
+				break
+		if said != "":
+			break
+	print("LEGENDA sähköpyörä muisto: '%s'" % said)
+	_check(said != "", "Sähköpyörä: naapuri muistelee koeajoa")
+
+
+func _porro(path: String) -> void:
+	main.endings.counts.erase("porron_kyltti")
+	if main.player == main.bike:
+		main._toggle_mount()
+	main._note.visible = false
+	main.day = 4
+	main.clock_min = 18 * 60 + 30
+	main._spawn_boys()
+	main._ball_quest = "done"
+	main.lemmikki.stage = "kerrottu"
+	main.walker_out.global_position = main.world.lehto_pos + Vector3(0, 0.3, 0)
+	await _frames(15)
+	var post: Node3D = main.world.lehto_plate
+	var G: Node3D = post.get_parent()
+	var hs := []
+	for q in [Vector3(3.6, 0, -0.6), Vector3(3.6, 0, -2.0), Vector3(2.0, 0, -2.7), Vector3(0, 0, -3.2), Vector3(-3.6, 0, -0.6), Vector3(0, 0, 3.0)]:
+		var w: Vector3 = G.to_global(q)
+		hs.append("%.2f" % (Terrain.h(w.x, w.z) - post.global_position.y))
+	print("LEGENDA Pörrö: tolppa y %.2f, maasto - tolppa: %s" % [post.global_position.y, hs])
+	main._start_muistokyltti()
+	await _frames(5)
+	var gs: Array = main.get_children().filter(func(c): return c is MuistokylttiGame)
+	_check(not gs.is_empty(), "Pörrö: minipeli auki")
+	if gs.is_empty():
+		return
+	gs.front()._end(true)
+	for i in 60:
+		if not main.get_children().filter(func(c): return c is PorroLegenda).is_empty():
+			break
+		await _frames(1)
+	var ls: Array = main.get_children().filter(func(c): return c is PorroLegenda)
+	_check(not ls.is_empty(), "Pörrö: lehdon hetki alkoi laudan valmistuttua")
+	if ls.is_empty():
+		return
+	var lg: CanvasLayer = ls.front()
+	_check(int(main.endings.counts.get("porron_kyltti", 0)) == 0, "Pörrö: hetki kirjataan vasta lopuksi")
+	_check(not main.walker_out.visible and (not is_instance_valid(main.boys) or not main.boys.visible), "Pörrö: oikeat pojat ja jalan kulkija piilossa")
+	var head := func(c: Node3D) -> Vector3: return c.to_global(c.bone_position("Head"))
+	var inside := func(v: Vector2) -> bool: return v.x > 0.04 and v.x < 0.96 and v.y > 0.08 and v.y < 0.96
+	var vs: Vector2 = main.get_viewport().get_visible_rect().size
+	var plate_at := func() -> Vector3: return post.to_global(Vector3(0, 0.92, 0))
+	var shots := [["lehto", "lehto", 1.2], ["lehto2", "lehto", 4.2], ["kukka", "kukka", 1.6], ["kukka2", "kukka", 3.6],
+		["kivet", "kivet", 1.6], ["kivet2", "kivet", 3.65], ["kivet3", "kivet", 5.7], ["seta", "seta", 1.6], ["seta2", "seta", 4.0],
+		["otsikko", "otsikko", 3.2]]
+	for st: Array in shots:
+		if not await _sp_wait(lg, st[1], st[2]):
+			_check(false, "Pörrö: vaihe %s/%s" % [st[1], st[0]])
+			continue
+		await _shot(path, st[0])
+		var pl: Vector2 = _sp_sp(lg, plate_at.call())
+		var pl2: Vector2 = _sp_sp(lg, post.to_global(Vector3(0.15, 0.92, 0)))
+		var heads := [lg.me, lg.veli, lg.pojat[0], lg.pojat[1], lg.pojat[2]].map(func(c): return _sp_sp(lg, head.call(c)))
+		print("LEGENDA Pörrö %s: kyltti %s (leveys %.0f px), päät minä/veli/p0/p1/p2 %s" % [st[0], pl, (pl2 - pl).length() * vs.x * 2.0, heads])
+		_check(inside.call(pl), "Pörrö: kyltti kuvassa (%s)" % st[0])
+		match st[0]:
+			"lehto2":
+				_check(heads.all(func(h): return inside.call(h)), "Pörrö: pojat, pikkuveli ja pelaaja kuvassa")
+			"kukka", "kukka2":
+				_check(inside.call(heads[1]), "Pörrö: pikkuveljen kasvot kuvassa")
+				_check(inside.call(_sp_sp(lg, lg.flower.global_position)), "Pörrö: voikukka kuvassa")
+				if st[0] == "kukka":
+					var d: float = lg._hand(lg.veli).distance_to(lg.flower.global_position)
+					print("LEGENDA Pörrö kukka kädessä %.3f m" % d)
+				else:
+					var fl: Vector3 = post.to_global(Vector3(lg.FLOWER.x, 0, lg.FLOWER.y))
+					_check(lg.flower.global_position.distance_to(fl) < 0.05, "Pörrö: voikukka kyltin juurella")
+			"kivet", "kivet2", "kivet3":
+				var who: int = ["kivet", "kivet2", "kivet3"].find(st[0])
+				_check(inside.call(heads[2 + who]), "Pörrö: kivenlaskija %d kuvassa" % who)
+			"seta":
+				_check(inside.call(heads[0]) and inside.call(heads[2]), "Pörrö: pelaaja ja isoveli kuvassa")
+				_check(lg._bub.has(lg.pojat[0]), "Pörrö: Setä on ihan ok")
+			"seta2":
+				_check(inside.call(heads[1]) and lg._bub.has(lg.veli), "Pörrö: pikkuveli kiittää kuvassa")
+	# Kivet laskettiin kädestä ja ne ovat juurella.
+	for i in 3:
+		var d: float = lg.placed.get(lg.stones[i], 9.0)
+		var at: Vector3 = post.to_global(Vector3(lg.STONES[i].x, 0, lg.STONES[i].y))
+		print("LEGENDA Pörrö kivi %d: käsi laskiessa %.3f m, paikasta %.3f m" % [i, d, lg.stones[i].global_position.distance_to(at)])
+		_check(d < 0.12, "Pörrö: kivi %d laskettiin kädestä" % i)
+	for i in 900:
+		if not is_instance_valid(lg):
+			break
+		await _frames(1)
+	await _frames(10)
+	var muisto: Array = post.get_children().filter(func(c): return c.has_meta("porro_muisto") and c.visible)
+	print("LEGENDA Pörrö jälkeen: kerrat %d, viesti '%s', kivet+kukka %d, pojat näkyvät %s, rauhallisia %s" % [int(main.endings.counts.get("porron_kyltti", 0)),
+		main._msg.text, muisto.size(), is_instance_valid(main.boys) and main.boys.visible, main.boys.calm if is_instance_valid(main.boys) else false])
+	_check(int(main.endings.counts.get("porron_kyltti", 0)) == 1, "Pörrö: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Pörrö: päiväkirjarivi")
+	_check(muisto.size() == 4 and post.visible, "Pörrö: kivet ja voikukka jäivät tolpan juurelle")
+	_check(main.walker_out.visible and main.player.controls_enabled, "Pörrö: pelaaja ohjaa taas")
+	# Pysyvä juuri kuvaan.
+	var cam := Camera3D.new()
+	main.add_child(cam)
+	cam.current = true
+	cam.fov = 40.0
+	cam.look_at_from_position(post.to_global(Vector3(0.6, 0.9, -1.8)), post.to_global(Vector3(0, 0.45, -0.1)))
+	await _frames(10)
+	await _shot(path, "jalkeen")
+	cam.look_at_from_position(post.to_global(Vector3(1.6, 0.15, -0.3)), post.to_global(Vector3(0, 0.1, -0.2)))
+	await _frames(5)
+	await _shot(path, "juuri_sivu")
+	cam.queue_free()
+	main.walker_out.activate_camera()
+	# Muisto: pojat kertovat kyltistä.
+	var o: Array = main._talk_options("pojat").map(func(x): return x.id)
+	_check("lemmikki_porro" in o, "Pörrö: pojille uusi kysymys kyltistä")
+	main._talk_who = "pojat"
+	main._talk_lemmikki("lemmikki_porro")
+	await _frames(3)
+	print("LEGENDA Pörrö muisto: vaihtoehdot %s" % [o])
+
+
+func _aarni(path: String) -> void:
+	main.endings.counts.erase("aarnivalkea")
+	if main.player == main.bike:
+		main._toggle_mount()
+	main._note.visible = false
+	main.day = 5
+	main.clock_min = 12 * 60
+	var a = main.aarni
+	a.heard = true
+	a.sulo = true
+	a.poytakirja = true
+	a.liekki = true
+	a.found = true
+	a.choice = ""
+	var m0: float = main.money
+	main.walker_out.global_position = main.world.museum_door + Vector3(0, 0.3, 0)
+	await _frames(15)
+	print("LEGENDA Aarni: vihje '%s'" % main._hint.text)
+	await main.get_tree().process_frame
+	Input.action_press("interact")
+	await _frames(2)
+	Input.action_release("interact")
+	var lg: CanvasLayer = null
+	for i in 60:
+		var ls: Array = main.get_children().filter(func(c): return c is AarnivalkeaLegenda)
+		if not ls.is_empty():
+			lg = ls.front()
+			break
+		await _frames(1)
+	_check(lg != null, "Aarni: Pirtin pihan hetki alkoi hopeiden luovutuksesta")
+	if lg == null:
+		return
+	_check(a.choice == "museo" and main.money > m0, "Aarni: hopeat museoon ja löytöpalkkio")
+	_check(int(main.endings.counts.get("aarnivalkea", 0)) == 0, "Aarni: hetki kirjataan vasta lopuksi")
+	_check(not main.walker_out.visible, "Aarni: oikea pelaaja piilossa")
+	var head := func(c: Node3D) -> Vector3: return c.to_global(c.bone_position("Head"))
+	var inside := func(v: Vector2) -> bool: return v.x > 0.04 and v.x < 0.96 and v.y > 0.08 and v.y < 0.96
+	var vs: Vector2 = main.get_viewport().get_visible_rect().size
+	var shots := [["kontti", "kontti", 1.4], ["kontti2", "kontti", 4.0], ["kansi", "kansi", 1.3], ["liekki", "kansi", 1.8],
+		["liekki2", "kansi", 3.0], ["sammui", "kansi", 4.6], ["hopeat", "hopeat", 1.6], ["valahdys", "hopeat", 2.85],
+		["hopeat2", "hopeat", 4.2], ["hilkka", "hilkka", 1.6], ["hilkka2", "hilkka", 3.6], ["arto", "hilkka", 5.0], ["hilkka3", "hilkka", 6.0],
+		["otsikko", "otsikko", 1.0], ["otsikko2", "otsikko", 3.2]]
+	for st: Array in shots:
+		if not await _sp_wait(lg, st[1], st[2]):
+			_check(false, "Aarni: vaihe %s/%s" % [st[1], st[0]])
+			continue
+		await _shot(path, st[0])
+		var kp: Vector2 = _sp_sp(lg, lg.kontti.global_position + Vector3(0, 0.13, 0))
+		var kw: Vector2 = _sp_sp(lg, lg.kontti.to_global(Vector3(0.17, 0.13, 0)))
+		var heads := [lg.me, lg.opas, lg.hilkka, lg.arto, lg.annaliisa, lg.pekka].map(func(c): return _sp_sp(lg, head.call(c)))
+		print("LEGENDA Aarni %s: kontti %s (puolileveys %.0f px), päät minä/opas/hilkka/arto/al/pekka %s, liekki %.2f" % [st[0], kp,
+			(kw - kp).length() * vs.x, heads, lg.flame.scale.y if lg.flame.visible else 0.0])
+		if not st[0] in ["hopeat", "valahdys", "hopeat2"]:  # liinan lähikuvassa ja taalerin puolilähikuvassa kontti saa jäädä pois
+			_check(inside.call(kp), "Aarni: kontti kuvassa (%s)" % st[0])
+		match st[0]:
+			"kontti2":
+				_check(inside.call(heads[0]) and inside.call(heads[1]), "Aarni: opas ja pelaaja kuvassa")
+				_check(lg._bub.has(lg.opas), "Aarni: opas lukee pöytäkirjaa")
+			"kansi":
+				var lp: Vector3 = lg._top(lg.KONTTI_AT.x, lg.KONTTI_AT.y + 0.1, 0.27)
+				var hd: float = lg._hand(lg.opas).distance_to(lp)
+				print("LEGENDA Aarni kansi: käsi kannesta %.3f m" % hd)
+				_check(hd < 0.12, "Aarni: oppaan käsi kannella")
+			"liekki":
+				_check(lg.flame.visible and lg.flame.scale.y > 0.6, "Aarni: liekki lehahti kontista")
+				_check(inside.call(_sp_sp(lg, lg.flame.global_position + Vector3(0, 0.35, 0))), "Aarni: liekki kuvassa")
+				_check(inside.call(heads[1]), "Aarni: oppaan kasvot kuvassa")
+			"sammui":
+				_check(not lg.flame.visible or lg.flame.scale.y < 0.05, "Aarni: liekki sammui")
+			"valahdys":
+				_check(lg.held_coin.visible and inside.call(_sp_sp(lg, lg.held_coin.global_position)), "Aarni: taaleri valoa vasten kuvassa")
+			"hopeat":
+				var cp: Vector2 = _sp_sp(lg, lg.coins[0].global_position)
+				var cp2: Vector2 = _sp_sp(lg, lg.coins[0].global_position + lg._G.global_basis.x * 0.04)
+				print("LEGENDA Aarni taaleri leveys %.0f px" % ((cp2 - cp).length() * vs.x))
+				_check(inside.call(cp) and (cp2 - cp).length() * vs.x > 40.0, "Aarni: hopeat näkyvät isona")
+			"hopeat2":
+				_check(lg._bub.get(lg.opas, "") == "Juuri nämä!" and inside.call(heads[1]), "Aarni: Juuri nämä! (oppaan kasvot kuvassa)")
+			"hilkka2":
+				_check(inside.call(heads[0]) and inside.call(heads[1]) and inside.call(heads[2]), "Aarni: Hilkka, opas ja pelaaja kuvassa")
+				_check(lg._bub.has(lg.hilkka), "Aarni: Hilkka: Mitäs minä sanoin")
+			"hilkka3", "otsikko2":
+				_check(heads.all(func(h): return inside.call(h)), "Aarni: kaikki hahmot kuvassa (%s)" % st[0])
+	for i in 900:
+		if not is_instance_valid(lg):
+			break
+		await _frames(1)
+	await _frames(10)
+	print("LEGENDA Aarni jälkeen: kerrat %d, viesti '%s'" % [int(main.endings.counts.get("aarnivalkea", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("aarnivalkea", 0)) == 1, "Aarni: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Aarni: päiväkirjarivi")
+	_check(main.walker_out.visible and main.player.controls_enabled, "Aarni: pelaaja ohjaa taas")
+	# Muisto: Hilkka kertoo (kirppiksellä).
+	main.kirppis_int.mode = "kirppis"
+	var o: Array = main._talk_options("hilkka").map(func(x): return x.id)
+	_check("aarni_muisto" in o, "Aarni: Hilkalle kysymys Pirtin pihasta")
+	main._talk_who = "hilkka"
+	main._talk_kirppis("aarni_muisto")
+	await _frames(3)
+	print("LEGENDA Aarni muisto: vaihtoehdot %s" % [o])
+
+
+func _kerttu(path: String) -> void:
+	main.endings.counts.erase("kertun_rauta")
+	if main.player == main.bike:
+		main._toggle_mount()
+	main._note.visible = false
+	main.day = 6
+	main.clock_min = 17 * 60
+	var k = main.kertun
+	k.heard = true
+	k.taulu = true
+	k.spotted = true
+	k.malmi = true
+	k.malmi_known = true
+	k.kuona = true
+	k.found = true
+	k.choice = ""
+	k.kiitetty = false
+	main._kertun_sync()
+	var kota: Node3D = main.world.kota
+	_check(kota.clipping == null or not kota.clipping.visible, "Kerttu: ei leikettä seinällä ennen hetkeä")
+	# Pirtti: kirves museoon, hetki ei vielä.
+	var m0: float = main.money
+	main.walker_out.global_position = main.world.museum_door + Vector3(0, 0.3, 0)
+	await _frames(15)
+	print("LEGENDA Kerttu: Pirtti '%s'" % main._hint.text)
+	await main.get_tree().process_frame
+	Input.action_press("interact")
+	await _frames(2)
+	Input.action_release("interact")
+	await _frames(3)
+	_check(k.choice == "museo" and main.money > m0, "Kerttu: kirves museoon ja löytöpalkkio")
+	_check(int(main.endings.counts.get("kertun_rauta", 0)) == 0, "Kerttu: hetki ei vielä Pirtissä")
+	var tasks: Array = main._kertun_tasks()
+	print("LEGENDA Kerttu: viesti '%s', tehtävät %s" % [main._msg.text.right(60), tasks])
+	_check(not tasks.is_empty() and str(tasks[0][0]).contains("lehtijuttu"), "Kerttu: tehtävä näyttää lehti kodalla")
+	# Kota: tuli ei pala, lehti silti näytettävissä.
+	kota.set_fire(false)
+	var b0: int = main.beers
+	main.walker_out.global_position = kota.global_position + kota.global_basis * Vector3(0.0, 0.3, -1.6)
+	await _frames(15)
+	print("LEGENDA Kerttu: kota '%s'" % main._hint.text)
+	_check(main._hint.text.contains("lehtijuttu"), "Kerttu: kodalla vihje lehtijutusta")
+	await main.get_tree().process_frame
+	Input.action_press("interact")
+	await _frames(2)
+	Input.action_release("interact")
+	var lg: CanvasLayer = null
+	for i in 60:
+		var ls: Array = main.get_children().filter(func(c): return c is KertunLegenda)
+		if not ls.is_empty():
+			lg = ls.front()
+			break
+		await _frames(1)
+	_check(lg != null, "Kerttu: kodan hetki alkoi lehdestä")
+	if lg == null:
+		return
+	_check(not main.walker_out.visible and not kota.raimo.visible and not kota.veikko.visible, "Kerttu: oikeat hahmot piilossa")
+	_check(kota.fire_on, "Kerttu: tuli palaa hetken ajan")
+	var head := func(c: Node3D) -> Vector3: return c.to_global(c.bone_position("Head"))
+	var inside := func(v: Vector2) -> bool: return v.x > 0.03 and v.x < 0.97 and v.y > 0.06 and v.y < 0.97
+	var vs: Vector2 = main.get_viewport().get_visible_rect().size
+	var shots := [["sisaan", "lehti", 1.6], ["ojennus", "lehti", 4.05], ["otti", "lehti", 5.0], ["lukee", "raimo", 1.6], ["nousee", "raimo", 2.8],
+		["etusivu", "raimo", 4.6], ["veikko", "veikko", 1.8], ["perkele", "veikko", 3.6], ["kyltti", "veikko", 5.8], ["kassi", "kaljat", 1.5],
+		["kilistys0", "kaljat", 3.4], ["kilistys", "kaljat", 4.5], ["leike", "leike", 0.9], ["leike2", "leike", 3.2], ["leike3", "leike", 5.0],
+		["otsikko", "otsikko", 1.0], ["otsikko2", "otsikko", 3.4]]
+	var paper_px := func() -> float:
+		var c0: Vector2 = _sp_sp(lg, lg.paper.to_global(Vector3(-0.18, 0, 0)))
+		var c1: Vector2 = _sp_sp(lg, lg.paper.to_global(Vector3(0.18, 0, 0)))
+		return (c1 - c0).length() * vs.x
+	for st: Array in shots:
+		if not await _sp_wait(lg, st[1], st[2]):
+			_check(false, "Kerttu: vaihe %s/%s" % [st[1], st[0]])
+			continue
+		await _shot(path, st[0])
+		var heads := [lg.me, lg.raimo, lg.veikko].map(func(c): return _sp_sp(lg, head.call(c)))
+		print("LEGENDA Kerttu %s: päät minä/raimo/veikko %s, lehti %.0f px %s" % [st[0], heads, paper_px.call(), _sp_sp(lg, lg.paper.global_position)])
+		match st[0]:
+			"sisaan":
+				_check(inside.call(heads[1]) and inside.call(heads[2]), "Kerttu: Raimo ja Veikko kuvassa")
+				_check(inside.call(_sp_sp(lg, kota.to_global(Vector3(0, 0.9, 0)))), "Kerttu: tuli kuvassa")
+			"ojennus":
+				var ho: Vector3 = lg._K(lerpf(lg.P_GIVE.x, lg.S_R.x, 0.5), 1.02, lerpf(lg.P_GIVE.y, lg.S_R.y, 0.5))
+				var gap: float = lg._hand(lg.me, lg._near_side(lg.me, ho)).distance_to(lg._hand(lg.raimo, lg._near_side(lg.raimo, ho)))
+				print("LEGENDA Kerttu ojennus: kädet %.3f m" % gap)
+				_check(gap < 0.2, "Kerttu: lehti kädestä käteen")
+			"lukee":
+				_check(inside.call(heads[1]), "Kerttu: Raimon kasvot kuvassa")
+				_check(inside.call(_sp_sp(lg, lg.paper.global_position)), "Kerttu: lehti kuvassa")
+			"etusivu":
+				var px: float = paper_px.call()
+				var e0: Vector3 = lg.paper.to_global(Vector3(0.18, 0, 0))
+				var e1: Vector3 = lg.paper.to_global(Vector3(-0.18, 0, 0))
+				var hr: Vector3 = lg._hand(lg.raimo, "r")
+				var hl: Vector3 = lg._hand(lg.raimo, "l")
+				var dr: float = minf(hr.distance_to(e0), hr.distance_to(e1))
+				var dl: float = minf(hl.distance_to(e0), hl.distance_to(e1))
+				print("LEGENDA Kerttu etusivu: %.0f px, kädet reunoista %.3f / %.3f m" % [px, dr, dl])
+				_check(px > 220.0 and inside.call(_sp_sp(lg, lg.paper.global_position)), "Kerttu: etusivu isona kuvassa")
+				_check(minf(dr, dl) < 0.09 and maxf(dr, dl) < 0.12, "Kerttu: Raimo pitää lehteä reunoista")
+				var toward: float = (lg._cam.global_position - lg.paper.global_position).dot(lg.paper.global_basis.z)
+				_check(toward > 0.0, "Kerttu: etusivu kameraan päin")
+				_check(inside.call(heads[1]), "Kerttu: Raimon kasvot kuvassa (etusivu)")
+			"perkele":
+				_check(lg._bub.get(lg.veikko, "").contains("Perkele") and inside.call(heads[2]), "Kerttu: Veikko: Perkele")
+			"kyltti":
+				var sg: Vector3 = kota.to_global(lg.KIROILU)
+				var sh: Vector3 = lg.raimo.to_global(lg.raimo.bone_position("upperarm_l"))
+				var hd: Vector3 = lg._hand(lg.raimo, "l")
+				var cosang: float = (hd - sh).normalized().dot((sg - sh).normalized())
+				print("LEGENDA Kerttu osoitus: kulma %.0f°" % rad_to_deg(acos(clampf(cosang, -1.0, 1.0))))
+				_check(cosang > 0.85, "Kerttu: Raimo osoittaa kylttiä")
+				_check(inside.call(_sp_sp(lg, sg)) and inside.call(heads[1]), "Kerttu: kyltti ja Raimo kuvassa")
+			"kassi":
+				_check(lg.cans[lg.veikko].visible and inside.call(heads[2]), "Kerttu: Veikko nostaa tölkin kassista")
+			"kilistys":
+				var cs: Array = [lg.raimo, lg.veikko, lg.me].map(func(c): return lg.cans[c].global_position)
+				var far := 0.0
+				for i in 3:
+					far = maxf(far, (cs[i] as Vector3).distance_to(cs[(i + 1) % 3]))
+				print("LEGENDA Kerttu kilistys: tölkit %.3f m toisistaan" % far)
+				_check(far < 0.16, "Kerttu: kolme tölkkiä yhdessä")
+				_check(heads.all(func(h): return inside.call(h)), "Kerttu: kaikki kolme kuvassa (kilistys)")
+				_check(cs.all(func(c): return inside.call(_sp_sp(lg, c))), "Kerttu: tölkit kuvassa")
+			"leike2":
+				_check(lg.paper_on_wall and lg.paper.transform.is_equal_approx(kota.clip_transform()), "Kerttu: lehti seinällä")
+				_check(paper_px.call() > 110.0 and inside.call(_sp_sp(lg, lg.paper.global_position)), "Kerttu: leike isona kuvassa")
+				_check(inside.call(_sp_sp(lg, kota.to_global(lg.LIIOITTELU))), "Kerttu: liioittelukyltti kuvassa")
+				_check(inside.call(heads[1]), "Kerttu: Raimo kuvassa (leike)")
+			"otsikko2":
+				_check(heads.all(func(h): return inside.call(h)), "Kerttu: kaikki kolme kuvassa (otsikko)")
+	for i in 900:
+		if not is_instance_valid(lg):
+			break
+		await _frames(1)
+	await _frames(10)
+	print("LEGENDA Kerttu jälkeen: kerrat %d, kaljat %d -> %d, viesti '%s'" % [int(main.endings.counts.get("kertun_rauta", 0)), b0, main.beers, main._msg.text])
+	_check(int(main.endings.counts.get("kertun_rauta", 0)) == 1, "Kerttu: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Kerttu: päiväkirjarivi")
+	_check(k.kiitetty and main.beers == b0 + 3, "Kerttu: Veikon kolme kaljaa")
+	_check(kota.clipping != null and kota.clipping.visible, "Kerttu: leike jäi kodan seinälle")
+	_check(kota.raimo.visible and kota.veikko.visible and not kota.fire_on, "Kerttu: oikeat hahmot takaisin ja tuli kuten ennen")
+	_check(main.walker_out.visible and main.player.controls_enabled, "Kerttu: pelaaja ohjaa taas")
+	_check(main._kertun_tasks().is_empty(), "Kerttu: tehtävä valmis")
+	# Leike seinällä pelissä.
+	var cam := Camera3D.new()
+	kota.add_child(cam)
+	var cg: Vector3 = kota.to_global(kota.clip_transform().origin)
+	cam.look_at_from_position(kota.to_global(Vector3(0.5, 1.5, -0.3)), cg)
+	cam.fov = 45.0
+	cam.make_current()
+	await _frames(8)
+	await _shot(path, "jalkeen")
+	cam.queue_free()
+	main.player.activate_camera()
+	# Muisto kodan jutuissa.
+	var lines := {}
+	for i in 80:
+		lines[str(main._kota_chat_line()[1])] = true
+	_check(KertunLegenda.MUISTO.any(func(m): return lines.has(m[1])), "Kerttu: Raimo ja Veikko muistelevat")
+	main._hint.text = ""
+	await _frames(5)
+	print("LEGENDA Kerttu kota jälkeen: '%s'" % main._hint.text)
+
+
+func _ukko(path: String) -> void:
+	main.endings.counts.erase("tekojarven_ukko")
+	if main.player == main.bike:
+		main._toggle_mount()
+	main._note.visible = false
+	main.day = 4
+	main.clock_min = 20 * 60 + 40
+	var u = main.ukko
+	u.heard = true
+	u.siimat = 2
+	u.lusikka = true
+	u.caught = true
+	u.choice = ""
+	var m0: float = main.money
+	main.walker_out.global_position = main.world.museum_door + Vector3(0, 0.3, 0)
+	await _frames(15)
+	print("LEGENDA Ukko: vihje '%s'" % main._hint.text)
+	await main.get_tree().process_frame
+	Input.action_press("interact")
+	await _frames(2)
+	Input.action_release("interact")
+	var lg: CanvasLayer = null
+	for i in 60:
+		var ls: Array = main.get_children().filter(func(c): return c is TekojarviLegenda)
+		if not ls.is_empty():
+			lg = ls.front()
+			break
+		await _frames(1)
+	_check(lg != null, "Ukko: Pirtin pihan hetki alkoi Ukon luovutuksesta")
+	if lg == null:
+		return
+	_check(u.choice == "museo" and main.money > m0, "Ukko: Ukko museoon ja palkkio")
+	_check(int(main.endings.counts.get("tekojarven_ukko", 0)) == 0, "Ukko: hetki kirjataan vasta lopuksi")
+	_check(not main.walker_out.visible, "Ukko: oikea pelaaja piilossa")
+	var head := func(c: Node3D) -> Vector3: return c.to_global(c.bone_position("Head"))
+	var inside := func(v: Vector2) -> bool: return v.x > 0.03 and v.x < 0.97 and v.y > 0.06 and v.y < 0.97
+	var vs: Vector2 = main.get_viewport().get_visible_rect().size
+	var shots := [["punnitus", "punnitus", 0.5], ["punnitus2", "punnitus", 2.2], ["taulu", "punnitus", 3.6], ["taulu2", "punnitus", 5.6],
+		["uistimet", "uistimet", 1.4], ["uistimet2", "uistimet", 4.4], ["tauno", "tauno", 2.0], ["lusikka", "tauno", 4.2],
+		["kyynel", "tauno", 6.4], ["kyynel2", "tauno", 8.0], ["kuva", "kuva", 1.6], ["kuva2", "kuva", 4.0], ["kuva3", "kuva", 5.8],
+		["salama", "kuva", 6.5], ["otsikko", "otsikko", 0.6], ["otsikko2", "otsikko", 3.2]]
+	for st: Array in shots:
+		if not await _sp_wait(lg, st[1], st[2]):
+			_check(false, "Ukko: vaihe %s/%s" % [st[1], st[0]])
+			continue
+		await _shot(path, st[0])
+		var snout: Vector2 = _sp_sp(lg, lg._pike_pt(1.0))
+		var tail: Vector2 = _sp_sp(lg, lg._pike_pt(0.0))
+		var heads := [lg.me, lg.opas, lg.tauno, lg.pekka, lg.arto, lg.annaliisa].map(func(c): return _sp_sp(lg, head.call(c)))
+		print("LEGENDA Ukko %s: kuono %s pyrstö %s (pituus %.0f px), päät minä/opas/tauno/pekka/arto/al %s, viisari %.1f" % [st[0],
+			snout, tail, ((snout - tail) * vs).length(), heads, lg.needle_kg])
+		match st[0]:
+			"punnitus2":
+				_check(inside.call(snout) and inside.call(tail), "Ukko: koko Ukko kuvassa")
+				_check(((snout - tail) * vs).y < -vs.y * 0.35, "Ukko: Ukko roikkuu pystyssä ja isona")
+				_check(inside.call(heads[0]) and inside.call(heads[1]), "Ukko: opas ja pelaaja kuvassa")
+			"taulu", "taulu2":
+				var dc: Vector2 = _sp_sp(lg, lg.scale_dial.global_position)
+				var de: Vector2 = _sp_sp(lg, lg.scale_dial.to_global(Vector3(0.074, 0, 0)))
+				var r := ((de - dc) * vs).length()
+				print("LEGENDA Ukko taulun säde %.0f px" % r)
+				_check(inside.call(dc) and r > 80.0, "Ukko: puntarin taulu isona keskellä (%s)" % st[0])
+				if st[0] == "taulu2":
+					_check(absf(lg.needle_kg - lg.KG) < 0.3, "Ukko: viisari asettui 18,4:ään")
+					_check(lg._story.contains("pilkku neljä"), "Ukko: lukema kerrotaan")
+			"uistimet2":
+				for l: Node3D in lg.lures:
+					_check(inside.call(_sp_sp(lg, l.global_position)), "Ukko: uistin kuvassa")
+				var l0: Vector2 = _sp_sp(lg, lg.lure_isa.global_position)
+				var l1: Vector2 = _sp_sp(lg, lg.lure_isa.global_position + lg._G.global_basis.y * 0.06)
+				print("LEGENDA Ukko lusikka %.0f px" % ((l1 - l0) * vs).length())
+				_check(((l1 - l0) * vs).length() > 40.0, "Ukko: isän lusikka näkyy isona")
+			"tauno":
+				_check(inside.call(heads[2]), "Ukko: Tauno kävelee pihalle (kuvassa)")
+			"lusikka":
+				var hd: float = lg._hand(lg.tauno).distance_to(lg.lure_isa.global_position)
+				print("LEGENDA Ukko Taunon käsi lusikasta %.3f m" % hd)
+				_check(hd < 0.1, "Ukko: Taunon käsi isän lusikalla")
+				_check(inside.call(heads[2]) and inside.call(_sp_sp(lg, lg.lure_isa.global_position)), "Ukko: Tauno ja lusikka kuvassa")
+			"kyynel":
+				_check(inside.call(heads[2]), "Ukko: Taunon kasvot kuvassa")
+				var hw: float = lg._hand(lg.tauno).distance_to(head.call(lg.tauno))
+				print("LEGENDA Ukko pyyhintä: käsi päästä %.3f m" % hw)
+				_check(hw < 0.2, "Ukko: Tauno pyyhkii silmää")
+			"kyynel2":
+				var tp: Vector2 = _sp_sp(lg, lg.tear.global_position)
+				var tp2: Vector2 = _sp_sp(lg, lg.tear.global_position + Vector3(0, 0.02, 0))
+				print("LEGENDA Ukko kyynel %s, korkeus %.0f px" % [tp, ((tp2 - tp) * vs).length()])
+				_check(lg.tear.visible and inside.call(tp), "Ukko: kyynel Taunon poskella kuvassa")
+				_check(((tp2 - tp) * vs).length() > 12.0, "Ukko: kyynel erottuu")
+			"kuva3", "salama", "otsikko2":
+				_check(inside.call(snout) and inside.call(tail), "Ukko: Ukko vaakatasossa kuvassa (%s)" % st[0])
+				var hs: Array = heads.slice(0, 5) if st[0] == "otsikko2" else heads  # otsikossa kamera on Anna-Liisan puhelin
+				_check(hs.all(func(h): return inside.call(h)), "Ukko: kaikki hahmot kuvassa (%s)" % st[0])
+				var gaps: Array = []
+				for pr in [[lg.tauno, lg.HOLD_U[0]], [lg.tauno, lg.HOLD_U[1]], [lg.me, lg.HOLD_U[2]], [lg.me, lg.HOLD_U[3]]]:
+					var pt: Vector3 = lg._pike_pt(pr[1], -1.0)
+					var c: Node3D = pr[0]
+					gaps.append(minf(lg._hand(c).distance_to(pt), lg._hand_l(c).distance_to(pt)))
+				print("LEGENDA Ukko kädet hauen alla %s" % [gaps])
+				_check(gaps.all(func(g): return g < 0.09), "Ukko: kädet hauen alla (%s)" % st[0])
+			"salama":
+				_check(lg.flashed and lg.phone.visible, "Ukko: Anna-Liisa kuvaa (salama)")
+	for i in 900:
+		if not is_instance_valid(lg):
+			break
+		await _frames(1)
+	await _frames(10)
+	print("LEGENDA Ukko jälkeen: kerrat %d, viesti '%s'" % [int(main.endings.counts.get("tekojarven_ukko", 0)), main._msg.text])
+	_check(int(main.endings.counts.get("tekojarven_ukko", 0)) == 1, "Ukko: hetki kirjattiin")
+	_check(main._msg.text.contains("uusi tarina"), "Ukko: päiväkirjarivi")
+	_check(main.walker_out.visible and main.player.controls_enabled, "Ukko: pelaaja ohjaa taas")
+	main.kirppis_int.mode = "kirppis"
+	var o: Array = main._talk_options("tauno").map(func(x): return x.id)
+	_check("ukko_muisto" in o, "Ukko: Taunolle kysymys punnituksesta")
+	main._talk_who = "tauno"
+	main._talk_kirppis("ukko_muisto")
+	await _frames(3)
+	print("LEGENDA Ukko muisto: vaihtoehdot %s" % [o])

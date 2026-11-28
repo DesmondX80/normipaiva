@@ -7,6 +7,7 @@ const M := preload("res://scripts/map_data.gd")
 const MapTila := preload("res://scripts/map_tila.gd")
 const Foliage := preload("res://scripts/foliage.gd")
 const T := preload("res://scripts/terrain.gd")
+const PorroLegenda := preload("res://scripts/porro_legenda.gd")
 const MeshBundle := preload("res://scripts/mesh_bundle.gd")
 const AurinkoSinikka := preload("res://scripts/aurinko_sinikka.gd")
 const Kota := preload("res://scripts/kota.gd")
@@ -119,6 +120,7 @@ var varasto_door: Vector3  # Tokolan vanhan varaston oven edusta
 var aaro_pos: Vector3  # vanha Aaro pihallaan Tokolantien varressa
 var heinimaki_pos: Vector3  # Heinimäen latvaton kuusi (kauppiaan aarre juurella)
 var museum_door: Vector3  # Saloisten Pirtin (kotiseutumuseo) oven edusta
+var museum_nrm := Vector2(0, 1)  # Pirtin julkisivun ulospäin osoittava normaali (aarnivalkea_legenda.gd: pihan kehys)
 var korpela_door: Vector3  # korjaamot (#142)
 var simo_pos: Vector3  # Simon pakettiauton liukuovi
 var heiskanen_door: Vector3
@@ -1756,17 +1758,43 @@ func _build_lemmikki() -> void:
 		var nm := B.sign_plate(post, ["Misu", "Rekku", "Nalle", "Pörrö"][k], Color(0.96, 0.92, 0.86), Color(0.35, 0.18, 0.28), 0.22, 36, Color(0.5, 0.35, 0.3), "Helvetica Neue")
 		nm.position = Vector3(0, 0.92, 0.0)
 		nm.rotation.y = PI
-		var lan := B.mesh(post, B.cyl(0.07, 0.07, 0.14, 8), Vector3(0.28, 0.07, 0.1), Color(0.8, 0.2, 0.15))
-		lan.material_override = B.unshaded(Color(1.0, 0.8, 0.4))
+		_grave_lantern(post, Vector3(0.28, 0, 0.1))
 		if k == 3:
 			lehto_plate = post
 			post.visible = false
+			# Pikkuveljen voikukka ja poikien kolme kiveä juurella (porro_legenda.gd: lukupuoli -Z).
+			for i in 4:
+				var m := Node3D.new()
+				m.set_meta("porro_muisto", true)
+				post.add_child(m)
+				var at: Vector2 = PorroLegenda.FLOWER if i == 3 else PorroLegenda.STONES[i]
+				m.position = Vector3(at.x, 0, at.y)
+				if i == 3:
+					PorroLegenda.voikukka(m)
+				else:
+					PorroLegenda.stone(m, i)
+	# Lehto on siisti, leikattu piha: yleinen pitkä ruoho pois aidan sisältä (kivet ja kukka kyltin juurella näkyvät).
+	var gc: Vector3 = root.transform * g.position
+	_mask_clear.append([Vector2(gc.x, gc.z), hw + 0.5, hd + 0.5, f.yaw])
 	var lantern_l := OmniLight3D.new()
 	lantern_l.light_color = Color(1.0, 0.8, 0.5)
 	lantern_l.omni_range = 5.0
 	lantern_l.light_energy = 0.7
 	lantern_l.position = Vector3(0, 0.6, -0.5)
 	g.add_child(lantern_l)
+
+
+## Kynttilälyhty maassa: tumma metallijalka ja -katto, kulmatolpat ja hehkuva lasi (kynttilän valo).
+func _grave_lantern(parent: Node3D, at: Vector3) -> void:
+	var metal := Color(0.16, 0.15, 0.14)
+	B.mesh(parent, B.boxm(Vector3(0.12, 0.025, 0.12)), at + Vector3(0, 0.012, 0), metal)
+	var glass := B.mesh(parent, B.boxm(Vector3(0.09, 0.11, 0.09)), at + Vector3(0, 0.08, 0), Color(1.0, 0.8, 0.45))
+	glass.material_override = B.unshaded(Color(1.0, 0.78, 0.4))
+	for cx in [-0.05, 0.05]:
+		for cz in [-0.05, 0.05]:
+			B.mesh(parent, B.boxm(Vector3(0.012, 0.12, 0.012)), at + Vector3(cx, 0.08, cz), metal)
+	B.mesh(parent, B.cyl(0.0, 0.085, 0.05, 4), at + Vector3(0, 0.165, 0), metal, Vector3(0, PI / 4.0, 0))
+	B.mesh(parent, B.sphere(0.012, 6), at + Vector3(0, 0.195, 0), metal)
 
 
 ## Saloisten Kanttorila (#144): OSM-talo tulee yleisestä rakennuslistasta, tähän vain nimikyltti seinään ja pihan etuosan paikka.
@@ -1988,6 +2016,7 @@ func _build_pirtti() -> void:
 	var front: Vector2 = f.c + nrm * (f.d / 2.0)
 	var dp: Vector2 = front + nrm * 2.0
 	museum_door = Vector3(dp.x, T.h(dp.x, dp.y), dp.y)
+	museum_nrm = nrm
 	var root := Node3D.new()
 	root.position = Vector3(front.x, 0, front.y)  # _lift_node nostaa maastoon
 	root.rotation.y = f.yaw
