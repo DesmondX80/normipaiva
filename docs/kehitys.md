@@ -192,6 +192,31 @@ tuli kuten ennen, hetki päiväkirjaan ja muistelu kodan jutuissa),
 ja heiluva Ukko, puntarin taulu ja viisari 18,4:ssä, uistimet kyljessä, Taunon tulo ja kosketus isän lusikkaan, kyynel,
 lehtikuva ja otsikko kuvina; Ukon paikka ja koko kuvassa, taulun koko, viisarin lukema, Taunon käsi lusikalla, kyynel
 ja kädet hauen alla mitataan; lopuksi pelaaja palaa, hetki päiväkirjaan ja Taunolle uusi kysymys punnituksesta),
+`tools/testit/aja.sh scene tokolan_aarre_eka` (Heinimäen rahalipas ensimmäistä kertaa Aarolle: lipas pölkyllä,
+väännös puukolla, kansi auki, sormus lähikuvassa ja valoa vasten, Aaron huuto tielle, Pekan ja Arton tulo, leijaileva
+seteli, Pekan lukeminen ja otsikko kuvina; puukon kärki kannen raossa, käsi lippaassa, sormuksen koko, nippu pään yllä,
+etusormi suorana (`tokola_legenda.gd _straighten_index`) ja setelin sieppaus mitataan; lopuksi pelaaja ja Aaro
+palaavat, hetki päiväkirjaan ja Aarolle uusi kysymys setelistä),
+`tools/testit/aja.sh scene sulon_pannu_eka` (Pilkkarinnevan kuparipannu ensimmäistä kertaa Pannu-Sulolle: pannu
+kivellä, leiman hankaus ja kirkas leima, Sulon myöntö Pilkkarinnevalle päin, kuksa, tippojen heitto ja sininen
+leimahdus, Pekan ja Arton tulo, maistiaiset Sulon olan yli ja otsikko kuvina; pannun ja leiman koko kuvassa, käsi
+leimalla, katse rämeelle, kuksa kädessä, leimahdus ja maistaminen mitataan; lopuksi ilmainen kanisteri isän
+reseptillä, isän pannu jää kivelle, Sulo palaa, hetki päiväkirjaan ja Sululle muistelukysymys),
+`tools/testit/aja.sh scene palon_pyhimys_eka` (Tokolan orren pyhimys ensimmäistä kertaa suntiolle: ojennus portailla,
+kääreen avaus ja pyhimys lähikuvassa, pöytä, sormi yliviivatulla rivillä ja "palautettu"-kirjoitus, suvun nimen salaus
+ja nyökkäys, ovien aukeaminen valoon ja sulkeutuminen suntion takana, kynttilä haudalla, sen sammuminen ja naisen
+lähtö sekä otsikko kuvina; suntion kädet kääreellä, pyhimyksen koko, sormi rivillä, kirjoitus, ovet ja sammuminen
+mitataan; lopuksi oikeat hahmot palaavat, hetki päiväkirjaan ja suntiolle muistelukysymys),
+`tools/testit/aja.sh scene olavinmarkkinat_eka` (Skytän taalerit ensimmäistä kertaa Pirttiin -> markkinoiden avaus
+seuraintalon pihalla: kojut ja väki, papan lyhty kasvojen vieressä, puhallus ja savu, ripustus kuistin pylvääseen,
+narusta vedetty banderolli, hurraa, Pekan tervatuoppi tiskillä ja haistelu myyjän olan yli, "Anteeks, pappa" ja otsikko
+kuvina; lyhdyn koko ja koukku, käsi narussa, banderollin aukeaminen, tuopin koko ja kasvot kuvassa mitataan; lopuksi
+pelaaja palaa, papan lyhty jää kuistille, hetki päiväkirjaan ja papalle muistelukysymys),
+`tools/testit/aja.sh scene kuninkaan_tapuli_eka` (Kustaa III:n piirustus ensimmäistä kertaa Pirtin oppaalle -> tapulin
+juuren hetki: taittopöytä ja lyijykotelo, riippusinetti suurennuslasin takaa, rullan avaus ja piirros olan yli, nosto
+tapulia vasten ja haalistuva paperi, kellon heilahdus, Pekan kaljakori, tölkit ja "Gustavukselle" sekä otsikko kuvina;
+kuninkaan viivojen ero oikeaan tapuliin pikseleinä (ristin kärki, harja, räystäät, vyölauta), kädet rullilla, sinetin
+koko ja kellon heilunta mitataan; lopuksi kello lepoon, hetki päiväkirjaan ja suntiolle muistelukysymys),
 `tools/testit/aja.sh scene kolmio_iltakivat` (lettukisa, löylykisa, disko ja karaoke
 pelimaailmassa peräkkäin ovelta aamuun, sivutehtävän kirjaus jokaisesta) ja `tools/testit/aja.sh tscn tools/testit/iltakivat_kuvat.tscn
 [lettu,loyly,disko,karaoke]` (lettukisa, löylykisa, Sivikki-disko ja karaoke tekoälyllä molemmissa kohteissa: alku,

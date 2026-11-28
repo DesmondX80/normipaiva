@@ -828,6 +828,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			# Museohaara
 			var m0 := main.maine
 			var money0 := main.money
+			main.endings.counts["kuninkaan_tapuli"] = 1  # lavastettu ensikerta (tapuli_legenda.gd) on oma testinsä legendat.gd kuninkaan_tapuli_eka
 			await goto_k.call(main.world.museum_door)
 			print("KU museo-vihje: '%s'" % main._hint.text)
 			await press_k.call()
@@ -922,6 +923,7 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main.clock_min = 12 * 60
 			var m0 := main.maine
 			var money0 := main.money
+			main.endings.counts["olavinmarkkinat"] = 1  # lavastettu ensikerta (olavi_markkinat.gd) on oma testinsä legendat.gd olavinmarkkinat_eka
 			await goto_ol.call(main.world.museum_door)
 			print("OL museo-vihje: '%s'" % main._hint.text)
 			await press_ol.call()

@@ -495,7 +495,9 @@ func aja(scene: String, path: String, nohud: bool) -> int:
 			main._talk_box._pages.clear()
 			main._talk_choose("lipas")
 			main._talk_box.close()
-			print("TK legenda: %s, maine %d" % [main.tokola.legend, roundi(main.maine)])
+			for lg in main.get_children().filter(func(c): return c.get_script() == Main.TokolaLegenda):
+				lg._finish()  # Aaron pihan hetki on oma testinsä (legendat.gd tokolan_aarre_eka)
+			print("TK legenda: %s, maine %d, hetki %d" % [main.tokola.legend, roundi(main.maine), int(main.endings.counts.get("tokolan_aarre", 0))])
 			var m0 := main.money
 			main._talk_who = "raili"
 			main._talk_kirppis("markat")
